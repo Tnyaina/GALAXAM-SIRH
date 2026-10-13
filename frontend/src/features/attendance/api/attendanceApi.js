@@ -114,13 +114,20 @@ const attendanceApi = {
             const response = await apiClient.get(`/pointages/employes/${idEmploye}/import/modele`, {
                 params: { idPeriode }, responseType: 'blob'
             });
-            return { blob: response.data, filename: `Modele_pointage_${idEmploye}_${idPeriode}.xlsx` };
+            const disposition = response.headers?.['content-disposition'] || '';
+            const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+            const plainFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+            const filename = encodedFilename ? decodeURIComponent(encodedFilename) : plainFilename;
+            return {
+                blob: response.data,
+                filename: filename || `Pointage_employe_${idEmploye}_periode_${idPeriode}.xlsx`
+            };
         },
         previewImport: async (idEmploye, idPeriode, file) => {
             const body = new FormData();
             body.append('file', file);
             return (await apiClient.post(`/pointages/employes/${idEmploye}/import/apercu`, body,
-                { params: { idPeriode } })).data;
+                { params: { idPeriode }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
         },
         exportExcel: (idEmploye, params = {}) => exportDocument(idEmploye, 'excel', params),
         exportPdf: (idEmploye, params = {}) => exportDocument(idEmploye, 'pdf', params)

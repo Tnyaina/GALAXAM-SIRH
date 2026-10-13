@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -27,6 +28,7 @@ public class PointageImportService {
     private static final String EVENT_COLUMN = "Événement";
     private static final String LEGACY_EVENT_COLUMN = "Code";
     private static final int MAX_BYTES = 2 * 1024 * 1024;
+    private static final int TEMPLATE_HEADER_ROW = 5;
     private final PointageEmployeService employes;
     private final PointageService pointages;
     private final DataSource dataSource;
@@ -93,9 +95,87 @@ public class PointageImportService {
             Sheet metadata = book.createSheet("_Import");
             metadata.createRow(0).createCell(0).setCellValue(employeeId);
             metadata.createRow(1).createCell(0).setCellValue(periodId);
+            setMetadataText(metadata, 2, fiche.getNomComplet() != null ? fiche.getNomComplet()
+                    : String.join(" ", Arrays.asList(fiche.getPrenom(), fiche.getNom()).stream()
+                            .filter(Objects::nonNull).toList()).trim());
+            setMetadataText(metadata, 3, fiche.getMatricule());
+            setMetadataText(metadata, 4, fiche.getSiteNom());
+            setMetadataText(metadata, 5, fiche.getLibellePeriode());
+            setMetadataText(metadata, 6, fiche.getDateDebut());
+            setMetadataText(metadata, 7, fiche.getDateFin());
             book.setSheetHidden(book.getSheetIndex(metadata), true);
-            Row header = tab.createRow(0);
-            for (int i = 0; i < columns.size(); i++) header.createCell(i).setCellValue(columns.get(i));
+
+            int lastColumn = columns.size() - 1;
+            Font titleFont = book.createFont();
+            titleFont.setBold(true);
+            titleFont.setColor(IndexedColors.WHITE.getIndex());
+            titleFont.setFontHeightInPoints((short) 14);
+            CellStyle titleStyle = book.createCellStyle();
+            titleStyle.setFont(titleFont);
+            titleStyle.setFillForegroundColor(IndexedColors.DARK_TEAL.getIndex());
+            titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            Row title = tab.createRow(0);
+            title.setHeightInPoints(27);
+            Cell titleCell = title.createCell(0);
+            titleCell.setCellValue("MODÈLE DE POINTAGE — IMPORT PAR COLLABORATEUR");
+            titleCell.setCellStyle(titleStyle);
+            tab.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, lastColumn));
+
+            Font labelFont = book.createFont();
+            labelFont.setBold(true);
+            CellStyle labelStyle = book.createCellStyle();
+            labelStyle.setFont(labelFont);
+            labelStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            labelStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            labelStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            CellStyle valueStyle = book.createCellStyle();
+            valueStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            createInfoCell(tab, 1, 0, "Collaborateur", labelStyle);
+            createInfoCell(tab, 1, 1, titleName(fiche), valueStyle);
+            if (lastColumn > 1) tab.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(1, 1, 1, lastColumn));
+
+            createInfoCell(tab, 2, 0, "Matricule", labelStyle);
+            createInfoCell(tab, 2, 1, fiche.getMatricule() == null ? "—" : fiche.getMatricule(), valueStyle);
+            createInfoCell(tab, 2, 2, "Site", labelStyle);
+            createInfoCell(tab, 2, 3, fiche.getSiteNom() == null ? "—" : fiche.getSiteNom(), valueStyle);
+            if (lastColumn > 3) tab.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(2, 2, 3, lastColumn));
+
+            createInfoCell(tab, 3, 0, "Période", labelStyle);
+            createInfoCell(tab, 3, 1, fiche.getLibellePeriode() == null ? "Période " + periodId : fiche.getLibellePeriode(), valueStyle);
+            createInfoCell(tab, 3, 2, "Du", labelStyle);
+            createInfoCell(tab, 3, 3, fiche.getDateDebut(), valueStyle);
+            createInfoCell(tab, 3, 4, "Au", labelStyle);
+            createInfoCell(tab, 3, 5, fiche.getDateFin(), valueStyle);
+
+            Font instructionFont = book.createFont();
+            instructionFont.setItalic(true);
+            instructionFont.setColor(IndexedColors.DARK_BLUE.getIndex());
+            CellStyle instructionStyle = book.createCellStyle();
+            instructionStyle.setFont(instructionFont);
+            instructionStyle.setWrapText(true);
+            instructionStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            Row instruction = tab.createRow(4);
+            Cell instructionCell = instruction.createCell(0);
+            instructionCell.setCellValue("Vérifiez l’employé et la période ci-dessus. Saisissez uniquement les horaires et événements dans les lignes ci-dessous; ne modifiez pas les en-têtes.");
+            instructionCell.setCellStyle(instructionStyle);
+            tab.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(4, 4, 0, lastColumn));
+            instruction.setHeightInPoints(30);
+
+            Row header = tab.createRow(TEMPLATE_HEADER_ROW);
+            CellStyle headerStyle = book.createCellStyle();
+            Font headerFont = book.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.DARK_BLUE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            for (int i = 0; i < columns.size(); i++) {
+                Cell cell = header.createCell(i);
+                cell.setCellValue(columns.get(i));
+                cell.setCellStyle(headerStyle);
+            }
             Sheet help = book.createSheet("Aide");
             help.createRow(0).createCell(0).setCellValue("Événement : CONGÉ = congé à régulariser ; ABSENCE = absence à traiter ; vide = aucun signalement.");
             help.createRow(1).createCell(0).setCellValue("Un seul CONGÉ au début suffit. La date de reprise se choisit dans l'aperçu.");
@@ -105,24 +185,33 @@ public class PointageImportService {
             org.apache.poi.ss.usermodel.DataValidationConstraint codeList = validationHelper
                     .createExplicitListConstraint(new String[]{"CONGÉ", "ABSENCE"});
             org.apache.poi.ss.usermodel.DataValidation codeValidation = validationHelper.createValidation(codeList,
-                    new org.apache.poi.ss.util.CellRangeAddressList(1, Math.max(1, fiche.getPointagesData().size()), FIXED.size(), FIXED.size()));
+                    new org.apache.poi.ss.util.CellRangeAddressList(TEMPLATE_HEADER_ROW + 1,
+                            TEMPLATE_HEADER_ROW + Math.max(1, fiche.getPointagesData().size()), FIXED.size(), FIXED.size()));
             codeValidation.setShowErrorBox(true);
             tab.addValidationData(codeValidation);
             CellStyle dateStyle = book.createCellStyle();
             dateStyle.setDataFormat(book.getCreationHelper().createDataFormat().getFormat("yyyy-mm-dd"));
-            int rowIndex = 1;
+            int rowIndex = TEMPLATE_HEADER_ROW + 1;
             for (PointageJourDTO day : fiche.getPointagesData()) {
                 Row row = tab.createRow(rowIndex++);
                 Cell dateCell = row.createCell(0);
                 dateCell.setCellValue(java.sql.Date.valueOf(LocalDate.parse(day.getDateComplete())));
                 dateCell.setCellStyle(dateStyle);
             }
-            tab.createFreezePane(0, 1);
-            tab.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, rowIndex - 1, 0, columns.size() - 1));
+            tab.createFreezePane(0, TEMPLATE_HEADER_ROW + 1);
+            tab.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(TEMPLATE_HEADER_ROW, rowIndex - 1, 0, lastColumn));
             for (int i = 0; i < columns.size(); i++) tab.setColumnWidth(i, i == 0 ? 4200 : 5500);
+            tab.setZoom(90);
+            book.setActiveSheet(book.getSheetIndex(tab));
             book.write(bytes);
             return bytes.toByteArray();
         }
+    }
+
+    public String templateFilename(int employeeId, int periodId) {
+        FichePointageEmployeDTO fiche = sheet(employeeId, periodId);
+        return "Pointage_" + filenamePart(titleName(fiche)) + "_" + filenamePart(fiche.getMatricule())
+                + "_periode_" + periodId + "_" + fiche.getDateDebut() + "_" + fiche.getDateFin() + ".xlsx";
     }
 
     public ImportPreview preview(int employeeId, int periodId, MultipartFile file) throws Exception {
@@ -137,17 +226,37 @@ public class PointageImportService {
         String leaveMarkerStart = null;
         try (InputStream fileStream = file.getInputStream(); Workbook book = WorkbookFactory.create(fileStream)) {
             Sheet metadata = book.getSheet("_Import");
-            if (metadata == null || metadata.getRow(0) == null || metadata.getRow(1) == null
-                    || metadata.getRow(0).getCell(0) == null || metadata.getRow(1).getCell(0) == null
-                    || (int) metadata.getRow(0).getCell(0).getNumericCellValue() != employeeId
-                    || (int) metadata.getRow(1).getCell(0).getNumericCellValue() != periodId)
-                throw new IllegalArgumentException("Ce modèle appartient à un autre collaborateur ou à une autre période.");
+            Integer modelEmployeeId = metadataInteger(metadata, 0);
+            Integer modelPeriodId = metadataInteger(metadata, 1);
+            if (modelEmployeeId == null || modelPeriodId == null)
+                throw new IllegalArgumentException("Ce fichier ne contient pas les informations d’identification du modèle Pointage. Téléchargez un modèle depuis la fiche de l’employé.");
+            if (modelEmployeeId != employeeId || modelPeriodId != periodId) {
+                String fileEmployee = metadataText(metadata, 2);
+                String fileMatricule = metadataText(metadata, 3);
+                String fileSite = metadataText(metadata, 4);
+                String filePeriod = metadataText(metadata, 5);
+                String fileStart = metadataText(metadata, 6);
+                String fileEnd = metadataText(metadata, 7);
+                String currentEmployee = titleName(fiche);
+                String currentPeriod = fiche.getLibellePeriode() == null ? "Période " + periodId : fiche.getLibellePeriode();
+                String fileIdentity = "collaborateur " + (fileEmployee.isBlank() ? "#" + modelEmployeeId : fileEmployee)
+                        + (fileMatricule.isBlank() ? "" : " (" + fileMatricule + ")")
+                        + ", période " + (filePeriod.isBlank() ? "#" + modelPeriodId : filePeriod)
+                        + (fileStart.isBlank() || fileEnd.isBlank() ? "" : " (" + fileStart + " au " + fileEnd + ")")
+                        + (fileSite.isBlank() ? "" : ", site " + fileSite);
+                String selectedIdentity = "collaborateur " + currentEmployee
+                        + (fiche.getMatricule() == null || fiche.getMatricule().isBlank() ? "" : " (" + fiche.getMatricule() + ")")
+                        + ", période " + currentPeriod + " (" + fiche.getDateDebut() + " au " + fiche.getDateFin() + ")";
+                throw new IllegalArgumentException("Ce fichier correspond au " + fileIdentity + ", alors que la sélection actuelle est le "
+                        + selectedIdentity + ". Téléchargez le modèle depuis cette fiche et cette période.");
+            }
             Sheet tab = book.getSheet("Pointage");
             if (tab == null) throw new IllegalArgumentException("La feuille Pointage est introuvable.");
-            Row header = tab.getRow(0);
+            DataFormatter formatter = new DataFormatter(Locale.FRANCE);
+            int headerRowIndex = findHeaderRow(tab, formatter);
+            Row header = headerRowIndex < 0 ? null : tab.getRow(headerRowIndex);
             if (header == null) throw new IllegalArgumentException("En-tête du modèle absent.");
             List<String> headers = new ArrayList<>();
-            DataFormatter formatter = new DataFormatter(Locale.FRANCE);
             if (header.getLastCellNum() > 100) throw new IllegalArgumentException("Le modèle dépasse 100 colonnes.");
             for (int col = 0; col < header.getLastCellNum(); col++)
                 headers.add(formatter.formatCellValue(header.getCell(col)).trim());
@@ -161,8 +270,8 @@ public class PointageImportService {
                     && (EVENT_COLUMN.equalsIgnoreCase(headers.get(FIXED.size()))
                     || LEGACY_EVENT_COLUMN.equalsIgnoreCase(headers.get(FIXED.size())))
                     ? FIXED.size() + 1 : FIXED.size();
-            if (tab.getLastRowNum() > 400) throw new IllegalArgumentException("Le modèle dépasse 400 lignes.");
-            for (int index = 1; index <= tab.getLastRowNum(); index++) {
+            if (tab.getLastRowNum() - headerRowIndex > 400) throw new IllegalArgumentException("Le modèle dépasse 400 lignes.");
+            for (int index = headerRowIndex + 1; index <= tab.getLastRowNum(); index++) {
                 Row source = tab.getRow(index);
                 if (source == null) continue;
                 List<String> errors = new ArrayList<>();
@@ -280,6 +389,63 @@ public class PointageImportService {
         } catch (org.apache.poi.openxml4j.exceptions.OLE2NotOfficeXmlFileException error) {
             throw new IllegalArgumentException("Le fichier doit être au format XLSX.", error);
         }
+    }
+
+    private static String titleName(FichePointageEmployeDTO fiche) {
+        if (fiche.getNomComplet() != null && !fiche.getNomComplet().isBlank()) return fiche.getNomComplet().trim();
+        return String.join(" ", Arrays.asList(fiche.getPrenom(), fiche.getNom()).stream()
+                .filter(value -> value != null && !value.isBlank()).toList()).trim();
+    }
+
+    private static String filenamePart(String value) {
+        if (value == null || value.isBlank()) return "inconnu";
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        String safe = normalized.replaceAll("[^A-Za-z0-9]+", "_").replaceAll("^_+|_+$", "");
+        return safe.isBlank() ? "inconnu" : safe;
+    }
+
+    private static void createInfoCell(Sheet sheet, int rowIndex, int columnIndex, String value, CellStyle style) {
+        Row row = sheet.getRow(rowIndex);
+        if (row == null) row = sheet.createRow(rowIndex);
+        Cell cell = row.createCell(columnIndex);
+        cell.setCellValue(value == null ? "—" : value);
+        cell.setCellStyle(style);
+    }
+
+    private static void setMetadataText(Sheet metadata, int rowIndex, String value) {
+        if (value == null) return;
+        metadata.createRow(rowIndex).createCell(0).setCellValue(value);
+    }
+
+    private static Integer metadataInteger(Sheet metadata, int rowIndex) {
+        if (metadata == null || metadata.getRow(rowIndex) == null || metadata.getRow(rowIndex).getCell(0) == null) return null;
+        Cell cell = metadata.getRow(rowIndex).getCell(0);
+        try {
+            return cell.getCellType() == CellType.NUMERIC ? (int) cell.getNumericCellValue()
+                    : Integer.valueOf(cell.getStringCellValue().trim());
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static String metadataText(Sheet metadata, int rowIndex) {
+        if (metadata == null || metadata.getRow(rowIndex) == null || metadata.getRow(rowIndex).getCell(0) == null) return "";
+        return new DataFormatter(Locale.FRANCE).formatCellValue(metadata.getRow(rowIndex).getCell(0)).trim();
+    }
+
+    private static int findHeaderRow(Sheet sheet, DataFormatter formatter) {
+        int lastCandidate = Math.min(sheet.getLastRowNum(), 12);
+        for (int rowIndex = 0; rowIndex <= lastCandidate; rowIndex++) {
+            Row row = sheet.getRow(rowIndex);
+            if (row == null || row.getLastCellNum() < FIXED.size() || row.getLastCellNum() > 100) continue;
+            List<String> values = new ArrayList<>();
+            for (int column = 0; column < row.getLastCellNum(); column++)
+                values.add(formatter.formatCellValue(row.getCell(column)).trim());
+            if (values.size() >= FIXED.size()
+                    && (values.subList(0, FIXED.size()).equals(FIXED)
+                    || values.subList(0, LEGACY_FIXED.size()).equals(LEGACY_FIXED))) return rowIndex;
+        }
+        return -1;
     }
 
     private static List<String> columns(SortedMap<String, Boolean> allowances) {

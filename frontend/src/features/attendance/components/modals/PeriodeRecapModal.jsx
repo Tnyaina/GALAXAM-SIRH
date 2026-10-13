@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { CheckCircle2, Clock, Calendar, Users, AlertTriangle } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -44,7 +44,8 @@ export default function PeriodeRecapModal({
             isOpen={isOpen}
             onClose={saving ? undefined : onClose}
             title={`Récapitulatif avant enregistrement · ${employeNom || 'Collaborateur'}`}
-            size="xl"
+            size="4xl"
+            className="max-h-[92vh]"
             closeOnEscape={!saving}
             closeOnOutsideClick={!saving}
         >
@@ -86,7 +87,7 @@ export default function PeriodeRecapModal({
                 )}
 
                 {/* Table des journées modifiées */}
-                <div className="max-h-72 overflow-y-auto border border-[var(--color-border-subtle)]">
+                <div className="max-h-[60vh] overflow-y-auto border border-[var(--color-border-subtle)]">
                     <Table density="compact" className="w-full text-xs text-left">
                         <Thead>
                             <Tr className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] text-[10px] uppercase font-bold text-[var(--color-fg-muted)]">
@@ -142,6 +143,11 @@ export default function PeriodeRecapModal({
                                             <Badge variant="neutral" size="sm">
                                                 {row.libelleStatut || row.codeStatut}
                                             </Badge>
+                                            {row.validationMessages?.length > 0 && (
+                                                <div className="mt-1 max-w-xs text-left text-[10px] text-[var(--color-danger-600)]">
+                                                    {row.validationMessages.join(' · ')}
+                                                </div>
+                                            )}
                                         </Td>
                                         <Td className="px-2 py-1.5 text-[11px] text-[var(--color-fg-muted)]">
                                             {grantedAllowances.length > 0 ? grantedAllowances.join(', ') : '—'}

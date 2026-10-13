@@ -74,10 +74,13 @@ export function usePointagePeriodeEmploye({
     const [importSelections, setImportSelections] = useState({});
     const [importSignals, setImportSignals] = useState({});
     const [importLoading, setImportLoading] = useState(false);
+    const [importPreviewLoading, setImportPreviewLoading] = useState(false);
+    const [importApplying, setImportApplying] = useState(false);
 
     // ── Refs internes ────────────────────────────────────────────────────────
     const previewTimers = useRef(new Map());
     const loadReqId = useRef(0);
+    const importApplyLock = useRef(false);
 
     useEffect(() => { setImportSignals({}); }, [selectedEmployeId, selectedPeriodeId]);
 
@@ -262,11 +265,24 @@ export function usePointagePeriodeEmploye({
         const timer = setTimeout(async () => {
             try {
                 const results = await attendanceService.daily.previewBatch(pendingRows);
-                const byDate = new Map((results || []).map(item => [item.datePointage, item]));
+                const byDate = new Map();
+                (results || []).forEach((result, index) => {
+                    const date = result?.preview?.datePointage || pendingRows[index]?.datePointage;
+                    if (date) byDate.set(date, result);
+                });
                 setGrilleRows(current => current.map(item => {
                     if (!item._previewPending) return item;
                     const result = byDate.get(item.datePointage);
-                    if (!result || result.error || !result.preview) return { ...item, _previewPending: false };
+                    if (!result || result.error || !result.preview) {
+                        const message = result?.error || 'Calcul de la journée indisponible. Vérifiez le site et les horaires.';
+                        return {
+                            ...item,
+                            _previewPending: false,
+                            _previewError: message,
+                            hasValidationError: true,
+                            validationMessages: [message]
+                        };
+                    }
                     const preview = result.preview;
                     return {
                         ...item,
@@ -275,6 +291,7 @@ export function usePointagePeriodeEmploye({
                         minutesRetard: item.estAutonome ? 0 : (preview.minutesRetard || 0),
                         codeStatut: preview.codeStatut || item.codeStatut,
                         libelleStatut: preview.libelleStatut,
+                        _previewError: null,
                         hasValidationError: preview.hasValidationError,
                         validationMessages: preview.validationMessages || [],
                         statusActions: preview.statusActions || [],
@@ -598,18 +615,24 @@ export function usePointagePeriodeEmploye({
             notify({ title: 'Information', message: 'Enregistrez les modifications avant de prévisualiser un import.', type: 'info' }); return;
         }
         setImportLoading(true);
+        setImportPreviewLoading(true);
         try {
             const preview = await attendanceService.previewImport(selectedEmployeId, selectedPeriodeId, file);
             setImportPreview(preview);
             setImportSelections(Object.fromEntries((preview.lines || []).map(line => [line.ligne, line.selectedByDefault])));
         } catch (err) {
             notify({ title: 'Erreur', message: err?.response?.data?.message || 'Impossible de lire le fichier.', type: 'error' });
-        } finally { setImportLoading(false); }
+        } finally { setImportLoading(false); setImportPreviewLoading(false); }
     }, [selectedEmployeId, selectedPeriodeId, notify]);
 
-    const handleApplyImport = useCallback(() => {
+    const handleApplyImport = useCallback(async () => {
+        if (importApplyLock.current) return;
+        importApplyLock.current = true;
+        setImportApplying(true);
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+        try {
         const selected = (importPreview?.lines || []).filter(line =>
-            importSelections[line.ligne] && ['IMPORT', 'SIGNAL'].includes(line.decision) && line.errors.length === 0);
+            importSelections[line.ligne] && ['IMPORT', 'SIGNAL'].includes(line.decision) && !line.errors?.length);
         const current = new Map(grilleRows.map(row => [row.datePointage, row]));
         const importByDate = new Map();
         const signalsByDate = {};
@@ -637,6 +660,12 @@ export function usePointagePeriodeEmploye({
                 heureEntreeMatin: p.heureEntreeMatin || '', heureSortieMatin: p.heureSortieMatin || '',
                 heureEntreeAm: p.heureEntreeAm || '', heureSortieAm: p.heureSortieAm || '',
                 horaireContinu: Boolean(p.horaireContinu), codeStatut: p.codeStatut || row.codeStatut,
+                heuresFaites: p.totalHeures != null ? formatHeuresMinutes(p.totalHeures) : '00h00',
+                totalHeuresDecimal: Number(p.totalHeures) || 0,
+                minutesRetard: Number(p.minutesRetard) || 0,
+                libelleStatut: p.libelleStatut,
+                hasValidationError: Boolean(p.hasValidationError),
+                validationMessages: p.validationMessages || [],
                 dynamicIndemnites: dyn,
                 indemniteRepas: repas ? Boolean(dyn[String(repas.idIndemnite)]?.accordee) : false,
                 deplacementMatin: dep ? Boolean(dyn[String(dep.idIndemnite)]?.matin) : false,
@@ -650,6 +679,10 @@ export function usePointagePeriodeEmploye({
         setExtraImportIndemnites(old => [...old, ...allAllowances]);
         setImportPreview(null);
         notify({ title: 'Import chargé', message: `${importByDate.size} journée(s) chargée(s), ${Object.keys(signalsByDate).length} signalement(s) à régulariser.`, type: 'success' });
+        } finally {
+            importApplyLock.current = false;
+            setImportApplying(false);
+        }
     }, [importPreview, importSelections, grilleRows, notify]);
 
     // ── KPIs ─────────────────────────────────────────────────────────────────
@@ -668,7 +701,7 @@ export function usePointagePeriodeEmploye({
         ficheData, siteParams, siteIndemnites, displayedIndemnites, derogationsMap,
         grilleRows, initialRows, modifiedRows, dirtyCount,
         loading, saving, error, isAutonome, canEditPeriod, kpis,
-        importPreview, importSelections, importSignals, importLoading,
+        importPreview, importSelections, importSignals, importLoading, importPreviewLoading, importApplying,
         setImportSelections, setImportPreview,
         updateDayHours, toggleDayContinu, updateDayStatut, updateRowDynamicIndemnite,
         handleApplyStandardHours, handleDeducePauses, handleResetDay,

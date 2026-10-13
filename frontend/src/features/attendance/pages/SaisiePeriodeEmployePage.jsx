@@ -105,6 +105,8 @@ export default function SaisiePeriodeEmployePage({
         importSelections,
         importSignals,
         importLoading,
+        importPreviewLoading,
+        importApplying,
         setImportSelections,
         setImportPreview,
         updateDayHours,
@@ -372,20 +374,6 @@ export default function SaisiePeriodeEmployePage({
         });
     }, [filteredRows]);
 
-    // Défilement automatique vers la date ciblée par l'URL
-    const focusedDate = searchParams.get('date');
-    useEffect(() => {
-        if (!focusedDate || !grilleRows.some(row => row.datePointage === focusedDate)) return;
-        if (filterJour !== 'ALL') {
-            setFilterJour('ALL');
-            return;
-        }
-        const frame = requestAnimationFrame(() => {
-            document.getElementById(`pointage-day-${focusedDate}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-        return () => cancelAnimationFrame(frame);
-    }, [focusedDate, grilleRows, filterJour]);
-
     // ── 8. Demande d'enregistrement avec récapitulatif ────────────────────────
     const handleRequestSave = () => {
         if (!canEditPeriod) return;
@@ -539,11 +527,14 @@ export default function SaisiePeriodeEmployePage({
                     )}
 
                     {/* Aperçu de l'import Excel */}
-                    {importPreview && (
+                    {(importPreview || importPreviewLoading) && (
                         <PeriodeEmployeeImportPreview
                             importPreview={importPreview}
+                            importPreviewLoading={importPreviewLoading}
+                            importApplying={importApplying}
                             importSelections={importSelections}
                             setImportSelections={setImportSelections}
+                            setImportPreview={setImportPreview}
                             grilleRows={grilleRows}
                             onClose={() => setImportPreview(null)}
                             onApply={handleApplyImport}

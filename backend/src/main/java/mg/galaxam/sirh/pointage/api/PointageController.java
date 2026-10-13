@@ -268,8 +268,10 @@ public class PointageController {
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<byte[]> modeleImport(@PathVariable int idEmploye, @RequestParam int idPeriode) throws Exception {
         byte[] bytes = pointageImportService.template(idEmploye, idPeriode);
+        String filename = pointageImportService.templateFilename(idEmploye, idPeriode);
         return ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=Modele_pointage_" + idEmploye + "_" + idPeriode + ".xlsx")
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .header("Access-Control-Expose-Headers", "Content-Disposition")
                 .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 .body(bytes);
     }
