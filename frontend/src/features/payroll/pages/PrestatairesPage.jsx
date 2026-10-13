@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FileText, Plus, Users, FileCheck2, ReceiptText, Search, ChevronDown } from 'lucide-react';
+import { FileText, Plus, Users, FileCheck2, ReceiptText, Search, ChevronDown, X } from 'lucide-react';
 import apiClient, { getErrorMessage } from '@/api/apiClient';
 import { useAuth } from '@/context/AuthContext';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
-import Input from '@/components/ui/forms/Input';
+import Input, { Select } from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
@@ -82,6 +82,11 @@ export default function PrestatairesPage() {
     const [activeTab, setActiveTab] = useState('prestataires');
     const [showWorkflowDetails, setShowWorkflowDetails] = useState(false);
     const [recherchePrestataire, setRecherchePrestataire] = useState('');
+    const [rechercheContrat, setRechercheContrat] = useState('');
+    const [filtreContratPdf, setFiltreContratPdf] = useState('tous');
+    const [rechercheFacture, setRechercheFacture] = useState('');
+    const [filtreFactureStatut, setFiltreFactureStatut] = useState('tous');
+    const [filtreFacturePieces, setFiltreFacturePieces] = useState('toutes');
     const [modal, setModal] = useState(null);
     const [selectedFacture, setSelectedFacture] = useState(null);
     const contratsDocumentes = contrats.filter(c => Boolean(c.chemin_piece));
@@ -89,6 +94,21 @@ export default function PrestatairesPage() {
     const prestatairesFiltres = prestataires.filter(p =>
         [p.nom, p.nif, p.stat, p.email].some(value => String(value || '').toLocaleLowerCase('fr').includes(recherchePrestataire.trim().toLocaleLowerCase('fr')))
     );
+    const contratsFiltres = contrats.filter(c => {
+        const query = rechercheContrat.trim().toLocaleLowerCase('fr');
+        const textMatch = [c.prestataire, c.reference, c.objet].some(value => String(value || '').toLocaleLowerCase('fr').includes(query));
+        const pdfMatch = filtreContratPdf === 'tous' || (filtreContratPdf === 'avec-pdf' ? Boolean(c.chemin_piece) : !c.chemin_piece);
+        return textMatch && pdfMatch;
+    });
+    const facturesFiltrees = factures.filter(f => {
+        const query = rechercheFacture.trim().toLocaleLowerCase('fr');
+        const textMatch = [f.prestataire, f.reference, f.contrat_reference].some(value => String(value || '').toLocaleLowerCase('fr').includes(query));
+        const statutMatch = filtreFactureStatut === 'tous' || f.statut === filtreFactureStatut;
+        const contratLie = contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire);
+        const manquePiece = !f.chemin_piece || !contratLie?.chemin_piece;
+        const pieceMatch = filtreFacturePieces === 'toutes' || (filtreFacturePieces === 'incompletes' ? manquePiece : !manquePiece);
+        return textMatch && statutMatch && pieceMatch;
+    });
 
     const charger = useCallback(async () => {
         try {
@@ -229,13 +249,11 @@ export default function PrestatairesPage() {
     };
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
+        <div className="space-y-5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
             <SEO title="Prestataires indépendants | GALAXAM GRH" description="Dossiers, contrats, factures et règlements des prestataires indépendants." />
             <PageHeader title="Prestataires indépendants" subtitle="Contrats, factures et règlements hors bulletin de paie." icon={FileText}
                 breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Prestataires indépendants' }]}
-                actions={canWrite && <Button type="button" iconLeft={<Plus size={15} />} onClick={() => setModal(activeTab === 'prestataires' || !prestataires.length ? 'prestataire' : activeTab === 'contrats' || !contrats.length ? 'contrat' : 'facture')}>
-                    {activeTab === 'prestataires' || !prestataires.length ? 'Nouveau prestataire' : activeTab === 'contrats' || !contrats.length ? 'Nouveau contrat' : 'Nouvelle facture'}
-                </Button>} />
+                />
             {error && <div role="alert"><Alert type="error" message={error} /></div>}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <StatCard title="Prestataires" value={prestataires.length} icon={<Users size={17} />} subtext="Dossiers fiscaux" />
@@ -243,13 +261,15 @@ export default function PrestatairesPage() {
                 <StatCard title="Factures à traiter" value={facturesEnAttente.length} icon={<ReceiptText size={17} />} subtext="À compléter ou à régler" color="warning" />
             </div>
 
-            <Card shadow="sm">
-                <CardHeader><CardTitle size="lg">Dossiers prestataires</CardTitle><CardSubtitle>Créer le dossier, joindre le contrat, puis valider la facture avant de consigner son paiement.</CardSubtitle></CardHeader>
-                <div className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-2.5">
+            <Card shadow="sm" className="overflow-hidden">
+                <CardHeader className="px-5 py-4"><div><CardTitle size="lg">Dossiers prestataires</CardTitle><CardSubtitle>Suivez chaque dossier, du contrat au règlement.</CardSubtitle></div></CardHeader>
+                <div className="border-y border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-5 py-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Parcours de règlement</p>
-                            <p className="mt-1 text-xs font-medium text-[var(--color-fg)]">Prestataire <span className="px-1 text-[var(--color-fg-muted)]">›</span> Contrat <span className="px-1 text-[var(--color-fg-muted)]">›</span> Facture <span className="px-1 text-[var(--color-fg-muted)]">›</span> Validation <span className="px-1 text-[var(--color-fg-muted)]">›</span> Paiement consigné</p>
+                            <ol className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[var(--color-fg)]">
+                                {['Prestataire', 'Contrat', 'Facture', 'Validation', 'Paiement consigné'].map((step, index) => <li key={step} className="flex items-center gap-2"><span className={`inline-flex h-5 w-5 items-center justify-center border text-[10px] ${index < 3 ? 'border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)]' : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)]'}`}>{index + 1}</span>{step}{index < 4 && <span aria-hidden="true" className="text-[var(--color-fg-subtle)]">›</span>}</li>)}
+                            </ol>
                         </div>
                         <Button type="button" variant="ghost" size="xs" aria-expanded={showWorkflowDetails}
                             aria-controls="prestataire-workflow-details" iconRight={<ChevronDown size={14} className={`transition-transform ${showWorkflowDetails ? 'rotate-180' : ''}`} />}
@@ -276,17 +296,16 @@ export default function PrestatairesPage() {
                             {prestataires.length > 0 && <div className="w-full max-w-52">
                                 <Input type="search" value={recherchePrestataire} onChange={e => setRecherchePrestataire(e.target.value)}
                                     placeholder="Rechercher…" aria-label="Rechercher un prestataire" iconLeft={<Search size={14} aria-hidden="true" />} />
-                            </div>}
-                            {canWrite && <Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal('prestataire')}>Ajouter un prestataire</Button>}
+                            </div>}{canWrite && <Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal('prestataire')}>Ajouter un prestataire</Button>}
                         </div>}
                         {prestataires.length === 0 ? <EmptyState compact bordered={false} icon={Users} title="Aucun prestataire" description="Créez un dossier avec son NIF pour commencer."
                             actionLabel={canWrite ? 'Nouveau prestataire' : undefined} onAction={canWrite ? () => setModal('prestataire') : undefined} />
                             : prestatairesFiltres.length === 0 ? <EmptyState compact bordered={false} icon={Users} title="Aucun résultat" description="Aucun prestataire ne correspond à cette recherche." />
-                            : prestatairesFiltres.map(p => <Card key={p.id_prestataire} shadow="none" padding className="flex flex-wrap items-center justify-between gap-3">
-                                <div><strong className="text-sm">{p.nom}</strong><p className="text-xs text-[var(--color-fg-muted)]">NIF {p.nif}{p.stat ? ` · STAT ${p.stat}` : ''}{p.email ? ` · ${p.email}` : ''}</p></div>
-                                <div className="flex items-center gap-2"><StatusBadge status={p.est_actif ? 'ACTIF' : 'FALSE'} />{canWrite && p.est_actif && <Button type="button" variant="outline" size="xs" onClick={() => {
+                            : prestatairesFiltres.map(p => <Card key={p.id_prestataire} shadow="none" padding className="border-l-4 border-l-[var(--color-brand-500)]">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--color-brand-500)]/20 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)]"><Users size={17} /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{p.nom}</strong><StatusBadge status={p.est_actif ? 'ACTIF' : 'FALSE'} /></div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--color-fg-muted)]"><span>NIF {p.nif}</span>{p.stat && <span>STAT {p.stat}</span>}{p.email && <span>{p.email}</span>}</div></div></div>
+                                <div className="flex items-center gap-2 sm:pl-12">{canWrite && p.est_actif && <Button type="button" variant="outline" size="sm" onClick={() => {
                                     setContrat(previous => ({ ...previous, idPrestataire: String(p.id_prestataire) })); setModal('contrat');
-                                }}>Créer un contrat</Button>}</div>
+                                }}>Créer un contrat</Button>}</div></div>
                             </Card>)}
                     </CardBody>}
 
@@ -382,14 +401,20 @@ export default function PrestatairesPage() {
             {activeTab === 'contrats' && <CardBody className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-[var(--color-fg-muted)]">Le contrat décrit la mission du prestataire indépendant. Joignez son PDF signé, puis rattachez-y chaque facture. {contratsDocumentes.length} contrat(s) avec PDF sur {contrats.length}.</p>
-                    {canWrite && contrats.length > 0 && <Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal(prestataires.length ? 'contrat' : 'prestataire')}>Ajouter un contrat</Button>}
                 </div>
+                {contrats.length > 0 && <div className="flex flex-col gap-2 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 sm:flex-row sm:items-center">
+                    <div className="w-full sm:max-w-xs"><Input type="search" value={rechercheContrat} onChange={e => setRechercheContrat(e.target.value)} placeholder="Prestataire, référence, mission…" aria-label="Rechercher un contrat" iconLeft={<Search size={14} aria-hidden="true" />} /></div>
+                    <div className="w-full sm:w-44"><Select value={filtreContratPdf} onChange={e => setFiltreContratPdf(e.target.value)} aria-label="Filtrer les contrats par pièce PDF"><option value="tous">Tous les contrats</option><option value="sans-pdf">PDF manquant</option><option value="avec-pdf">PDF joint</option></Select></div>
+                    {(rechercheContrat || filtreContratPdf !== 'tous') && <Button type="button" variant="ghost" size="xs" iconLeft={<X size={13} />} onClick={() => { setRechercheContrat(''); setFiltreContratPdf('tous'); }}>Effacer</Button>}
+                    <span className="ml-auto text-xs text-[var(--color-fg-muted)]">{contratsFiltres.length} / {contrats.length}</span>
+                </div>}
                 {contrats.length === 0 && <EmptyState compact bordered={false} icon={FileCheck2} title="Aucun contrat" description={prestataires.length ? 'Enregistrez la mission du prestataire, puis joignez le contrat signé.' : 'Commencez par créer un prestataire avec son NIF.'}
                     actionLabel={canWrite ? (prestataires.length ? 'Ajouter un contrat' : 'Créer un prestataire') : undefined}
                     onAction={canWrite ? () => setModal(prestataires.length ? 'contrat' : 'prestataire') : undefined} actionIcon={<Plus size={14} />} />}
-                {contrats.map(c => <Card key={c.id_contrat_prestataire} shadow="none" padding className="flex flex-wrap items-center justify-between gap-3">
-                    <div><strong className="text-sm">{c.prestataire} · {c.reference}</strong><br /><span className="text-xs text-[var(--color-fg-muted)]">{c.objet} · {fmtDate(c.date_debut)} à {c.date_fin ? fmtDate(c.date_fin) : 'durée ouverte'}</span><div className="mt-1"><StatusBadge status={c.chemin_piece ? 'ACTIF' : 'EN_ATTENTE'} label={c.chemin_piece ? 'PDF joint' : 'PDF manquant'} /></div></div>
-                    <div className="flex flex-wrap items-center gap-2">
+                {contrats.length > 0 && contratsFiltres.length === 0 && <EmptyState compact bordered={false} icon={Search} title="Aucun contrat trouvé" description="Modifiez les critères de recherche ou de pièce jointe." />}
+                {contratsFiltres.map(c => <Card key={c.id_contrat_prestataire} shadow="none" padding className="space-y-3.5 border-l-4 border-l-[var(--color-brand-500)]">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{c.prestataire}</strong><StatusBadge status={c.chemin_piece ? 'ACTIF' : 'EN_ATTENTE'} label={c.chemin_piece ? 'PDF joint' : 'PDF manquant'} /></div><p className="mt-1 text-xs text-[var(--color-fg-muted)]">Contrat {c.reference} <span className="px-1">·</span> {c.objet}</p><p className="mt-1 text-xs text-[var(--color-fg-subtle)]">Du {fmtDate(c.date_debut)} au {c.date_fin ? fmtDate(c.date_fin) : 'sans date de fin'}</p></div><div className="sm:text-right"><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Tarif convenu</p><strong className="text-base">{c.tarif_convenu != null ? formatMoneyAr(c.tarif_convenu) : 'Non renseigné'}</strong></div></div>
+                    <div className="flex flex-wrap items-center gap-2 border-t border-[var(--color-border-subtle)] pt-3">
                         {c.chemin_piece && <Button variant="outline" size="sm" onClick={() => telechargerPiece('contrats', c.id_contrat_prestataire)}>Télécharger le contrat signé</Button>}
                         {canWrite && !c.chemin_piece && <PdfAttach label="Choisir le PDF du contrat" busy={busy}
                             filename={nomPiecePrestataire('contrat-prestation', c.reference, c.date_debut)}
@@ -406,25 +431,34 @@ export default function PrestatairesPage() {
                     <p className="text-xs text-[var(--color-fg-muted)]">{facturesEnAttente.length} facture(s) à compléter ou à régler. « Marquer payée » consigne un paiement déjà effectué et ne déclenche aucun virement.</p>
                     {canWrite && factures.length > 0 && <Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal(contrats.length ? 'facture' : prestataires.length ? 'contrat' : 'prestataire')}>Ajouter une facture</Button>}
                 </div>
+                {factures.length > 0 && <div className="flex flex-col gap-2 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 sm:flex-row sm:items-center">
+                    <div className="w-full sm:max-w-xs"><Input type="search" value={rechercheFacture} onChange={e => setRechercheFacture(e.target.value)} placeholder="Prestataire, facture, contrat…" aria-label="Rechercher une facture" iconLeft={<Search size={14} aria-hidden="true" />} /></div>
+                    <div className="w-full sm:w-44"><Select value={filtreFactureStatut} onChange={e => setFiltreFactureStatut(e.target.value)} aria-label="Filtrer les factures par statut"><option value="tous">Tous les statuts</option><option value="BROUILLON">Brouillon</option><option value="VALIDEE">Validée</option><option value="PAYEE">Payée</option><option value="ANNULEE">Annulée</option></Select></div>
+                    <div className="w-full sm:w-44"><Select value={filtreFacturePieces} onChange={e => setFiltreFacturePieces(e.target.value)} aria-label="Filtrer les factures par pièces justificatives"><option value="toutes">Toutes les pièces</option><option value="incompletes">Pièces manquantes</option><option value="completes">Pièces complètes</option></Select></div>
+                    {(rechercheFacture || filtreFactureStatut !== 'tous' || filtreFacturePieces !== 'toutes') && <Button type="button" variant="ghost" size="xs" iconLeft={<X size={13} />} onClick={() => { setRechercheFacture(''); setFiltreFactureStatut('tous'); setFiltreFacturePieces('toutes'); }}>Effacer</Button>}
+                    <span className="ml-auto text-xs text-[var(--color-fg-muted)]">{facturesFiltrees.length} / {factures.length}</span>
+                </div>}
                 {factures.length === 0 && <EmptyState compact bordered={false} icon={ReceiptText} title="Aucune facture" description={contrats.length ? 'Créez une facture liée à un contrat de prestation.' : prestataires.length ? 'Créez d’abord un contrat de prestation.' : 'Commencez par créer un prestataire, puis son contrat.'}
                     actionLabel={canWrite ? (contrats.length ? 'Ajouter une facture' : prestataires.length ? 'Créer un contrat' : 'Créer un prestataire') : undefined}
                     onAction={canWrite ? () => setModal(contrats.length ? 'facture' : prestataires.length ? 'contrat' : 'prestataire') : undefined} actionIcon={<Plus size={14} />} />}
-                {factures.map(f => {
+                {factures.length > 0 && facturesFiltrees.length === 0 && <EmptyState compact bordered={false} icon={Search} title="Aucune facture trouvée" description="Modifiez les critères de recherche, de statut ou de pièces." />}
+                {facturesFiltrees.map(f => {
                     const id = f.id_facture_prestataire;
-                    return <Card key={id} shadow="none" padding className="space-y-3">
-                        <div className="flex flex-wrap justify-between gap-2">
-                            <div><strong>{f.prestataire}</strong> · {f.reference} · contrat {f.contrat_reference}<br /><span className="text-sm text-[var(--color-fg-muted)]">{fmtDate(f.date_facture)} · <StatusBadge status={f.statut} /></span></div>
-                            <strong>{formatMoneyAr(f.montant)}</strong>
+                    const contratLie = contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire);
+                    const piecesManquantes = [!contratLie?.chemin_piece && 'contrat', !f.chemin_piece && 'facture'].filter(Boolean);
+                    return <Card key={id} shadow="none" padding className="space-y-3.5 border-l-4 border-l-[var(--color-brand-500)]">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{f.prestataire}</strong><StatusBadge status={f.statut} /></div><p className="mt-1 text-xs text-[var(--color-fg-muted)]">Facture {f.reference} <span className="px-1">·</span> Contrat {f.contrat_reference}</p><p className="mt-1 text-xs text-[var(--color-fg-subtle)]">Émise le {fmtDate(f.date_facture)}</p></div>
+                            <div className="sm:text-right"><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Montant de la facture</p><strong className="text-lg font-bold">{formatMoneyAr(f.montant)}</strong></div>
                         </div>
-                        <div className="flex flex-wrap items-end gap-3">
+                        {f.statut === 'BROUILLON' && <div className={`flex flex-wrap items-center gap-2 border px-3 py-2 text-xs ${piecesManquantes.length ? 'border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/5 text-[var(--color-warning-700)]' : 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5 text-[var(--color-success-700)]'}`}><FileCheck2 size={14} aria-hidden="true" />{piecesManquantes.length ? `À compléter : PDF ${piecesManquantes.join(' et ')} manquant${piecesManquantes.length > 1 ? 's' : ''}.` : 'Pièces justificatives prêtes pour validation.'}</div>}
+                        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--color-border-subtle)] pt-3">
                             {f.chemin_piece && <Button variant="outline" size="sm" onClick={() => telechargerPiece('factures', id)}>Voir le PDF</Button>}
                             {canWrite && f.statut === 'BROUILLON' && !f.chemin_piece && <PdfAttach label="Choisir le PDF de facture" busy={busy}
                                 filename={nomPiecePrestataire('facture-prestataire', f.reference, f.date_facture)}
                                 onUpload={file => joindrePiece(id, file)} />}
-                            {canValidate && f.statut === 'BROUILLON' && <Button size="sm" disabled={busy || !f.chemin_piece || !contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire)?.chemin_piece}
+                            {canValidate && f.statut === 'BROUILLON' && <Button size="sm" disabled={busy || !f.chemin_piece || !contratLie?.chemin_piece}
                                 onClick={() => agir(() => apiClient.post(`v1/prestataires/factures/${id}/valider`), 'Facture validée.')}>Valider</Button>}
-                            {f.statut === 'BROUILLON' && (!f.chemin_piece || !contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire)?.chemin_piece) &&
-                                <span className="text-xs text-[var(--color-fg-muted)]">Validation en attente : {!contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire)?.chemin_piece ? 'PDF du contrat' : 'PDF de la facture'} manquant.</span>}
                             {canWrite && f.statut === 'BROUILLON' && <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFacture(f); setModal('annuler'); }}>Annuler le brouillon</Button>}
                             {canValidate && f.statut === 'VALIDEE' && <Button type="button" size="sm" onClick={() => { setSelectedFacture(f); setModal('payer'); }}>Marquer payée</Button>}
                             {f.statut === 'PAYEE' && <span className="text-xs">Payée le {fmtDate(f.date_paiement)} · {f.reference_paiement}</span>}
