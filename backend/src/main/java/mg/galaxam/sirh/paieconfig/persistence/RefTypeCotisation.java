@@ -23,6 +23,9 @@ public class RefTypeCotisation extends ClassMere {
     /** 'PREVOYANCE', 'SANTE', 'FORMATION' */
     private String categorie = "SANTE";
     private boolean estActif = true;
+    private Integer idOrganisme;
+    private String organismeCode;
+    private String organismeLibelle;
 
     public RefTypeCotisation() {
         this.setNomTable("REF_TYPE_COTISATION");
@@ -66,8 +69,8 @@ public class RefTypeCotisation extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         valider();
-        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
+        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif, id_organisme) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -78,6 +81,11 @@ public class RefTypeCotisation extends ClassMere {
             ps.setString(7, portee != null ? portee : "SITE");
             ps.setString(8, categorie != null ? categorie : "SANTE");
             ps.setBoolean(9, estActif);
+            if (idOrganisme != null) {
+                ps.setInt(10, idOrganisme);
+            } else {
+                ps.setNull(10, java.sql.Types.INTEGER);
+            }
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -92,7 +100,7 @@ public class RefTypeCotisation extends ClassMere {
     protected ClassMere modifier(Connection c) throws Exception {
         valider();
         String sql = "UPDATE ref_type_cotisation SET code = ?, libelle = ?, taux_salarial = ?, taux_patronal = ?, " +
-                     "date_debut = ?, date_fin = ?, portee = ?, categorie = ?, est_actif = ? WHERE id_type_cotisation = ?";
+                     "date_debut = ?, date_fin = ?, portee = ?, categorie = ?, est_actif = ?, id_organisme = ? WHERE id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -103,7 +111,12 @@ public class RefTypeCotisation extends ClassMere {
             ps.setString(7, portee != null ? portee : "SITE");
             ps.setString(8, categorie != null ? categorie : "SANTE");
             ps.setBoolean(9, estActif);
-            ps.setInt(10, idTypeCotisation);
+            if (idOrganisme != null) {
+                ps.setInt(10, idOrganisme);
+            } else {
+                ps.setNull(10, java.sql.Types.INTEGER);
+            }
+            ps.setInt(11, idTypeCotisation);
             ps.executeUpdate();
         }
         return this;
@@ -125,23 +138,17 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif FROM ref_type_cotisation WHERE id_type_cotisation = ?";
+        String sql = "SELECT tc.id_type_cotisation, tc.code, tc.libelle, tc.taux_salarial, tc.taux_patronal, "
+                + "tc.date_debut, tc.date_fin, tc.portee, tc.categorie, tc.est_actif, tc.id_organisme, "
+                + "o.code as organisme_code, o.libelle as organisme_libelle "
+                + "FROM ref_type_cotisation tc "
+                + "LEFT JOIN ref_organisme_social o ON tc.id_organisme = o.id_organisme "
+                + "WHERE tc.id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    RefTypeCotisation item = new RefTypeCotisation();
-                    item.idTypeCotisation = rs.getInt("id_type_cotisation");
-                    item.code = rs.getString("code");
-                    item.libelle = rs.getString("libelle");
-                    item.tauxSalarial = rs.getBigDecimal("taux_salarial");
-                    item.tauxPatronal = rs.getBigDecimal("taux_patronal");
-                    item.dateDebut = rs.getDate("date_debut");
-                    item.dateFin = rs.getDate("date_fin");
-                    item.portee = rs.getString("portee");
-                    item.categorie = rs.getString("categorie");
-                    item.estActif = rs.getBoolean("est_actif");
-                    return item;
+                    return mapResultSet(rs);
                 }
             }
         }
@@ -149,70 +156,62 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     public static List<RefTypeCotisation> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif FROM ref_type_cotisation ORDER BY code";
+        String sql = "SELECT tc.id_type_cotisation, tc.code, tc.libelle, tc.taux_salarial, tc.taux_patronal, "
+                + "tc.date_debut, tc.date_fin, tc.portee, tc.categorie, tc.est_actif, tc.id_organisme, "
+                + "o.code as organisme_code, o.libelle as organisme_libelle "
+                + "FROM ref_type_cotisation tc "
+                + "LEFT JOIN ref_organisme_social o ON tc.id_organisme = o.id_organisme "
+                + "ORDER BY tc.code";
         List<RefTypeCotisation> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                RefTypeCotisation item = new RefTypeCotisation();
-                item.idTypeCotisation = rs.getInt("id_type_cotisation");
-                item.code = rs.getString("code");
-                item.libelle = rs.getString("libelle");
-                item.tauxSalarial = rs.getBigDecimal("taux_salarial");
-                item.tauxPatronal = rs.getBigDecimal("taux_patronal");
-                item.dateDebut = rs.getDate("date_debut");
-                item.dateFin = rs.getDate("date_fin");
-                item.portee = rs.getString("portee");
-                item.categorie = rs.getString("categorie");
-                item.estActif = rs.getBoolean("est_actif");
-                list.add(item);
+                list.add(mapResultSet(rs));
             }
         }
         return list;
     }
 
-    /**
-     * Retourne les cotisations actives à une date précise (résolution temporelle).
-     * <p>
-     * Utilisé par les déclarations historiques pour s'assurer que les taux affichés
-     * correspondent aux taux en vigueur à la date de la période déclarée, et non
-     * aux taux configurés à la date de consultation.
-     * <p>
-     * Un enregistrement est retenu si :
-     *   date_debut <= :at AND (date_fin IS NULL OR date_fin >= :at) AND est_actif = true
-     *
-     * @param at Date d'effectivité cible (généralement date_debut de la période de paie)
-     * @param c  Connexion JDBC
-     */
     public static List<RefTypeCotisation> listActiveAt(java.sql.Date at, Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif "
-                + "FROM ref_type_cotisation "
-                + "WHERE est_actif = true "
-                + "  AND date_debut <= ? "
-                + "  AND (date_fin IS NULL OR date_fin >= ?) "
-                + "ORDER BY code";
+        String sql = "SELECT tc.id_type_cotisation, tc.code, tc.libelle, tc.taux_salarial, tc.taux_patronal, "
+                + "tc.date_debut, tc.date_fin, tc.portee, tc.categorie, tc.est_actif, tc.id_organisme, "
+                + "o.code as organisme_code, o.libelle as organisme_libelle "
+                + "FROM ref_type_cotisation tc "
+                + "LEFT JOIN ref_organisme_social o ON tc.id_organisme = o.id_organisme "
+                + "WHERE tc.est_actif = true "
+                + "  AND tc.date_debut <= ? "
+                + "  AND (tc.date_fin IS NULL OR tc.date_fin >= ?) "
+                + "ORDER BY tc.code";
         List<RefTypeCotisation> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDate(1, at);
             ps.setDate(2, at);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    RefTypeCotisation item = new RefTypeCotisation();
-                    item.idTypeCotisation = rs.getInt("id_type_cotisation");
-                    item.code = rs.getString("code");
-                    item.libelle = rs.getString("libelle");
-                    item.tauxSalarial = rs.getBigDecimal("taux_salarial");
-                    item.tauxPatronal = rs.getBigDecimal("taux_patronal");
-                    item.dateDebut = rs.getDate("date_debut");
-                    item.dateFin = rs.getDate("date_fin");
-                    item.portee = rs.getString("portee");
-                    item.categorie = rs.getString("categorie");
-                    item.estActif = rs.getBoolean("est_actif");
-                    list.add(item);
+                    list.add(mapResultSet(rs));
                 }
             }
         }
         return list;
+    }
+
+    private static RefTypeCotisation mapResultSet(ResultSet rs) throws Exception {
+        RefTypeCotisation item = new RefTypeCotisation();
+        item.idTypeCotisation = rs.getInt("id_type_cotisation");
+        item.code = rs.getString("code");
+        item.libelle = rs.getString("libelle");
+        item.tauxSalarial = rs.getBigDecimal("taux_salarial");
+        item.tauxPatronal = rs.getBigDecimal("taux_patronal");
+        item.dateDebut = rs.getDate("date_debut");
+        item.dateFin = rs.getDate("date_fin");
+        item.portee = rs.getString("portee");
+        item.categorie = rs.getString("categorie");
+        item.estActif = rs.getBoolean("est_actif");
+        int orgId = rs.getInt("id_organisme");
+        item.idOrganisme = rs.wasNull() ? null : orgId;
+        item.organismeCode = rs.getString("organisme_code");
+        item.organismeLibelle = rs.getString("organisme_libelle");
+        return item;
     }
 
     /**
@@ -321,4 +320,10 @@ public class RefTypeCotisation extends ClassMere {
     public void setCategorie(String categorie) { this.categorie = categorie; }
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }
+    public Integer getIdOrganisme() { return idOrganisme; }
+    public void setIdOrganisme(Integer idOrganisme) { this.idOrganisme = idOrganisme; }
+    public String getOrganismeCode() { return organismeCode; }
+    public void setOrganismeCode(String organismeCode) { this.organismeCode = organismeCode; }
+    public String getOrganismeLibelle() { return organismeLibelle; }
+    public void setOrganismeLibelle(String organismeLibelle) { this.organismeLibelle = organismeLibelle; }
 }

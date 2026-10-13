@@ -95,6 +95,27 @@ const paieConfigService = {
     },
 
     // ----------------------------------------------------
+    // ORGANISMES SOCIAUX DÉCLARATIFS (ref_organisme_social)
+    // ----------------------------------------------------
+    getOrganismesSociaux: async (actifsOnly = false) => {
+        const path = actifsOnly ? '/referentiel/organismes-sociaux/actifs' : '/referentiel/organismes-sociaux';
+        const response = await apiClient.get(path);
+        return response.data;
+    },
+    createOrganismeSocial: async (data) => {
+        const response = await apiClient.post('/referentiel/organismes-sociaux', data);
+        return response.data;
+    },
+    updateOrganismeSocial: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/organismes-sociaux/${id}`, data);
+        return response.data;
+    },
+    toggleOrganismeSocialStatut: async (id) => {
+        const response = await apiClient.put(`/referentiel/organismes-sociaux/${id}/toggle-statut`);
+        return response.data;
+    },
+
+    // ----------------------------------------------------
     // BAREME IRSA
     // ----------------------------------------------------
     getBaremesIrsa: async () => {

@@ -19,6 +19,7 @@ export default function SearchSelect({
   clearable = true,
   buttonClassName = '',
   size = 'md',
+  showSelectedSublabel = true,
 }) {
   // État local et références DOM.
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,7 +225,7 @@ export default function SearchSelect({
               <span className="font-bold text-[var(--color-fg)] truncate">
                 {selectedOption.label}
               </span>
-              {selectedOption.sublabel && (
+              {showSelectedSublabel && selectedOption.sublabel && (
                 <span className="text-xs text-[var(--color-fg-muted)] font-normal ml-2 truncate hidden sm:inline">
                   ({selectedOption.sublabel})
                 </span>

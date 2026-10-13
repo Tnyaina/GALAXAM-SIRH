@@ -151,6 +151,18 @@ public class PayrollCalculationInput {
 
     // 7. Cotisations sociales (Taux légaux et régionaux)
     private String codeSanteOrgane = "OSTIE";
+    private Integer idSanteOrganisme;
+    private String codeSanteOrganisme = "OSTIE";
+    private Integer idSanteTypeCotisation;
+
+    private Integer idCnapsOrganisme;
+    private String codeCnapsOrganisme = "CNAPS";
+    private Integer idCnapsTypeCotisation;
+
+    private Integer idFmfpOrganisme;
+    private String codeFmfpOrganisme = "FMFP";
+    private Integer idFmfpTypeCotisation;
+
     private BigDecimal tauxCnapsSalarial;
     private BigDecimal tauxCnapsPatronal;
     private BigDecimal tauxSanteSalarial;
@@ -688,6 +700,33 @@ public class PayrollCalculationInput {
 
     public String getCodeSanteOrgane() { return codeSanteOrgane; }
     public void setCodeSanteOrgane(String codeSanteOrgane) { this.codeSanteOrgane = codeSanteOrgane; }
+
+    public Integer getIdSanteOrganisme() { return idSanteOrganisme; }
+    public void setIdSanteOrganisme(Integer idSanteOrganisme) { this.idSanteOrganisme = idSanteOrganisme; }
+
+    public String getCodeSanteOrganisme() { return codeSanteOrganisme; }
+    public void setCodeSanteOrganisme(String codeSanteOrganisme) { this.codeSanteOrganisme = codeSanteOrganisme; }
+
+    public Integer getIdSanteTypeCotisation() { return idSanteTypeCotisation; }
+    public void setIdSanteTypeCotisation(Integer idSanteTypeCotisation) { this.idSanteTypeCotisation = idSanteTypeCotisation; }
+
+    public Integer getIdCnapsOrganisme() { return idCnapsOrganisme; }
+    public void setIdCnapsOrganisme(Integer idCnapsOrganisme) { this.idCnapsOrganisme = idCnapsOrganisme; }
+
+    public String getCodeCnapsOrganisme() { return codeCnapsOrganisme; }
+    public void setCodeCnapsOrganisme(String codeCnapsOrganisme) { this.codeCnapsOrganisme = codeCnapsOrganisme; }
+
+    public Integer getIdCnapsTypeCotisation() { return idCnapsTypeCotisation; }
+    public void setIdCnapsTypeCotisation(Integer idCnapsTypeCotisation) { this.idCnapsTypeCotisation = idCnapsTypeCotisation; }
+
+    public Integer getIdFmfpOrganisme() { return idFmfpOrganisme; }
+    public void setIdFmfpOrganisme(Integer idFmfpOrganisme) { this.idFmfpOrganisme = idFmfpOrganisme; }
+
+    public String getCodeFmfpOrganisme() { return codeFmfpOrganisme; }
+    public void setCodeFmfpOrganisme(String codeFmfpOrganisme) { this.codeFmfpOrganisme = codeFmfpOrganisme; }
+
+    public Integer getIdFmfpTypeCotisation() { return idFmfpTypeCotisation; }
+    public void setIdFmfpTypeCotisation(Integer idFmfpTypeCotisation) { this.idFmfpTypeCotisation = idFmfpTypeCotisation; }
 
     public BigDecimal getForfaitTransportSite() { return forfaitTransportSite; }
     public void setForfaitTransportSite(BigDecimal forfaitTransportSite) { this.forfaitTransportSite = forfaitTransportSite; }

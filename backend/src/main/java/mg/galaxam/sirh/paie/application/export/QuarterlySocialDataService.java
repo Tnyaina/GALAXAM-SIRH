@@ -31,6 +31,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class QuarterlySocialDataService {
     public record Employer(Integer id, String name, String nif, String stat, String address, String phone, String email) {}
+    public static final class OrganismeAmounts {
+        public BigDecimal base = BigDecimal.ZERO;
+        public BigDecimal baseNonPlafonnee = BigDecimal.ZERO;
+        public BigDecimal employee = BigDecimal.ZERO;
+        public BigDecimal employer = BigDecimal.ZERO;
+        public BigDecimal total() { return employee.add(employer); }
+    }
     public static final class Month {
         public BigDecimal gross = BigDecimal.ZERO;
         public BigDecimal advantage = BigDecimal.ZERO;
@@ -51,6 +58,31 @@ public class QuarterlySocialDataService {
         public BigDecimal omsiEmployee = BigDecimal.ZERO;
         public BigDecimal omsiEmployer = BigDecimal.ZERO;
         public BigDecimal cap = BigDecimal.ZERO;
+        public final Map<String, OrganismeAmounts> organismes = new LinkedHashMap<>();
+
+        public OrganismeAmounts getOrganisme(String org) {
+            return organismes.computeIfAbsent(org, k -> new OrganismeAmounts());
+        }
+        public BigDecimal employeeFor(String org) {
+            OrganismeAmounts o = organismes.get(org);
+            return o == null ? BigDecimal.ZERO : o.employee;
+        }
+        public BigDecimal employerFor(String org) {
+            OrganismeAmounts o = organismes.get(org);
+            return o == null ? BigDecimal.ZERO : o.employer;
+        }
+        public BigDecimal baseFor(String org) {
+            OrganismeAmounts o = organismes.get(org);
+            return o == null ? BigDecimal.ZERO : o.base;
+        }
+        public BigDecimal baseNonPlafonneeFor(String org) {
+            OrganismeAmounts o = organismes.get(org);
+            return o == null ? BigDecimal.ZERO : o.baseNonPlafonnee;
+        }
+        public boolean hasOrg(String org) {
+            OrganismeAmounts o = organismes.get(org);
+            return o != null && o.total().signum() != 0;
+        }
     }
     public static BigDecimal cnapsNonPlafonnee(Month m) {
         if (m.cnapsBaseNonPlafonnee.signum() > 0) return m.cnapsBaseNonPlafonnee;
@@ -80,13 +112,55 @@ public class QuarterlySocialDataService {
         public boolean hasFmfp() { return sum(m -> m.fmfpEmployer).signum() != 0; }
         public boolean hasOstie() { return sum(m -> m.ostieEmployee.add(m.ostieEmployer)).signum() != 0; }
         public boolean hasOmsi() { return sum(m -> m.omsiEmployee.add(m.omsiEmployer)).signum() != 0; }
+        public boolean hasOrganisme(String org) {
+            return sum(m -> {
+                OrganismeAmounts o = m.organismes.get(org);
+                return o == null ? BigDecimal.ZERO : o.total();
+            }).signum() != 0;
+        }
     }
-    public record Data(int year, int quarter, String[] months, Employer employer, List<Person> people) {
+    public record Data(int year, int quarter, String[] months, Employer employer, List<Person> people,
+                       List<String> distinctOrganismes, boolean hasUnconfigured) {
+        public Data(int year, int quarter, String[] months, Employer employer, List<Person> people) {
+            this(year, quarter, months, employer, people, computeDistinctOrganismes(people), computeHasUnconfigured(people));
+        }
         public String label() { return "T" + quarter + "_" + year; }
         public List<Person> cnaps() { return people.stream().filter(Person::hasCnaps).toList(); }
         public List<Person> fmfp() { return people.stream().filter(Person::hasFmfp).toList(); }
         public List<Person> ostie() { return people.stream().filter(Person::hasOstie).toList(); }
         public List<Person> omsi() { return people.stream().filter(Person::hasOmsi).toList(); }
+        public List<Person> forOrganisme(String org) {
+            return people.stream().filter(p -> p.hasOrganisme(org)).toList();
+        }
+    }
+
+    public static List<String> computeDistinctOrganismes(List<Person> people) {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        for (Person p : people) {
+            for (Month m : p.months) {
+                for (Map.Entry<String, OrganismeAmounts> e : m.organismes.entrySet()) {
+                    if (e.getValue().total().signum() != 0 || e.getValue().base.signum() != 0) {
+                        set.add(e.getKey());
+                    }
+                }
+            }
+        }
+        List<String> list = new ArrayList<>(set);
+        list.sort((a, b) -> {
+            if (a.equals(b)) return 0;
+            if (a.equals(EtatSocialMensuelExportService.UNCONFIGURED_ORGANISME)) return 1;
+            if (b.equals(EtatSocialMensuelExportService.UNCONFIGURED_ORGANISME)) return -1;
+            if ("CNaPS".equalsIgnoreCase(a)) return -1;
+            if ("CNaPS".equalsIgnoreCase(b)) return 1;
+            if ("FMFP".equalsIgnoreCase(a)) return -1;
+            if ("FMFP".equalsIgnoreCase(b)) return 1;
+            return a.compareToIgnoreCase(b);
+        });
+        return list;
+    }
+
+    public static boolean computeHasUnconfigured(List<Person> people) {
+        return people.stream().anyMatch(p -> p.hasOrganisme(EtatSocialMensuelExportService.UNCONFIGURED_ORGANISME));
     }
     private record Period(int id, String code, LocalDate start, LocalDate end) {}
 
@@ -116,6 +190,7 @@ public class QuarterlySocialDataService {
         for (String month : months) if (!periods.containsKey(month)) {
             throw new IllegalStateException("La période " + month + " est absente. Qualifier ce mois avant l'export trimestriel.");
         }
+        Map<String, String> registeredOrganismes = loadOrganismes(connection);
         Map<Integer, Person> people = new LinkedHashMap<>();
         Employer employer = null;
         for (int index = 0; index < 3; index++) {
@@ -156,6 +231,7 @@ public class QuarterlySocialDataService {
                 BigDecimal uncappedSocialBase = zero(b.getTotalGainsBruts()).subtract(nonCotisableGains).max(BigDecimal.ZERO);
 
                 BigDecimal[] bases = {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
+                Map<String, BigDecimal> orgBases = new LinkedHashMap<>();
                 for (BulletinPaieLigne line : lines) {
                     String code = n(line.getCodeRubrique()).toUpperCase(Locale.ROOT);
                     BigDecimal salariale = zero(line.getMontantSalarial());
@@ -178,6 +254,14 @@ public class QuarterlySocialDataService {
                         month.omsiEmployer = month.omsiEmployer.add(patronale);
                         bases[2] = bases[2].max(base);
                     }
+                    if (isSocial(line) && (salariale.signum() != 0 || patronale.signum() != 0)) {
+                        String org = EtatSocialMensuelExportService.resolveOrganisme(line, registeredOrganismes);
+                        OrganismeAmounts amounts = month.organismes.computeIfAbsent(org, ignored -> new OrganismeAmounts());
+                        amounts.employee = amounts.employee.add(salariale);
+                        amounts.employer = amounts.employer.add(patronale);
+                        BigDecimal currentBase = orgBases.getOrDefault(org, BigDecimal.ZERO);
+                        orgBases.put(org, currentBase.max(base));
+                    }
                 }
                 if (bases[0].signum() > 0 || month.cnapsEmployee.add(month.cnapsEmployer).signum() > 0) {
                     month.cnapsBase = month.cnapsBase.add(bases[0]);
@@ -194,6 +278,15 @@ public class QuarterlySocialDataService {
                 if (bases[2].signum() > 0 || month.omsiEmployee.add(month.omsiEmployer).signum() > 0) {
                     month.omsiBase = month.omsiBase.add(bases[2]);
                     month.omsiBaseNonPlafonnee = month.omsiBaseNonPlafonnee.add(uncappedSocialBase.max(bases[2]));
+                }
+                for (Map.Entry<String, OrganismeAmounts> entry : month.organismes.entrySet()) {
+                    String org = entry.getKey();
+                    OrganismeAmounts amounts = entry.getValue();
+                    BigDecimal maxBase = orgBases.getOrDefault(org, BigDecimal.ZERO);
+                    if (maxBase.signum() > 0 || amounts.total().signum() > 0) {
+                        amounts.base = amounts.base.add(maxBase);
+                        amounts.baseNonPlafonnee = amounts.baseNonPlafonnee.add(uncappedSocialBase.max(maxBase));
+                    }
                 }
             }
         }
@@ -439,6 +532,12 @@ public class QuarterlySocialDataService {
             Font titleFont = book.createFont(); titleFont.setBold(true); titleFont.setFontHeightInPoints((short) 14);
             CellStyle titleStyle = book.createCellStyle(); titleStyle.setFont(titleFont);
 
+            Font mutedFont = book.createFont(); mutedFont.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            CellStyle mutedStyle = book.createCellStyle(); mutedStyle.setFont(mutedFont);
+
+            Font warnFont = book.createFont(); warnFont.setColor(IndexedColors.DARK_RED.getIndex()); warnFont.setBold(true);
+            CellStyle warningStyle = book.createCellStyle(); warningStyle.setFont(warnFont);
+
             Font headFont = book.createFont(); headFont.setBold(true); headFont.setColor(IndexedColors.WHITE.getIndex());
             XSSFCellStyle headStyle = book.createCellStyle(); headStyle.setFont(headFont);
             headStyle.setFillForegroundColor(new XSSFColor(navy, null)); headStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
@@ -468,78 +567,193 @@ public class QuarterlySocialDataService {
             Sheet summary = book.createSheet("Synthèse");
             Sheet detail = book.createSheet("Par salarié et mois");
             summary.setDisplayGridlines(false); detail.setDisplayGridlines(false);
-            cell(summary, 0, 0).setCellStyle(titleStyle);
+            cell(summary, 0, 0, titleStyle);
             string(summary, 0, 0, "CONSOLIDATION SOCIALE · " + data.label().replace('_', ' '));
-            string(summary, 1, 0, data.employer().name() + " · contrôle interne avant préparation des modèles");
+            cell(summary, 1, 0, mutedStyle);
+            string(summary, 1, 0, data.employer().name() + " · contrôle interne trimestriel multi-organismes");
+
+            int summaryHeaderRow = 3;
+            if (data.hasUnconfigured()) {
+                cell(summary, 2, 0, warningStyle);
+                string(summary, 2, 0, "⚠️ AVERTISSEMENT : Des cotisations sans organisme configuré ont été détectées et regroupées sous '" + EtatSocialMensuelExportService.UNCONFIGURED_ORGANISME + "'.");
+                summaryHeaderRow = 4;
+            }
+
             String[] heads = {"Organisme", "Salariés", "Part salarié (Ar)", "Part employeur (Ar)", "Total (Ar)"};
             for (int i = 0; i < heads.length; i++) {
-                Cell c = cell(summary, 3, i);
-                c.setCellStyle(headStyle);
+                Cell c = cell(summary, summaryHeaderRow, i, headStyle);
                 c.setCellValue(heads[i]);
             }
-            summary.getRow(3).setHeightInPoints(26);
-            String[] orgs = {"CNaPS", "FMFP", "OSTIE", "OMSI"};
-            List<List<Person>> lists = List.of(data.cnaps(), data.fmfp(), data.ostie(), data.omsi());
-            for (int i = 0; i < 4; i++) {
-                int row = i + 4;
-                Cell c0 = cell(summary, row, 0); c0.setCellStyle(textStyle); c0.setCellValue(orgs[i]);
-                Cell c1 = cell(summary, row, 1); c1.setCellStyle(textStyle); c1.setCellValue(lists.get(i).size());
-                BigDecimal employee = BigDecimal.ZERO, employer = BigDecimal.ZERO;
-                for (Person p : lists.get(i)) for (Month m : p.months) {
-                    employee = employee.add(switch (i) { case 0 -> m.cnapsEmployee; case 2 -> m.ostieEmployee; case 3 -> m.omsiEmployee; default -> BigDecimal.ZERO; });
-                    employer = employer.add(switch (i) { case 0 -> m.cnapsEmployer; case 1 -> m.fmfpEmployer; case 2 -> m.ostieEmployer; default -> m.omsiEmployer; });
+            summary.getRow(summaryHeaderRow).setHeightInPoints(26);
+
+            List<String> distinctOrgs = data.distinctOrganismes();
+            int curRow = summaryHeaderRow + 1;
+            for (String org : distinctOrgs) {
+                List<Person> orgPeople = data.forOrganisme(org);
+                BigDecimal employee = BigDecimal.ZERO;
+                BigDecimal employer = BigDecimal.ZERO;
+                for (Person p : orgPeople) {
+                    for (Month m : p.months) {
+                        OrganismeAmounts oa = m.organismes.get(org);
+                        if (oa != null) {
+                            employee = employee.add(oa.employee);
+                            employer = employer.add(oa.employer);
+                        }
+                    }
                 }
-                Cell c2 = cell(summary, row, 2); c2.setCellStyle(moneyStyle); c2.setCellValue(employee.doubleValue());
-                Cell c3 = cell(summary, row, 3); c3.setCellStyle(moneyStyle); c3.setCellValue(employer.doubleValue());
-                Cell c4 = cell(summary, row, 4); c4.setCellStyle(moneyStyle); c4.setCellValue(employee.add(employer).doubleValue());
+                Cell c0 = cell(summary, curRow, 0, textStyle); c0.setCellValue(org);
+                Cell c1 = cell(summary, curRow, 1, textStyle); c1.setCellValue(orgPeople.size());
+                Cell c2 = cell(summary, curRow, 2, moneyStyle); c2.setCellValue(employee.doubleValue());
+                Cell c3 = cell(summary, curRow, 3, moneyStyle); c3.setCellValue(employer.doubleValue());
+                Cell c4 = cell(summary, curRow, 4, moneyStyle); c4.setCellValue(employee.add(employer).doubleValue());
+                curRow++;
             }
-            Cell tot0 = cell(summary, 8, 0); tot0.setCellStyle(totalStyle); tot0.setCellValue("TOTAL");
-            Cell tot1 = cell(summary, 8, 1); tot1.setCellStyle(totalStyle); tot1.setCellValue("");
+
+            Cell tot0 = cell(summary, curRow, 0, totalStyle); tot0.setCellValue("TOTAL");
+            Cell tot1 = cell(summary, curRow, 1, totalStyle); tot1.setCellValue("");
             for (int col = 2; col <= 4; col++) {
-                Cell tc = cell(summary, 8, col);
-                tc.setCellStyle(totalMoney);
-                tc.setCellFormula("SUM(" + CellReference.convertNumToColString(col) + "5:" + CellReference.convertNumToColString(col) + "8)");
+                Cell tc = cell(summary, curRow, col, totalMoney);
+                if (distinctOrgs.isEmpty()) {
+                    tc.setCellValue(0);
+                } else {
+                    tc.setCellFormula("SUM(" + CellReference.convertNumToColString(col) + (summaryHeaderRow + 2) + ":" + CellReference.convertNumToColString(col) + curRow + ")");
+                }
+            }
+
+            cell(summary, curRow + 2, 0, mutedStyle);
+            string(summary, curRow + 2, 0, "Source : cotisations constatées sur les bulletins validés ou clôturés des 3 mois.");
+            cell(summary, curRow + 3, 0, mutedStyle);
+            string(summary, curRow + 3, 0, "Un salarié affilié à plusieurs organismes est comptabilisé pour chaque organisme correspondant.");
+            if (data.hasUnconfigured()) {
+                cell(summary, curRow + 4, 0, warningStyle);
+                string(summary, curRow + 4, 0, "Lignes sans organisme configuré détectées : vérifier la configuration des types et sites de cotisation.");
             }
             for (int col = 0; col < 5; col++) summary.setColumnWidth(col, col == 0 ? 8500 : 6200);
 
-            String[] detailHeads = {"Mois", "Matricule", "Nom", "Prénoms", "N° CNaPS", "Brut", "Heures",
-                    "Base CNaPS non plafonnée", "Base CNaPS plafonnée", "CNaPS salarié", "CNaPS employeur",
-                    "Base FMFP", "FMFP employeur",
-                    "Base OSTIE non plafonnée", "Base OSTIE plafonnée", "OSTIE salarié", "OSTIE employeur",
-                    "Base OMSI non plafonnée", "Base OMSI plafonnée", "OMSI salarié", "OMSI employeur"};
-            for (int i = 0; i < detailHeads.length; i++) {
-                Cell dc = cell(detail, 2, i);
-                dc.setCellStyle(headStyle);
-                dc.setCellValue(detailHeads[i]);
+            // DETAIL SHEET
+            cell(detail, 0, 0, titleStyle);
+            string(detail, 0, 0, "DÉTAIL PAR SALARIÉ ET PAR MOIS · " + data.label().replace('_', ' '));
+            int detailHeaderRow = 2;
+            if (data.hasUnconfigured()) {
+                cell(detail, 1, 0, warningStyle);
+                string(detail, 1, 0, "⚠️ AVERTISSEMENT : Des colonnes comportent des montants sous '" + EtatSocialMensuelExportService.UNCONFIGURED_ORGANISME + "'.");
+                detailHeaderRow = 3;
             }
-            detail.getRow(2).setHeightInPoints(26);
-            int row = 3;
-            for (Person p : data.people()) for (int monthIndex = 0; monthIndex < 3; monthIndex++) {
-                Month m = p.months[monthIndex];
-                if (m.gross.signum() == 0 && m.cnapsEmployee.signum() == 0 && m.cnapsEmployer.signum() == 0 && m.fmfpEmployer.signum() == 0 && m.ostieEmployee.signum() == 0 && m.ostieEmployer.signum() == 0 && m.omsiEmployee.signum() == 0 && m.omsiEmployer.signum() == 0) continue;
-                Cell c0 = cell(detail, row, 0); c0.setCellStyle(textStyle); c0.setCellValue(data.months()[monthIndex]);
-                Cell c1 = cell(detail, row, 1); c1.setCellStyle(textStyle); c1.setCellValue(p.matricule);
-                Cell c2 = cell(detail, row, 2); c2.setCellStyle(textStyle); c2.setCellValue(p.name);
-                Cell c3 = cell(detail, row, 3); c3.setCellStyle(textStyle); c3.setCellValue(p.firstNames);
-                Cell c4 = cell(detail, row, 4); c4.setCellStyle(textStyle); c4.setCellValue(p.cnaps);
-                BigDecimal[] values = {m.gross, m.hours,
-                        cnapsNonPlafonnee(m), m.cnapsBase, m.cnapsEmployee, m.cnapsEmployer,
-                        (m.fmfpBase.signum() > 0 ? m.fmfpBase : m.cnapsBase), m.fmfpEmployer,
-                        ostieNonPlafonnee(m), m.ostieBase, m.ostieEmployee, m.ostieEmployer,
-                        omsiNonPlafonnee(m), m.omsiBase, m.omsiEmployee, m.omsiEmployer};
-                for (int i = 0; i < values.length; i++) {
-                    Cell numC = cell(detail, row, 5 + i);
-                    numC.setCellStyle(moneyStyle);
-                    if (values[i] != null) numC.setCellValue(values[i].doubleValue());
+
+            List<String> detailHeadList = new ArrayList<>();
+            detailHeadList.addAll(List.of("Mois", "Matricule", "Nom", "Prénoms", "N° CNaPS", "Brut", "Heures"));
+            for (String org : distinctOrgs) {
+                detailHeadList.add("Base " + org + " non plaf.");
+                detailHeadList.add("Base " + org + " plaf.");
+                detailHeadList.add(org + " salarié");
+                detailHeadList.add(org + " employeur");
+            }
+
+            for (int i = 0; i < detailHeadList.size(); i++) {
+                Cell dc = cell(detail, detailHeaderRow, i, headStyle);
+                dc.setCellValue(detailHeadList.get(i));
+            }
+            detail.getRow(detailHeaderRow).setHeightInPoints(26);
+
+            int dRow = detailHeaderRow + 1;
+            for (Person p : data.people()) {
+                for (int monthIndex = 0; monthIndex < 3; monthIndex++) {
+                    Month m = p.months[monthIndex];
+                    boolean hasAnyOrg = distinctOrgs.stream().anyMatch(org -> {
+                        OrganismeAmounts oa = m.organismes.get(org);
+                        return oa != null && oa.total().signum() != 0;
+                    });
+                    if (m.gross.signum() == 0 && !hasAnyOrg) continue;
+
+                    Cell c0 = cell(detail, dRow, 0, textStyle); c0.setCellValue(data.months()[monthIndex]);
+                    Cell c1 = cell(detail, dRow, 1, textStyle); c1.setCellValue(p.matricule);
+                    Cell c2 = cell(detail, dRow, 2, textStyle); c2.setCellValue(p.name);
+                    Cell c3 = cell(detail, dRow, 3, textStyle); c3.setCellValue(p.firstNames);
+                    Cell c4 = cell(detail, dRow, 4, textStyle); c4.setCellValue(p.cnaps);
+
+                    cell(detail, dRow, 5, moneyStyle).setCellValue(m.gross.doubleValue());
+                    cell(detail, dRow, 6, moneyStyle).setCellValue(m.hours.doubleValue());
+
+                    int colIdx = 7;
+                    for (String org : distinctOrgs) {
+                        OrganismeAmounts oa = m.organismes.get(org);
+                        BigDecimal baseNp = oa != null ? oa.baseNonPlafonnee : BigDecimal.ZERO;
+                        BigDecimal basePl = oa != null ? oa.base : BigDecimal.ZERO;
+                        BigDecimal sal = oa != null ? oa.employee : BigDecimal.ZERO;
+                        BigDecimal pat = oa != null ? oa.employer : BigDecimal.ZERO;
+
+                        cell(detail, dRow, colIdx++, moneyStyle).setCellValue(baseNp.doubleValue());
+                        cell(detail, dRow, colIdx++, moneyStyle).setCellValue(basePl.doubleValue());
+                        cell(detail, dRow, colIdx++, moneyStyle).setCellValue(sal.doubleValue());
+                        cell(detail, dRow, colIdx++, moneyStyle).setCellValue(pat.doubleValue());
+                    }
+                    dRow++;
                 }
-                row++;
             }
-            detail.createFreezePane(5, 3);
-            for (int col = 0; col < detailHeads.length; col++) detail.setColumnWidth(col, col == 2 || col == 3 ? 7500 : 4800);
+
+            Cell dTotLabel = cell(detail, dRow, 3, totalStyle); dTotLabel.setCellValue("TOTAL");
+            for (int col = 0; col < detailHeadList.size(); col++) {
+                if (col == 3) continue;
+                Cell c = cell(detail, dRow, col);
+                if (col < 5) {
+                    c.setCellStyle(totalStyle);
+                    c.setCellValue("");
+                } else {
+                    c.setCellStyle(totalMoney);
+                    if (dRow == detailHeaderRow + 1) {
+                        c.setCellValue(0);
+                    } else {
+                        String letter = CellReference.convertNumToColString(col);
+                        c.setCellFormula("SUM(" + letter + (detailHeaderRow + 2) + ":" + letter + dRow + ")");
+                    }
+                }
+            }
+
+            detail.createFreezePane(5, detailHeaderRow + 1);
+            for (int col = 0; col < detailHeadList.size(); col++) {
+                int width = switch (col) {
+                    case 0 -> 3800;
+                    case 1 -> 3500;
+                    case 2, 3 -> 7500;
+                    case 4 -> 4200;
+                    case 5 -> 5000;
+                    case 6 -> 3500;
+                    default -> 4800;
+                };
+                detail.setColumnWidth(col, width);
+            }
+
             book.getCreationHelper().createFormulaEvaluator().evaluateAll();
             book.write(output);
             return output.toByteArray();
         }
+    }
+
+    public static boolean isSocial(BulletinPaieLigne line) {
+        String code = n(line.getCodeRubrique()).toUpperCase(Locale.ROOT);
+        String category = n(line.getCategorie()).toUpperCase(Locale.ROOT);
+        return code.startsWith("COTISATION_") || category.startsWith("COTISATION_");
+    }
+
+    public static Map<String, String> loadOrganismes(Connection c) throws Exception {
+        Map<String, String> map = new LinkedHashMap<>();
+        String sql = "SELECT code, libelle FROM ref_organisme_social";
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String code = rs.getString("code");
+                String upper = code.toUpperCase(Locale.ROOT);
+                String display = "CNAPS".equalsIgnoreCase(code) ? "CNaPS" : code;
+                map.put(upper, display);
+            }
+        }
+        return map;
+    }
+
+    private static Cell cell(Sheet sheet, int row, int col, CellStyle style) {
+        Cell c = cell(sheet, row, col);
+        c.setCellStyle(style);
+        return c;
     }
 
     private static CellStyle[] styles(Row row, int count) {

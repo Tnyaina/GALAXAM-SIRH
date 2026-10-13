@@ -12,6 +12,7 @@ public class CotisationRequest {
     private Date dateFin;
     private String portee;
     private String categorie;
+    private Integer idOrganisme;
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
@@ -29,4 +30,6 @@ public class CotisationRequest {
     public void setPortee(String portee) { this.portee = portee; }
     public String getCategorie() { return categorie; }
     public void setCategorie(String categorie) { this.categorie = categorie; }
+    public Integer getIdOrganisme() { return idOrganisme; }
+    public void setIdOrganisme(Integer idOrganisme) { this.idOrganisme = idOrganisme; }
 }

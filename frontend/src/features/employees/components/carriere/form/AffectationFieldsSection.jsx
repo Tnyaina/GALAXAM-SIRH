@@ -28,7 +28,7 @@ export default function AffectationFieldsSection({
                     <option value="">Sélectionner un site</option>
                     {sites.map(s => (
                         <option key={s.idSite} value={s.idSite}>
-                            {s.codeSite} · {s.libelle}
+                            {s.libelle}
                         </option>
                     ))}
                 </Select>
@@ -42,7 +42,7 @@ export default function AffectationFieldsSection({
                     <option value="">Sélectionner un département</option>
                     {departements.map(d => (
                         <option key={d.idDepartement} value={d.idDepartement}>
-                            {d.codeDepartement} · {d.libelle}
+                            {d.libelle}
                         </option>
                     ))}
                 </Select>
@@ -64,7 +64,7 @@ export default function AffectationFieldsSection({
                         .filter(srv => !formData.idDepartement || String(srv.idDepartement) === String(formData.idDepartement))
                         .map(srv => (
                             <option key={srv.idService} value={srv.idService}>
-                                {srv.codeService} · {srv.libelle}
+                                {srv.libelle}
                             </option>
                         ))
                     }
@@ -80,6 +80,7 @@ export default function AffectationFieldsSection({
                         label: f.libelle,
                         sublabel: f.codeFonction,
                     }))}
+                    showSelectedSublabel={false}
                     placeholder="Rechercher une fonction…"
                 />
 
@@ -103,7 +104,7 @@ export default function AffectationFieldsSection({
                         const idCat = c.idCategorieProfessionnelle ?? c.idCategorie;
                         return (
                             <option key={idCat} value={idCat}>
-                                {c.code} · {c.libelle}
+                                {c.libelle}
                             </option>
                         );
                     })}
@@ -120,7 +121,7 @@ export default function AffectationFieldsSection({
                         const idMode = m.idModeCalculPaie ?? m.idModeCalcul;
                         return (
                             <option key={idMode} value={idMode}>
-                                {m.code} · {m.libelle}
+                                {m.libelle}
                             </option>
                         );
                     })}

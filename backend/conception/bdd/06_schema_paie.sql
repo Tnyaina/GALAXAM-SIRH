@@ -34,13 +34,27 @@ DROP TABLE IF EXISTS ref_taux_majoration CASCADE;
 DROP TABLE IF EXISTS bareme_irsa CASCADE;
 DROP TABLE IF EXISTS site_cotisation CASCADE;
 DROP TABLE IF EXISTS ref_type_cotisation CASCADE;
+DROP TABLE IF EXISTS ref_organisme_social CASCADE;
 
 DROP SEQUENCE IF EXISTS seq_numero_recu_stc;
 
--- 2. Cotisations Sociales & Rattachement Sites
+-- 2. Organismes Sociaux & Cotisations Sociales
+CREATE TABLE ref_organisme_social (
+    id_organisme SERIAL PRIMARY KEY,
+    code VARCHAR(30) NOT NULL UNIQUE,
+    libelle VARCHAR(150) NOT NULL,
+    categorie VARCHAR(30) NOT NULL DEFAULT 'SANTE' CHECK (categorie IN ('PREVOYANCE', 'SANTE', 'FORMATION', 'AUTRE')),
+    est_actif BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_organisme_social_code ON ref_organisme_social(code);
+CREATE INDEX idx_organisme_social_categorie ON ref_organisme_social(categorie);
+
 CREATE TABLE ref_type_cotisation (
     id_type_cotisation SERIAL PRIMARY KEY,
     id_config_legale INT REFERENCES paie_config_legale(id_config_legale) ON DELETE CASCADE,
+    id_organisme INT REFERENCES ref_organisme_social(id_organisme),
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
     taux_salarial NUMERIC(5,2),
@@ -55,17 +69,20 @@ CREATE TABLE ref_type_cotisation (
 );
 
 CREATE INDEX idx_type_cotisation_config ON ref_type_cotisation(id_config_legale);
+CREATE INDEX idx_type_cotisation_organisme ON ref_type_cotisation(id_organisme);
 
 CREATE TABLE site_cotisation (
     id_site_cotisation SERIAL PRIMARY KEY,
     id_site INT NOT NULL REFERENCES ref_site(id_site) ON DELETE CASCADE,
     id_type_cotisation INT NOT NULL REFERENCES ref_type_cotisation(id_type_cotisation) ON DELETE CASCADE,
+    id_organisme INT REFERENCES ref_organisme_social(id_organisme),
     est_actif BOOLEAN DEFAULT TRUE,
     est_plafonne_sante BOOLEAN DEFAULT TRUE,
     CONSTRAINT uk_site_cotisation UNIQUE (id_site, id_type_cotisation)
 );
 
 CREATE INDEX idx_site_cotisation_type ON site_cotisation(id_type_cotisation);
+CREATE INDEX idx_site_cotisation_organisme ON site_cotisation(id_organisme);
 
 -- 3. Barèmes IRSA & Majorations Légales
 CREATE TABLE bareme_irsa (
@@ -311,6 +328,9 @@ CREATE TABLE bulletin_paie_ligne (
     id_ligne SERIAL PRIMARY KEY,
     id_bulletin INT NOT NULL REFERENCES bulletin_paie(id_bulletin) ON DELETE CASCADE,
     id_rubrique INT REFERENCES paie_rubrique(id_rubrique),
+    id_organisme INT REFERENCES ref_organisme_social(id_organisme),
+    code_organisme VARCHAR(30),
+    id_type_cotisation INT REFERENCES ref_type_cotisation(id_type_cotisation),
     code_rubrique VARCHAR(40) NOT NULL,
     libelle_rubrique VARCHAR(150) NOT NULL,
     sens VARCHAR(10) NOT NULL,
@@ -333,6 +353,9 @@ CREATE TABLE bulletin_paie_ligne (
 CREATE INDEX idx_bulletin_ligne_bulletin ON bulletin_paie_ligne(id_bulletin);
 CREATE INDEX idx_bulletin_ligne_code ON bulletin_paie_ligne(code_rubrique);
 CREATE INDEX idx_bulletin_paie_ligne_rubrique ON bulletin_paie_ligne(id_rubrique);
+CREATE INDEX idx_bulletin_ligne_organisme ON bulletin_paie_ligne(id_organisme);
+CREATE INDEX idx_bulletin_ligne_code_organisme ON bulletin_paie_ligne(code_organisme);
+CREATE INDEX idx_bulletin_ligne_type_cotisation ON bulletin_paie_ligne(id_type_cotisation);
 
 -- 7. Avances, Acomptes et Variables DAF
 CREATE TABLE paie_avance_acompte (
@@ -696,20 +719,29 @@ CREATE TRIGGER trg_bulletin_paie_ligne_immutabilite
 -- DONNÉES DE RÉFÉRENCE DE BASE (INITIAL SEEDS DES ARCHIVES)
 -- =====================================================================
 
+-- Organismes Sociaux Déclaratifs
+INSERT INTO ref_organisme_social (id_organisme, code, libelle, categorie, est_actif) VALUES
+(1, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 'PREVOYANCE', TRUE),
+(2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 'SANTE', TRUE),
+(3, 'OMSI',  'Organisation Médicale Inter-entreprises', 'SANTE', TRUE),
+(4, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 'FORMATION', TRUE),
+(5, 'AMIT',  'Association Médicale Inter-entreprises de Tuléar', 'SANTE', TRUE);
+SELECT setval('ref_organisme_social_id_organisme_seq', (SELECT GREATEST(MAX(id_organisme), 5) FROM ref_organisme_social));
+
 -- Cotisations Sociales Référentielles
-INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut, portee, categorie) VALUES
-(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2001-07-01', 'ENTREPRISE', 'PREVOYANCE'),
-(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2001-07-01', 'SITE', 'SANTE'),
-(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2001-07-01', 'SITE', 'SANTE'),
-(4, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 4, TRUE, '2001-07-01', 'ENTREPRISE', 'FORMATION');
+INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, id_organisme, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut, portee, categorie) VALUES
+(1, 2, 1, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2001-07-01', 'ENTREPRISE', 'PREVOYANCE'),
+(2, 2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2001-07-01', 'SITE', 'SANTE'),
+(3, 2, 3, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2001-07-01', 'SITE', 'SANTE'),
+(4, 2, 4, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 4, TRUE, '2001-07-01', 'ENTREPRISE', 'FORMATION');
 SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 4) FROM ref_type_cotisation));
 
 -- Cotisations par Site (TNR: CNAPS+OSTIE, TMM: CNAPS+OMSI)
-INSERT INTO site_cotisation (id_site, id_type_cotisation, est_plafonne_sante) VALUES
-(1, 1, TRUE),
-(1, 2, TRUE),
-(2, 1, TRUE),
-(2, 3, TRUE);
+INSERT INTO site_cotisation (id_site, id_type_cotisation, id_organisme, est_plafonne_sante) VALUES
+(1, 1, 1, TRUE),
+(1, 2, 2, TRUE),
+(2, 1, 1, TRUE),
+(2, 3, 3, TRUE);
 
 -- Barèmes IRSA Officiels (LF_2024_2025: 5 Tranches jusqu'au 31/12/2025, LF_2026: 6 Tranches dès le 01/01/2026)
 INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) VALUES

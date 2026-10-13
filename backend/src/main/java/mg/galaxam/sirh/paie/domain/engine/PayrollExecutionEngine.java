@@ -648,22 +648,35 @@ public class PayrollExecutionEngine {
             BigDecimal cnapsSal = resCnaps.partSalariale();
             BigDecimal cnapsPat = resCnaps.partPatronale();
 
-            lignes.add(creerLigne(bp, "COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (" + percent(input.getTauxCnapsSalarialDecimal()) + "%)", "RETENUE", "COTISATION_SALARIALE",
-                    assietteCnaps, input.getTauxCnapsSalarialDecimal().movePointRight(2), cnapsSal, null, 200));
-            lignes.add(creerLigne(bp, "COTISATION_CNAPS_PAT", "Cotisation CNaPS Patronale (" + percent(input.getTauxCnapsPatronalDecimal()) + "%)", "PATRONAL", "COTISATION_PATRONALE",
-                    assietteCnaps, input.getTauxCnapsPatronalDecimal().movePointRight(2), null, cnapsPat, 300));
+            BulletinPaieLigne lCnapsSal = creerLigne(bp, "COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (" + percent(input.getTauxCnapsSalarialDecimal()) + "%)", "RETENUE", "COTISATION_SALARIALE",
+                    assietteCnaps, input.getTauxCnapsSalarialDecimal().movePointRight(2), cnapsSal, null, 200);
+            lCnapsSal.setIdOrganisme(input.getIdCnapsOrganisme());
+            lCnapsSal.setCodeOrganisme(input.getCodeCnapsOrganisme() != null ? input.getCodeCnapsOrganisme() : "CNAPS");
+            lCnapsSal.setIdTypeCotisation(input.getIdCnapsTypeCotisation());
+            lignes.add(lCnapsSal);
+
+            BulletinPaieLigne lCnapsPat = creerLigne(bp, "COTISATION_CNAPS_PAT", "Cotisation CNaPS Patronale (" + percent(input.getTauxCnapsPatronalDecimal()) + "%)", "PATRONAL", "COTISATION_PATRONALE",
+                    assietteCnaps, input.getTauxCnapsPatronalDecimal().movePointRight(2), null, cnapsPat, 300);
+            lCnapsPat.setIdOrganisme(input.getIdCnapsOrganisme());
+            lCnapsPat.setCodeOrganisme(input.getCodeCnapsOrganisme() != null ? input.getCodeCnapsOrganisme() : "CNAPS");
+            lCnapsPat.setIdTypeCotisation(input.getIdCnapsTypeCotisation());
+            lignes.add(lCnapsPat);
 
             totalCotisSalariales = totalCotisSalariales.add(cnapsSal);
             totalCotisPatronales = totalCotisPatronales.add(cnapsPat);
 
             // 2.3 FMFP patronale sur sa propre assiette.
             BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(social.fmfp());
-            lignes.add(creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (" + percent(input.getTauxFmfpPatronalDecimal()) + "%)", "PATRONAL", "COTISATION_PATRONALE",
-                    assietteFmfp.max(BigDecimal.ZERO).min(plafondCotisation), input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
+            BulletinPaieLigne lFmfpPat = creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (" + percent(input.getTauxFmfpPatronalDecimal()) + "%)", "PATRONAL", "COTISATION_PATRONALE",
+                    assietteFmfp.max(BigDecimal.ZERO).min(plafondCotisation), input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330);
+            lFmfpPat.setIdOrganisme(input.getIdFmfpOrganisme());
+            lFmfpPat.setCodeOrganisme(input.getCodeFmfpOrganisme() != null ? input.getCodeFmfpOrganisme() : "FMFP");
+            lFmfpPat.setIdTypeCotisation(input.getIdFmfpTypeCotisation());
+            lignes.add(lFmfpPat);
             totalCotisPatronales = totalCotisPatronales.add(fmfpPat);
         }
 
-        // 2.2 Santé (OSTIE ou OMSI, plafond légal si activé).
+        // 2.2 Santé (OSTIE, OMSI, AMIT ou autre organisme configuré).
         if (input.isSoumisSante()) {
             String organe = input.getCodeSanteOrgane() != null ? input.getCodeSanteOrgane().toUpperCase() : "OSTIE";
             boolean estOmsi = "OMSI".equals(organe);
@@ -683,10 +696,21 @@ public class PayrollExecutionEngine {
             BigDecimal santeSal = resSante.partSalariale();
             BigDecimal santePat = resSante.partPatronale();
 
-            lignes.add(creerLigne(bp, codeSanteSal, libelleSanteSal, "RETENUE", "COTISATION_SALARIALE",
-                    assietteSante, input.getTauxSanteSalarialDecimal().movePointRight(2), santeSal, null, 210));
-            lignes.add(creerLigne(bp, codeSantePat, libelleSantePat, "PATRONAL", "COTISATION_PATRONALE",
-                    assietteSante, input.getTauxSantePatronalDecimal().movePointRight(2), null, santePat, 310));
+            String codeOrgSante = input.getCodeSanteOrganisme() != null ? input.getCodeSanteOrganisme() : organe;
+
+            BulletinPaieLigne lSanteSal = creerLigne(bp, codeSanteSal, libelleSanteSal, "RETENUE", "COTISATION_SALARIALE",
+                    assietteSante, input.getTauxSanteSalarialDecimal().movePointRight(2), santeSal, null, 210);
+            lSanteSal.setIdOrganisme(input.getIdSanteOrganisme());
+            lSanteSal.setCodeOrganisme(codeOrgSante);
+            lSanteSal.setIdTypeCotisation(input.getIdSanteTypeCotisation());
+            lignes.add(lSanteSal);
+
+            BulletinPaieLigne lSantePat = creerLigne(bp, codeSantePat, libelleSantePat, "PATRONAL", "COTISATION_PATRONALE",
+                    assietteSante, input.getTauxSantePatronalDecimal().movePointRight(2), null, santePat, 310);
+            lSantePat.setIdOrganisme(input.getIdSanteOrganisme());
+            lSantePat.setCodeOrganisme(codeOrgSante);
+            lSantePat.setIdTypeCotisation(input.getIdSanteTypeCotisation());
+            lignes.add(lSantePat);
 
             totalCotisSalariales = totalCotisSalariales.add(santeSal);
             totalCotisPatronales = totalCotisPatronales.add(santePat);

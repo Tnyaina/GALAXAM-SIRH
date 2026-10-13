@@ -157,8 +157,16 @@ public class GrandLivrePaieExportService {
     }
     private static boolean isCnaps(BulletinPaieLigne line) { return code(line).startsWith("COTISATION_CNAPS"); }
     private static boolean isHealth(BulletinPaieLigne line) {
-        return java.util.Set.of("COTISATION_SANTE_SAL", "COTISATION_SANTE_PAT", "COTISATION_OSTIE_SAL",
-                "COTISATION_OSTIE_PAT", "COTISATION_OMSI_SAL", "COTISATION_OMSI_PAT").contains(code(line));
+        String c = code(line);
+        if (c.contains("SANTE") || c.contains("OSTIE") || c.contains("OMSI") || c.contains("AMIT") || c.contains("SMIE")) {
+            return true;
+        }
+        String org = line.getCodeOrganisme();
+        if (org != null) {
+            String o = org.toUpperCase(Locale.ROOT);
+            return o.equals("OSTIE") || o.equals("OMSI") || o.equals("AMIT") || o.equals("SMIE");
+        }
+        return false;
     }
     private static boolean isLoan(BulletinPaieLigne line) {
         return java.util.Set.of("RETENUE_PRET", "RETENUE_ECHEANCE_PRET").contains(code(line));

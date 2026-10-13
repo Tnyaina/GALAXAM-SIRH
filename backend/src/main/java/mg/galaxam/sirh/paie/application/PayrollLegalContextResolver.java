@@ -80,6 +80,12 @@ public class PayrollLegalContextResolver {
         input.setTauxCnapsSalarial(rates.cnapsEmployee());
         input.setTauxCnapsPatronal(rates.cnapsEmployer());
         input.setTauxFmfpPatronal(rates.fmfpEmployer());
+        input.setIdCnapsOrganisme(rates.cnapsOrganismeId());
+        input.setCodeCnapsOrganisme(rates.cnapsOrganismeCode());
+        input.setIdCnapsTypeCotisation(rates.cnapsTypeCotisationId());
+        input.setIdFmfpOrganisme(rates.fmfpOrganismeId());
+        input.setCodeFmfpOrganisme(rates.fmfpOrganismeCode());
+        input.setIdFmfpTypeCotisation(rates.fmfpTypeCotisationId());
     }
 
     private void resolveOvertimeRates(
@@ -150,6 +156,9 @@ public class PayrollLegalContextResolver {
         input.setTauxSanteSalarial(rate.employee());
         input.setTauxSantePatronal(rate.employer());
         input.setEstPlafonneSante(rate.capped());
+        input.setIdSanteOrganisme(rate.organismeId());
+        input.setCodeSanteOrganisme(rate.organismeCode());
+        input.setIdSanteTypeCotisation(rate.typeCotisationId());
     }
 
     private void resolveDynamicParameters(

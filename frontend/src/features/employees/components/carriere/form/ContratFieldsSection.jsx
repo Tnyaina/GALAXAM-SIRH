@@ -34,7 +34,7 @@ export default function ContratFieldsSection({
                         const idFil = f.idFiliale ?? idx;
                         return (
                             <option key={idFil} value={idFil}>
-                                {f.codeFiliale} · {f.raisonSociale}
+                                {f.raisonSociale}
                             </option>
                         );
                     })}
@@ -53,7 +53,7 @@ export default function ContratFieldsSection({
                         const idTc = tc.idTypeContrat ?? idx;
                         return (
                             <option key={idTc} value={idTc}>
-                                {tc.code} · {tc.libelle}
+                                {tc.libelle}
                             </option>
                         );
                     })}
@@ -72,7 +72,7 @@ export default function ContratFieldsSection({
                         const idTi = ti.idTypeIntervenant ?? idx;
                         return (
                             <option key={idTi} value={idTi}>
-                                {ti.code} · {ti.libelle}
+                                {ti.libelle}
                             </option>
                         );
                     })}
@@ -168,4 +168,3 @@ export function PeriodeEssaiFieldsSection({
         </div>
     );
 }
-

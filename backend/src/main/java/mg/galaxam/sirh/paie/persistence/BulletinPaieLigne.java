@@ -34,6 +34,9 @@ public class BulletinPaieLigne extends ClassMere {
     private boolean soumisCotisation = true;
     private String etapeCalcul;
     private String commentaire;
+    private Integer idOrganisme;
+    private String codeOrganisme;
+    private Integer idTypeCotisation;
     private Timestamp createdAt;
 
     public BulletinPaieLigne() {
@@ -54,8 +57,9 @@ public class BulletinPaieLigne extends ClassMere {
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO bulletin_paie_ligne (id_bulletin, id_rubrique, code_rubrique, libelle_rubrique, " +
                      "sens, categorie, base_calcul, taux_salarial, taux_patronal, quantite, " +
-                     "montant_salarial, montant_patronal, ordre, imposable, soumis_cotisation, commentaire, etape_calcul) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_ligne";
+                     "montant_salarial, montant_patronal, ordre, imposable, soumis_cotisation, commentaire, etape_calcul, " +
+                     "id_organisme, code_organisme, id_type_cotisation) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_ligne";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idBulletin);
             if (idRubrique != null) {
@@ -78,6 +82,17 @@ public class BulletinPaieLigne extends ClassMere {
             ps.setBoolean(15, soumisCotisation);
             ps.setString(16, commentaire);
             ps.setString(17, etapeCalcul);
+            if (idOrganisme != null) {
+                ps.setInt(18, idOrganisme);
+            } else {
+                ps.setNull(18, java.sql.Types.INTEGER);
+            }
+            ps.setString(19, codeOrganisme);
+            if (idTypeCotisation != null) {
+                ps.setInt(20, idTypeCotisation);
+            } else {
+                ps.setNull(20, java.sql.Types.INTEGER);
+            }
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -93,7 +108,8 @@ public class BulletinPaieLigne extends ClassMere {
         String sql = "UPDATE bulletin_paie_ligne SET id_bulletin = ?, id_rubrique = ?, code_rubrique = ?, " +
                      "libelle_rubrique = ?, sens = ?, categorie = ?, base_calcul = ?, taux_salarial = ?, " +
                      "taux_patronal = ?, quantite = ?, montant_salarial = ?, montant_patronal = ?, " +
-                     "ordre = ?, imposable = ?, soumis_cotisation = ?, commentaire = ?, etape_calcul = ? WHERE id_ligne = ?";
+                     "ordre = ?, imposable = ?, soumis_cotisation = ?, commentaire = ?, etape_calcul = ?, " +
+                     "id_organisme = ?, code_organisme = ?, id_type_cotisation = ? WHERE id_ligne = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idBulletin);
             if (idRubrique != null) {
@@ -116,7 +132,18 @@ public class BulletinPaieLigne extends ClassMere {
             ps.setBoolean(15, soumisCotisation);
             ps.setString(16, commentaire);
             ps.setString(17, etapeCalcul);
-            ps.setInt(18, idLigne);
+            if (idOrganisme != null) {
+                ps.setInt(18, idOrganisme);
+            } else {
+                ps.setNull(18, java.sql.Types.INTEGER);
+            }
+            ps.setString(19, codeOrganisme);
+            if (idTypeCotisation != null) {
+                ps.setInt(20, idTypeCotisation);
+            } else {
+                ps.setNull(20, java.sql.Types.INTEGER);
+            }
+            ps.setInt(21, idLigne);
             ps.executeUpdate();
         }
         return this;
@@ -210,6 +237,13 @@ public class BulletinPaieLigne extends ClassMere {
         l.setSoumisCotisation(rs.getBoolean("soumis_cotisation"));
         l.setEtapeCalcul(rs.getString("etape_calcul"));
         l.setCommentaire(rs.getString("commentaire"));
+        try {
+            int orgId = rs.getInt("id_organisme");
+            l.setIdOrganisme(rs.wasNull() ? null : orgId);
+            l.setCodeOrganisme(rs.getString("code_organisme"));
+            int typeCotId = rs.getInt("id_type_cotisation");
+            l.setIdTypeCotisation(rs.wasNull() ? null : typeCotId);
+        } catch (Exception ignored) {}
         l.setCreatedAt(rs.getTimestamp("created_at"));
         return l;
     }
@@ -270,4 +304,13 @@ public class BulletinPaieLigne extends ClassMere {
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
+
+    public Integer getIdOrganisme() { return idOrganisme; }
+    public void setIdOrganisme(Integer idOrganisme) { this.idOrganisme = idOrganisme; }
+
+    public String getCodeOrganisme() { return codeOrganisme; }
+    public void setCodeOrganisme(String codeOrganisme) { this.codeOrganisme = codeOrganisme; }
+
+    public Integer getIdTypeCotisation() { return idTypeCotisation; }
+    public void setIdTypeCotisation(Integer idTypeCotisation) { this.idTypeCotisation = idTypeCotisation; }
 }

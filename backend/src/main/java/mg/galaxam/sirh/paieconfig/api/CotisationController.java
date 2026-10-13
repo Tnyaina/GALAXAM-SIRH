@@ -73,6 +73,7 @@ public class CotisationController {
                 cot.setDateFin(request.getDateFin());
                 cot.setPortee(request.getPortee() != null ? request.getPortee() : "SITE");
                 cot.setCategorie(request.getCategorie() != null ? request.getCategorie() : "SANTE");
+                cot.setIdOrganisme(request.getIdOrganisme());
 
                 cot.save(c);
                 AuditLog.audit(c, "CREATION", "ref_type_cotisation", String.valueOf(cot.getIdTypeCotisation()), null, cot);
@@ -109,6 +110,7 @@ public class CotisationController {
                 existing.setDateFin(request.getDateFin());
                 if (request.getPortee() != null) existing.setPortee(request.getPortee());
                 if (request.getCategorie() != null) existing.setCategorie(request.getCategorie());
+                existing.setIdOrganisme(request.getIdOrganisme());
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_type_cotisation", String.valueOf(id), null, existing);
@@ -197,6 +199,7 @@ public class CotisationController {
                 SiteCotisation sc = new SiteCotisation();
                 sc.setIdSite(request.getIdSite());
                 sc.setIdTypeCotisation(request.getIdTypeCotisation());
+                sc.setIdOrganisme(request.getIdOrganisme());
                 sc.setEstActif(true);
 
                 sc.save(c);
