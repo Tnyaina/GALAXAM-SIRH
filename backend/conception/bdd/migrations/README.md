@@ -30,6 +30,12 @@ les contient pour les nouvelles installations.
 distincte de la validation du calcul. Les colonnes figurent dans le schéma
 canonique `06_schema_paie.sql`.
 
+`26-10-13-sp69-stc-snapshot-source.sql` fige le contrat et l'origine du pointage
+sur le STC validé. À appliquer avant de valider un STC avec cette version.
+
+`26-10-13-sp70-stc-rapprochement-bulletin.sql` conserve le bulletin mensuel final,
+son net, le paiement réel attesté et le solde inclus dans le STC. Appliquer après SP69.
+
 `26-10-03-sp55-conge-decompte-feries-date.sql` fixe la règle Galaxam actuelle
 `INCLUS` dans un paramètre obligatoire et versionnable par date d'effet.
 Une version `EXCLUS` future changera le décompte à partir de chaque jour concerné,

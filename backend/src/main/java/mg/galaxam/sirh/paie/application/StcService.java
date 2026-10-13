@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
+import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
 import mg.galaxam.sirh.contrat.domain.AncienneteEngine;
 import mg.galaxam.sirh.contrat.persistence.EmployeEnfant;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
@@ -42,6 +43,63 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class StcService {
+
+    private record BulletinFiscalSnapshot(BigDecimal revenuNetImposable, BigDecimal irsaNet,
+            BigDecimal baseCnaps, BigDecimal cnapsSal, BigDecimal cnapsPat,
+            BigDecimal baseSante, BigDecimal santeSal, BigDecimal santePat,
+            BigDecimal baseFmfp, BigDecimal fmfpPat) {}
+
+    private BulletinFiscalSnapshot chargerBulletinFiscal(Integer idBulletin, Connection c) throws Exception {
+        BulletinPaie bulletin = BulletinPaie.trouverParId(idBulletin, c);
+        if (bulletin == null) throw new IllegalArgumentException("Le bulletin mensuel lié est introuvable.");
+        BigDecimal[] valeurs = new BigDecimal[8];
+        java.util.Arrays.fill(valeurs, BigDecimal.ZERO);
+        boolean lignesSocialesTrouvees = false;
+        BigDecimal exclusionsIrsa = BigDecimal.ZERO;
+        String sql = "SELECT code_rubrique, sens, categorie, imposable, base_calcul, montant_salarial, montant_patronal "
+                + "FROM bulletin_paie_ligne WHERE id_bulletin = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idBulletin);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code_rubrique");
+                    String sens = rs.getString("sens");
+                    if (code == null) continue;
+                    BigDecimal base = zeroIfNull(rs.getBigDecimal("base_calcul"));
+                    BigDecimal salarial = zeroIfNull(rs.getBigDecimal("montant_salarial"));
+                    BigDecimal patronal = zeroIfNull(rs.getBigDecimal("montant_patronal"));
+                    if ("HS_EXONEREE_IRSA".equals(code)) exclusionsIrsa = exclusionsIrsa.add(salarial);
+                    if ("GAIN".equals(sens) && !rs.getBoolean("imposable")
+                            && !"INDEMNITE_NON_IMPOSABLE".equals(rs.getString("categorie"))) {
+                        exclusionsIrsa = exclusionsIrsa.add(salarial);
+                    }
+                    if (code.startsWith("COTISATION_") && ("RETENUE".equals(sens) || "PATRONAL".equals(sens))) {
+                        lignesSocialesTrouvees = true;
+                    }
+                    if ("COTISATION_CNAPS_SAL".equals(code)) {
+                        valeurs[0] = base; valeurs[1] = salarial;
+                    } else if ("COTISATION_CNAPS_PAT".equals(code)) {
+                        valeurs[2] = patronal;
+                    } else if (code.startsWith("COTISATION_") && code.endsWith("_SAL")
+                            && !"COTISATION_CNAPS_SAL".equals(code) && !"COTISATION_FMFP_SAL".equals(code)) {
+                        valeurs[3] = base; valeurs[4] = salarial;
+                    } else if (code.startsWith("COTISATION_") && code.endsWith("_PAT")
+                            && !"COTISATION_CNAPS_PAT".equals(code) && !"COTISATION_FMFP_PAT".equals(code)) {
+                        valeurs[5] = patronal;
+                    } else if ("COTISATION_FMFP_PAT".equals(code) && "PATRONAL".equals(sens)) {
+                        valeurs[6] = base; valeurs[7] = patronal;
+                    }
+                }
+            }
+        }
+        if ((zeroIfNull(bulletin.getTotalCotisationsSalariales()).signum() > 0
+                || zeroIfNull(bulletin.getTotalCotisationsPatronales()).signum() > 0) && !lignesSocialesTrouvees) {
+            throw new IllegalArgumentException("Les lignes de cotisation du bulletin mensuel sont nécessaires au calcul différentiel du STC.");
+        }
+        return new BulletinFiscalSnapshot(zeroIfNull(bulletin.getSalaireNetImposable()).subtract(exclusionsIrsa).max(BigDecimal.ZERO),
+                zeroIfNull(bulletin.getIrsaNet()), valeurs[0], valeurs[1], valeurs[2],
+                valeurs[3], valeurs[4], valeurs[5], valeurs[6], valeurs[7]);
+    }
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StcService.class);
 
@@ -88,6 +146,7 @@ public class StcService {
             throw PayrollConfigurationGuard.missing("AFFECTATION_CONTRAT", idEmploye,
                     dateDepartEffective.toString());
         }
+        prep.setIdContrat(emploi.idContrat());
         prep.setMatricule(emploi.matricule());
         prep.setNomComplet(emploi.nomComplet());
         prep.setCinNumero(emploi.cinNumero());
@@ -177,10 +236,59 @@ public class StcService {
             }
         }
 
-        // 4. Estimation du salaire au prorata du dernier mois
+        // 4. Estimation du salaire au prorata du dernier mois (avec intégration du pointage réel si disponible)
         LocalDate dDep = dateDepartEffective.toLocalDate();
-        int jourDuMois = Math.min(dDep.getDayOfMonth(), 30);
-        BigDecimal joursTravaillesEstimes = new BigDecimal(String.valueOf(jourDuMois));
+        LocalDate dDebutMois = dDep.withDayOfMonth(1);
+        LocalDate dDebutPlage = dDebutMois;
+        if (prep.getIdPeriodePaie() != null) {
+            String sqlPerDates = "SELECT date_debut FROM periode_paie WHERE id_periode_paie = ?";
+            try (PreparedStatement psPD = c.prepareStatement(sqlPerDates)) {
+                psPD.setInt(1, prep.getIdPeriodePaie());
+                try (ResultSet rsPD = psPD.executeQuery()) {
+                    if (rsPD.next() && rsPD.getDate("date_debut") != null) {
+                        dDebutPlage = rsPD.getDate("date_debut").toLocalDate();
+                    }
+                }
+            }
+        }
+
+        String sqlPointageReel = "SELECT COUNT(*) AS lignes_pointage, " +
+                "COUNT(*) FILTER (WHERE r.decompte_absence = FALSE AND (pj.total_heures > 0 OR pj.heures_matin > 0 OR pj.heures_am > 0)) AS jours_travailles_reels, " +
+                "COALESCE(SUM(pj.total_heures), 0) AS total_heures_reelles " +
+                "FROM pointage_jour pj " +
+                "JOIN ref_statut_pointage_jour r ON r.id_statut_jour = pj.id_statut_jour " +
+                "WHERE pj.id_employe = ? AND pj.date_pointage >= ? AND pj.date_pointage <= ?";
+
+        BigDecimal joursPointage = BigDecimal.ZERO;
+        BigDecimal heuresPointage = BigDecimal.ZERO;
+        boolean pointageTrouve = false;
+        try (PreparedStatement psPtg = c.prepareStatement(sqlPointageReel)) {
+            psPtg.setInt(1, idEmploye);
+            psPtg.setDate(2, Date.valueOf(dDebutPlage));
+            psPtg.setDate(3, dateDepartEffective);
+            try (ResultSet rsPtg = psPtg.executeQuery()) {
+                if (rsPtg.next()) {
+                    int countJours = rsPtg.getInt("jours_travailles_reels");
+                    BigDecimal sumHeures = rsPtg.getBigDecimal("total_heures_reelles");
+                    if (rsPtg.getInt("lignes_pointage") > 0) {
+                        joursPointage = new BigDecimal(countJours);
+                        heuresPointage = sumHeures != null ? sumHeures : BigDecimal.ZERO;
+                        pointageTrouve = true;
+                    }
+                }
+            }
+        }
+
+        // Le pointage ne représente pas à lui seul les jours rémunérés (congés,
+        // fériés, repos, dispense). Le salaire mensuel suit les jours sous contrat.
+        BigDecimal joursTravaillesEstimes;
+        if (pointageTrouve) {
+            prep.setSourcePointage("POINTAGE_REEL");
+            prep.setJoursPointageReels(joursPointage);
+            prep.setTotalHeuresPointage(heuresPointage);
+        }
+        int joursSousContrat = Math.min((int) java.time.temporal.ChronoUnit.DAYS.between(dDebutPlage, dDep) + 1, 30);
+        joursTravaillesEstimes = new BigDecimal(Math.max(0, joursSousContrat));
         prep.setJoursTravaillesEstimes(joursTravaillesEstimes);
         BigDecimal prorataEstime = salaireBase.multiply(joursTravaillesEstimes)
                 .divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
@@ -214,8 +322,8 @@ public class StcService {
         prep.setTauxJournalierConge(tauxConge);
         prep.setIccpEstimee(iccpEstimee);
 
-        // Le référentiel actuel ne distingue pas les cinq groupes du décret 2007-009.
-        // Aucune indemnité de préavis ou de licenciement ne peut être déduite de "CADRE/A".
+        // Le préavis dépend de la catégorie réglementaire exacte, de la convention
+        // et du mode de rupture. Aucune suggestion automatique approximative.
         prep.setMoisPreavisSuggere(BigDecimal.ZERO);
         prep.setIndemnitePreavisEstimee(BigDecimal.ZERO);
         prep.setIndemniteLicenciementEstimee(BigDecimal.ZERO);
@@ -237,6 +345,52 @@ public class StcService {
             }
         }
 
+        if (prep.getIdPeriodePaie() != null) {
+            List<String> controles = new java.util.ArrayList<>();
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT 1 FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ? "
+                    + "AND statut_snapshot IN ('GELE', 'CONSOMME') LIMIT 1")) {
+                ps.setInt(1, idEmploye);
+                ps.setInt(2, prep.getIdPeriodePaie());
+                try (ResultSet rs = ps.executeQuery()) {
+                    prep.setPointageGele(rs.next());
+                }
+            }
+            if (!prep.isPointageGele()) {
+                controles.add("Pointage final non gelé : vérifier les absences, heures et indemnités avant application.");
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT id_bulletin, statut, net_a_payer FROM bulletin_paie WHERE id_employe = ? AND id_periode_paie = ? "
+                    + "AND type_bulletin = 'MENSUEL' AND statut <> 'ANNULE' LIMIT 1")) {
+                ps.setInt(1, idEmploye);
+                ps.setInt(2, prep.getIdPeriodePaie());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        prep.setIdBulletinMensuel(rs.getInt("id_bulletin"));
+                        prep.setStatutBulletinMensuel(rs.getString("statut"));
+                        prep.setNetBulletinMensuel(rs.getBigDecimal("net_a_payer"));
+                        controles.add("Bulletin mensuel " + rs.getString("statut")
+                                + " : renseigner le paiement réel pour inclure uniquement le solde encore dû au STC.");
+                    }
+                }
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT 1 FROM paie_avance_acompte a "
+                    + "LEFT JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement "
+                    + "WHERE a.id_employe = ? AND a.id_periode_paie = ? "
+                    + "AND a.statut IN ('EN_ATTENTE', 'APPROUVE') "
+                    + "AND COALESCE(t.categorie, '') NOT IN ('ACOMPTE', 'AVANCE') LIMIT 1")) {
+                ps.setInt(1, idEmploye);
+                ps.setInt(2, prep.getIdPeriodePaie());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) controles.add("Variables de paie présentes : les intégrer au calcul final avant le STC.");
+                }
+            }
+            prep.setControlesApplication(controles);
+        } else {
+            prep.setControlesApplication(List.of("Aucune période de paie ne couvre le départ : créer ou choisir la période de régularisation."));
+        }
+
         return prep;
     }
 
@@ -250,6 +404,8 @@ public class StcService {
 
         StcCalculResultDTO res = new StcCalculResultDTO();
         res.setIdEmploye(prep.getIdEmploye());
+        res.setIdContrat(prep.getIdContrat());
+        res.setSourcePointage(prep.getSourcePointage());
         res.setMatricule(prep.getMatricule());
         res.setNomComplet(prep.getNomComplet());
         res.setIntitulePoste(prep.getIntitulePoste());
@@ -263,6 +419,36 @@ public class StcService {
         res.setSalaireBase(prep.getSalaireBase());
         res.setTauxHoraire(prep.getTauxHoraire());
 
+        boolean bulletinMensuelValide = "VALIDE".equals(prep.getStatutBulletinMensuel())
+                || "CLOTURE".equals(prep.getStatutBulletinMensuel());
+        if (prep.getIdBulletinMensuel() != null && !bulletinMensuelValide) {
+            throw new IllegalStateException("Le bulletin mensuel final doit être validé avant son rapprochement avec le STC.");
+        }
+        BigDecimal montantDejaPaye = zeroIfNull(req.getMontantBulletinDejaPaye());
+        if (montantDejaPaye.signum() < 0) throw new IllegalArgumentException("Le montant déjà payé ne peut pas être négatif.");
+        BigDecimal netBulletinMensuel = bulletinMensuelValide ? zeroIfNull(prep.getNetBulletinMensuel()) : BigDecimal.ZERO;
+        if (montantDejaPaye.compareTo(netBulletinMensuel) > 0) {
+            throw new IllegalArgumentException("Le paiement déclaré dépasse le net du bulletin mensuel.");
+        }
+        if (montantDejaPaye.signum() == 0 && (req.getDatePaiementBulletin() != null
+                || (req.getReferencePaiementBulletin() != null
+                && !req.getReferencePaiementBulletin().isBlank()))) {
+            throw new IllegalArgumentException("Ne renseignez une preuve de paiement que pour un montant déjà payé.");
+        }
+        if (montantDejaPaye.signum() > 0 && (req.getDatePaiementBulletin() == null
+                || req.getReferencePaiementBulletin() == null
+                || req.getReferencePaiementBulletin().isBlank())) {
+            throw new IllegalArgumentException("La date et la référence du paiement réel du bulletin sont obligatoires.");
+        }
+        if (montantDejaPaye.signum() > 0 && req.getDatePaiementBulletin().toLocalDate()
+                .isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo")))) {
+            throw new IllegalArgumentException("Un paiement futur ne peut pas être déclaré comme déjà effectué.");
+        }
+        res.setIdBulletinMensuel(bulletinMensuelValide ? prep.getIdBulletinMensuel() : null);
+        res.setNetBulletinMensuel(netBulletinMensuel);
+        res.setMontantBulletinDejaPaye(montantDejaPaye);
+        res.setSoldeBulletinARegler(netBulletinMensuel.subtract(montantDejaPaye));
+
         // 1. Salaire prorata dernier mois
         BigDecimal joursTravailles = req.getJoursTravaillesDernierMois() != null
                 ? req.getJoursTravaillesDernierMois()
@@ -271,9 +457,15 @@ public class StcService {
 
         BigDecimal salaireProrata = prep.getSalaireBase().multiply(joursTravailles)
                 .divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+        if (bulletinMensuelValide) salaireProrata = BigDecimal.ZERO;
         res.setSalaireProrata(salaireProrata);
-        res.ajouterLigne("SALAIRE_BASE_PRORATA", "Salaire au prorata du dernier mois (" + joursTravailles + "j/30)",
-                "GAIN", prep.getSalaireBase(), null, salaireProrata);
+        if (bulletinMensuelValide) {
+            res.ajouterLigne("BULLETIN_MENSUEL_RAPPROCHE", "Bulletin mensuel final déjà calculé : net restant à régler",
+                    "INFO", netBulletinMensuel, null, res.getSoldeBulletinARegler());
+        } else {
+            res.ajouterLigne("SALAIRE_BASE_PRORATA", "Salaire au prorata du dernier mois (" + joursTravailles + "j/30)",
+                    "GAIN", prep.getSalaireBase(), null, salaireProrata);
+        }
 
         // 2. ICCP (Indemnité Compensatrice de Congés Payés) ou Retenue pour congés par anticipation
         if (req.getSoldeConges() != null && req.getSoldeConges().compareTo(prep.getSoldeCongesRestant()) != 0) {
@@ -341,6 +533,8 @@ public class StcService {
         BigDecimal assietteBruteSoumise = salaireProrata.add(gainConge).add(autresIndemnites).max(BigDecimal.ZERO);
         BigDecimal assietteSociale = assietteBruteSoumise.add(indemnitePreavis);
         BigDecimal assietteFiscaleBrute = assietteSociale.add(indemniteLicenciement);
+        BulletinFiscalSnapshot bulletinFiscal = bulletinMensuelValide
+                ? chargerBulletinFiscal(prep.getIdBulletinMensuel(), c) : null;
 
         // Chargement dynamique des règles légales et plafonds
         PaieConfigLegale configLegale = chargerConfigLegale(req.getDateDepart(), c);
@@ -362,12 +556,16 @@ public class StcService {
         BigDecimal tauxCnapsSal = socialRates.cnapsEmployee();
         BigDecimal tauxCnapsPat = socialRates.cnapsEmployer();
         BigDecimal tauxFmfp = socialRates.fmfpEmployer();
+        BigDecimal ancienneBaseCnaps = bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.baseCnaps();
+        BigDecimal ancienneBaseSante = bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.baseSante();
+        BigDecimal ancienneBaseFmfp = bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.baseFmfp();
         SocialContributionCalculator.Result socialResult = new SocialContributionCalculator().calculate(
-                assietteSociale, new SocialContributionCalculator.Rules(tauxCnapsSal, tauxCnapsPat,
+                ancienneBaseCnaps.add(assietteSociale), ancienneBaseSante.add(assietteSociale),
+                ancienneBaseFmfp.add(assietteSociale), new SocialContributionCalculator.Rules(tauxCnapsSal, tauxCnapsPat,
                         BigDecimal.ZERO, BigDecimal.ZERO, tauxFmfp, plafondCotisation, true));
         var resCnaps = socialResult.cnaps();
-        BigDecimal baseCnaps = resCnaps.assiette();
-        BigDecimal cnapsSal = resCnaps.partSalariale();
+        BigDecimal baseCnaps = resCnaps.assiette().subtract(ancienneBaseCnaps).max(BigDecimal.ZERO);
+        BigDecimal cnapsSal = resCnaps.partSalariale().subtract(bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.cnapsSal()).max(BigDecimal.ZERO);
         res.setCotisationCnaps(cnapsSal);
         if (cnapsSal.compareTo(BigDecimal.ZERO) > 0) {
             res.ajouterLigne("COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (" + tauxCnapsSal.movePointRight(2).stripTrailingZeros().toPlainString() + "%)", "RETENUE", baseCnaps, tauxCnapsSal.movePointRight(2), cnapsSal);
@@ -389,23 +587,25 @@ public class StcService {
             throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: santé au " + req.getDateDepart());
         }
 
-        var resSante = new SocialContributionCalculator().calculate(assietteSociale,
+        var resSante = new SocialContributionCalculator().calculate(ancienneBaseCnaps.add(assietteSociale),
+                ancienneBaseSante.add(assietteSociale), ancienneBaseFmfp.add(assietteSociale),
                 new SocialContributionCalculator.Rules(tauxCnapsSal, tauxCnapsPat,
                         tauxSanteSal, tauxSantePat, tauxFmfp, plafondCotisation, true)).health();
-        BigDecimal santeSal = resSante.partSalariale();
+        BigDecimal baseSante = resSante.assiette().subtract(ancienneBaseSante).max(BigDecimal.ZERO);
+        BigDecimal santeSal = resSante.partSalariale().subtract(bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.santeSal()).max(BigDecimal.ZERO);
         res.setCotisationSante(santeSal);
         if (santeSal.compareTo(BigDecimal.ZERO) > 0) {
             String libelleSante = "Cotisation " + codeSante + " Salariale (" + tauxSanteSal.movePointRight(2) + "%)";
-            res.ajouterLigne("COTISATION_SANTE_SAL", libelleSante, "RETENUE", resSante.assiette(), tauxSanteSal.movePointRight(2), santeSal);
+            res.ajouterLigne("COTISATION_SANTE_SAL", libelleSante, "RETENUE", baseSante, tauxSanteSal.movePointRight(2), santeSal);
         }
 
         BigDecimal totalCotis = cnapsSal.add(santeSal);
         res.setTotalCotisationsSociales(totalCotis);
 
         // Cotisations patronales (CNaPS 13%, Santé patronale, FMFP 1%)
-        BigDecimal cnapsPat = resCnaps.partPatronale();
-        BigDecimal santePat = resSante.partPatronale();
-        BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(socialResult.fmfp());
+        BigDecimal cnapsPat = resCnaps.partPatronale().subtract(bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.cnapsPat()).max(BigDecimal.ZERO);
+        BigDecimal santePat = resSante.partPatronale().subtract(bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.santePat()).max(BigDecimal.ZERO);
+        BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(socialResult.fmfp()).subtract(bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.fmfpPat()).max(BigDecimal.ZERO);
         BigDecimal totalCotisPat = cnapsPat.add(santePat).add(fmfpPat);
         res.setTotalCotisationsPatronales(totalCotisPat);
 
@@ -414,10 +614,10 @@ public class StcService {
         }
         if (santePat.compareTo(BigDecimal.ZERO) > 0) {
             String libelleSantePat = "Cotisation " + codeSante + " Patronale (" + tauxSantePat.movePointRight(2) + "%)";
-            res.ajouterLigne("COTISATION_SANTE_PAT", libelleSantePat, "PATRONAL", resSante.assiette(), tauxSantePat.movePointRight(2), santePat);
+            res.ajouterLigne("COTISATION_SANTE_PAT", libelleSantePat, "PATRONAL", baseSante, tauxSantePat.movePointRight(2), santePat);
         }
         if (fmfpPat.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (" + tauxFmfp.movePointRight(2).stripTrailingZeros().toPlainString() + "%)", "PATRONAL", assietteSociale, tauxFmfp.movePointRight(2), fmfpPat);
+            res.ajouterLigne("COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (" + tauxFmfp.movePointRight(2).stripTrailingZeros().toPlainString() + "%)", "PATRONAL", ancienneBaseFmfp.add(assietteSociale).min(plafondCotisation).subtract(ancienneBaseFmfp).max(BigDecimal.ZERO), tauxFmfp.movePointRight(2), fmfpPat);
         }
 
         // Assiette IRSA
@@ -437,10 +637,12 @@ public class StcService {
         BigDecimal deducParEnfant = configLegale.getDeductionChargeFamille();
         BigDecimal minPercep = configLegale.getMinimumPerceptionIrsa();
 
+        BigDecimal assietteMensuelle = bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.revenuNetImposable();
         var irsaRes = new PayrollTaxCalculations().calculateIrsa(
-                netImposable, tranches, nbEnfants, deducParEnfant, minPercep
+                assietteMensuelle.add(netImposable), tranches, nbEnfants, deducParEnfant, minPercep
         );
-        irsaNet = MoneyRoundingPolicy.tax(irsaRes.irsaNet().min(netImposable));
+        irsaNet = MoneyRoundingPolicy.tax(irsaRes.irsaNet().subtract(
+                bulletinFiscal == null ? BigDecimal.ZERO : bulletinFiscal.irsaNet()).max(BigDecimal.ZERO).min(netImposable));
         res.setIrsaNet(irsaNet);
         if (irsaNet.compareTo(BigDecimal.ZERO) > 0) {
             String libelleIrsa = "Retenue à la Source IRSA (Barème Progressif " +
@@ -455,11 +657,7 @@ public class StcService {
         // Net avant déductions d'engagements personnels
         BigDecimal netAvantEngagements = totalBrut.subtract(totalCotis).subtract(irsaNet).max(BigDecimal.ZERO);
 
-        // 5. Seuls les acomptes déjà versés sont imputés sur ce calcul.
-        // Un prêt reste une créance distincte : aucune compensation automatique sur le salaire.
-        res.setSoldePretsDeduit(BigDecimal.ZERO);
-
-        // Imputation des acomptes déjà versés.
+        // 5. Engagements financiers (Acomptes versés & Prêts d'entreprise)
         BigDecimal soldeAvances = calculerAcomptesVersesNonImputes(req.getIdEmploye(), c);
         BigDecimal avancesADeduire = MoneyRoundingPolicy.amount(soldeAvances.min(netAvantEngagements));
         res.setSoldeAvancesDeduit(avancesADeduire);
@@ -469,13 +667,23 @@ public class StcService {
 
         BigDecimal netApresAvances = netAvantEngagements.subtract(avancesADeduire).max(BigDecimal.ZERO);
 
+        // Apurement optionnel des prêts d'entreprise au STC (accord/solde libératoire)
+        BigDecimal pretsADeduire = BigDecimal.ZERO;
+        if (req.isApurerPretDansStc() || (req.getSoldePretsADeduire() != null && req.getSoldePretsADeduire().signum() > 0)) {
+            throw new IllegalArgumentException("Une retenue de prêt exige une cession ou un titre vérifié dans le dossier. L'apurement automatique du STC est indisponible.");
+        }
+        res.setSoldePretsDeduit(pretsADeduire);
+
+        BigDecimal netApresPrets = netApresAvances.subtract(pretsADeduire).max(BigDecimal.ZERO);
+
         // Les retenues diverses ne sont plus acceptées par ce moteur.
         BigDecimal autresADeduire = BigDecimal.ZERO;
         res.setAutresDeductions(autresADeduire);
         res.setMotifAutresDeductions(null);
 
         // 6. Net Final à Payer (arrondi bancaire officiel Ariary à la dizaine la plus proche)
-        BigDecimal netFinalNonArrondi = netApresAvances.subtract(autresADeduire).max(BigDecimal.ZERO);
+        BigDecimal netFinalNonArrondi = netApresPrets.subtract(autresADeduire)
+                .add(res.getSoldeBulletinARegler()).max(BigDecimal.ZERO);
         BigDecimal netFinal = BulletinPaie.arrondirDizaineAriary(netFinalNonArrondi);
         BigDecimal ecartArrondi = netFinal.subtract(netFinalNonArrondi);
         if (ecartArrondi.compareTo(BigDecimal.ZERO) != 0) {
@@ -534,6 +742,118 @@ public class StcService {
             }
         }
         if (idPeriode == null) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE au " + req.getDateDepart());
+        StcPreparationDTO preparation = preparerStc(req.getIdEmploye(), req.getDateDepart(), req.getMotifRupture(), c);
+        if ("POINTAGE_REEL".equals(preparation.getSourcePointage()) && !preparation.isPointageGele()) {
+            throw new IllegalStateException(
+                    "Le pointage final existe mais n'est pas gelé. Clôturez et contrôlez le pointage "
+                    + "avant de valider le STC.");
+        }
+        if (simulation.getIdBulletinMensuel() == null
+                && !"POINTAGE_REEL".equals(preparation.getSourcePointage())
+                && (req.getJustificationSalaireDernierMois() == null
+                || req.getJustificationSalaireDernierMois().isBlank())) {
+            throw new IllegalStateException(
+                    "Aucun pointage n'est disponible pour la période finale : justifiez les jours rémunérés "
+                    + "et confirmez les absences et variables avant de valider le STC.");
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_bulletin, id_snapshot_pointage FROM bulletin_paie WHERE id_employe = ? AND id_periode_paie = ? "
+                + "AND COALESCE(type_bulletin, 'MENSUEL') <> 'STC' "
+                + "AND statut IN ('VALIDE', 'CLOTURE') LIMIT 1")) {
+            ps.setInt(1, req.getIdEmploye());
+            ps.setInt(2, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    if (!Integer.valueOf(rs.getInt("id_bulletin")).equals(simulation.getIdBulletinMensuel())) {
+                        throw new IllegalStateException("Le bulletin mensuel a changé depuis la simulation : relancez le rapprochement.");
+                    }
+                    if (preparation.isPointageGele()) {
+                        Integer snapshotBulletin = (Integer) rs.getObject("id_snapshot_pointage");
+                        try (PreparedStatement psDernier = c.prepareStatement(
+                                "SELECT id_cumul FROM pointage_cumul_periode WHERE id_employe = ? "
+                                + "AND id_periode_paie = ? AND statut_snapshot IN ('GELE', 'CONSOMME') "
+                                + "ORDER BY version_snapshot DESC LIMIT 1")) {
+                            psDernier.setInt(1, req.getIdEmploye());
+                            psDernier.setInt(2, idPeriode);
+                            try (ResultSet dernier = psDernier.executeQuery()) {
+                                if (!dernier.next() || !Integer.valueOf(dernier.getInt(1)).equals(snapshotBulletin)) {
+                                    throw new IllegalStateException("Le bulletin mensuel ne correspond pas au dernier pointage gelé : recalculez la paie finale.");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM pointage_jour pj JOIN ref_statut_pointage_jour s "
+                + "ON s.id_statut_jour = pj.id_statut_jour "
+                + "WHERE pj.id_employe = ? AND pj.id_periode_paie = ? AND pj.date_pointage <= ? "
+                + "AND (s.decompte_absence = TRUE OR s.code = 'ANOMALIE_SAISIE') LIMIT 1")) {
+            ps.setInt(1, req.getIdEmploye());
+            ps.setInt(2, idPeriode);
+            ps.setDate(3, req.getDateDepart());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && simulation.getIdBulletinMensuel() == null
+                        && (req.getJoursTravaillesDernierMois() == null
+                        || req.getJustificationSalaireDernierMois() == null
+                        || req.getJustificationSalaireDernierMois().isBlank())) {
+                    throw new IllegalStateException(
+                            "Le pointage contient une absence ou une anomalie : saisissez les jours rémunérés corrigés et leur justification.");
+                }
+            }
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM pointage_jour WHERE id_employe = ? AND id_periode_paie = ? "
+                + "AND date_pointage <= ? AND (COALESCE(heures_nuit, 0) > 0 "
+                + "OR COALESCE(montant_total_indemnites, 0) > 0) LIMIT 1")) {
+            ps.setInt(1, req.getIdEmploye());
+            ps.setInt(2, idPeriode);
+            ps.setDate(3, req.getDateDepart());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && simulation.getIdBulletinMensuel() == null) throw new IllegalStateException(
+                        "Le pointage contient des heures de nuit ou des indemnités variables que ce calcul STC ne valorise pas encore. La validation est suspendue pour éviter de les omettre.");
+            }
+        }
+        // Les heures supplémentaires et les compléments calculés à la clôture
+        // hebdomadaire vivent dans le snapshot, pas dans pointage_jour.
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM (SELECT * FROM pointage_cumul_periode "
+                + "WHERE id_employe = ? AND id_periode_paie = ? "
+                + "AND statut_snapshot IN ('GELE', 'CONSOMME') "
+                + "ORDER BY version_snapshot DESC LIMIT 1) dernier WHERE ("
+                + "COALESCE(heures_hs_30, 0) > 0 OR COALESCE(heures_hs_50, 0) > 0 "
+                + "OR COALESCE(heures_nuit_total, 0) > 0 "
+                + "OR COALESCE(heures_dimanche_total, 0) > 0 "
+                + "OR COALESCE(heures_ferie_total, 0) > 0) LIMIT 1")) {
+            ps.setInt(1, req.getIdEmploye());
+            ps.setInt(2, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && simulation.getIdBulletinMensuel() == null) throw new IllegalStateException(
+                        "Le pointage clôturé comporte des heures supplémentaires, de nuit, de dimanche ou de jour férié. "
+                        + "Ces gains doivent être valorisés dans la paie finale avant validation du STC.");
+            }
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM paie_avance_acompte a "
+                + "LEFT JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement "
+                + "WHERE a.id_employe = ? AND a.id_periode_paie = ? "
+                + "AND a.statut IN ('EN_ATTENTE', 'APPROUVE') "
+                + "AND COALESCE(t.categorie, '') NOT IN ('ACOMPTE', 'AVANCE') LIMIT 1")) {
+            ps.setInt(1, req.getIdEmploye());
+            ps.setInt(2, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) throw new IllegalStateException(
+                        "Des variables de paie ou primes restent en attente sur cette période. "
+                        + "Validez et intégrez-les dans la paie finale avant le STC.");
+            }
+        }
+        if (simulation.getIdBulletinMensuel() == null && req.getJoursTravaillesDernierMois() != null
+                && req.getJoursTravaillesDernierMois().compareTo(preparation.getJoursTravaillesEstimes()) != 0
+                && (req.getJustificationSalaireDernierMois() == null
+                || req.getJustificationSalaireDernierMois().isBlank())) {
+            throw new IllegalArgumentException("Une correction des jours rémunérés exige une justification RH.");
+        }
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT 1 FROM paie_stc WHERE id_employe = ? AND id_periode_paie = ? AND statut <> 'ANNULE' LIMIT 1")) {
             ps.setInt(1, req.getIdEmploye());
@@ -578,6 +898,7 @@ public class StcService {
         entity.setStatut("VALIDE");
         entity.setModeReglement(simulation.getModeReglement());
         entity.setCommentaire((simulation.getCommentaire() == null ? "" : simulation.getCommentaire() + "\n")
+                + "Justification salaire final : " + (req.getJustificationSalaireDernierMois() == null ? "Aucune correction" : req.getJustificationSalaireDernierMois().trim()) + "; "
                 + "Justification indemnités : " + (req.getJustificationIndemnites() == null ? "Sans indemnité manuelle" : req.getJustificationIndemnites().trim())
                 + "; rémunération de référence licenciement : " + req.getRemunerationReferenceLicenciement());
 
@@ -609,6 +930,22 @@ public class StcService {
 
         entity.save(c);
         simulation.setIdStc(entity.getIdStc());
+        try (PreparedStatement psSnapshot = c.prepareStatement(
+                "UPDATE paie_stc SET id_contrat = ?, source_pointage = ?, id_bulletin_mensuel = ?, "
+                + "net_bulletin_mensuel = ?, montant_bulletin_deja_paye = ?, solde_bulletin_a_regler = ?, "
+                + "date_paiement_bulletin = ?, reference_paiement_bulletin = ? WHERE id_stc = ?")) {
+            psSnapshot.setInt(1, simulation.getIdContrat());
+            psSnapshot.setString(2, simulation.getSourcePointage());
+            if (simulation.getIdBulletinMensuel() == null) psSnapshot.setNull(3, java.sql.Types.INTEGER);
+            else psSnapshot.setInt(3, simulation.getIdBulletinMensuel());
+            psSnapshot.setBigDecimal(4, simulation.getNetBulletinMensuel());
+            psSnapshot.setBigDecimal(5, simulation.getMontantBulletinDejaPaye());
+            psSnapshot.setBigDecimal(6, simulation.getSoldeBulletinARegler());
+            psSnapshot.setDate(7, req.getDatePaiementBulletin());
+            psSnapshot.setString(8, req.getReferencePaiementBulletin());
+            psSnapshot.setInt(9, entity.getIdStc());
+            psSnapshot.executeUpdate();
+        }
 
         // 2.1 Émission synchrone du Bulletin de Paie de sortie (STC) pour inclusion déclarative (DGI SAFI & CNaPS DNTS)
         BulletinPaie bpStc = new BulletinPaie();
@@ -630,6 +967,11 @@ public class StcService {
         bpStc.setReferenceBulletin("STC-" + entity.getNumeroRecu());
         bpStc.setMatricule(simulation.getMatricule() != null ? simulation.getMatricule() : "STC-" + req.getIdEmploye());
         bpStc.setNomPrenom(simulation.getNomComplet() != null ? simulation.getNomComplet() : "Salarié Sortant");
+        StcPreparationDTO identiteValidee = preparerStc(req.getIdEmploye(), req.getDateDepart(), req.getMotifRupture(), c);
+        bpStc.setCinNumero(identiteValidee.getCinNumero());
+        bpStc.setCinDateDelivrance(identiteValidee.getCinDateDelivrance());
+        bpStc.setCinLieuDelivrance(identiteValidee.getCinLieuDelivrance());
+        bpStc.setNumeroCnaps(identiteValidee.getNumeroCnaps());
         bpStc.setIntitulePoste(simulation.getIntitulePoste() != null ? simulation.getIntitulePoste() : "Salarié");
         bpStc.setNomDepartement(simulation.getDepartement() != null ? simulation.getDepartement() : "Direction");
         bpStc.setNomSite(simulation.getSite() != null ? simulation.getSite() : "Antananarivo");
@@ -750,6 +1092,39 @@ public class StcService {
             }
         }
 
+        // 4.1 Clôture du compteur de congés payés (ICCP liquidée au STC - remise à 0)
+        BigDecimal soldeCongeSolde = simulation.getSoldeCongesRestant();
+        if (soldeCongeSolde != null && soldeCongeSolde.signum() > 0) {
+            MouvementSoldeConge msc = new MouvementSoldeConge();
+            msc.setIdEmploye(entity.getIdEmploye());
+            msc.setTypeMouvement("AJUSTEMENT");
+            msc.setNbJours(soldeCongeSolde.negate());
+            msc.setDateMouvement(entity.getDateDepart());
+            msc.setCommentaire("Liquidation ICCP - STC " + entity.getNumeroRecu());
+            msc.setCreatedBy(userId);
+            msc.save(c);
+
+            // Clôturer la période de référence active si elle existe
+            try (PreparedStatement psCloseRef = c.prepareStatement(
+                    "UPDATE conge_periode_reference SET statut = 'CLOTUREE' " +
+                    "WHERE id_employe = ? AND statut = 'OUVERTE'")) {
+                psCloseRef.setInt(1, entity.getIdEmploye());
+                psCloseRef.executeUpdate();
+            } catch (Exception eRef) {
+                log.warn("[StcService] Clôture conge_periode_reference ignorée: {}", eRef.getMessage());
+            }
+        }
+
+        // 4.2 Apurement des prêts d'entreprise déduits au STC
+        BigDecimal pretDeduit = simulation.getSoldePretsDeduit();
+        if (pretDeduit != null && pretDeduit.signum() > 0) {
+            try {
+                PaiePret.solderPretsPourStc(req.getIdEmploye(), pretDeduit, bpStc.getIdBulletin(), c);
+            } catch (Exception ePret) {
+                throw new IllegalStateException("L'apurement du prêt a échoué : validation du STC annulée.", ePret);
+            }
+        }
+
         // 5. Désactivation optionnelle de l'employé et clôture carrière
         // Note d'architecture (Règle Métier SIRH ACT-018 / ACT-025) :
         // La désactivation administrative standard de l'employé incombe au Workflow de Rupture RH (WorkflowRhService).
@@ -835,6 +1210,11 @@ public class StcService {
         if (emploi == null || emploi.idContrat() == null) {
             throw new IllegalArgumentException("Aucun contrat applicable à la date du départ.");
         }
+        if (emploi.dateFinContrat() == null
+                || !emploi.dateFinContrat().equals(req.getDateDepart().toLocalDate())) {
+            throw new IllegalArgumentException(
+                    "La validation du STC exige une rupture appliquée avec une date de fin de contrat égale à la date de départ. Utilisez la simulation tant que la rupture est en brouillon.");
+        }
         if ("FIN_CONTRAT".equals(motif) && "CDD".equalsIgnoreCase(emploi.typeContratCode())
                 && (emploi.dateFinContrat() == null
                 || !emploi.dateFinContrat().equals(req.getDateDepart().toLocalDate()))) {
@@ -914,7 +1294,11 @@ public class StcService {
         PaieStc s = PaieStc.trouverParId(idStc, c);
         if (s == null) return null;
 
-        StcPreparationDTO prep = preparerStc(s.getIdEmploye(), s.getDateDepart(), s.getMotifRupture(), c);
+        // Un reçu validé doit rester lisible même si le contrat, les congés ou
+        // la configuration légale ont changé depuis son émission.
+        StcPreparationDTO prep = s.getIdBulletin() == null
+                ? preparerStc(s.getIdEmploye(), s.getDateDepart(), s.getMotifRupture(), c)
+                : null;
 
         StcRecuDTO r = new StcRecuDTO();
         r.setNumeroRecu(s.getNumeroRecu());
@@ -943,19 +1327,66 @@ public class StcService {
         } catch (Exception ignored) {}
 
         r.setIdEmploye(s.getIdEmploye());
-        r.setMatricule(prep.getMatricule());
-        r.setNomComplet(prep.getNomComplet());
-        r.setCinNumero(prep.getCinNumero());
-        r.setCinDateDelivrance(prep.getCinDateDelivrance());
-        r.setCinLieuDelivrance(prep.getCinLieuDelivrance());
-        r.setNumeroCnaps(prep.getNumeroCnaps());
-        r.setIntitulePoste(prep.getIntitulePoste());
-        r.setDepartement(prep.getDepartement());
-        r.setSite(prep.getSite());
-        r.setDateEmbauche(prep.getDateEmbauche());
+        try (PreparedStatement psSnapshot = c.prepareStatement(
+                "SELECT id_contrat, source_pointage, id_bulletin_mensuel, net_bulletin_mensuel, "
+                + "montant_bulletin_deja_paye, solde_bulletin_a_regler, date_paiement_bulletin, "
+                + "reference_paiement_bulletin FROM paie_stc WHERE id_stc = ?")) {
+            psSnapshot.setInt(1, idStc);
+            try (ResultSet snapshot = psSnapshot.executeQuery()) {
+                if (snapshot.next()) {
+                    Integer contratFige = (Integer) snapshot.getObject("id_contrat");
+                    r.setIdContrat(contratFige != null ? contratFige : prep != null ? prep.getIdContrat() : null);
+                    String sourceFigee = snapshot.getString("source_pointage");
+                    r.setSourcePointage(sourceFigee != null ? sourceFigee : prep != null ? prep.getSourcePointage() : null);
+                    r.setIdBulletinMensuel((Integer) snapshot.getObject("id_bulletin_mensuel"));
+                    r.setNetBulletinMensuel(snapshot.getBigDecimal("net_bulletin_mensuel"));
+                    r.setMontantBulletinDejaPaye(snapshot.getBigDecimal("montant_bulletin_deja_paye"));
+                    r.setSoldeBulletinARegler(snapshot.getBigDecimal("solde_bulletin_a_regler"));
+                    r.setDatePaiementBulletin(snapshot.getDate("date_paiement_bulletin"));
+                    r.setReferencePaiementBulletin(snapshot.getString("reference_paiement_bulletin"));
+                }
+            }
+        }
+        if (prep != null) {
+            r.setMatricule(prep.getMatricule());
+            r.setNomComplet(prep.getNomComplet());
+            r.setCinNumero(prep.getCinNumero());
+            r.setCinDateDelivrance(prep.getCinDateDelivrance());
+            r.setCinLieuDelivrance(prep.getCinLieuDelivrance());
+            r.setNumeroCnaps(prep.getNumeroCnaps());
+            r.setIntitulePoste(prep.getIntitulePoste());
+            r.setDepartement(prep.getDepartement());
+            r.setSite(prep.getSite());
+            r.setDateEmbauche(prep.getDateEmbauche());
+            r.setAncienneteTexte(prep.getAncienneteAnnees() + " an(s) et " + (prep.getAncienneteMois() % 12) + " mois");
+        }
         r.setDateDepart(s.getDateDepart());
         r.setMotifRupture(s.getMotifRupture());
-        r.setAncienneteTexte(prep.getAncienneteAnnees() + " an(s) et " + (prep.getAncienneteMois() % 12) + " mois");
+        // Le bulletin STC contient l'identité figée lors de la validation.
+        if (s.getIdBulletin() != null) {
+            try (PreparedStatement psIdentite = c.prepareStatement(
+                    "SELECT matricule, nom_prenom, cin_numero, cin_date_delivrance, cin_lieu_delivrance, "
+                    + "numero_cnaps, intitule_poste, nom_departement, nom_site, date_embauche, anciennete_mois "
+                    + "FROM bulletin_paie WHERE id_bulletin = ?")) {
+                psIdentite.setInt(1, s.getIdBulletin());
+                try (ResultSet rsIdentite = psIdentite.executeQuery()) {
+                    if (rsIdentite.next()) {
+                        r.setMatricule(rsIdentite.getString("matricule"));
+                        r.setNomComplet(rsIdentite.getString("nom_prenom"));
+                        r.setCinNumero(rsIdentite.getString("cin_numero"));
+                        r.setCinDateDelivrance(rsIdentite.getDate("cin_date_delivrance"));
+                        r.setCinLieuDelivrance(rsIdentite.getString("cin_lieu_delivrance"));
+                        r.setNumeroCnaps(rsIdentite.getString("numero_cnaps"));
+                        r.setIntitulePoste(rsIdentite.getString("intitule_poste"));
+                        r.setDepartement(rsIdentite.getString("nom_departement"));
+                        r.setSite(rsIdentite.getString("nom_site"));
+                        r.setDateEmbauche(rsIdentite.getDate("date_embauche"));
+                        int mois = rsIdentite.getInt("anciennete_mois");
+                        r.setAncienneteTexte((mois / 12) + " an(s) et " + (mois % 12) + " mois");
+                    }
+                }
+            }
+        }
 
         r.setSalaireProrata(s.getSalaireProrata());
         r.setSoldeCongesRestant(s.getSoldeCongesRestant());
@@ -981,7 +1412,8 @@ public class StcService {
                 .add(s.getSoldePretsDeduit()).add(s.getSoldeAvancesDeduit()).add(r.getAutresDeductions());
 
         // Réconciliation de l'arrondi à la dizaine d'Ariary pour le décompte imprimé.
-        BigDecimal deltaArrondi = s.getNetAPayerStc().subtract(s.getTotalBrutStc().subtract(totalRetenues));
+        BigDecimal deltaArrondi = s.getNetAPayerStc().subtract(
+                s.getTotalBrutStc().subtract(totalRetenues).add(zeroIfNull(r.getSoldeBulletinARegler())));
         if (deltaArrondi.compareTo(BigDecimal.ZERO) > 0) {
             r.setTotalBrut(s.getTotalBrutStc().add(deltaArrondi));
             r.setTotalRetenues(totalRetenues);

@@ -308,14 +308,32 @@ class PayrollLongTermGrhLifecycleIntegrationTest {
                 verifierStatutPret(c, pretId, "SOLDE");
 
                 // Transition 5 : Solde de Tout Compte (STC) & Reçu Libératoire pour Employé 2
+                int periodeSortieId = CongeTestFixtureHelper.createPeriodePaie(c, "2026-10-STC",
+                        LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), "BROUILLON");
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE contrat_travail SET date_fin = DATE '2026-10-10' WHERE id_contrat = ?")) {
+                    ps.setInt(1, contrat2Id);
+                    ps.executeUpdate();
+                }
+                try (Statement migration = c.createStatement()) {
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS id_contrat INT REFERENCES contrat_travail(id_contrat)");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS source_pointage VARCHAR(30)");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS id_bulletin_mensuel INT REFERENCES bulletin_paie(id_bulletin)");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS net_bulletin_mensuel NUMERIC(20,2) NOT NULL DEFAULT 0");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS montant_bulletin_deja_paye NUMERIC(20,2) NOT NULL DEFAULT 0");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS solde_bulletin_a_regler NUMERIC(20,2) NOT NULL DEFAULT 0");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS date_paiement_bulletin DATE");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS reference_paiement_bulletin VARCHAR(255)");
+                }
                 StcCalculRequest stcReq = new StcCalculRequest();
+                stcReq.setJustificationSalaireDernierMois("Simulation historique : jours sous contrat contrôlés sans pointage final");
                 stcReq.setIdEmploye(emp2Id);
-                stcReq.setIdPeriodePaie(p3Id);
-                stcReq.setDateDepart(Date.valueOf(LocalDate.of(2026, 9, 30)));
+                stcReq.setIdPeriodePaie(periodeSortieId);
+                stcReq.setDateDepart(Date.valueOf(LocalDate.of(2026, 10, 10)));
                 stcReq.setMotifRupture("DEMISSION");
                 stcReq.setSimulation(false);
                 stcReq.setModeReglement("VIREMENT");
-                stcReq.setJoursTravaillesDernierMois(new BigDecimal("22.0")); // mois complet septembre
+                stcReq.setJoursTravaillesDernierMois(new BigDecimal("10.0"));
 
                 StcCalculResultDTO stcResult = stcService.validerStc(stcReq, adminId, c);
                 assertNotNull(stcResult);

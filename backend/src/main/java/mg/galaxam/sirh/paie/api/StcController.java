@@ -56,7 +56,7 @@ public class StcController {
                 try {
                     dateSql = Date.valueOf(java.time.LocalDate.parse(cleanDate));
                 } catch (Exception e) {
-                    dateSql = new Date(System.currentTimeMillis());
+                    throw new IllegalArgumentException("La date de départ doit être au format AAAA-MM-JJ.", e);
                 }
             } else {
                 dateSql = new Date(System.currentTimeMillis());

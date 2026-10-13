@@ -482,9 +482,9 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                             <Td className="text-right font-data">{formatMoneyAr(s.totalBrutStc)}</Td>
                                             <Td className="text-right font-data text-[var(--color-danger-600)]">{formatMoneyAr(s.soldePretsDeduit)}</Td>
                                             <Td className="text-right font-data font-bold text-[var(--color-fg)]">{formatMoneyAr(s.netAPayerStc)}</Td>
-                                            <Td><Badge variant={s.statut === 'VALIDE' ? 'success' : 'warning'} size="xs">{s.statut}</Badge></Td>
+                                            <Td><Badge variant={s.statut === 'REGLE' ? 'success' : 'warning'} size="xs">{s.statut === 'VALIDE' ? 'À régler' : s.statut}</Badge></Td>
                                             <Td className="text-right">
-                                                <Button type="button" variant="outline" size="xs" iconLeft={<FileText size={12} />} onClick={() => setSelectedStcRecuId(s.idStc)}>Quittance</Button>
+                                                <Button type="button" variant="outline" size="xs" iconLeft={<FileText size={12} />} onClick={() => setSelectedStcRecuId(s.idStc)}>Décompte</Button>
                                             </Td>
                                         </Tr>
                                     ))}
@@ -520,7 +520,9 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                     />
                 )}
                 {selectedStcRecuId && (
-                    <StcRecuModal isOpen={Boolean(selectedStcRecuId)} onClose={() => setSelectedStcRecuId(null)} idStc={selectedStcRecuId} />
+                    <StcRecuModal isOpen={Boolean(selectedStcRecuId)} onClose={() => setSelectedStcRecuId(null)}
+                        idStc={selectedStcRecuId} canRegisterPayment={canWrite}
+                        onPaymentRegistered={() => chargerDonnees({ silent: true })} />
                 )}
                 {isDemandeOpen && (
                     <DemandeAcompteAvanceModal

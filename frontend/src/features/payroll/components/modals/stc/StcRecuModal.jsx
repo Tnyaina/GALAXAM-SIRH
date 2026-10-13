@@ -1,22 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
-import { Printer, FileText } from 'lucide-react';
+import { Printer, FileText, Download } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td, Tfoot } from '@/components/ui/data-display/Table';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import stcService from '@/features/payroll/api/stcService';
+import documentService from '@/api/documentService';
 import { getErrorMessage } from '@/api/apiClient';
 
 /**
  * Reçu détaillé du calcul de fin de contrat.
  */
-export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = null }) {
+export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = null, canRegisterPayment = false, onPaymentRegistered }) {
     // État local
     const [recu, setRecu] = useState(initialRecu);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [dateReglement, setDateReglement] = useState('');
+    const [referenceReglement, setReferenceReglement] = useState('');
+    const [savingPayment, setSavingPayment] = useState(false);
     const printAreaRef = useRef(null);
 
     // Effet : charge le reçu seulement à l'ouverture, sauf s'il est déjà fourni.
@@ -54,6 +59,24 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
         window.print();
     };
 
+    const handleRegisterPayment = async () => {
+        if (!dateReglement || !referenceReglement.trim()) {
+            setError('Indiquez la date et la référence du paiement réellement effectué.');
+            return;
+        }
+        setSavingPayment(true);
+        setError(null);
+        try {
+            await stcService.enregistrerReglement(idStc, { dateReglement, referenceReglement: referenceReglement.trim() });
+            setRecu(await stcService.obtenirRecuStc(idStc));
+            onPaymentRegistered?.();
+        } catch (err) {
+            setError(getErrorMessage(err, 'Impossible de constater le règlement du STC.'));
+        } finally {
+            setSavingPayment(false);
+        }
+    };
+
     const printSheetId = 'stc-recu-print-sheet';
 
     // Rendu : garde de fermeture.
@@ -70,9 +93,30 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
             footer={
                 <div className="flex justify-between items-center w-full">
                     <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                        Calcul validé ; paiement à attester séparément
+                        {recu?.statut === 'REGLE' ? 'Paiement constaté' : 'Calcul validé ; paiement à attester séparément'}
                     </span>
                     <div className="flex gap-2">
+                        {recu?.idContrat && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                iconLeft={<Download size={15} />}
+                                onClick={async () => {
+                                    try {
+                                        await documentService.downloadCertificatDocx(
+                                            recu.idContrat,
+                                            'contrat',
+                                            `Certificat_Travail_${recu.matricule || 'STC'}.docx`
+                                        );
+                                    } catch (err) {
+                                        setError(getErrorMessage(err, 'Impossible de télécharger le certificat de travail.'));
+                                    }
+                                }}
+                            >
+                                Certificat de travail (Art. 50)
+                            </Button>
+                        )}
                         <Button type="button" variant="outline" size="sm" onClick={onClose}>
                             Fermer
                         </Button>
@@ -134,8 +178,23 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                 </div>
             )}
 
+            {recu?.statut === 'VALIDE' && canRegisterPayment && (
+                <div className="p-3 border border-[var(--color-border)] space-y-3 print:hidden">
+                    <p className="text-xs font-semibold">Constater le paiement du STC</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input type="date" label="Date du règlement" value={dateReglement}
+                            onChange={(event) => setDateReglement(event.target.value)} />
+                        <Input label="Référence du règlement" value={referenceReglement}
+                            onChange={(event) => setReferenceReglement(event.target.value)} />
+                    </div>
+                    <Button type="button" variant="primary" size="sm" loading={savingPayment}
+                        onClick={handleRegisterPayment}>Enregistrer le règlement</Button>
+                </div>
+            )}
+
             {recu && (
-                <div id={printSheetId} ref={printAreaRef} className="space-y-4 text-xs p-1 bg-white text-black">
+                <div id={printSheetId} ref={printAreaRef}
+                    className="space-y-4 text-xs p-1 bg-[var(--color-surface)] text-[var(--color-fg)] print:bg-white print:text-black">
                     {/* Entête Document */}
                     <div className="border-b border-[var(--color-border)] pb-4 flex justify-between items-start">
                         <div>
@@ -212,7 +271,12 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         <Tbody className="font-mono text-[11px]">
                             {Number(recu.salaireProrata) > 0 && (
                                 <Tr>
-                                    <Td className="font-sans">Salaire proratisé du dernier mois</Td>
+                                    <Td className="font-sans">
+                                        Salaire proratisé du dernier mois
+                                        <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
+                                            {`Jours sous contrat retenus : ${recu.joursTravaillesDernierMois || 0}/30`}
+                                        </span>
+                                    </Td>
                                     <Td className="text-right">{formatMoneyAr(recu.salaireProrata)}</Td>
                                 </Tr>
                             )}
@@ -222,7 +286,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                     <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
                                         {Number(recu.soldeCongesRestant) < 0
                                             ? `Solde négatif de ${Math.abs(Number(recu.soldeCongesRestant))} jour(s) à examiner séparément`
-                                            : `Solde : ${recu.soldeCongesRestant} j, valorisation des droits acquis`}
+                                            : `Liquidation intégrale de ${recu.soldeCongesRestant} j · Solde de congés soldé à 0.00 j`}
                                     </span>
                                 </Td>
                                 <Td className="text-right">{formatMoneyAr(recu.indemniteCongesPayes)}</Td>
@@ -273,6 +337,18 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                 <Tr>
                                     <Td className="font-sans text-[var(--color-fg-muted)]">- Autres déductions conventionnelles</Td>
                                     <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(recu.autresDeductions)}</Td>
+                                </Tr>
+                            )}
+                            {recu.idBulletinMensuel && (
+                                <Tr>
+                                    <Td className="font-sans">
+                                        + Solde du bulletin mensuel #{recu.idBulletinMensuel}
+                                        <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
+                                            Net {formatMoneyAr(recu.netBulletinMensuel)} · déjà payé {formatMoneyAr(recu.montantBulletinDejaPaye)}
+                                            {recu.referencePaiementBulletin && ` · ${recu.referencePaiementBulletin}`}
+                                        </span>
+                                    </Td>
+                                    <Td className="text-right">{formatMoneyAr(recu.soldeBulletinARegler)}</Td>
                                 </Tr>
                             )}
                         </Tbody>

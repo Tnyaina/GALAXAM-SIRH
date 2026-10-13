@@ -16,6 +16,7 @@ public class StcCalculResultDTO {
 
     // Identité & Contrat
     private Integer idEmploye;
+    private Integer idContrat;
     private String matricule;
     private String nomComplet;
     private String intitulePoste;
@@ -26,6 +27,7 @@ public class StcCalculResultDTO {
     private String motifRupture;
     private int ancienneteAnnees;
     private int ancienneteMois;
+    private String sourcePointage;
 
     // Paramètres
     private BigDecimal salaireBase = BigDecimal.ZERO;
@@ -34,6 +36,10 @@ public class StcCalculResultDTO {
     // 1. Dernier salaire proratisé
     private BigDecimal joursTravaillesDernierMois = BigDecimal.ZERO;
     private BigDecimal salaireProrata = BigDecimal.ZERO;
+    private Integer idBulletinMensuel;
+    private BigDecimal netBulletinMensuel = BigDecimal.ZERO;
+    private BigDecimal montantBulletinDejaPaye = BigDecimal.ZERO;
+    private BigDecimal soldeBulletinARegler = BigDecimal.ZERO;
 
     // 2. ICCP (Congés payés)
     private BigDecimal soldeCongesRestant = BigDecimal.ZERO;
@@ -112,6 +118,12 @@ public class StcCalculResultDTO {
     public Integer getIdEmploye() { return idEmploye; }
     public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
 
+    public Integer getIdContrat() { return idContrat; }
+    public void setIdContrat(Integer idContrat) { this.idContrat = idContrat; }
+
+    public String getSourcePointage() { return sourcePointage; }
+    public void setSourcePointage(String sourcePointage) { this.sourcePointage = sourcePointage; }
+
     public String getMatricule() { return matricule; }
     public void setMatricule(String matricule) { this.matricule = matricule; }
 
@@ -153,6 +165,14 @@ public class StcCalculResultDTO {
 
     public BigDecimal getSalaireProrata() { return salaireProrata; }
     public void setSalaireProrata(BigDecimal salaireProrata) { this.salaireProrata = salaireProrata; }
+    public Integer getIdBulletinMensuel() { return idBulletinMensuel; }
+    public void setIdBulletinMensuel(Integer idBulletinMensuel) { this.idBulletinMensuel = idBulletinMensuel; }
+    public BigDecimal getNetBulletinMensuel() { return netBulletinMensuel; }
+    public void setNetBulletinMensuel(BigDecimal netBulletinMensuel) { this.netBulletinMensuel = netBulletinMensuel; }
+    public BigDecimal getMontantBulletinDejaPaye() { return montantBulletinDejaPaye; }
+    public void setMontantBulletinDejaPaye(BigDecimal montantBulletinDejaPaye) { this.montantBulletinDejaPaye = montantBulletinDejaPaye; }
+    public BigDecimal getSoldeBulletinARegler() { return soldeBulletinARegler; }
+    public void setSoldeBulletinARegler(BigDecimal soldeBulletinARegler) { this.soldeBulletinARegler = soldeBulletinARegler; }
 
     public BigDecimal getSoldeCongesRestant() { return soldeCongesRestant; }
     public void setSoldeCongesRestant(BigDecimal soldeCongesRestant) { this.soldeCongesRestant = soldeCongesRestant; }

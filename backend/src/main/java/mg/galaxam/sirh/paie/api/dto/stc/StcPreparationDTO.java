@@ -2,6 +2,8 @@ package mg.galaxam.sirh.paie.api.dto.stc;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * DTO renvoyé lors de l'appel préparatoire au STC.
@@ -56,6 +58,17 @@ public class StcPreparationDTO {
     // Période de paie de rattachement
     private Integer idPeriodePaie;
     private String codePeriodePaie;
+
+    // Métadonnées contrat & source pointage
+    private Integer idContrat;
+    private String sourcePointage = "ESTIMATION_CALENDAIRE"; // "POINTAGE_REEL" ou "ESTIMATION_CALENDAIRE"
+    private BigDecimal joursPointageReels;
+    private BigDecimal totalHeuresPointage;
+    private boolean pointageGele;
+    private String statutBulletinMensuel;
+    private Integer idBulletinMensuel;
+    private BigDecimal netBulletinMensuel;
+    private List<String> controlesApplication = new ArrayList<>();
 
     public StcPreparationDTO() {}
 
@@ -160,4 +173,28 @@ public class StcPreparationDTO {
 
     public String getNumeroCnaps() { return numeroCnaps; }
     public void setNumeroCnaps(String numeroCnaps) { this.numeroCnaps = numeroCnaps; }
+
+    public Integer getIdContrat() { return idContrat; }
+    public void setIdContrat(Integer idContrat) { this.idContrat = idContrat; }
+
+    public String getSourcePointage() { return sourcePointage; }
+    public void setSourcePointage(String sourcePointage) { this.sourcePointage = sourcePointage; }
+
+    public BigDecimal getJoursPointageReels() { return joursPointageReels; }
+    public void setJoursPointageReels(BigDecimal joursPointageReels) { this.joursPointageReels = joursPointageReels; }
+
+    public BigDecimal getTotalHeuresPointage() { return totalHeuresPointage; }
+    public void setTotalHeuresPointage(BigDecimal totalHeuresPointage) { this.totalHeuresPointage = totalHeuresPointage; }
+    public boolean isPointageGele() { return pointageGele; }
+    public void setPointageGele(boolean pointageGele) { this.pointageGele = pointageGele; }
+    public String getStatutBulletinMensuel() { return statutBulletinMensuel; }
+    public void setStatutBulletinMensuel(String statutBulletinMensuel) { this.statutBulletinMensuel = statutBulletinMensuel; }
+    public Integer getIdBulletinMensuel() { return idBulletinMensuel; }
+    public void setIdBulletinMensuel(Integer idBulletinMensuel) { this.idBulletinMensuel = idBulletinMensuel; }
+    public BigDecimal getNetBulletinMensuel() { return netBulletinMensuel; }
+    public void setNetBulletinMensuel(BigDecimal netBulletinMensuel) { this.netBulletinMensuel = netBulletinMensuel; }
+    public List<String> getControlesApplication() { return controlesApplication; }
+    public void setControlesApplication(List<String> controlesApplication) {
+        this.controlesApplication = controlesApplication == null ? new ArrayList<>() : controlesApplication;
+    }
 }

@@ -22,6 +22,10 @@ public class StcCalculRequest {
 
     // Surcharges optionnelles par le gestionnaire RH
     private BigDecimal joursTravaillesDernierMois;
+    private String justificationSalaireDernierMois;
+    private BigDecimal montantBulletinDejaPaye;
+    private Date datePaiementBulletin;
+    private String referencePaiementBulletin;
     private BigDecimal soldeConges; // Si null, utilise le solde réel de VSoldeCongeEmploye
     private BigDecimal moisPreavis; // 0, 1, 2 ou 3 mois
     private BigDecimal indemnitePreavis; // Surcharge du montant
@@ -38,6 +42,10 @@ public class StcCalculRequest {
     private String commentaire;
     private boolean simulation = true;
     private boolean desactiverEmploye = false;
+
+    // Apurement optionnel des prêts d'entreprise au STC
+    private boolean apurerPretDansStc = false;
+    private BigDecimal soldePretsADeduire;
 
     public StcCalculRequest() {}
 
@@ -56,6 +64,14 @@ public class StcCalculRequest {
 
     public BigDecimal getJoursTravaillesDernierMois() { return joursTravaillesDernierMois; }
     public void setJoursTravaillesDernierMois(BigDecimal joursTravaillesDernierMois) { this.joursTravaillesDernierMois = joursTravaillesDernierMois; }
+    public String getJustificationSalaireDernierMois() { return justificationSalaireDernierMois; }
+    public void setJustificationSalaireDernierMois(String justificationSalaireDernierMois) { this.justificationSalaireDernierMois = justificationSalaireDernierMois; }
+    public BigDecimal getMontantBulletinDejaPaye() { return montantBulletinDejaPaye; }
+    public void setMontantBulletinDejaPaye(BigDecimal montantBulletinDejaPaye) { this.montantBulletinDejaPaye = montantBulletinDejaPaye; }
+    public Date getDatePaiementBulletin() { return datePaiementBulletin; }
+    public void setDatePaiementBulletin(Date datePaiementBulletin) { this.datePaiementBulletin = datePaiementBulletin; }
+    public String getReferencePaiementBulletin() { return referencePaiementBulletin; }
+    public void setReferencePaiementBulletin(String referencePaiementBulletin) { this.referencePaiementBulletin = referencePaiementBulletin; }
 
     public BigDecimal getSoldeConges() { return soldeConges; }
     public void setSoldeConges(BigDecimal soldeConges) { this.soldeConges = soldeConges; }
@@ -96,4 +112,10 @@ public class StcCalculRequest {
 
     public boolean isDesactiverEmploye() { return desactiverEmploye; }
     public void setDesactiverEmploye(boolean desactiverEmploye) { this.desactiverEmploye = desactiverEmploye; }
+
+    public boolean isApurerPretDansStc() { return apurerPretDansStc; }
+    public void setApurerPretDansStc(boolean apurerPretDansStc) { this.apurerPretDansStc = apurerPretDansStc; }
+
+    public BigDecimal getSoldePretsADeduire() { return soldePretsADeduire; }
+    public void setSoldePretsADeduire(BigDecimal soldePretsADeduire) { this.soldePretsADeduire = soldePretsADeduire; }
 }

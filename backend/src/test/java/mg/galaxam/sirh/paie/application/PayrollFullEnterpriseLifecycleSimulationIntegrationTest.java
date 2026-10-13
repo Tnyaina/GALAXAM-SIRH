@@ -56,6 +56,7 @@ import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -408,14 +409,34 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
                 // -------------------------------------------------------------------------
                 // ÉTAPE DE SORTIE : DÉMISSION DE SALARIÉ 2 & SOLDE DE TOUT COMPTE (STC)
                 // -------------------------------------------------------------------------
+                // Le salaire de septembre est déjà validé : le STC porte sur le
+                // départ d'octobre, dans une période distincte, après la rupture.
+                int periodeSortieId = CongeTestFixtureHelper.createPeriodePaie(c, "2026-10-STC",
+                        LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), "BROUILLON");
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE contrat_travail SET date_fin = DATE '2026-10-10' WHERE id_contrat = ?")) {
+                    ps.setInt(1, contrat2Id);
+                    ps.executeUpdate();
+                }
+                try (Statement migration = c.createStatement()) {
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS id_contrat INT REFERENCES contrat_travail(id_contrat)");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS source_pointage VARCHAR(30)");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS id_bulletin_mensuel INT REFERENCES bulletin_paie(id_bulletin)");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS net_bulletin_mensuel NUMERIC(20,2) NOT NULL DEFAULT 0");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS montant_bulletin_deja_paye NUMERIC(20,2) NOT NULL DEFAULT 0");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS solde_bulletin_a_regler NUMERIC(20,2) NOT NULL DEFAULT 0");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS date_paiement_bulletin DATE");
+                    migration.execute("ALTER TABLE paie_stc ADD COLUMN IF NOT EXISTS reference_paiement_bulletin VARCHAR(255)");
+                }
                 StcCalculRequest stcReq = new StcCalculRequest();
+                stcReq.setJustificationSalaireDernierMois("Simulation historique : jours sous contrat contrôlés sans pointage final");
                 stcReq.setIdEmploye(emp2Id);
-                stcReq.setIdPeriodePaie(p3Id);
-                stcReq.setDateDepart(Date.valueOf(LocalDate.of(2026, 9, 30)));
+                stcReq.setIdPeriodePaie(periodeSortieId);
+                stcReq.setDateDepart(Date.valueOf(LocalDate.of(2026, 10, 10)));
                 stcReq.setMotifRupture("DEMISSION");
                 stcReq.setSimulation(false);
                 stcReq.setModeReglement("VIREMENT");
-                stcReq.setJoursTravaillesDernierMois(new BigDecimal("22.0"));
+                stcReq.setJoursTravaillesDernierMois(new BigDecimal("10.0"));
 
                 StcCalculResultDTO stcResult = stcService.validerStc(stcReq, adminId, c);
                 assertNotNull(stcResult);
@@ -423,6 +444,13 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
                 assertNotNull(stcResult.getNumeroRecu());
                 assertTrue(stcResult.getNetAPayerStc().compareTo(BigDecimal.ZERO) > 0);
                 assertTrue(stcResult.getIndemniteCongesPayes().compareTo(BigDecimal.ZERO) > 0);
+
+                // Vérification clé : le solde de congés est apuré et remis strictement à zéro
+                mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye soldeApresStc =
+                        mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye.rechercherParEmploye(emp2Id, c);
+                assertNotNull(soldeApresStc);
+                assertEquals(0, soldeApresStc.getSoldeActuel().compareTo(BigDecimal.ZERO),
+                        "Le solde de congés doit être remis à 0.00 après versement de l'ICCP au STC");
 
                 // Reçu Libératoire officiel numéroté pour Solde de Tout Compte
                 StcRecuDTO recuStc = stcService.obtenirRecuStc(stcResult.getIdStc(), c);

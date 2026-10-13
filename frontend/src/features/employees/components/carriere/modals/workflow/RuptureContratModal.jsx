@@ -18,10 +18,10 @@ import { fmtMoneyMGA } from '@/utils/moneyUtils';
 // ── OPTIONS DE DURÉE DE PRÉAVIS ─────────────────────────────────────────────
 const DUREES_PREAVIS = [
     { key: 'AUCUN', label: 'Aucun préavis (0 j)', jours: 0, moisEquiv: 0, desc: 'Sortie immédiate sans préavis.' },
-    { key: '15_JOURS', label: '15 jours', jours: 15, moisEquiv: 0.5, desc: 'Période d\'essai ou contrat court.' },
-    { key: '1_MOIS', label: '1 mois (30 j)', jours: 30, moisEquiv: 1.0, desc: 'Ouvriers et employés standard.' },
-    { key: '2_MOIS', label: '2 mois (60 j)', jours: 60, moisEquiv: 2.0, desc: 'Agents de maîtrise et techniciens.' },
-    { key: '3_MOIS', label: '3 mois (90 j)', jours: 90, moisEquiv: 3.0, desc: 'Cadres et encadrement.' },
+    { key: '15_JOURS', label: '15 jours', jours: 15, moisEquiv: 0.5, desc: 'À sélectionner après vérification du texte applicable.' },
+    { key: '1_MOIS', label: '1 mois (30 j)', jours: 30, moisEquiv: 1.0, desc: 'À sélectionner après vérification du texte applicable.' },
+    { key: '2_MOIS', label: '2 mois (60 j)', jours: 60, moisEquiv: 2.0, desc: 'À sélectionner après vérification du texte applicable.' },
+    { key: '3_MOIS', label: '3 mois (90 j)', jours: 90, moisEquiv: 3.0, desc: 'À sélectionner après vérification du texte applicable.' },
     { key: 'CUSTOM', label: 'Personnalisé (en jours)...', jours: null, moisEquiv: null, desc: 'Durée spécifique en jours calendaires.' },
 ];
 
@@ -108,7 +108,7 @@ export default function RuptureContratModal({
         motifSortieCode: 'DEMISSION',
         dateNotification: fmtDateInput(new Date()),
         dateEffet: fmtDateInput(new Date()),
-        dureePreavisKey: '1_MOIS',
+        dureePreavisKey: '',
         customJours: '30',
         modePreavis: 'EFFECTUE',
         motif: 'Démission du salarié pour convenances personnelles',
@@ -159,10 +159,8 @@ export default function RuptureContratModal({
             const targetData = initialData || (workflowActif?.isBrouillon ? workflowActif : null);
             const dateNotif = fmtDateInput(targetData?.dateDemande || targetData?.dateNotification || new Date());
 
-            // Détection du profil pour suggestion automatique du préavis
-            const catPro = String(contratActif?.categorieProfessionnelle || affectationActive?.categorieProfessionnelle || '').toUpperCase();
-            const isCadre = catPro.includes('CADRE') || catPro.includes('DIRIGEANT');
-            const defaultDuree = isCadre ? '3_MOIS' : '1_MOIS';
+            // La durée dépend du texte applicable et doit être choisie par la GRH.
+            const defaultDuree = '';
 
             if (targetData) {
                 // Si reprise d'un brouillon existant
@@ -214,7 +212,8 @@ export default function RuptureContratModal({
 
     // Détermination de la durée en mois pour le calcul STC
     const { dureeInfo, moisIndemnite, libelleDuree } = useMemo(() => {
-        const d = DUREES_PREAVIS.find(item => item.key === formData.dureePreavisKey) || DUREES_PREAVIS[2];
+        const d = DUREES_PREAVIS.find(item => item.key === formData.dureePreavisKey)
+            || { label: 'À déterminer', moisEquiv: 0, desc: 'Vérifiez le texte applicable et choisissez le délai.' };
         let mois;
         let libelle = d.label;
 
@@ -288,11 +287,6 @@ export default function RuptureContratModal({
         if (newCode === 'FIN_CONTRAT') {
             suggestedDuree = 'AUCUN';
             suggestedMode = 'DISPENSE_NON_PAYEE';
-        } else if (newCode === 'RUPTURE_ESSAI') {
-            suggestedDuree = '15_JOURS';
-            suggestedMode = 'EFFECTUE';
-        } else if (newCode === 'LICENCIEMENT') {
-            suggestedMode = 'DISPENSE_PAYEE';
         }
 
         const newEffet = calculerDateEffet(formData.dateNotification, suggestedDuree, suggestedMode, formData.customJours);
@@ -327,6 +321,7 @@ export default function RuptureContratModal({
         const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.isBrouillon ? workflowActif.idContratSource : null);
 
         if (!formData.dateEffet) return setErrorMsg('La date de prise d\'effet de la rupture est obligatoire.');
+        if (!formData.dureePreavisKey) return setErrorMsg('Choisissez le délai de préavis vérifié dans le texte applicable.');
         if (!contratSourceId) return setErrorMsg('Impossible de rompre : aucun contrat source trouvé pour cet employé.');
         if (!motifsSortie.some(m => m.value === formData.motifSortieCode && motifsPourEvenement(formData.codeTypeEvenement).includes(m.value))) {
             return setErrorMsg('Choisissez un motif de sortie actif et cohérent avec le type de rupture.');
@@ -364,6 +359,7 @@ export default function RuptureContratModal({
     const handleLancerSimulationStc = () => {
         if (onOpenStc) {
             onOpenStc({
+                simulationOnly: true,
                 dateDepart: formData.dateEffet,
                 motifRupture: formData.motifSortieCode,
                 modePreavis: formData.modePreavis,
@@ -402,7 +398,7 @@ export default function RuptureContratModal({
                                 iconRight={<ArrowRight size={16} />}
                                 onClick={handleLancerSimulationStc}
                             >
-                                Préparer le Solde de Tout Compte
+                                Simuler le Solde de Tout Compte
                             </Button>
                         )}
                     </div>
@@ -471,6 +467,16 @@ export default function RuptureContratModal({
                         <span>Brouillon · validation requise</span>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
+                        {onOpenStc && (
+                            <Button
+                                type="button"
+                                onClick={handleLancerSimulationStc}
+                                variant="outline"
+                                size="md"
+                            >
+                                Simuler STC prévisionnel
+                            </Button>
+                        )}
                         <Button type="button" onClick={onClose} variant="outline" size="md">
                             Annuler
                         </Button>

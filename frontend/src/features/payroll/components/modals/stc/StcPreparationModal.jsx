@@ -95,6 +95,10 @@ export default function StcPreparationModal({
         motifRupture: 'DEMISSION',
         moisPreavis: '0',
         joursTravaillesDernierMois: '',
+        justificationSalaireDernierMois: '',
+        montantBulletinDejaPaye: '',
+        datePaiementBulletin: '',
+        referencePaiementBulletin: '',
         indemnitePreavis: '',
         indemniteLicenciement: '',
         remunerationReferenceLicenciement: '',
@@ -124,6 +128,10 @@ export default function StcPreparationModal({
                     ? (modePreavisInitial === 'DISPENSE_PAYEE' ? String(moisPreavisInitial ?? 0) : '0')
                     : (moisPreavisInitial !== null ? String(moisPreavisInitial) : String(data.moisPreavisSuggere ?? '0')),
                 joursTravaillesDernierMois: data.joursTravaillesEstimes != null ? String(data.joursTravaillesEstimes) : '',
+                justificationSalaireDernierMois: '',
+                montantBulletinDejaPaye: '',
+                datePaiementBulletin: '',
+                referencePaiementBulletin: '',
                 indemnitePreavis: modePreavisInitial
                     ? (modePreavisInitial === 'DISPENSE_PAYEE'
                         ? String(indemnitePreavisInitiale ?? data.indemnitePreavisEstimee ?? 0)
@@ -164,16 +172,26 @@ export default function StcPreparationModal({
     }, [isOpen, idEmploye, chargerDonneesPreparatoires]);
 
     const handleFormChange = (field, val) => {
-        setForm(prev => ({ ...prev, [field]: val }));
+        setForm(prev => ({
+            ...prev,
+            [field]: val,
+            ...(field === 'dateDepart' ? { joursTravaillesDernierMois: '', justificationSalaireDernierMois: '',
+                montantBulletinDejaPaye: '', datePaiementBulletin: '', referencePaiementBulletin: '' } : {}),
+        }));
     };
 
     const buildPayload = (simulationMode = true) => {
         return {
             idEmploye: Number(idEmploye),
-            idPeriodePaie: prepData?.idPeriodePaie || null,
+            // La période est résolue par le serveur à la date de départ courante.
+            idPeriodePaie: null,
             dateDepart: fmtDateInput(form.dateDepart),
             motifRupture: form.motifRupture,
             joursTravaillesDernierMois: form.joursTravaillesDernierMois ? Number(form.joursTravaillesDernierMois) : null,
+            justificationSalaireDernierMois: form.justificationSalaireDernierMois || null,
+            montantBulletinDejaPaye: form.montantBulletinDejaPaye === '' ? 0 : Number(form.montantBulletinDejaPaye),
+            datePaiementBulletin: form.datePaiementBulletin || null,
+            referencePaiementBulletin: form.referencePaiementBulletin || null,
             moisPreavis: modePreavisInitial && modePreavisInitial !== 'DISPENSE_PAYEE'
                 ? 0
                 : (form.moisPreavis !== '' ? Number(form.moisPreavis) : 0),
@@ -207,6 +225,8 @@ export default function StcPreparationModal({
         setSubmitting(true);
         setErrorMsg(null);
         try {
+            const preparationCourante = await stcService.preparerStc(idEmploye, fmtDateInput(form.dateDepart), form.motifRupture);
+            setPrepData(preparationCourante);
             const payload = buildPayload(true);
             const result = await stcService.simulerStc(payload);
             setCalculResult(result);
@@ -271,6 +291,7 @@ export default function StcPreparationModal({
         ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
         : `Préparation Solde de Tout Compte — ${prepData?.nomComplet || nomEmploye || ''}`;
     const dateDepartFuture = Boolean(form.dateDepart && form.dateDepart > fmtDateInput(new Date()));
+    const parcours = simulationOnly ? 'SIMULATION' : 'APPLICATION';
 
     // Rendu
     return (
@@ -370,6 +391,13 @@ export default function StcPreparationModal({
 
                 {!loadingPrep && prepData && (
                     <div className="space-y-4">
+                        <Alert
+                            type="info"
+                            title={parcours === 'SIMULATION' ? 'Parcours prévisionnel' : 'Parcours d’application'}
+                            message={parcours === 'SIMULATION'
+                                ? 'Préparez les données, calculez un aperçu, puis fermez. Aucun STC ni bulletin de sortie ne sera enregistré.'
+                                : 'Préparez les données, contrôlez la simulation, validez le décompte, puis constatez le paiement lorsqu’il est réellement effectué.'}
+                        />
                         {/* Indicateur d'étapes */}
                         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3 text-xs">
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'PREPARATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
@@ -411,15 +439,32 @@ export default function StcPreparationModal({
                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-mono block">({formatMoneyAr(prepData.tauxJournalierConge)}/j)</span>
                             </div>
                         </div>
+                        {!simulationOnly && prepData.controlesApplication?.length > 0 && (
+                            <div className="space-y-2" aria-label="Contrôles avant application du STC">
+                                {prepData.controlesApplication.map((controle, index) => (
+                                    <Alert key={`${index}-${controle}`} type="warning"
+                                        title="À contrôler avant application" message={controle} />
+                                ))}
+                            </div>
+                        )}
 
                         {/* VUE 1 : PRÉPARATION & SAISIE DES PARAMÈTRES */}
                         {step === 'PREPARATION' && (
                             <form onSubmit={handleSimuler} className="space-y-4">
-                                {simulationOnly && (
+                                {prepData.sourcePointage !== 'POINTAGE_REEL' && (
+                                    <Alert
+                                        type={simulationOnly ? 'info' : 'warning'}
+                                        title="Pointage absent"
+                                        message={simulationOnly
+                                            ? 'Le salaire prévisionnel suit les jours sous contrat sur 30. Vérifiez les absences et les éléments variables avant toute application.'
+                                            : 'Aucun pointage disponible pour la période finale. Justifiez obligatoirement les jours rémunérés ci-dessous, puis confirmez les absences et variables dans la paie avant validation.'}
+                                    />
+                                )}
+                                {!simulationOnly && (
                                     <Alert
                                         type="info"
-                                        title="Simulation sans pointage"
-                                        message="Aucun pointage n’est chargé. Le salaire est calculé avec le prorata saisi sur 30 jours."
+                                        title="Contrôle de la paie finale"
+                                        message="Vérifiez le dernier bulletin, les variables approuvées et le pointage clôturé. Un bulletin mensuel validé est repris dans le STC avec son solde impayé ; les éléments variables non intégrés doivent être traités avant la validation."
                                     />
                                 )}
                                 {modePreavisInitial && (
@@ -459,19 +504,61 @@ export default function StcPreparationModal({
                                         options={motifsSortie}
                                     />
                                 </div>
+                                {prepData.idBulletinMensuel && (
+                                    <div className="border border-[var(--color-border)] p-3 space-y-3">
+                                        <h4 className="text-xs font-bold text-[var(--color-fg)]">Rapprochement de la dernière paie</h4>
+                                        <p className="text-xs text-[var(--color-fg-muted)]">
+                                            Bulletin mensuel #{prepData.idBulletinMensuel} · état {prepData.statutBulletinMensuel} ·
+                                            net {formatMoneyAr(prepData.netBulletinMensuel)}. Seul son solde impayé sera ajouté au STC.
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <MoneyInput label="Montant déjà payé, vérifié sur la preuve de paiement (Ar)"
+                                                value={form.montantBulletinDejaPaye}
+                                                onValueChange={(value) => handleFormChange('montantBulletinDejaPaye', value)} />
+                                            <Input type="date" label="Date du paiement de la paie"
+                                                required={Number(form.montantBulletinDejaPaye) > 0}
+                                                value={form.datePaiementBulletin}
+                                                onChange={(event) => handleFormChange('datePaiementBulletin', event.target.value)} />
+                                            <Input label="Référence du paiement de la paie"
+                                                required={Number(form.montantBulletinDejaPaye) > 0}
+                                                value={form.referencePaiementBulletin}
+                                                onChange={(event) => handleFormChange('referencePaiementBulletin', event.target.value)} />
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className={`grid grid-cols-1 ${modePreavisInitial && modePreavisInitial !== 'DISPENSE_PAYEE' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3`}>
-                                    <Input
-                                        type="number"
-                                        label="Prorata du dernier mois (base 30)"
-                                        min="0"
-                                        max="30"
-                                        step="0.5"
-                                        placeholder={`Estimation : ${prepData.joursTravaillesEstimes || 0}`}
-                                        hint={`30 = mois complet · 22 = 22/30 du salaire. Valeur proposée : ${prepData.joursTravaillesEstimes || 0}/30.`}
-                                        value={form.joursTravaillesDernierMois}
-                                        onChange={(e) => handleFormChange('joursTravaillesDernierMois', e.target.value)}
-                                    />
+                                    {!prepData.idBulletinMensuel && <div>
+                                        <Input
+                                            type="number"
+                                        label="Jours sous contrat à payer (base 30)"
+                                            min="0"
+                                            max="30"
+                                            step="0.5"
+                                            placeholder={`Estimation : ${prepData.joursTravaillesEstimes || 0}`}
+                                            hint={`30 = mois complet · 22 = 22/30 du salaire. Valeur proposée : ${prepData.joursTravaillesEstimes || 0}/30.`}
+                                            value={form.joursTravaillesDernierMois}
+                                            onChange={(e) => handleFormChange('joursTravaillesDernierMois', e.target.value)}
+                                        />
+                                        {prepData.sourcePointage === 'POINTAGE_REEL' ? (
+                                            <span className="text-[10px] text-[var(--color-success-600)] font-medium flex items-center gap-1 mt-1">
+                                                Pointage disponible : {prepData.joursPointageReels} j ({prepData.totalHeuresPointage}h). Vérifiez les absences et les éléments variables avant validation.
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] text-[var(--color-warning-600)] block mt-1">
+                                                Aucun pointage détecté : une justification RH est requise pour appliquer le STC.
+                                            </span>
+                                        )}
+                                        <Input
+                                            label={prepData.sourcePointage === 'POINTAGE_REEL'
+                                                ? 'Justification des jours rémunérés corrigés'
+                                                : 'Justification des jours rémunérés sans pointage'}
+                                            required={!simulationOnly && prepData.sourcePointage !== 'POINTAGE_REEL'}
+                                            placeholder="Référence du pointage, absence ou régularisation RH"
+                                            value={form.justificationSalaireDernierMois}
+                                            onChange={(e) => handleFormChange('justificationSalaireDernierMois', e.target.value)}
+                                        />
+                                    </div>}
                                     {(!modePreavisInitial || modePreavisInitial === 'DISPENSE_PAYEE') && (
                                         <Input
                                             type="number"
@@ -566,7 +653,7 @@ export default function StcPreparationModal({
                                             <AlertTriangle size={14} /> Engagements Financiers en cours détectés
                                         </p>
                                         <p className="text-[11px] text-[var(--color-fg-muted)]">
-                                            Le STC déduit uniquement les acomptes déjà versés et non imputés. Les autres créances restent à examiner séparément :
+                                            Acomptes versés et créances financières pour ce collaborateur :
                                         </p>
                                         <ul className="list-disc pl-5 space-y-0.5 text-[11px] font-mono">
                                             {Number(prepData.capitalRestantPrets) > 0 && (
@@ -576,6 +663,7 @@ export default function StcPreparationModal({
                                                 <li>Avance(s) et acompte(s) non imputés : <strong>{formatMoneyAr(prepData.avancesEnAttente)}</strong></li>
                                             )}
                                         </ul>
+                                        {Number(prepData.capitalRestantPrets) > 0 && <p>Le prêt reste une créance distincte. Toute retenue exige un titre ou une cession vérifiée.</p>}
                                     </div>
                                 )}
                             </form>
@@ -711,6 +799,16 @@ export default function StcPreparationModal({
                                             <Tr>
                                                 <Td className="font-sans text-[var(--color-fg-muted)]">- Autres Déductions ({calculResult.motifAutresDeductions || 'Retenues'})</Td>
                                                 <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.autresDeductions)}</Td>
+                                            </Tr>
+                                        )}
+                                        {calculResult.idBulletinMensuel && (
+                                            <Tr>
+                                                <Td className="font-sans">+ Solde du bulletin mensuel #{calculResult.idBulletinMensuel}
+                                                    <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
+                                                        Net {formatMoneyAr(calculResult.netBulletinMensuel)} · déjà payé {formatMoneyAr(calculResult.montantBulletinDejaPaye)}
+                                                    </span>
+                                                </Td>
+                                                <Td className="text-right">{formatMoneyAr(calculResult.soldeBulletinARegler)}</Td>
                                             </Tr>
                                         )}
                                     </Tbody>
