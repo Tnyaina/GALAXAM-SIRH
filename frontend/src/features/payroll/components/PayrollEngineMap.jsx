@@ -61,7 +61,7 @@ export default function PayrollEngineMap() {
     const [reload, setReload] = useState(0);
 
     // Guide pédagogique
-    const [showGuide, setShowGuide] = useState(true);
+    const [showGuide, setShowGuide] = useState(false);
 
     // Filtres
     const [query, setQuery] = useState('');
@@ -513,66 +513,17 @@ export default function PayrollEngineMap() {
                 </div>
             )}
 
-            {/* ── 2 Cartes de sélection supérieures (Wireframe) ── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Carte 1 : Rubriques de calcul */}
-                <Card
-                    as="button"
-                    type="button"
-                    onClick={() => changeMode('rubriques')}
-                    aria-pressed={mode === 'rubriques'}
-                    className={`w-full text-left p-4 sm:p-5 transition-colors cursor-pointer border ${
-                        mode === 'rubriques'
-                            ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-50)]/50 dark:bg-[var(--color-brand-950)]/20 shadow-sm'
-                            : 'border-[var(--color-border-subtle)] hover:border-[var(--color-border)] bg-[var(--color-surface)]'
-                    }`}
-                >
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <p className="text-sm sm:text-base font-bold text-[var(--color-fg)]">
-                                Rubriques de calcul
-                            </p>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-1">
-                                Règles appliquées au bulletin
-                            </p>
-                        </div>
-                        {data?.rubriques && (
-                            <Badge variant={mode === 'rubriques' ? 'primary' : 'neutral'} size="sm">
-                                {data.rubriques.length} rubriques
-                            </Badge>
-                        )}
-                    </div>
-                </Card>
-
-                {/* Carte 2 : Types de variable */}
-                <Card
-                    as="button"
-                    type="button"
-                    onClick={() => changeMode('types')}
-                    aria-pressed={mode === 'types'}
-                    className={`w-full text-left p-4 sm:p-5 transition-colors cursor-pointer border ${
-                        mode === 'types'
-                            ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-50)]/50 dark:bg-[var(--color-brand-950)]/20 shadow-sm'
-                            : 'border-[var(--color-border-subtle)] hover:border-[var(--color-border)] bg-[var(--color-surface)]'
-                    }`}
-                >
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <p className="text-sm sm:text-base font-bold text-[var(--color-fg)]">
-                                Types de variable
-                            </p>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-1">
-                                Éléments saisis pour la paie
-                            </p>
-                        </div>
-                        {data?.types && (
-                            <Badge variant={mode === 'types' ? 'primary' : 'neutral'} size="sm">
-                                {data.types.length} types
-                            </Badge>
-                        )}
-                    </div>
-                </Card>
-            </div>
+            {/* Navigation compacte entre les deux catalogues */}
+            <nav aria-label="Catalogues de configuration" className="flex overflow-x-auto border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                {[
+                    { id: 'rubriques', label: 'Rubriques de calcul', count: data?.rubriques?.length ?? 0 },
+                    { id: 'types', label: 'Types de variable', count: data?.types?.length ?? 0 },
+                ].map(tab => <button key={tab.id} type="button" aria-current={mode === tab.id ? 'page' : undefined}
+                    onClick={() => changeMode(tab.id)}
+                    className={`flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] ${mode === tab.id ? 'border-[var(--color-brand-600)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]' : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}>
+                    {tab.label}<Badge variant={mode === tab.id ? 'primary' : 'neutral'} size="sm">{tab.count}</Badge>
+                </button>)}
+            </nav>
 
             {error && <Alert type="error" title="Référentiel indisponible" message={error} />}
 
@@ -722,28 +673,28 @@ export default function PayrollEngineMap() {
                                                                                 setDetailItem({ domaine: 'rubriques', item });
                                                                             }
                                                                         }}
-                                                                        className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--color-bg-subtle)]/60 cursor-pointer transition-colors"
+                                                                        className="flex items-start justify-between gap-3 px-4 py-3.5 hover:bg-[var(--color-bg-subtle)]/60 cursor-pointer transition-colors sm:items-center"
                                                                     >
                                                                         {/* Libellé et code */}
                                                                         <div className="min-w-0 flex-1">
-                                                                            <p className="text-xs sm:text-sm font-semibold text-[var(--color-fg)] leading-snug">
+                                                                            <p className="text-sm font-semibold text-[var(--color-fg)] leading-snug">
                                                                                 {item.libelle}
                                                                             </p>
-                                                                            <p className="text-[11px] font-mono text-[var(--color-fg-muted)] mt-0.5">
-                                                                                {item.code}
+                                                                            <p className="text-[11px] font-mono text-[var(--color-fg-subtle)] mt-1">
+                                                                                Code : {item.code}
                                                                             </p>
                                                                         </div>
 
                                                                         {/* Niveau */}
-                                                                        <div className="shrink-0 w-32 hidden sm:block">
-                                                                            <Badge variant={isConfigurable ? 'info' : 'neutral'} size="sm">
-                                                                                {niveauLabel}
-                                                                            </Badge>
+                                                                        <div className="hidden shrink-0 w-44 sm:block">
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-subtle)]">Configuration</p>
+                                                                            <Badge variant={isConfigurable ? 'info' : 'neutral'} size="sm" className="mt-1">{niveauLabel}</Badge>
                                                                         </div>
 
                                                                         {/* Mode d'alimentation */}
-                                                                        <div className="shrink-0 w-28 sm:w-32 text-right sm:text-left">
-                                                                            <span className="text-xs text-[var(--color-fg-muted)]">
+                                                                        <div className="hidden shrink-0 w-40 sm:block">
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-subtle)]">Traitement</p>
+                                                                            <span className="mt-1 block text-xs text-[var(--color-fg-muted)]">
                                                                                 {hasLinkedTypes ? 'Variable liée' : isConfigurable ? 'Type à créer' : 'Circuit dédié'}
                                                                             </span>
                                                                         </div>
@@ -905,12 +856,12 @@ export default function PayrollEngineMap() {
                                                                                 setDetailItem({ domaine: 'types', item });
                                                                             }
                                                                         }}
-                                                                        className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--color-bg-subtle)]/60 cursor-pointer transition-colors"
+                                                                        className="flex items-start justify-between gap-3 px-4 py-3.5 hover:bg-[var(--color-bg-subtle)]/60 cursor-pointer transition-colors sm:items-center"
                                                                     >
                                                                         {/* Libellé, code et tag Gain / Retenue */}
                                                                         <div className="min-w-0 flex-1">
                                                                             <div className="flex items-center gap-2 flex-wrap">
-                                                                                <p className="text-xs sm:text-sm font-semibold text-[var(--color-fg)] leading-snug">
+                                                                                <p className="text-sm font-semibold text-[var(--color-fg)] leading-snug">
                                                                                     {item.libelle}
                                                                                 </p>
                                                                                 <span className={`text-[10px] px-1.5 py-0.2 font-semibold tracking-wider ${
@@ -921,29 +872,28 @@ export default function PayrollEngineMap() {
                                                                                     {item.sens === 'GAIN' ? '+ Gain' : '- Retenue'}
                                                                                 </span>
                                                                             </div>
-                                                                            <p className="text-[11px] font-mono text-[var(--color-fg-muted)] mt-0.5">
-                                                                                {item.code}
+                                                                            <p className="text-[11px] font-mono text-[var(--color-fg-subtle)] mt-1">
+                                                                                Code : {item.code}
                                                                             </p>
                                                                         </div>
 
                                                                         {/* Mode de saisie */}
-                                                                        <div className="shrink-0 w-32 hidden sm:block">
-                                                                            <span className="text-xs text-[var(--color-fg-muted)]">
+                                                                        <div className="hidden shrink-0 w-36 sm:block">
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-subtle)]">Saisie</p>
+                                                                            <span className="mt-1 block text-xs text-[var(--color-fg-muted)]">
                                                                                 {saisieLabel}
                                                                             </span>
                                                                         </div>
 
                                                                         {/* Rubrique cible liée */}
-                                                                        <div className="shrink-0 min-w-0 max-w-[200px] sm:max-w-[260px] text-right sm:text-left">
+                                                                        <div className="hidden min-w-0 w-64 sm:block">
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-subtle)]">Rubrique liée</p>
                                                                             {targetRubrique ? (
-                                                                                <span className="text-xs font-medium text-[var(--color-fg)] inline-flex items-center gap-1.5 truncate">
-                                                                                    <ArrowRight size={13} className="text-[var(--color-fg-muted)] shrink-0" />
+                                                                                <span className="mt-1 text-xs font-medium text-[var(--color-fg)] inline-flex items-center gap-1.5 truncate">
                                                                                     <span className="truncate">{targetRubrique.libelle}</span>
                                                                                 </span>
                                                                             ) : (
-                                                                                <Badge variant="warning" size="xs">
-                                                                                    Non liée
-                                                                                </Badge>
+                                                                                <Badge variant="warning" size="xs" className="mt-1">Non liée</Badge>
                                                                             )}
                                                                         </div>
 
