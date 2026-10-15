@@ -183,7 +183,7 @@ describe('Attendance UX & Accessibilité (WCAG AA & Retours visuels)', () => {
 
         const regulariserBtn = container.querySelector('button[aria-label="Régulariser l\'anomalie de Rasoa Marie du 2026-09-15"]');
         expect(regulariserBtn).not.toBeNull();
-        expect(regulariserBtn.className).toContain('min-h-[44px]');
+        expect(regulariserBtn.className).toContain('min-h-[30px]');
     });
 
     it('PointageGridTable affiche TableEmpty quand aucun collaborateur ne correspond aux filtres', async () => {
@@ -213,7 +213,7 @@ describe('Attendance UX & Accessibilité (WCAG AA & Retours visuels)', () => {
         expect(container.textContent).toContain('Aucun collaborateur ne correspond aux filtres ou à la recherche sur cette journée.');
     });
 
-    it('DafAjustementPointageModal affiche le bouton Rectifier avec min-h-[44px] et aria-label contextuel', async () => {
+    it('DafAjustementPointageModal utilise le petit bouton partagé avec un libellé contextuel', async () => {
         attendanceService.getFicheEmploye.mockResolvedValue({
             pointagesData: [
                 {
@@ -257,8 +257,9 @@ describe('Attendance UX & Accessibilité (WCAG AA & Retours visuels)', () => {
             await new Promise((r) => setTimeout(r, 50));
         });
 
-        const rectifierBtn = container.querySelector('button[aria-label="Rectifier la journée du 15/09/2026"]');
+        const rectifierBtn = document.querySelector('[role="dialog"] button[aria-label="Rectifier la journée du 15/09/2026"]');
         expect(rectifierBtn).not.toBeNull();
-        expect(rectifierBtn.className).toContain('min-h-[44px]');
+        expect(rectifierBtn.className).toContain('min-h-[26px]');
+        expect(rectifierBtn.className).not.toContain('min-h-[44px]');
     });
 });

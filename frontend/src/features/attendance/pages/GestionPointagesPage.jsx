@@ -10,10 +10,10 @@ import { getTodayDateString } from '@/utils/dateUtils';
 import organisationService from '@/features/organization/api/organisationService';
 
 // Lazy-loading des etapes du cockpit
-const SaisieQuotidiennePage    = lazy(() => import('@/features/attendance/pages/SaisieQuotidiennePage'));
+const SaisieQuotidiennePage = lazy(() => import('@/features/attendance/pages/SaisieQuotidiennePage'));
 const SaisiePeriodeEmployePage = lazy(() => import('@/features/attendance/pages/SaisiePeriodeEmployePage'));
-const SuiviAnomaliesPage       = lazy(() => import('@/features/attendance/pages/SuiviAnomaliesPage'));
-const ArbitrageDafPage         = lazy(() => import('@/features/attendance/pages/ArbitrageDafPage'));
+const SuiviAnomaliesPage = lazy(() => import('@/features/attendance/pages/SuiviAnomaliesPage'));
+const ArbitrageDafPage = lazy(() => import('@/features/attendance/pages/ArbitrageDafPage'));
 
 const normalizePointageStep = (tab) => {
     if (tab === 'saisie' || tab === 'saisie-employe') return 'saisie';
@@ -103,7 +103,7 @@ export default function GestionPointagesPage() {
                     organisationService.getSites().catch(() => [])
                 ]);
                 if (!isMounted) return;
-                
+
                 // Préserver la référence d'objet si les sites n'ont pas changé
                 setAllSites(prev => {
                     const next = sites || [];
@@ -169,7 +169,7 @@ export default function GestionPointagesPage() {
         return () => {
             isMounted = false;
         };
-    }, [paramPeriodeId, setSearchParams, refreshVersion]);
+    }, [activeStep, paramPeriodeId, setSearchParams, refreshVersion]);
 
     // Actions
     // Les droits détaillés arrivent séparément : leur précontrôle ne bloque plus la grille.

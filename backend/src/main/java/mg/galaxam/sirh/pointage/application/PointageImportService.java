@@ -178,7 +178,7 @@ public class PointageImportService {
             }
             Sheet help = book.createSheet("Aide");
             help.createRow(0).createCell(0).setCellValue("Événement : CONGÉ = congé à régulariser ; ABSENCE = absence à traiter ; vide = aucun signalement.");
-            help.createRow(1).createCell(0).setCellValue("Un seul CONGÉ au début suffit. La date de reprise se choisit dans l'aperçu.");
+            help.createRow(1).createCell(0).setCellValue("Un seul CONGÉ au début suffit. La date de reprise se choisit lors de la régularisation.");
             help.createRow(2).createCell(0).setCellValue("Indemnités : vide = proposition du site ; 0 = refus ; 0,5 = demi-indemnité ; 1 = indemnité entière. Pour une indemnité fractionnable, le créneau de la demi-indemnité suit les heures saisies (matin si les deux demi-journées sont travaillées).");
             help.setColumnWidth(0, 25000);
             org.apache.poi.ss.usermodel.DataValidationHelper validationHelper = tab.getDataValidationHelper();
@@ -385,6 +385,23 @@ public class PointageImportService {
                         ("IMPORT".equals(decision) || "SIGNAL".equals(decision)) && !conflict, conflict,
                         errors, warnings, proposed, existing, availableAllowances, allowanceOverrides));
             }
+            // Une ligne supprimée du modèle doit rester visible et pouvoir être complétée.
+            for (PointageJourDTO day : fiche.getPointagesData()) {
+                if (seen.contains(day.getDateComplete())) continue;
+                boolean rest = day.isWeekend() || "FERIE_CHOME".equals(day.getStatut());
+                SaisiePointageJourDTO proposal = null;
+                List<Map<String, Object>> availableAllowances = List.of();
+                if (!rest && day.getIdSite() != null && day.getIdSite() > 0) {
+                    DayContext dayContext = context(employeeId, day);
+                    proposal = dayContext.employee();
+                    availableAllowances = dayContext.allowances();
+                }
+                lines.add(new ImportLine(-(lines.size() + 1), day.getDateComplete(), "",
+                        rest ? "IGNORE" : "MISSING", false, day.getIdPointage() != null,
+                        List.of(), List.of(rest ? "Repos sans ligne dans le fichier" : "Date absente du fichier : compléter ou laisser non saisie"),
+                        proposal, day, availableAllowances, Map.of()));
+            }
+            lines.sort(Comparator.comparing(ImportLine::date).thenComparingInt(ImportLine::ligne));
             return new ImportPreview(lines, headers);
         } catch (org.apache.poi.openxml4j.exceptions.OLE2NotOfficeXmlFileException error) {
             throw new IllegalArgumentException("Le fichier doit être au format XLSX.", error);

@@ -20,6 +20,9 @@ public class PointageJourDTO {
     private String date;        // Format "dd/MM" ex "24/08"
     private String dateComplete;// Format "YYYY-MM-DD"
     private String jour;        // ex "Lun."
+    private String libelleFerie;
+    public String getLibelleFerie() { return libelleFerie; }
+    public void setLibelleFerie(String value) { libelleFerie = value; }
     private boolean weekend;    // true si samedi ou dimanche (non ouvré)
     private String entree;      // ex "08:00"
     private String sortiePause; // ex "12:00"

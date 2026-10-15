@@ -136,16 +136,16 @@ describe('PeriodesReferenceTab', () => {
     const activer = [...host.querySelectorAll('button')].find(b => b.textContent === 'Activer le taux');
     expect(activer).toBeDefined();
     await act(async () => activer.click());
-    const date = host.querySelector('input[type="date"]');
+    const date = document.querySelector('[role="dialog"] input[type="date"]');
     expect(date.value).toBe('2026-01-01');
     expect(date.min).toBe('2026-01-01');
     expect(congeService.getSituationEmploye).toHaveBeenCalledWith(42, '2026-01-01');
-    expect(host.textContent).toContain('40 000');
-    expect(host.textContent).toContain('50 000');
-    const confirmer = [...host.querySelectorAll('button')].find(b => b.textContent === "Confirmer l'activation");
+    expect(document.body.textContent).toContain('40 000');
+    expect(document.body.textContent).toContain('50 000');
+    const confirmer = [...document.querySelectorAll('[role="dialog"] button')].find(b => b.textContent === "Confirmer l'activation");
     expect(confirmer.disabled).toBe(true);
     await act(async () => {
-      const caseConfirmation = host.querySelector('input[type="checkbox"]');
+      const caseConfirmation = document.querySelector('[role="dialog"] input[type="checkbox"]');
       caseConfirmation.click();
     });
     expect(confirmer.disabled).toBe(false);
@@ -173,10 +173,10 @@ describe('PeriodesReferenceTab', () => {
     await act(async () => root.render(<PeriodesReferenceTab initialIdEmploye={42} canValidate />));
     await act(async () => [...host.querySelectorAll('button')]
       .find(b => b.textContent === 'Activer le taux').click());
-    const date = host.querySelector('input[type="date"]');
+    const date = document.querySelector('[role="dialog"] input[type="date"]');
     expect(date.value).toBe('2026-01-26');
     expect(date.min).toBe('2026-01-26');
-    expect(host.textContent).toContain('25/01/2026');
+    expect(document.body.textContent).toContain('25/01/2026');
   });
 
   it('permet de déclencher le téléchargement Excel officiel d’une période', async () => {
@@ -239,8 +239,8 @@ describe('PeriodesReferenceTab', () => {
     const bouton = [...host.querySelectorAll('button')].find(b => b.textContent.trim() === 'Vérifier les mois');
     await act(async () => bouton.click());
     expect(congeService.getMoisReference).toHaveBeenCalledWith(13);
-    expect(host.textContent).toContain('01/2026');
-    expect(host.textContent).toContain('Rapprochement Excel');
+    expect(document.body.textContent).toContain('01/2026');
+    expect(document.body.textContent).toContain('Rapprochement Excel');
   });
 
   it('réserve la rectification mensuelle à la permission de validation', async () => {
@@ -255,6 +255,6 @@ describe('PeriodesReferenceTab', () => {
     await act(async () => root.render(<PeriodesReferenceTab initialIdEmploye={12} canValidate />));
     const controle = [...host.querySelectorAll('button')].find(b => b.textContent.trim() === 'Vérifier les mois');
     await act(async () => controle.click());
-    expect([...host.querySelectorAll('button')].some(b => b.textContent.trim() === 'Rectifier')).toBe(true);
+    expect([...document.querySelectorAll('[role="dialog"] button')].some(b => b.textContent.trim() === 'Rectifier')).toBe(true);
   });
 });

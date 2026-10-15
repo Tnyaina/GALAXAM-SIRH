@@ -4,6 +4,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.Locale;
 import java.util.List;
+import java.util.ArrayList;
 import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
@@ -17,6 +18,16 @@ public final class AttendanceStatusPolicy {
         if (!result.anomalies().isEmpty()) return "ANOMALIE_SAISIE";
         if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) return fromCalculation(result, dto);
         if ("ABSENCE_JUSTIFIEE".equals(explicit) || "ABSENCE_NON_JUSTIFIEE".equals(explicit)) return explicit;
+        if ("DEMI_JOURNEE".equals(explicit) && !CalendrierOuvrableEngine.isWeekend(date) && !dto.isFerieJour()
+                && dto.getMotifAjustement() != null && !dto.getMotifAjustement().isBlank()
+                && result.status() == AttendanceEngine.Result.Status.HALF_DAY) return explicit;
+        // Une seule plage complète ne prouve pas une demi-journée autorisée.
+        // La qualification se fait lors de la régularisation, sauf congé partiel déjà approuvé.
+        if (result.status() == AttendanceEngine.Result.Status.HALF_DAY
+                && !CalendrierOuvrableEngine.isWeekend(date) && !dto.isFerieJour()
+                && (dto.getTypeCongeJour() == null || dto.getTypeCongeJour().isBlank())) {
+            return "ANOMALIE_SAISIE";
+        }
 
         boolean hasPunch = hasTime(dto.getHeureEntreeMatin()) || hasTime(dto.getHeureSortieMatin())
                 || hasTime(dto.getHeureEntreeAm()) || hasTime(dto.getHeureSortieAm());
@@ -66,12 +77,22 @@ public final class AttendanceStatusPolicy {
 
     public static List<SaisiePointageJourDTO.StatusAction> actions(SaisiePointageJourDTO dto) {
         if (dto.isFerieChome() || dto.isCongeApprouve() || dto.isEstAutonome()) return List.of();
-        return List.of(
-                new SaisiePointageJourDTO.StatusAction("PRESENT", "Présent", "Journée travaillée", false),
-                new SaisiePointageJourDTO.StatusAction("ABSENCE_JUSTIFIEE", "Absence justifiée", "Absence documentée ou autorisée", true),
-                new SaisiePointageJourDTO.StatusAction("ABSENCE_NON_JUSTIFIEE", "Absence non justifiée", "Absence sans justificatif", false),
-                new SaisiePointageJourDTO.StatusAction("CONGE", "Congé payé", "Imputer sur solde congé payé", false)
-        );
+        var actions = new ArrayList<SaisiePointageJourDTO.StatusAction>();
+        actions.add(new SaisiePointageJourDTO.StatusAction("PRESENT", "Présent", "Journée travaillée", false));
+        boolean morningOnly = hasTime(dto.getHeureEntreeMatin()) && hasTime(dto.getHeureSortieMatin())
+                && !hasTime(dto.getHeureEntreeAm()) && !hasTime(dto.getHeureSortieAm());
+        boolean afternoonOnly = !hasTime(dto.getHeureEntreeMatin()) && !hasTime(dto.getHeureSortieMatin())
+                && hasTime(dto.getHeureEntreeAm()) && hasTime(dto.getHeureSortieAm());
+        LocalDate day = dto.getDatePointage() == null ? null : LocalDate.parse(dto.getDatePointage());
+        if ((morningOnly || afternoonOnly) && !dto.isFerieJour()
+                && day != null && !CalendrierOuvrableEngine.isWeekend(day)) {
+            actions.add(new SaisiePointageJourDTO.StatusAction("DEMI_JOURNEE", "Demi-journée",
+                    "Valider une seule plage travaillée avec motif", true));
+        }
+        actions.add(new SaisiePointageJourDTO.StatusAction("ABSENCE_JUSTIFIEE", "Absence justifiée", "Absence documentée ou autorisée", true));
+        actions.add(new SaisiePointageJourDTO.StatusAction("ABSENCE_NON_JUSTIFIEE", "Absence non justifiée", "Absence sans justificatif", false));
+        actions.add(new SaisiePointageJourDTO.StatusAction("CONGE", "Congé payé", "Imputer sur solde congé payé", false));
+        return actions;
     }
 
     private static String normalize(String code) {

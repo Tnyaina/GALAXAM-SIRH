@@ -45,13 +45,13 @@ describe('Supervision des congés', () => {
     await act(async () => [...host.querySelectorAll('button')]
       .find(button => button.textContent.includes('Grand récapitulatif Excel')).click());
     await act(async () => {
-    const input = host.querySelectorAll('input[type="date"]')[1];
+    const input = document.querySelectorAll('[role="dialog"] input[type="date"]')[1];
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
       setter.call(input, '2026-09-01');
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await act(async () => [...host.querySelectorAll('button')]
+    await act(async () => [...document.querySelectorAll('[role="dialog"] button')]
       .find(button => button.textContent.includes('Télécharger Excel')).click());
     expect(congeService.telechargerGrandRecapCongesExcel).toHaveBeenCalledWith('2026-01-01', '2026-09-01');
   });

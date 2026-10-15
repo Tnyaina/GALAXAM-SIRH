@@ -327,7 +327,18 @@ public class PointageAnomalieService {
                         boolean hasAmComplet = (em == null && sm == null && ea != null && sa != null);
                         boolean isDemiJournee = "DEMI_JOURNEE".equals(stCode) || hasMatinComplet || hasAmComplet;
 
-                        if (isDemiJournee) {
+                        if ("ANOMALIE_SAISIE".equals(stCode)) {
+                            dto.setTypeAnomalie("INCOMPLET");
+                            dto.setDescriptionAnomalie(isDemiJournee
+                                    ? "Une seule plage travaillée : qualifier la demi-journée dans la régularisation."
+                                    : "Pointage incomplet : vérification et régularisation nécessaires.");
+                            dto.setSeverite("CRITIQUE");
+                            dto.setBloquantTransmission(true);
+                            dto.setStatutAnomalie("todo");
+                            countIncomplets++;
+                            countCritiques++;
+                            countBloquantes++;
+                        } else if (isDemiJournee) {
                             dto.setTypeAnomalie("DEMI_JOURNEE");
                             dto.setDescriptionAnomalie(hasMotif 
                                     ? ("Demi-journée validée : " + dto.getMotifAjustement()) 
@@ -336,15 +347,6 @@ public class PointageAnomalieService {
                             dto.setBloquantTransmission(false);
                             dto.setStatutAnomalie(hasMotif ? "done" : "todo");
                             if (hasMotif) countFaibles++; else countMoyennes++;
-                        } else if ("ANOMALIE_SAISIE".equals(stCode)) {
-                            dto.setTypeAnomalie("INCOMPLET");
-                            dto.setDescriptionAnomalie("Pointage incomplet : heure d'entrée ou de sortie manquante.");
-                            dto.setSeverite("CRITIQUE");
-                            dto.setBloquantTransmission(true);
-                            dto.setStatutAnomalie(hasMotif ? "done" : "todo");
-                            countIncomplets++;
-                            countCritiques++;
-                            countBloquantes++;
                         } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
                             dto.setTypeAnomalie("ABSENCE");
                             if (absenceTraitee) {

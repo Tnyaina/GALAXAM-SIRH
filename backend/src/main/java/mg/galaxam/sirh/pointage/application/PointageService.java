@@ -1706,11 +1706,6 @@ public class PointageService {
                 int retMins = Math.toIntExact(dailyResult.lateMinutes());
 
                 String codeStatut = AttendanceStatusPolicy.resolve(dto, dailyResult, datePtg);
-                if ("NON_SAISI".equals(codeStatut)) {
-                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "Aucun horaire ou statut d'absence n'a été saisi pour l'employé ID " + dto.getIdEmploye() + ".");
-                }
-
                 // 2. Contrôle P0-5 : Concurrence & Optimistic Locking
                 psCheckRow.setInt(1, dto.getIdEmploye());
                 psCheckRow.setDate(2, Date.valueOf(dto.getDatePointage()));
@@ -1721,6 +1716,27 @@ public class PointageService {
                         existingIdPointage = rsCheck.getInt("id_pointage");
                         currentDbVersion = rsCheck.getInt("version");
                     }
+                }
+
+                // NON_SAISI représente l'absence de ligne en base. Une ligne encore vierge
+                // est ignorée ; remettre une saisie existante à blanc la supprime.
+                if ("NON_SAISI".equals(codeStatut)) {
+                    if (existingIdPointage != null) {
+                        if (dto.getVersion() == null || !dto.getVersion().equals(currentDbVersion)) {
+                            throw new IllegalStateException("Conflit de modification concurrente sur le pointage du "
+                                    + dto.getDatePointage() + ". Veuillez recharger la grille.");
+                        }
+                        try (PreparedStatement psDelete = c.prepareStatement(
+                                "DELETE FROM pointage_jour WHERE id_pointage = ? AND version = ?")) {
+                            psDelete.setInt(1, existingIdPointage);
+                            psDelete.setInt(2, currentDbVersion);
+                            if (psDelete.executeUpdate() != 1) {
+                                throw new IllegalStateException("Conflit de modification concurrente sur le pointage du "
+                                        + dto.getDatePointage() + ". Veuillez recharger la grille.");
+                            }
+                        }
+                    }
+                    continue;
                 }
 
                 boolean estNonTravaille = "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())

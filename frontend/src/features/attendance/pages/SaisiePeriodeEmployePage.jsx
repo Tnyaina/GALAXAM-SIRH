@@ -17,8 +17,10 @@ import PeriodeEmployeeEmptyState from '@/features/attendance/components/views/Pe
 import PeriodeEmployeeHeader from '@/features/attendance/components/views/PeriodeEmployeeHeader';
 import PeriodeEmployeeTable from '@/features/attendance/components/views/PeriodeEmployeeTable';
 import PeriodeEmployeeImportPreview from '@/features/attendance/components/views/PeriodeEmployeeImportPreview';
+import { importHalfDayMoment } from '@/features/attendance/utils/pointageImport';
 import PeriodeRecapModal from '@/features/attendance/components/modals/PeriodeRecapModal';
 import { isAttendanceUnentered, isAttendanceUnjustifiedAbsence } from '@/features/attendance/utils/attendanceStatus';
+import { isPointageException, isPointageAnomaly } from '@/features/attendance/utils/pointageDayFilter';
 
 const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
@@ -62,7 +64,7 @@ export default function SaisiePeriodeEmployePage({
     const employeeListReqId = useRef(0);
     const importFileRef = useRef(null);
 
-    // Filtre des journées dans la grille : ALL | MISSING | ANOMALY
+    // Filtre des journées dans la grille.
     const [filterJour, setFilterJour] = useState('ALL');
 
     // Ligne en cours de régularisation (modale d'anomalie)
@@ -123,6 +125,7 @@ export default function SaisiePeriodeEmployePage({
         handleDownloadImportTemplate,
         handleImportFile,
         handleApplyImport,
+        handleSaveImport,
         loadFicheEmploye
     } = usePointagePeriodeEmploye({
         selectedEmployeId,
@@ -324,22 +327,33 @@ export default function SaisiePeriodeEmployePage({
     }, [dirtyCount, saving, canEditPeriod, handleNavigateEmploye]);
 
     // ── 7. Filtrage & Groupement par semaine ──────────────────────────────────
-    const filteredRows = useMemo(() => {
-        if (filterJour === 'MISSING') {
-            return grilleRows.filter(r => !r.weekend && !r.ferie && !r.conge && (!r.heureEntreeMatin || isAttendanceUnentered(r)));
-        }
-        if (filterJour === 'ANOMALY') {
-            return grilleRows.filter(r => r.minutesRetard > 0 || isAttendanceUnjustifiedAbsence(r));
-        }
-        return grilleRows;
-    }, [grilleRows, filterJour]);
+    const isMissingDay = useCallback(r => !r.weekend && !r.ferie && !r.conge && isAttendanceUnentered(r), []);
+    const isAnomalyDay = useCallback(r => isPointageAnomaly(r) || isAttendanceUnjustifiedAbsence(r) || r.hasValidationError, []);
+    const isExceptionDay = useCallback(r => r.weekend || r.ferie || r.conge || isPointageException(r), []);
+    const isModifiedDay = useCallback(r => isDayRowModified(r, initialRows.find(initial => initial.datePointage === r.datePointage)), [initialRows]);
+
+    const filterCounts = useMemo(() => ({
+        ALL: grilleRows.length,
+        MISSING: grilleRows.filter(isMissingDay).length,
+        ANOMALY: grilleRows.filter(isAnomalyDay).length,
+        EXCEPTION: grilleRows.filter(isExceptionDay).length,
+        MODIFIED: grilleRows.filter(isModifiedDay).length
+    }), [grilleRows, isMissingDay, isAnomalyDay, isExceptionDay, isModifiedDay]);
+
+    const filteredRows = useMemo(() => grilleRows.filter(r => {
+        if (filterJour === 'MISSING') return isMissingDay(r);
+        if (filterJour === 'ANOMALY') return isAnomalyDay(r);
+        if (filterJour === 'EXCEPTION') return isExceptionDay(r);
+        if (filterJour === 'MODIFIED') return isModifiedDay(r);
+        return true;
+    }), [grilleRows, filterJour, isMissingDay, isAnomalyDay, isExceptionDay, isModifiedDay]);
 
     const groupedByWeeks = useMemo(() => {
         const weeks = [];
         let currentWeek = [];
         let currentWeekNum = null;
 
-        filteredRows.forEach((row) => {
+        grilleRows.forEach((row) => {
             const dateObj = new Date(`${row.datePointage}T00:00:00`);
             const dayOfWeek = dateObj.getDay() || 7;
             const monday = new Date(dateObj);
@@ -361,18 +375,21 @@ export default function SaisiePeriodeEmployePage({
             weeks.push({ weekKey: currentWeekNum, rows: currentWeek });
         }
 
-        return weeks.map(w => {
+        return weeks.map((w, index) => {
             const joursOuvresSemaine = w.rows.filter(r => !r.weekend && !r.ferie);
             const objectifHeuresSemaine = joursOuvresSemaine.length * 8.0;
             const totalFeriesSemaine = w.rows.filter(r => r.ferie).length;
 
             return {
                 ...w,
+                weekNumber: index + 1,
+                summaryRows: w.rows,
+                rows: w.rows.filter(row => filteredRows.includes(row)),
                 objectifHeuresSemaine,
                 totalFeriesSemaine
             };
-        });
-    }, [filteredRows]);
+        }).filter(week => week.rows.length > 0);
+    }, [grilleRows, filteredRows]);
 
     // ── 8. Demande d'enregistrement avec récapitulatif ────────────────────────
     const handleRequestSave = () => {
@@ -476,6 +493,7 @@ export default function SaisiePeriodeEmployePage({
                         filterJour={filterJour}
                         setFilterJour={setFilterJour}
                         grilleRows={grilleRows}
+                        filterCounts={filterCounts}
                         importLoading={importLoading}
                         onNavigateEmploye={handleNavigateEmploye}
                         onSelectEmploye={(id) => requestNav({ type: 'employe', value: id })}
@@ -538,6 +556,14 @@ export default function SaisiePeriodeEmployePage({
                             grilleRows={grilleRows}
                             onClose={() => setImportPreview(null)}
                             onApply={handleApplyImport}
+                            onSave={handleSaveImport}
+                            onRegularize={(line) => {
+                                const row = grilleRows.find(item => item.datePointage === line.date);
+                                if (!row || row.canCorrect === false) return;
+                                setRegularisationRow({ ...row, importEventCode: line.eventCode,
+                                    importAllowanceOverrides: line.allowanceOverrides || {},
+                                    importHalfDayMoment: importHalfDayMoment(line.proposed) });
+                            }}
                         />
                     )}
 
@@ -552,7 +578,9 @@ export default function SaisiePeriodeEmployePage({
                         </div>
                     ) : (
                         <PeriodeEmployeeTable
+                            key={selectedEmployeId}
                             groupedByWeeks={groupedByWeeks}
+                            filterJour={filterJour}
                             canEditPeriod={canEditPeriod}
                             isAutonome={isAutonome}
                             displayedIndemnites={displayedIndemnites}
@@ -590,7 +618,10 @@ export default function SaisiePeriodeEmployePage({
                             photoUrl: ficheData?.photoUrl || currentEmpSummary?.photoUrl,
                             statutCode: regularisationRow.codeStatut || 'NON_SAISI',
                             statutLibelle: regularisationRow.codeStatut,
-                            typeAnomalie: 'ABSENCE',
+                            typeAnomalie: regularisationRow.minutesRetard > 0 ? 'RETARD'
+                                : isAttendanceUnjustifiedAbsence(regularisationRow) ? 'ABSENCE' : undefined,
+                            minutesRetard: regularisationRow.minutesRetard || 0,
+                            regularisationIntent: regularisationRow.regularisationIntent,
                             heureEntreeMatin: regularisationRow.heureEntreeMatin,
                             heureSortieMatin: regularisationRow.heureSortieMatin,
                             heureEntreeAm: regularisationRow.heureEntreeAm,

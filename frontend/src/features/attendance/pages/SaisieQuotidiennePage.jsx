@@ -471,17 +471,20 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
             <div className="space-y-4 w-full pb-8">
 
                 {/* Sélecteur de Mode : Saisie collective (par date) vs Saisie par collaborateur (période) */}
-                <div className="flex items-center justify-between gap-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2.5">
-                    <div className="inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5">
-                        <button
-                            type="button"
-                            className="px-3 py-1.5 text-xs font-bold bg-[var(--color-brand-600)] text-[var(--color-on-color)] shadow-xs flex items-center gap-1.5 cursor-pointer"
+                <div className="flex items-center justify-between gap-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
+                    <div className="inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 gap-0.5">
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<Users size={13} />}
+                            className="font-bold shadow-xs"
                         >
-                            <Users size={13} />
-                            <span>Saisie collective (par date)</span>
-                        </button>
-                        <button
-                            type="button"
+                            Saisie collective (par date)
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            iconLeft={<User size={13} />}
                             onClick={() => {
                                 setSearchParams(prev => {
                                     const next = new URLSearchParams(prev);
@@ -490,11 +493,10 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                                     return next;
                                 });
                             }}
-                            className="px-3 py-1.5 text-xs font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors cursor-pointer flex items-center gap-1.5"
+                            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
                         >
-                            <User size={13} />
-                            <span>Saisie par collaborateur (période)</span>
-                        </button>
+                            Saisie par collaborateur (période)
+                        </Button>
                     </div>
                     <span className="text-xs text-[var(--color-fg-muted)] hidden sm:inline">
                         Mode de saisie opérationnelle

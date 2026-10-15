@@ -18,7 +18,7 @@ import { fmtDate, fmtAriary } from '@/features/dashboard/components/dashboardPre
 import HasPermission from '@/features/auth/components/HasPermission';
 import useDebounce from '@/hooks/useDebounce';
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
 function SupervisionMouvementsTab() {
     const navigate = useNavigate();

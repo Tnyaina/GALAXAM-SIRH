@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Check, FileSpreadsheet, LoaderCircle } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -7,30 +7,12 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table } from '@/components/ui/data-display/Table';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 import { formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { attendanceService } from '@/features/attendance/api/attendanceApi';
+import { importLineNeedsReview } from '@/features/attendance/utils/pointageImport';
+import { toPointageBatchPayload } from '@/features/attendance/utils/pointageBatchPayload';
+import { POINTAGE_TIME_FIELDS } from '@/features/attendance/utils/pointageRow';
 
-const TIME_FIELDS = [
-    ['heureEntreeMatin', 'Entrée'],
-    ['heureSortieMatin', 'Sortie'],
-    ['heureEntreeAm', 'Retour'],
-    ['heureSortieAm', 'Fin']
-];
-
-const getDayMinutes = (p) => {
-    const minutes = value => {
-        if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return null;
-        const [hours, mins] = value.split(':').map(Number);
-        return hours * 60 + mins;
-    };
-    const start = minutes(p?.heureEntreeMatin);
-    const end = minutes(p?.heureSortieAm);
-    if (p?.horaireContinu) return start != null && end != null && end >= start ? end - start : null;
-    const morningEnd = minutes(p?.heureSortieMatin);
-    const afternoonStart = minutes(p?.heureEntreeAm);
-    if ([start, morningEnd, afternoonStart, end].every(x => x != null) && morningEnd >= start && end >= afternoonStart) {
-        return morningEnd - start + end - afternoonStart;
-    }
-    return null;
-};
+const TIME_FIELDS = POINTAGE_TIME_FIELDS.map((field, index) => [field, ['Entrée', 'Sortie', 'Retour', 'Fin'][index]]);
 
 function AllowanceEditor({ allowance, value = {}, disabled, onChange }) {
     const fractionable = allowance.fractionnable ?? allowance.estFractionnable;
@@ -113,17 +95,54 @@ export default function PeriodeEmployeeImportPreview({
     setImportPreview,
     grilleRows = [],
     onClose,
-    onApply
+    onApply,
+    onSave,
+    onRegularize
 }) {
+    const [filter, setFilter] = useState('ALL');
+    const [expanded, setExpanded] = useState({});
+    const [approvedConflicts, setApprovedConflicts] = useState({});
     const lines = useMemo(() => importPreview?.lines || [], [importPreview]);
-    const hasSelection = Object.values(importSelections).some(Boolean);
-    const selectedCount = lines.filter(line => importSelections[line.ligne] && ['IMPORT', 'SIGNAL'].includes(line.decision)).length;
-    const readyCount = lines.filter(line => line.decision === 'IMPORT' && !line.errors?.length).length;
+    const selectedImportCount = lines.filter(line => importSelections[line.ligne] && line.decision === 'IMPORT' && !line.eventCode).length;
+    const selectedSignalCount = lines.filter(line => importSelections[line.ligne] && (line.decision === 'SIGNAL' || (line.decision === 'IMPORT' && line.eventCode))).length;
+    const selectedCount = selectedImportCount + selectedSignalCount;
+    const readyCount = lines.filter(line => line.decision === 'IMPORT' && !line.errors?.length && !line._previewPending && !line._previewError && !line.proposed?.hasValidationError).length;
     const signalCount = lines.filter(line => line.decision === 'SIGNAL').length;
-    const restCount = lines.filter(line => line.decision === 'SKIP').length;
+    const restCount = lines.filter(line => line.decision === 'IGNORE').length;
+    const missingCount = lines.filter(line => line.decision === 'MISSING').length;
+    const conflictCount = lines.filter(line => line.conflict && line.decision === 'IMPORT').length;
+    const selectedNeedsReview = lines.some(line => importSelections[line.ligne] && importLineNeedsReview(line, approvedConflicts));
+    const visibleLines = useMemo(() => lines.filter(line => filter === 'ALL'
+        || (filter === 'READY' && line.decision === 'IMPORT' && !line.errors?.length)
+        || (filter === 'ISSUE' && (line.decision === 'SIGNAL' || line.decision === 'ERROR' || line.decision === 'MISSING' || line._previewError))
+        || (filter === 'CONFLICT' && line.conflict)
+        || (filter === 'IGNORE' && line.decision === 'IGNORE')), [lines, filter]);
+    useEffect(() => {
+        const pending = lines.filter(line => line._previewPending && line.proposed);
+        if (!pending.length) return undefined;
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+            try {
+                const results = await attendanceService.daily.previewBatch(pending.map(line => toPointageBatchPayload(line.proposed)));
+                if (cancelled) return;
+                const byId = new Map(pending.map((line, index) => [line.ligne, results?.[index]]));
+                setImportPreview(current => current ? ({ ...current, lines: current.lines.map(line => {
+                    const result = byId.get(line.ligne);
+                    if (!result || !line._previewPending || !pending.some(item => item.ligne === line.ligne && item.proposed === line.proposed)) return line;
+                    return { ...line, proposed: result.preview || line.proposed, _previewPending: false,
+                        _previewError: result.error || (result.preview?.hasValidationError ? result.preview.validationMessages?.[0] : null) };
+                }) }) : current);
+            } catch (error) {
+                if (!cancelled) setImportPreview(current => current ? ({ ...current, lines: current.lines.map(line =>
+                    pending.some(item => item.ligne === line.ligne && item.proposed === line.proposed)
+                        ? { ...line, _previewPending: false, _previewError: error?.response?.data?.message || 'Calcul indisponible' } : line) }) : current);
+            }
+        }, 350);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [lines, setImportPreview]);
     const groups = useMemo(() => {
         const result = [];
-        lines.forEach(line => {
+        visibleLines.forEach(line => {
             const date = new Date(`${line.date}T12:00:00`);
             const monday = new Date(date);
             monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
@@ -136,7 +155,7 @@ export default function PeriodeEmployeeImportPreview({
             group.lines.push(line);
         });
         return result;
-    }, [lines]);
+    }, [visibleLines]);
 
     const updateLine = (ligne, update) => setImportPreview(current => ({
         ...current,
@@ -158,7 +177,7 @@ export default function PeriodeEmployeeImportPreview({
             size="full"
             closeOnBackdrop={!importPreviewLoading}
             closeOnEscape={!importPreviewLoading}
-            className="!max-w-[90vw] w-[90vw] max-h-[92vh]"
+            className="!max-w-[88vw] w-[88vw] max-h-[88vh]"
         >
             {importPreviewLoading ? (
                 <div className="space-y-4">
@@ -182,34 +201,42 @@ export default function PeriodeEmployeeImportPreview({
                         <div className="flex flex-wrap gap-2 text-[11px]">
                             <Badge variant="success" size="sm">{readyCount} prêtes</Badge>
                             <Badge variant="warning" size="sm">{signalCount} à régulariser</Badge>
-                            <Badge variant="default" size="sm">{restCount} repos / ignorées</Badge>
+                            <Badge variant="warning" size="sm">{missingCount} absentes du fichier</Badge>
+                            <Badge variant="default" size="sm">{restCount} ignorées</Badge>
                         </div>
                     </div>
 
                     <div className="mb-2 flex items-center justify-between gap-3">
-                        <p className="text-xs text-[var(--color-fg-muted)]">Modifiez les horaires et indemnités avant de charger. Les changements restent dans la grille et ne sont pas encore enregistrés.</p>
+                        <p className="text-xs text-[var(--color-fg-muted)]">Vérifiez les heures et indemnités. Les modifications sont recalculées avant l’enregistrement.</p>
                         <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 text-xs font-semibold">
                             <input type="checkbox" checked={lines.length > 0 && lines.filter(line => ['IMPORT', 'SIGNAL'].includes(line.decision) && !line.errors?.length).every(line => importSelections[line.ligne])} onChange={event => toggleAll(event.target.checked)} className="accent-[var(--color-brand-600)]" />
                             Tout sélectionner
                         </label>
                     </div>
 
-                    <Table maxHeight="58vh" className="w-full" tableClassName="w-full min-w-[1120px] border-collapse text-left text-xs" aria-label="Journées importées et valeurs modifiables">
+                    <div className="mb-2 flex flex-wrap gap-1" aria-label="Filtrer les journées d’import">
+                        {[
+                            ['ALL', `Toutes (${lines.length})`], ['READY', `Prêtes (${readyCount})`],
+                            ['ISSUE', `À traiter (${signalCount + missingCount + lines.filter(line => line.decision === 'ERROR').length})`],
+                            ['CONFLICT', `Conflits (${conflictCount})`], ['IGNORE', `Ignorées (${restCount})`]
+                        ].map(([value, label]) => <Button key={value} variant={filter === value ? 'primary' : 'secondary'} size="xs" onClick={() => setFilter(value)}>{label}</Button>)}
+                    </div>
+
+                    <Table maxHeight="52vh" className="w-full" tableClassName="w-full min-w-[940px] border-collapse text-left text-xs" aria-label="Journées importées et valeurs modifiables">
                             <thead className="sticky top-0 z-10 bg-[var(--color-bg-subtle)] text-[10px] font-bold uppercase text-[var(--color-fg-muted)] shadow-sm">
                                 <tr>
                                     <th className="w-10 p-2 text-center">Choix</th>
                                     <th className="w-28 p-2">Date</th>
                                     <th className="w-[410px] p-2">Horaires importés / modifiables</th>
                                     <th className="w-24 p-2">Durée</th>
-                                    <th className="w-40 p-2">Déjà enregistré</th>
-                                    <th className="min-w-[300px] p-2">Indemnités du fichier</th>
-                                    <th className="min-w-[160px] p-2">Contrôle</th>
+                                    <th className="min-w-[260px] p-2">Indemnités</th>
+                                    <th className="w-28 p-2">Contrôle</th>
                                 </tr>
                             </thead>
                             {groups.map(group => (
                                 <tbody key={group.key}>
                                     <tr className="bg-[var(--color-bg-subtle)]/70">
-                                        <td colSpan={7} className="border-y border-[var(--color-border-subtle)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                                        <td colSpan={6} className="border-y border-[var(--color-border-subtle)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
                                             Semaine du {new Date(`${group.key}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
                                         </td>
                                     </tr>
@@ -220,17 +247,17 @@ export default function PeriodeEmployeeImportPreview({
                                         const selectable = ['IMPORT', 'SIGNAL'].includes(line.decision) && row?.canCorrect !== false && !line.errors?.length && !(existing?.congeApprouve && line.eventCode);
                                         const selected = Boolean(importSelections[line.ligne]);
                                         const editable = selected && line.decision === 'IMPORT' && Boolean(proposed) && selectable;
-                                        const minutes = getDayMinutes(proposed || {});
                                         const updateTime = (field, value) => updateLine(line.ligne, current => ({
                                             ...current,
-                                            proposed: { ...current.proposed, [field]: value, totalHeures: getDayMinutes({ ...current.proposed, [field]: value }) == null ? current.proposed.totalHeures : getDayMinutes({ ...current.proposed, [field]: value }) / 60 }
+                                            proposed: { ...current.proposed, [field]: value || null }, _previewPending: true, _previewError: null
                                         }));
                                         const updateAllowance = (id, value) => updateLine(line.ligne, current => ({
                                             ...current,
-                                            proposed: { ...current.proposed, dynamicIndemnites: { ...current.proposed.dynamicIndemnites, [String(id)]: value } }
+                                            proposed: { ...current.proposed, dynamicIndemnites: { ...current.proposed.dynamicIndemnites, [String(id)]: value } },
+                                            _previewPending: true, _previewError: null
                                         }));
-                                        return (
-                                            <tr key={line.ligne} className={`border-b border-[var(--color-border-subtle)] align-middle ${selected ? 'bg-[var(--color-brand-500)]/5' : 'bg-[var(--color-surface)]'} hover:bg-[var(--color-bg-subtle)]/40`}>
+                                        return (<Fragment key={line.ligne}>
+                                            <tr className={`border-b border-[var(--color-border-subtle)] align-middle ${selected ? 'bg-[var(--color-brand-500)]/5' : 'bg-[var(--color-surface)]'} hover:bg-[var(--color-bg-subtle)]/40`}>
                                                 <td className="p-2 text-center">
                                                     <input type="checkbox" checked={selected} disabled={!selectable} onChange={event => setImportSelections(current => ({ ...current, [line.ligne]: event.target.checked }))} className="accent-[var(--color-brand-600)]" />
                                                 </td>
@@ -249,14 +276,17 @@ export default function PeriodeEmployeeImportPreview({
                                                                 </label>
                                                             ))}
                                                         </div>
-                                                    ) : <span className="text-[var(--color-fg-muted)]">{proposed ? 'Signalement sans chargement direct' : 'Aucune heure'}</span>}
+                                                    ) : line.decision === 'MISSING' && proposed ? (
+                                                        <Button variant="secondary" size="xs" onClick={() => {
+                                                            updateLine(line.ligne, current => ({ ...current, decision: 'IMPORT', _previewPending: true,
+                                                                proposed: { ...current.proposed, codeStatut: 'PRESENT' } }));
+                                                            setImportSelections(current => ({ ...current, [line.ligne]: true }));
+                                                        }}>Compléter cette journée</Button>
+                                                    ) : <span className="text-[var(--color-fg-muted)]">{proposed ? 'À régulariser' : 'Aucune heure'}</span>}
                                                 </td>
                                                 <td className="whitespace-nowrap p-2 font-mono font-semibold text-[var(--color-fg)]">
-                                                    {minutes != null ? formatHeuresMinutes(minutes / 60) : proposed?.totalHeures != null ? formatHeuresMinutes(proposed.totalHeures) : '—'}
+                                                    {line._previewPending ? '…' : proposed?.totalHeures != null ? formatHeuresMinutes(proposed.totalHeures) : '—'}
                                                     {proposed?.libelleStatut && <div className="mt-1 font-sans text-[10px] font-normal text-[var(--color-fg-muted)]">{proposed.libelleStatut}</div>}
-                                                </td>
-                                                <td className="p-2 text-[11px] text-[var(--color-fg-muted)]">
-                                                    {line.conflict ? `${existing?.statut || 'Pointage existant'}${existing?.heureEntreeMatin ? ` · ${existing.heureEntreeMatin}–${existing.heureSortieAm || '—'}` : ''}` : existing?.statut || '—'}
                                                 </td>
                                                 <td className="px-2 py-1.5">
                                                     {(line.allowances || []).length > 0 ? (
@@ -269,14 +299,32 @@ export default function PeriodeEmployeeImportPreview({
                                                     ) : <span className="text-[var(--color-fg-muted)]">—</span>}
                                                 </td>
                                                 <td className="px-2 py-1.5">
-                                                    {line.errors?.map((message, index) => <div key={index} className="mb-1 text-[10px] font-medium text-[var(--color-danger-600)]">{message}</div>)}
-                                                    {line.warnings?.map((message, index) => <div key={index} className="mb-1 text-[10px] text-[var(--color-warning-700)]">{message}</div>)}
-                                                    {['IMPORT', 'SIGNAL'].includes(line.decision) && !line.conflict && !line.errors?.length && <Badge variant={line.decision === 'SIGNAL' ? 'warning' : 'success'} size="sm">{line.decision === 'SIGNAL' ? 'À régulariser' : 'Prête'}</Badge>}
-                                                    {line.conflict && <Badge variant="warning" size="sm">À vérifier</Badge>}
-                                                    {!selectable && !line.errors?.length && !line.conflict && <span className="text-[10px] text-[var(--color-fg-muted)]">Non chargée</span>}
+                                                    {line._previewPending ? <Badge variant="warning" size="sm">Calcul…</Badge>
+                                                        : line._previewError || line.errors?.length || proposed?.hasValidationError ? <Badge variant="danger" size="sm">À corriger</Badge>
+                                                            : line.conflict ? <Badge variant="warning" size="sm">Conflit</Badge>
+                                                                : line.decision === 'SIGNAL' ? <Badge variant="warning" size="sm">À régulariser</Badge>
+                                                                    : line.decision === 'MISSING' ? <Badge variant="default" size="sm">Absente</Badge>
+                                                                        : line.decision === 'IMPORT' ? <Badge variant="success" size="sm">Prête</Badge>
+                                                                            : <Badge variant="default" size="sm">Ignorée</Badge>}
+                                                    {(line.conflict || line.errors?.length || line.warnings?.length || line._previewError) &&
+                                                        <Button variant="ghost" size="xs" onClick={() => setExpanded(current => ({ ...current, [line.ligne]: !current[line.ligne] }))}>{expanded[line.ligne] ? 'Masquer' : 'Détails'}</Button>}
+                                                    {line.decision === 'SIGNAL' && !line.errors?.length && row?.canCorrect !== false &&
+                                                        <Button variant="secondary" size="xs" onClick={() => onRegularize(line)}>Régulariser</Button>}
                                                 </td>
                                             </tr>
-                                        );
+                                            {expanded[line.ligne] && <tr key={`${line.ligne}-detail`} className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
+                                                <td colSpan={6} className="px-3 py-2 text-xs">
+                                                    {line.conflict && <div className="mb-2 flex flex-wrap items-center gap-3">
+                                                        <span>Enregistré : {existing?.statut || 'Pointage'} · {[existing?.heureEntreeMatin, existing?.heureSortieMatin, existing?.heureEntreeAm, existing?.heureSortieAm].filter(Boolean).join(' / ') || 'sans heures'}</span>
+                                                        <span>Fichier : {[proposed?.heureEntreeMatin, proposed?.heureSortieMatin, proposed?.heureEntreeAm, proposed?.heureSortieAm].filter(Boolean).join(' / ') || 'sans heures'}</span>
+                                                        {line.decision === 'IMPORT' && <label className="inline-flex items-center gap-1 font-semibold"><input type="checkbox" checked={Boolean(approvedConflicts[line.ligne])} onChange={event => setApprovedConflicts(current => ({ ...current, [line.ligne]: event.target.checked }))} /> Remplacer le pointage enregistré</label>}
+                                                    </div>}
+                                                    {line.errors?.map((message, index) => <div key={`e${index}`} className="text-[var(--color-danger-600)]">{message}</div>)}
+                                                    {line._previewError && <div className="text-[var(--color-danger-600)]">{line._previewError}</div>}
+                                                    {line.warnings?.map((message, index) => <div key={`w${index}`} className="text-[var(--color-warning-700)]">{message}</div>)}
+                                                </td>
+                                            </tr>}
+                                        </Fragment>);
                                     })}
                                 </tbody>
                             ))}
@@ -284,12 +332,15 @@ export default function PeriodeEmployeeImportPreview({
 
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-3">
                         <p className="max-w-2xl text-xs text-[var(--color-fg-muted)]">
-                            <strong className="text-[var(--color-fg)]">{selectedCount} journée(s) sélectionnée(s).</strong> Elles seront chargées dans la grille et resteront à enregistrer. Les journées à régulariser se traitent depuis la grille.
+                            <strong className="text-[var(--color-fg)]">{selectedImportCount} pointage(s) · {selectedSignalCount} signalement(s) sélectionné(s).</strong> Les congés et absences signalés demandent une régularisation dans la grille avant d’être réglés.
                         </p>
                         <div className="flex gap-2">
                             <Button variant="secondary" size="sm" onClick={onClose} disabled={importApplying}>Annuler</Button>
-                            <Button variant="primary" size="sm" iconLeft={<Check size={14} />} onClick={onApply} disabled={!hasSelection || importApplying} loading={importApplying}>
-                                Charger {selectedCount} journée{selectedCount > 1 ? 's' : ''} dans la grille
+                            <Button variant="secondary" size="sm" onClick={() => onApply(approvedConflicts)} disabled={!selectedCount || importApplying || selectedNeedsReview}>
+                                Charger dans la grille
+                            </Button>
+                            <Button variant="primary" size="sm" iconLeft={<Check size={14} />} onClick={() => onSave(approvedConflicts)} disabled={!selectedImportCount || selectedSignalCount > 0 || importApplying || selectedNeedsReview} loading={importApplying}>
+                                Enregistrer {selectedImportCount} pointage{selectedImportCount > 1 ? 's' : ''}
                             </Button>
                         </div>
                     </div>

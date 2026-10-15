@@ -27,6 +27,31 @@ it('affiche le bilan backend, le journal et les accès DAF avec les détails rep
  // Retard nul ne permet pas au client de changer la décision d'assiduité du serveur.
  expect(host.textContent).not.toContain('Éligible à la prime d’assiduité');
 });
+it('affiche les codes des indemnités dans le journal et garde les libellés en aide', async () => {
+ attendanceService.getFicheEmploye.mockResolvedValue({ ...sheet, indemnitesDisponibles: {
+  DPLCT: { code: 'DPLCT', libelle: 'Indemnité de Déplacement', periodicite: 'MENSUEL' },
+  REPAS: { code: 'REPAS', libelle: 'Indemnité de Repas', periodicite: 'JOURNALIER' }
+ } });
+ await render(<PointageTab idEmploye={7} />);
+ const headers = [...host.querySelectorAll('th')];
+ expect(headers.find(header => header.textContent.includes('DPLCT'))?.title).toBe('Indemnité de Déplacement');
+ expect(headers.find(header => header.textContent.includes('REPAS'))?.title).toBe('Indemnité de Repas');
+ expect(headers.some(header => header.textContent.includes('Indemnité de Déplacement'))).toBe(false);
+});
+it('filtre le journal sans perdre la matérialisation du congé validé', async () => {
+ attendanceService.getFicheEmploye.mockResolvedValue({ ...sheet, pointagesData: [
+  sheet.pointagesData[0],
+  { date: '02/09', dateComplete: '2026-09-02', statut: 'CONGE', congeApprouve: true, canCorrect: false },
+  { date: '03/09', dateComplete: '2026-09-03', statut: 'FERIE_CHOME', canCorrect: false }
+ ] });
+ await render(<PointageTab idEmploye={7} />);
+ const exceptions = [...host.querySelectorAll('button')].find(button => button.textContent === 'Exceptions');
+ await act(async () => exceptions.click());
+ expect(host.textContent).toContain('Congé validé');
+ expect(host.querySelector('button[aria-label="Corriger la journée du 01/09"]')).toBeNull();
+ expect(host.textContent).toContain('02/09');
+ expect(host.textContent).toContain('03/09');
+});
 it('masque les corrections quand le serveur les interdit', async () => {
  attendanceService.getFicheEmploye.mockResolvedValue({ ...sheet, availableActions: {}, pointagesData: [{ ...sheet.pointagesData[0], canCorrect: false }] });
  await render(<PointageTab idEmploye={7} />);

@@ -66,7 +66,7 @@ export default function CarrieresSupervisionPage() {
     const [selectedEcheance, setSelectedEcheance] = useState(searchParams.get('echeance') || '');
     const [doublonsOnly, setDoublonsOnly] = useState(searchParams.get('doublonsOnly') === 'true');
     const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
-    const pageSize = 15;
+    const pageSize = 10;
 
     // État d'accordéon (groupes pliés/dépliés)
     const [expandedGroups, setExpandedGroups] = useState(new Set());

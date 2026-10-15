@@ -501,7 +501,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             </div>
 
             {/* Les repères prioritaires avant le détail et les filtres. */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <StatCard
                     title="À traiter"
                     value={(Number(kpis?.anomaliesActives) || 0) + (isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0))}
@@ -539,7 +539,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         iconRight={isMissingDaysCollapsed
                             ? <ChevronDown size={16} className="shrink-0 text-[var(--color-fg-muted)]" />
                             : <ChevronUp size={16} className="shrink-0 text-[var(--color-fg-muted)]" />}
-                        className="w-full justify-between p-4 text-left normal-case tracking-normal"
+                        className="w-full justify-between p-3 text-left normal-case tracking-normal"
                     >
                         <span className="flex min-w-0 flex-1 flex-col items-start text-left normal-case tracking-normal">
                             <span id="missing-days-title" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
@@ -707,7 +707,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             {/* ---------- SECTION ANOMALIES DE POINTAGE ---------- */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden" id="anomalies">
                 {/* Header & Filtres */}
-                <div className="p-4 border-b border-[var(--color-border-subtle)] space-y-3">
+                <div className="p-3 border-b border-[var(--color-border-subtle)] space-y-2">
                     <div>
                         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                             <Shield size={14} className="text-[var(--color-brand-500)]" />
@@ -833,7 +833,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     )}
                 </div>
 
-                <p className="px-4 py-2 border-b border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)]">
+                <p className="px-3 py-1.5 border-b border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)]">
                     Un retard peut être corrigé si la saisie est erronée, ou confirmé comme réel. Dans les deux cas, il reste tracé et passe à « Régularisé ».
                 </p>
 
@@ -881,7 +881,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 <Th className="min-w-[220px]">Type &amp; Description</Th>
                                 <Th className="w-24 text-center">Sévérité</Th>
                                 <Th className="w-28 text-center">Statut</Th>
-                                <Th className="w-24 text-right">Action</Th>
+                                <Th className="min-w-[250px] text-right">Action</Th>
                             </Tr>
                         </Thead>
                         <Tbody>
@@ -986,24 +986,26 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                             </Td>
 
                                             {/* Action */}
-                                            <Td className="text-right">
-                                                <Link
-                                                    to={employeeDayUrl(ano.idEmploye, ano.datePointage)}
-                                                    className="mr-2 inline-flex min-h-[44px] items-center text-xs font-semibold text-[var(--color-brand-600)] hover:underline"
-                                                >
-                                                    Voir la journée
-                                                </Link>
-                                                <Button
-                                                    variant={isDone ? 'ghost' : 'outline'}
-                                                    size="sm"
-                                                    onClick={() => handleOpenRegularisation(ano)}
-                                                    disabled={isLocked}
-                                                    className="font-bold text-xs min-h-[44px] inline-flex items-center justify-center"
-                                                    aria-label={`${isDone ? 'Modifier la régularisation de' : 'Régulariser l\'anomalie de'} ${ano.nomComplet || `${ano.nom || ''} ${ano.prenom || ''}`.trim() || 'ce collaborateur'} du ${ano.datePointage || ano.date || ''}`.trim()}
-                                                >
-                                                    {isDone ? 'Modifier' : ano.typeAnomalie === 'RETARD' || ano.statutCode === 'ABSENCE_JUSTIFIEE'
-                                                        ? 'Vérifier' : 'Régulariser'}
-                                                </Button>
+                                            <Td className="min-w-[250px] text-right">
+                                                <div className="flex items-center justify-end gap-3 whitespace-nowrap">
+                                                    <Link
+                                                        to={employeeDayUrl(ano.idEmploye, ano.datePointage)}
+                                                        className="text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline"
+                                                    >
+                                                        Voir la journée
+                                                    </Link>
+                                                    <Button
+                                                        variant={isDone ? 'ghost' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => handleOpenRegularisation(ano)}
+                                                        disabled={isLocked}
+                                                        className="font-bold"
+                                                        aria-label={`${isDone ? 'Modifier la régularisation de' : 'Régulariser l\'anomalie de'} ${ano.nomComplet || `${ano.nom || ''} ${ano.prenom || ''}`.trim() || 'ce collaborateur'} du ${ano.datePointage || ano.date || ''}`.trim()}
+                                                    >
+                                                        {isDone ? 'Modifier' : ano.typeAnomalie === 'RETARD' || ano.statutCode === 'ABSENCE_JUSTIFIEE'
+                                                            ? 'Vérifier' : 'Régulariser'}
+                                                    </Button>
+                                                </div>
                                             </Td>
                                         </Tr>
                                     );

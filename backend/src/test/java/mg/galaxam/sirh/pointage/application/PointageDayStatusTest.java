@@ -25,9 +25,23 @@ class PointageDayStatusTest {
     }
 
     @Test
-    void uneSeulePlageEstUneDemiJournee() {
-        assertEquals("DEMI_JOURNEE", status(LocalDate.of(2026, 9, 28), "08:00", "12:30", null, null,
+    void uneSeulePlageEstUneAnomalieParDefaut() {
+        assertEquals("ANOMALIE_SAISIE", status(LocalDate.of(2026, 9, 28), "08:00", "12:30", null, null,
                 "PRESENT", false));
+        assertEquals("ANOMALIE_SAISIE", status(LocalDate.of(2026, 9, 28), "08:00", "12:30", null, null,
+                "DEMI_JOURNEE", false));
+    }
+
+    @Test
+    void choixDemiJourneeDisponibleSeulementPourUnePlageComplete() {
+        var dto = new SaisiePointageJourDTO();
+        dto.setDatePointage("2026-08-07");
+        assertEquals(false, AttendanceStatusPolicy.actions(dto).stream()
+                .anyMatch(action -> "DEMI_JOURNEE".equals(action.code())));
+        dto.setHeureEntreeMatin("08:00");
+        dto.setHeureSortieMatin("12:30");
+        assertEquals(true, AttendanceStatusPolicy.actions(dto).stream()
+                .anyMatch(action -> "DEMI_JOURNEE".equals(action.code()) && action.requiresMotif()));
     }
 
     @Test
@@ -36,6 +50,21 @@ class PointageDayStatusTest {
                 "PRESENT", false));
         assertEquals("PRESENT", status(LocalDate.of(2026, 9, 28), "08:00", "12:30", "13:30", "17:00",
                 "ANOMALIE_SAISIE", false));
+    }
+
+    @Test
+    void demiJourneeQualifieeManuellementAvecMotif() {
+        var dto = new SaisiePointageJourDTO();
+        dto.setCodeStatut("DEMI_JOURNEE");
+        dto.setMotifAjustement("Après-midi autorisé sans présence");
+        dto.setHeureEntreeMatin("08:00");
+        dto.setHeureSortieMatin("12:30");
+        var result = engine.calculateDay(new AttendanceEngine.Context(1, LocalDate.of(2026, 8, 7),
+                time("08:00"), time("12:30"), null, null,
+                time("08:00"), time("12:30"), time("13:30"), time("17:00"),
+                null, null, false, false, false, AttendanceEngine.Context.LeavePart.NONE,
+                false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false));
+        assertEquals("DEMI_JOURNEE", PointageService.resolveDayStatus(dto, result, LocalDate.of(2026, 8, 7)));
     }
 
     @Test

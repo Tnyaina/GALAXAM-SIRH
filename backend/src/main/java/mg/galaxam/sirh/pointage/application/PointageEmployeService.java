@@ -291,6 +291,20 @@ public class PointageEmployeService {
             throw new IllegalStateException("Impossible de résoudre le site historique de l'employé.", error);
         }
 
+        Map<LocalDate, String> libellesFeries = new HashMap<>();
+        if (feriesChomes != null && !feriesChomes.isEmpty()) {
+            try (Connection c = dataSource.getConnection()) {
+                for (LocalDate dateFerie : feriesChomes) {
+                    EmploymentContextResolver.PointageDay contexte = pointageByDate.get(dateFerie);
+                    if (contexte == null) continue;
+                    String libelle = calendrierEngine.getJourChomeInfo(dateFerie, contexte.siteId(), c).libelle();
+                    if (libelle != null && !libelle.isBlank()) libellesFeries.put(dateFerie, libelle);
+                }
+            } catch (SQLException error) {
+                log.warn("[PointageEmployeService] Libellés des jours fériés indisponibles : {}", error.getMessage());
+            }
+        }
+
         // 2. Récupération des pointages enregistrés en base (avec indemnités de repas et déplacement)
         Map<LocalDate, PointageRecord> pointageMap = new HashMap<>();
 
@@ -524,6 +538,7 @@ public class PointageEmployeService {
             PointageJourDTO dto = new PointageJourDTO();
             dto.setDate(curr.format(dayFormatter));
             dto.setDateComplete(curr.toString());
+            dto.setLibelleFerie(libellesFeries.get(curr));
             dto.setIdSite(contexteJour == null ? null : contexteJour.siteId());
 
             String dayName = curr.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.FRENCH);

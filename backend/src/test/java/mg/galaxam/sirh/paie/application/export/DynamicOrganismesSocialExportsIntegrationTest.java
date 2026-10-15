@@ -1,7 +1,5 @@
 package mg.galaxam.sirh.paie.application.export;
 
-import mg.galaxam.sirh.paie.persistence.BulletinPaie;
-import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paieconfig.application.SocialContributionContextResolver;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -14,10 +12,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 import javax.sql.DataSource;
 import java.io.ByteArrayInputStream;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.time.LocalDate;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 

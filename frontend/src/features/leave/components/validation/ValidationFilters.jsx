@@ -77,11 +77,10 @@ export default function ValidationFilters({
           options={typesConges
             .filter((t) => t.estActif !== false && t.actif !== false)
             .map((t) => {
-              const code = t.code || t.codeTypeConge;
               const libelle = t.libelle || t.libelleTypeConge;
               return {
                 value: String(t.idTypeConge ?? t.id),
-                label: [code, libelle].filter(Boolean).join(' — ') || String(t.idTypeConge ?? t.id),
+                label: libelle || 'Type d’absence sans libellé',
                 sublabel: t.estPaye ? 'Rémunéré' : (t.estPaye === false ? 'Sans solde' : undefined)
               };
             })}

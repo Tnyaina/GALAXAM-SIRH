@@ -32,6 +32,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { getTodayDateString } from '@/utils/dateUtils';
 import { formatHeuresDecimal, formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
 import WeeklyPointageCalculationTable from '@/features/attendance/components/WeeklyPointageCalculationTable';
+import { filterPointageDays } from '@/features/attendance/utils/pointageDayFilter';
 
 const DafAjustementPointageModal = lazy(() => import('@/features/attendance/components/modals/DafAjustementPointageModal'));
 const PointageSoldePeriodeModal = lazy(() => import('@/features/attendance/components/modals/PointageSoldePeriodeModal'));
@@ -54,6 +55,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const [ficheData, setFicheData] = useState(null);
     const [loadedSelection, setLoadedSelection] = useState(null);
     const [correctionDate, setCorrectionDate] = useState(null);
+    const [journalFilter, setJournalFilter] = useState('ALL');
     const [showBalance, setShowBalance] = useState(false);
 
     // État du menu et du téléchargement des documents
@@ -281,6 +283,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const recap = ficheData?.recap || {};
     const regles = ficheData?.reglesAppliquees || {};
     const pointages = ficheData?.pointagesData || [];
+    const visiblePointages = filterPointageDays(pointages, journalFilter);
     const configuredAllowances = Object.values(ficheData?.indemnitesDisponibles || {})
         .map((allowance) => [allowance.code, {
             code: allowance.code,
@@ -683,10 +686,22 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
                     {/* 3. Tableau Détail Journalier (Pleine Largeur) */}
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
-                        <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
+                        <div className="p-4 border-b border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h3 className="text-sm font-bold text-[var(--color-fg)]">Journal quotidien</h3>
                                 <p className="text-xs text-[var(--color-fg-muted)]">Pointages et calculs automatiques</p>
+                            </div>
+                            <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrer le journal quotidien">
+                                {[
+                                    ['ALL', 'Tous les jours'],
+                                    ['EXCEPTIONS', 'Exceptions'],
+                                    ['ANOMALIES', 'Anomalies']
+                                ].map(([value, label]) => (
+                                    <Button key={value} type="button" size="xs"
+                                        variant={journalFilter === value ? 'primary' : 'outline'}
+                                        aria-pressed={journalFilter === value}
+                                        onClick={() => setJournalFilter(value)}>{label}</Button>
+                                ))}
                             </div>
                         </div>
 
@@ -704,9 +719,9 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <Th className="text-xs font-semibold py-3 px-3 text-center" title="Écart calculé par le serveur par rapport à la durée attendue">Écart</Th>
                                     <Th className="text-xs font-semibold py-3 px-3 text-center" title="Statut de la journée (Présent, Congé, Férié, Repos...)">Statut</Th>
                                     {dynamicAllowances.map((allowance) => (
-                                        <Th key={allowance.code} className="text-xs font-semibold py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10" title={allowance.code}>
+                                        <Th key={allowance.code} className="text-xs font-semibold py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10" title={allowance.libelle || allowance.code}>
                                             <span className="flex flex-col items-center">
-                                                <span>{allowance.libelle || allowance.code}</span>
+                                                <span>{allowance.code}</span>
                                                 {allowance.periodicite && (
                                                     <span className="text-[9px] font-normal normal-case opacity-75">
                                                         {allowance.periodicite.replaceAll('_', ' ').toLowerCase()}
@@ -717,14 +732,14 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     ))}
                                 </Thead>
                                 <Tbody>
-                                    {pointages.length === 0 ? (
+                                    {visiblePointages.length === 0 ? (
                                         <Tr>
                                             <Td colSpan={10 + dynamicAllowances.length} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
-                                                Aucune donnée de pointage pour cette période.
+                                                {pointages.length ? 'Aucune journée pour ce filtre.' : 'Aucune donnée de pointage pour cette période.'}
                                             </Td>
                                         </Tr>
                                     ) : (
-                                        pointages.map((ptg, idx) => {
+                                        visiblePointages.map((ptg, idx) => {
                                             const st = (ptg.statut || '').toUpperCase();
                                             const isConge = Boolean(ptg.isConge ?? (st === 'CONGE' || st === 'CONGE_PAYE'));
                                             const isFerie = Boolean(ptg.isFerieChome ?? (st === 'FERIE_CHOME' || (st === 'FERIE' && (!ptg.heures || ptg.heures === '00h00' || ptg.heures === '—'))));
@@ -763,7 +778,9 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     <Td className="font-data text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
                                                         {ptg.date}
                                                         {ptg.canCorrect && ptg.dateComplete && (
-                                                            <button type="button" onClick={() => setCorrectionDate(ptg.dateComplete)} className="block mt-1 text-[11px] font-sans text-[var(--color-brand-600)] hover:underline" aria-label={`Corriger la journée du ${ptg.date}`}>Corriger</button>
+                                                            <Button type="button" variant="ghost" size="xs"
+                                                                onClick={() => setCorrectionDate(ptg.dateComplete)}
+                                                                aria-label={`Corriger la journée du ${ptg.date}`}>Corriger</Button>
                                                         )}
                                                     </Td>
                                                     <Td className="text-xs text-[var(--color-fg-muted)] py-2.5 px-3">
@@ -776,19 +793,19 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             {isConge ? (
                                                                 <div className="flex items-center justify-center gap-2 py-0.5">
                                                                     <span className="font-semibold text-xs text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)]">
-                                                                        Congé payé
+                                                                        {ptg.congeApprouve ? 'Congé validé' : 'Congé saisi'}
                                                                     </span>
                                                                     <span className="text-[11px] text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)] font-sans">
                                                                         {isWeekendDay
                                                                             ? "· Jour non ouvré"
-                                                                            : `· Absence légale (-${dureeJourNormale || '8'}h)`
+                                                                            : `· Journée couverte par le congé (${dureeJourNormale || '8'}h théoriques)`
                                                                         }
                                                                     </span>
                                                                 </div>
                                                             ) : isFerie ? (
                                                                 <div className="flex items-center justify-center gap-2 py-0.5">
                                                                     <span className="font-semibold text-xs text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)]">
-                                                                        Férié chômé
+                                                                        Férié chômé{ptg.libelleFerie ? ` · ${ptg.libelleFerie}` : ''}
                                                                     </span>
                                                                     <span className="text-[11px] text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)] font-sans">
                                                                         {isWeekendDay

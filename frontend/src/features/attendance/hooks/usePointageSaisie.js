@@ -1,33 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getErrorMessage } from '@/api/apiClient';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { getTodayDateString } from '@/utils/dateUtils';
+import { usePointageBatchPreview } from '@/features/attendance/hooks/usePointageBatchPreview';
+import { changePointageAllowance, changePointageHours, changePointageStatus, isPointageRowModified, markPointageForPreview } from '@/features/attendance/utils/pointageRow';
+import { toPointageBatchPayload } from '@/features/attendance/utils/pointageBatchPayload';
 
-/** Comparaison d'édition locale uniquement ; le calcul métier reste au backend. */
-const isRowDataModified = (row, initialList) => {
-    if (!row || !initialList) return false;
-    const initial = initialList.find((item) => item.idEmploye === row.idEmploye);
-    if (!initial) return false;
-
-    const normalizeTime = (time) => (time == null || time === '—' || time === '--:--' || time === '')
-        ? ''
-        : String(time).trim();
-
-    const timeFields = ['heureEntreeMatin', 'heureSortieMatin', 'heureEntreeAm', 'heureSortieAm'];
-    if (timeFields.some((field) => normalizeTime(row[field]) !== normalizeTime(initial[field]))) return true;
-
-    const intentFields = ['horaireContinu', 'codeStatut', 'motifAjustement'];
-    if (intentFields.some((field) => (row[field] ?? '') !== (initial[field] ?? ''))) return true;
-
-    return JSON.stringify(row.dynamicIndemnites || {}) !== JSON.stringify(initial.dynamicIndemnites || {});
-};
-
-const previewSignature = (row) => JSON.stringify([
-    row.idEmploye, row.idSite, row.datePointage,
-    row.heureEntreeMatin, row.heureSortieMatin, row.heureEntreeAm, row.heureSortieAm,
-    row.codeStatut, row.typeCongeJour, row.horaireContinu, row.estAutonome, row.ferieJour,
-    row.congePaye, row.congeDecompteSolde
-]);
+const dailyRowKey = row => row.idEmploye;
+const isRowDataModified = (row, initialList) => isPointageRowModified(
+    row, initialList?.find(item => item.idEmploye === row?.idEmploye)
+);
 
 export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateString()) {
     // État local : site et date sélectionnés.
@@ -57,7 +38,6 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
-    const previewTimer = useRef(null);
     const loadSequence = useRef(0);
     const [loadedSelection, setLoadedSelection] = useState(null);
     const selectionKey = `${selectedSite}:${selectedDate}`;
@@ -73,16 +53,12 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     }, [initialGrilleData]);
 
     const markForPreview = (row) => ({
-        ...row,
+        ...markPointageForPreview(row),
         totalHeures: null,
         heuresMatin: null,
         heuresAm: null,
         heuresNuit: null,
-        minutesRetard: null,
-        hasValidationError: false,
-        validationMessages: [],
-        _previewPending: true,
-        _previewError: null
+        minutesRetard: null
     });
 
     const loadData = useCallback(async () => {
@@ -133,73 +109,13 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         loadData();
     }, [loadData]);
 
-    useEffect(() => {
-        const pendingRows = grilleData.filter((row) => row._previewPending);
-        if (!pendingRows.length) return undefined;
-        if (previewTimer.current) clearTimeout(previewTimer.current);
-        const capturedSignatures = new Map(pendingRows.map((row) => [row.idEmploye, previewSignature(row)]));
-        previewTimer.current = setTimeout(async () => {
-            try {
-                const results = await attendanceService.previewDays(pendingRows);
-                const byEmployee = new Map((results || []).map((item) => [item.idEmploye, item]));
-                setGrilleData((current) => current.map((item) => {
-                    const result = byEmployee.get(item.idEmploye);
-                    if (!result || !item._previewPending
-                        || previewSignature(item) !== capturedSignatures.get(item.idEmploye)) return item;
-                    if (result.error || !result.preview) {
-                        return { ...item, _previewPending: false,
-                            _previewError: result.error || 'Prévisualisation indisponible.' };
-                    }
-                    const preview = result.preview;
-                    // Keep the current editable values; apply only server-calculated fields.
-                    return {
-                        ...item,
-                        heuresMatin: preview.heuresMatin,
-                        heuresAm: preview.heuresAm,
-                        totalHeures: preview.totalHeures,
-                        heuresNuit: preview.heuresNuit,
-                        minutesRetard: preview.minutesRetard,
-                        codeStatut: preview.codeStatut,
-                        libelleStatut: preview.libelleStatut,
-                        hasValidationError: preview.hasValidationError,
-                        validationMessages: preview.validationMessages || [],
-                        statusActions: preview.statusActions || [],
-                        statutBadgeVariant: preview.statutBadgeVariant,
-                        statutBadgeLabel: preview.statutBadgeLabel,
-                        present: preview.present,
-                        retard: preview.retard,
-                        conge: preview.conge,
-                        absenceJustifiee: preview.absenceJustifiee,
-                        absenceNonJustifiee: preview.absenceNonJustifiee,
-                        nonSaisi: preview.nonSaisi,
-                        anomalie: preview.anomalie,
-                        dispensePointage: preview.dispensePointage,
-                        ferieTravaille: preview.ferieTravaille,
-                        ferieChome: preview.ferieChome,
-                        samediTravaille: preview.samediTravaille,
-                        dimancheTravaille: preview.dimancheTravaille,
-                        repos: preview.repos,
-                        _previewPending: false,
-                        _previewError: null
-                    };
-                }));
-            } catch (previewError) {
-                const message = getErrorMessage(previewError, 'Prévisualisation indisponible.');
-                setGrilleData((current) => current.map((item) =>
-                    capturedSignatures.get(item.idEmploye) === previewSignature(item) && item._previewPending
-                        ? { ...item, _previewPending: false, _previewError: message } : item));
-            }
-        }, 250);
-        return () => {
-            if (previewTimer.current) clearTimeout(previewTimer.current);
-        };
-    }, [grilleData]);
+    usePointageBatchPreview(grilleData, setGrilleData, dailyRowKey);
 
     const updateRowHours = (idEmploye, field, value) => {
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
-                const updated = { ...row, [field]: value, codeStatut: 'NON_SAISI' };
+                const updated = changePointageHours(row, { [field]: value });
                 return markForPreview(updated);
             })
         );
@@ -210,12 +126,10 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
                 const nextVal = !row.horaireContinu;
-                const updated = {
-                    ...row,
+                const updated = changePointageHours(row, {
                     horaireContinu: nextVal,
-                    horaireContinuJour: nextVal,
-                    codeStatut: 'NON_SAISI'
-                };
+                    horaireContinuJour: nextVal
+                });
                 return markForPreview(updated);
             })
         );
@@ -225,12 +139,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
-                const updated = {
-                    ...row,
-                    codeStatut,
-                    motifAjustement: motifAjustement || '',
-                    typeCongeJour: codeStatut === 'CONGE' ? 'FULL_DAY' : null
-                };
+                const updated = changePointageStatus(row, codeStatut, motifAjustement || '');
                 return markForPreview(updated);
             })
         );
@@ -246,14 +155,12 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
             prev.map((row) => {
                 if (!empIds.has(row.idEmploye)) return row;
 
-                const filled = {
-                    ...row,
+                const filled = changePointageHours(row, {
                     heureEntreeMatin: hDebM,
                     heureSortieMatin: hFinM,
                     heureEntreeAm: hDebA,
-                    heureSortieAm: hFinA,
-                    codeStatut: 'NON_SAISI',
-                };
+                    heureSortieAm: hFinA
+                });
                 return markForPreview(filled);
             })
         );
@@ -264,12 +171,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (!empIds.has(row.idEmploye)) return row;
-                const updated = {
-                    ...row,
-                    codeStatut,
-                    motifAjustement: motifAjustement || '',
-                    typeCongeJour: codeStatut === 'CONGE' ? 'FULL_DAY' : null
-                };
+                const updated = changePointageStatus(row, codeStatut, motifAjustement || '');
                 return markForPreview(updated);
             })
         );
@@ -301,26 +203,9 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
                 const existingDyn = { ...(row.dynamicIndemnites || {}) };
-                const current = { ...(existingDyn[String(idIndemnite)] || {}) };
+                const current = existingDyn[String(idIndemnite)] || {};
                 const updated = { ...row };
-                const boolVal = Boolean(value);
-
-                if (fraction === 'MATIN') {
-                    current.matin = boolVal;
-                } else if (fraction === 'APRES_MIDI') {
-                    current.am = boolVal;
-                } else {
-                    current.accordee = boolVal;
-                }
-
-                if (fraction === 'MATIN' || fraction === 'APRES_MIDI') {
-                    current.accordee = Boolean(current.matin || current.am);
-                    current.fractionJour = (current.matin ? 0.5 : 0) + (current.am ? 0.5 : 0);
-                } else {
-                    current.fractionJour = boolVal ? 1 : 0;
-                }
-
-                existingDyn[String(idIndemnite)] = current;
+                existingDyn[String(idIndemnite)] = changePointageAllowance(current, value, fraction);
                 updated.dynamicIndemnites = existingDyn;
                 return markForPreview(updated);
             })
@@ -338,14 +223,12 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 const isBlank = !row.heureEntreeMatin && !row.heureSortieMatin && !row.heureEntreeAm && !row.heureSortieAm;
                 if (!isBlank) return row;
 
-                const filled = {
-                    ...row,
+                const filled = changePointageHours(row, {
                     heureEntreeMatin: hDebM,
                     heureSortieMatin: hFinM,
                     heureEntreeAm: hDebA,
-                    heureSortieAm: hFinA,
-                    codeStatut: 'NON_SAISI'
-                };
+                    heureSortieAm: hFinA
+                });
                 return markForPreview(filled);
             })
         );
@@ -359,12 +242,10 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.heureEntreeMatin && row.heureSortieAm && (!row.heureSortieMatin || !row.heureEntreeAm)) {
-                    const filled = {
-                        ...row,
+                    const filled = changePointageHours(row, {
                         heureSortieMatin: row.heureSortieMatin || hFinM,
-                        heureEntreeAm: row.heureEntreeAm || hDebA,
-                        codeStatut: 'NON_SAISI'
-                    };
+                        heureEntreeAm: row.heureEntreeAm || hDebA
+                    });
                     return markForPreview(filled);
                 }
                 return row;
@@ -396,7 +277,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 return true;
             }
 
-            const res = await attendanceService.enregistrerBatch(payload);
+            const res = await attendanceService.daily.saveBatch(payload.map(toPointageBatchPayload));
             if (res && res.success) {
                 await loadData();
                 return true;

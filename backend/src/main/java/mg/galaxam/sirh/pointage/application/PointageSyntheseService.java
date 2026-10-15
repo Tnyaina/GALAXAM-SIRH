@@ -639,7 +639,7 @@ public class PointageSyntheseService {
                         presents++;
                     } else if ("DEMI_JOURNEE".equals(stCode)) {
                         presents++;
-                        conges += 0.5;
+                        if (congeValide != null && congeValide.estDemi()) conges += 0.5;
                     } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
                         presents++;
                         dimanchesTravailles++;

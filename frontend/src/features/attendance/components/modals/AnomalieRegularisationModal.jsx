@@ -21,6 +21,8 @@ import Input from '@/components/ui/forms/Input';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate, shiftIsoDate } from '@/utils/dateUtils';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
+import { loadPointageDayContext, selectPointageDayAllowances } from '@/features/attendance/utils/pointageDayContext';
+import PointageAllowanceSelector from '@/features/attendance/components/controls/PointageAllowanceSelector';
 import congeService from '@/features/leave/api/congeService';
 
 const MOTIFS_FAMILIAUX = [
@@ -47,6 +49,7 @@ export default function AnomalieRegularisationModal({
     const [previewPending, setPreviewPending] = useState(false);
     const [availableAllowances, setAvailableAllowances] = useState([]);
     const [dynamicAllowances, setDynamicAllowances] = useState({});
+    const [absenceAllowances, setAbsenceAllowances] = useState({});
     const [allowancesLoading, setAllowancesLoading] = useState(false);
     const [allowancesError, setAllowancesError] = useState('');
     const [leaveSituation, setLeaveSituation] = useState(null);
@@ -81,8 +84,12 @@ export default function AnomalieRegularisationModal({
         if (!anomalie) return;
         setError('');
         
-        const isAbsence = directDayFlow || anomalie.typeAnomalie === 'ABSENCE' || anomalie.statutCode === 'ABSENCE_NON_JUSTIFIEE' || anomalie.statutCode === 'ABSENCE_JUSTIFIEE';
-        setActiveTab(anomalie.importHalfDayMoment ? 'HEURES' : isAbsence ? 'ABSENCE' : 'HEURES');
+        const hasHours = Boolean(anomalie.heureEntreeMatin || anomalie.heureSortieMatin || anomalie.heureEntreeAm || anomalie.heureSortieAm);
+        const isAbsence = anomalie.typeAnomalie === 'ABSENCE'
+            || ['ABSENCE_NON_JUSTIFIEE', 'ABSENCE_JUSTIFIEE', 'CONGE'].includes(anomalie.statutCode)
+            || (directDayFlow && !hasHours && anomalie.typeAnomalie !== 'RETARD');
+        setActiveTab(anomalie.regularisationIntent ? 'ABSENCE'
+            : anomalie.importHalfDayMoment ? 'HEURES' : isAbsence ? 'ABSENCE' : 'HEURES');
 
         const em = anomalie.heureEntreeMatin || '';
         const sm = anomalie.heureSortieMatin || '';
@@ -111,7 +118,8 @@ export default function AnomalieRegularisationModal({
         setOptionAutreDemiJournee(anomalie.importHalfDayMoment
             ? anomalie.importEventCode === 'C' ? 'CONGE_PAYE' : 'ABSENCE_DEDUITE' : 'AUCUNE');
 
-        setOptionAbsence(anomalie.importEventCode === 'A' ? 'ABSENCE_DEDUITE' : 'CONGE_PAYE');
+        setOptionAbsence(anomalie.regularisationIntent
+            || (anomalie.importEventCode === 'A' ? 'ABSENCE_DEDUITE' : 'CONGE_PAYE'));
         setCongeDuree(anomalie.importHalfDayMoment ? '0.5' : '1.0');
         setDateReprise(anomalie.importEventCode === 'C' && !anomalie.importHalfDayMoment
             ? '' : shiftIsoDate(anomalie.datePointage, 1));
@@ -127,29 +135,22 @@ export default function AnomalieRegularisationModal({
         let cancelled = false;
         setAllowancesLoading(true);
         setAllowancesError('');
-        attendanceService.getGrilleSaisie({ idSite: anomalie.idSite, date: anomalie.datePointage })
-            .then((grid) => {
+        loadPointageDayContext(attendanceService.getGrilleSaisie, {
+            idSite: anomalie.idSite, date: anomalie.datePointage, idEmploye: anomalie.idEmploye
+        }).then(({ row, allowances }) => {
                 if (cancelled) return;
-                const row = grid?.grilleData?.find((item) => Number(item.idEmploye) === Number(anomalie.idEmploye));
-                if (!row) throw new Error('La journée du salarié est introuvable dans la grille.');
-                const definitions = grid.siteIndemnites || [];
-                const selections = {};
                 const importedWithoutHours = Boolean(anomalie.importEventCode)
                     && !anomalie.heureEntreeMatin && !anomalie.heureSortieMatin
                     && !anomalie.heureEntreeAm && !anomalie.heureSortieAm;
-                definitions.forEach((allowance) => {
-                    const current = row.dynamicIndemnites?.[String(allowance.idIndemnite)] || {};
-                    const imported = anomalie.importAllowanceOverrides?.[String(allowance.idIndemnite)] || {};
-                    const matin = imported.matin ?? (!importedWithoutHours && Boolean(current.matin));
-                    const am = imported.am ?? (!importedWithoutHours && Boolean(current.am));
-                    selections[String(allowance.idIndemnite)] = {
-                        accordee: imported.accordee ?? (allowance.fractionnable ? (matin || am) : (!importedWithoutHours && Boolean(current.accordee))),
-                        matin,
-                        am
-                    };
-                });
-                setAvailableAllowances(definitions);
-                setDynamicAllowances(selections);
+                setAvailableAllowances(allowances);
+                setDynamicAllowances(selectPointageDayAllowances(allowances, row, {
+                    overrides: anomalie.importAllowanceOverrides,
+                    clearWithoutHours: importedWithoutHours
+                }));
+                setAbsenceAllowances(selectPointageDayAllowances(allowances, row, {
+                    overrides: anomalie.importAllowanceOverrides,
+                    clearWithoutHours: true
+                }));
             })
             .catch((cause) => {
                 if (!cancelled) setAllowancesError(cause?.message || 'Indemnités du site indisponibles.');
@@ -296,7 +297,7 @@ export default function AnomalieRegularisationModal({
             } else {
                 // Régularisation d'absence
                 payload.optionAbsence = optionAbsence;
-                payload.dynamicIndemnites = dynamicAllowances;
+                payload.dynamicIndemnites = absenceAllowances;
                 if (optionAbsence === 'CONGE_PAYE') {
                     payload.statutCode = 'CONGE';
                     payload.nbJoursCongeDecompte = nbJoursAImputer;
@@ -330,7 +331,7 @@ export default function AnomalieRegularisationModal({
     }, [saving, activeTab, motifAjustement, optionAbsence, nbJoursAImputer, anomalie,
         modePresence, heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm,
         allowancesLoading, allowancesError, previewPending, dayPreview, optionAutreDemiJournee,
-        dynamicAllowances, congeDuree, dateReprise, demiJourneeMoment, motifFamilial,
+        dynamicAllowances, absenceAllowances, congeDuree, dateReprise, demiJourneeMoment, motifFamilial,
         statutAbsenceDeduite, onSuccess, onClose]);
 
     useEffect(() => {
@@ -356,7 +357,7 @@ export default function AnomalieRegularisationModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={directDayFlow ? 'Signaler une absence ou un congé' : 'Régularisation du pointage'}
+            title={directDayFlow ? 'Corriger ou régulariser la journée' : 'Régularisation du pointage'}
             size="2xl"
             footer={
                 <div className="flex items-center justify-between w-full">
@@ -401,7 +402,7 @@ export default function AnomalieRegularisationModal({
                                 {anomalie.nom} {anomalie.prenom}
                             </div>
                             <div className="text-xs text-[var(--color-fg-muted)] font-mono">
-                                {anomalie.matricule} • {anomalie.siteNom || 'Site TNR'}
+                                {anomalie.matricule} • {anomalie.siteNom || 'Site non renseigné'}
                             </div>
                         </div>
                     </div>
@@ -443,7 +444,7 @@ export default function AnomalieRegularisationModal({
 
                 {/* Onglets de mode */}
                 <div className="flex border-b border-[var(--color-border-subtle)]">
-                    {!directDayFlow && anomalie.typeAnomalie === 'RETARD' && (
+                    {anomalie.typeAnomalie === 'RETARD' && Number(anomalie.minutesRetard) > 0 && Number(anomalie.idPointage) > 0 && (
                         <button
                             type="button"
                             data-regularisation-selected={activeTab === 'RETARD_REEL'}
@@ -775,46 +776,15 @@ export default function AnomalieRegularisationModal({
                         {/* Indemnités associées */}
                         <div className="p-3 border border-[var(--color-border-subtle)] rounded-none space-y-2">
                             <div className="text-xs font-semibold text-[var(--color-fg)]">
-                                Indemnités du jour
+                                Indemnités liées à la présence
                             </div>
+                            <p className="text-[11px] text-[var(--color-fg-muted)]">Selon le paramétrage du site pour cette journée. Vérifiez chaque indemnité avant de confirmer.</p>
                             {allowancesLoading && <p className="text-xs">Chargement des indemnités du site…</p>}
                             {allowancesError && <p className="text-xs text-[var(--color-danger-700)]">{allowancesError}</p>}
                             {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
                                 <p className="text-xs">Aucune indemnité journalière configurée pour ce site.</p>
                             )}
-                            <div className="flex flex-wrap gap-4 text-xs">
-                                {availableAllowances.map((allowance) => {
-                                    const key = String(allowance.idIndemnite);
-                                    const selection = dynamicAllowances[key] || {};
-                                    const fractionable = allowance.estFractionnable ?? allowance.fractionnable;
-                                    const updateSelection = (field, value) => setDynamicAllowances((previous) => ({
-                                        ...previous,
-                                        [key]: { ...previous[key], [field]: value }
-                                    }));
-                                    return (
-                                        <div key={key} className="flex items-center gap-2 text-[var(--color-fg)]">
-                                            <span>{allowance.libelle || allowance.code}</span>
-                                            {fractionable ? (
-                                                <>
-                                                    <label className="flex items-center gap-1">
-                                                        <input type="checkbox" checked={Boolean(selection.matin)}
-                                                            onChange={(event) => updateSelection('matin', event.target.checked)} /> Matin
-                                                    </label>
-                                                    <label className="flex items-center gap-1">
-                                                        <input type="checkbox" checked={Boolean(selection.am)}
-                                                            onChange={(event) => updateSelection('am', event.target.checked)} /> Après-midi
-                                                    </label>
-                                                </>
-                                            ) : (
-                                                <label className="flex items-center gap-1">
-                                                    <input type="checkbox" checked={Boolean(selection.accordee)}
-                                                        onChange={(event) => updateSelection('accordee', event.target.checked)} /> Accorder
-                                                </label>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            <PointageAllowanceSelector allowances={availableAllowances} selections={dynamicAllowances} onChange={setDynamicAllowances} />
                         </div>
                     </div>
                 )}
@@ -1057,59 +1027,20 @@ export default function AnomalieRegularisationModal({
                             <div className="flex items-center justify-between">
                                 <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
                                     <Wallet className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
-                                    <span>Indemnités du jour</span>
+                                    <span>Indemnités lors de l’absence</span>
                                 </div>
                                 <span className="text-[10px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1.5 py-0.5 font-semibold">
-                                    Décochées par défaut — exception manuelle
+                                    Exception manuelle à justifier
                                 </span>
                             </div>
+                            <p className="text-[11px] text-[var(--color-fg-muted)]">Aucune indemnité n’est reprise automatiquement de la présence. Les choix importés restent visibles pour vérification.</p>
                             {allowancesLoading && <p className="text-xs text-[var(--color-fg-muted)]">Chargement des indemnités du site…</p>}
                             {allowancesError && <p className="text-xs text-[var(--color-danger-700)]">{allowancesError}</p>}
                             {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
                                 <p className="text-xs text-[var(--color-fg-muted)]">Aucune indemnité journalière configurée pour ce site.</p>
                             )}
                             {!allowancesLoading && !allowancesError && availableAllowances.length > 0 && (
-                                <div className="flex flex-wrap gap-4 text-xs">
-                                    {availableAllowances.map((allowance) => {
-                                        const key = String(allowance.idIndemnite);
-                                        const selection = dynamicAllowances[key] || {};
-                                        const fractionable = allowance.estFractionnable ?? allowance.fractionnable;
-                                        const updateSelection = (field, value) => setDynamicAllowances((previous) => ({
-                                            ...previous,
-                                            [key]: { ...previous[key], [field]: value }
-                                        }));
-                                        return (
-                                            <div key={key} className="flex items-center gap-2 text-[var(--color-fg)]">
-                                                <span className="font-medium">{allowance.libelle || allowance.code}</span>
-                                                {fractionable ? (
-                                                    <>
-                                                        <label className="flex items-center gap-1 cursor-pointer">
-                                                            <input type="checkbox" checked={Boolean(selection.matin)}
-                                                                onChange={(event) => updateSelection('matin', event.target.checked)}
-                                                                className="w-3.5 h-3.5 accent-[var(--color-brand-600)]" />
-                                                            <span>Aller</span>
-                                                        </label>
-                                                        <label className="flex items-center gap-1 cursor-pointer">
-                                                            <input type="checkbox" checked={Boolean(selection.am)}
-                                                                onChange={(event) => updateSelection('am', event.target.checked)}
-                                                                className="w-3.5 h-3.5 accent-[var(--color-brand-600)]" />
-                                                            <span>Retour</span>
-                                                        </label>
-                                                    </>
-                                                ) : (
-                                                    <label className="flex items-center gap-1 cursor-pointer" title={`Accorder une exception d'indemnité sur ce jour d'absence — ${allowance.libelle || allowance.code}`}>
-                                                        <input type="checkbox" checked={Boolean(selection.accordee)}
-                                                            onChange={(event) => updateSelection('accordee', event.target.checked)}
-                                                            className="w-3.5 h-3.5 accent-[var(--color-brand-600)]" />
-                                                        <span className={selection.accordee ? 'text-[var(--color-success-600)] font-bold' : 'text-[var(--color-fg-muted)]'}>
-                                                            {selection.accordee ? 'Accordée' : 'Non accordée'}
-                                                        </span>
-                                                    </label>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                <PointageAllowanceSelector allowances={availableAllowances} selections={absenceAllowances} onChange={setAbsenceAllowances} absence />
                             )}
                         </div>
                     </div>

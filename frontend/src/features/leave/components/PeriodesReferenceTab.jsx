@@ -54,6 +54,7 @@ export default function PeriodesReferenceTab({
   const [situationDate, setSituationDate] = useState(null);
   const [activationError, setActivationError] = useState(null);
   const [confirmation, setConfirmation] = useState(false);
+  const [guideVisible, setGuideVisible] = useState(false);
   const referencesAnciennesOuvertes = periodes.filter((periode) =>
     periode.statut === 'OUVERTE' && periode.dateFin
       && periode.dateFin < new Date().toLocaleDateString('sv-SE'));
@@ -210,7 +211,13 @@ export default function PeriodesReferenceTab({
       </div>
     </Card>
 
-    <Alert type="info" className="py-2 px-2.5" message="La clôture de paie crée la référence annuelle et valorise les droits acquis. À la clôture du cycle, elle calcule un taux moyen ; la DAF l'active séparément avec une date d'effet explicite. Les anciens lots gardent leur valorisation et sont consommés en FIFO." />
+    <div>
+      <Button type="button" variant="outline" size="xs" aria-expanded={guideVisible}
+        onClick={() => setGuideVisible((visible) => !visible)}>
+        {guideVisible ? 'Masquer le guide' : 'Explication du calcul des droits'}
+      </Button>
+      {guideVisible && <Alert type="info" className="mt-2 py-2 px-2.5" message="La clôture de paie crée la référence annuelle et valorise les droits acquis. À la clôture du cycle, elle calcule un taux moyen ; la DAF l'active séparément avec une date d'effet explicite. Les anciens lots gardent leur valorisation et sont consommés en FIFO." />}
+    </div>
     {error && <Alert type="error" message={error} />}
     {referencesAnciennesOuvertes.length > 0 && <Alert type="warning" className="py-2 px-2.5" message={
       `Cycle antérieur encore ouvert (${referencesAnciennesOuvertes.map((periode) => `${dateFr(periode.dateDebut)} → ${dateFr(periode.dateFin)}`).join(', ')}). Vérifiez la clôture de la paie de décembre et les acquisitions de ce cycle avant d'activer un nouveau taux. La référence de l'année suivante peut être créée séparément.`

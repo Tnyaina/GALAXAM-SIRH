@@ -3,13 +3,27 @@ import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { isAllowanceGrantedByDefault, resolveAttendanceStatus } from '@/features/attendance/utils/attendanceStatus';
 import { getTodayDateString } from '@/utils/dateUtils';
+import { toPointageBatchPayload } from '@/features/attendance/utils/pointageBatchPayload';
+import { importHalfDayMoment, importLineNeedsReview } from '@/features/attendance/utils/pointageImport';
+import { usePointageBatchPreview } from '@/features/attendance/hooks/usePointageBatchPreview';
+import { changePointageAllowance, changePointageHours, changePointageStatus, cleanPointageTime, clearPointageAllowances, isPointageRowModified, markPointageForPreview, POINTAGE_TIME_FIELDS } from '@/features/attendance/utils/pointageRow';
 
 // ─── Helpers purs ─────────────────────────────────────────────────────────────
 
-const cleanTime = (t) => {
-    if (!t || t === '—' || t === '-' || t === '--:--' || t === 'null' || t === 'undefined') return '';
-    return String(t).trim();
-};
+const cleanTime = cleanPointageTime;
+const periodRowKey = row => row.datePointage;
+const decoratePeriodPreview = (row, preview) => ({
+    ...row,
+    heuresFaites: preview.totalHeures != null ? formatHeuresMinutes(preview.totalHeures) : row.heuresFaites,
+    totalHeuresDecimal: preview.totalHeures != null ? preview.totalHeures : row.totalHeuresDecimal,
+    minutesRetard: row.estAutonome ? 0 : (preview.minutesRetard || 0)
+});
+
+export const isUnenteredNewDay = (row) => !row?.idPointage
+    && row?.codeStatut === 'NON_SAISI'
+    && !POINTAGE_TIME_FIELDS.some(field => cleanTime(row[field]));
+
+export const clearDynamicAllowances = clearPointageAllowances;
 
 const parseHhMmToDecimal = (str) => {
     if (!str || typeof str !== 'string') return 0.0;
@@ -27,16 +41,7 @@ const parseHhMmToDecimal = (str) => {
  * Comparateur de modification pour une ligne journalière.
  * Aligné sur isRowDataModified de usePointageSaisie.
  */
-export const isDayRowModified = (current, initial) => {
-    if (!current || !initial) return false;
-    const normalize = (t) => cleanTime(t);
-    const timeFields = ['heureEntreeMatin', 'heureSortieMatin', 'heureEntreeAm', 'heureSortieAm'];
-    if (timeFields.some(f => normalize(current[f]) !== normalize(initial[f]))) return true;
-    if (Boolean(current.horaireContinu) !== Boolean(initial.horaireContinu)) return true;
-    if ((current.codeStatut ?? '') !== (initial.codeStatut ?? '')) return true;
-    if ((current.motifAjustement ?? '') !== (initial.motifAjustement ?? '')) return true;
-    return JSON.stringify(current.dynamicIndemnites || {}) !== JSON.stringify(initial.dynamicIndemnites || {});
-};
+export const isDayRowModified = isPointageRowModified;
 
 // ─── Hook principal ───────────────────────────────────────────────────────────
 
@@ -78,7 +83,6 @@ export function usePointagePeriodeEmploye({
     const [importApplying, setImportApplying] = useState(false);
 
     // ── Refs internes ────────────────────────────────────────────────────────
-    const previewTimers = useRef(new Map());
     const loadReqId = useRef(0);
     const importApplyLock = useRef(false);
 
@@ -98,7 +102,7 @@ export function usePointagePeriodeEmploye({
     );
 
     // ── Chargement de la fiche employé ───────────────────────────────────────
-    const loadFicheEmploye = useCallback(async () => {
+    const loadFicheEmploye = useCallback(async ({ keepImportPreview = false } = {}) => {
         if (!selectedEmployeId || !selectedPeriodeId) {
             setFicheData(null); setGrilleRows([]); setInitialRows([]); setImportPreview(null);
             setLoading(false); return;
@@ -127,8 +131,10 @@ export function usePointagePeriodeEmploye({
             setSiteParams(sParams);
             const sIndemnites = siteGrid?.siteIndemnites || [];
             setSiteIndemnites(sIndemnites);
-            setExtraImportIndemnites([]);
-            setImportPreview(null);
+            if (!keepImportPreview) {
+                setExtraImportIndemnites([]);
+                setImportPreview(null);
+            }
 
             const empInSiteGrid = siteGrid?.grilleData?.find(e => e.idEmploye === selectedEmployeId);
             const dMap = {};
@@ -152,7 +158,7 @@ export function usePointagePeriodeEmploye({
             const rows = (fiche?.pointagesData || []).map((ptg) => {
                 const isWeekend = Boolean(ptg.weekend || ptg.jour?.startsWith('Sam') || ptg.jour?.startsWith('Dim')
                     || (ptg.dateComplete && [0, 6].includes(new Date(`${ptg.dateComplete}T00:00:00`).getDay())));
-                const isFerie = Boolean(ptg.isFerieChome || ptg.isFerie || ['FERIE_CHOME','FERIE','FERIE_TRAVAILLE'].includes(ptg.statut));
+                const isFerie = Boolean(ptg.libelleFerie || ptg.isFerieChome || ptg.isFerie || ['FERIE_CHOME','FERIE','FERIE_TRAVAILLE'].includes(ptg.statut));
                 const isConge = Boolean(ptg.isConge || ptg.statut === 'CONGE' || ptg.statut === 'CONGE_PAYE');
 
                 const rawEntree = cleanTime(ptg.entree);
@@ -169,6 +175,7 @@ export function usePointagePeriodeEmploye({
 
                 const codeStatut = resolveAttendanceStatus({
                     status: ptg.statut, hasHours: hasSavedHours, weekend: isWeekend,
+                    sunday: Boolean(ptg.dateComplete && new Date(`${ptg.dateComplete}T00:00:00`).getDay() === 0),
                     holiday: isFerie, leave: isConge, autonomous: empAutonome
                 });
 
@@ -221,13 +228,13 @@ export function usePointagePeriodeEmploye({
                     idEmploye: selectedEmployeId,
                     idSite: ptg.idSite || selectedSiteId || fiche?.idSite || 1,
                     datePointage: ptg.dateComplete, date: ptg.date, jour: ptg.jour,
-                    weekend: isWeekend, ferie: isFerie, conge: isConge,
+                    weekend: isWeekend, ferie: isFerie, libelleFerie: ptg.libelleFerie || null, conge: isConge,
                     congeApprouve: Boolean(ptg.congeApprouve || (isConge && ptg.statut === 'CONGE' && !hasSavedHours && ptg.congeValide)),
                     canCorrect: ptg.canCorrect !== false,
                     heureEntreeMatin: defaultEntreeMatin, heureSortieMatin: defaultSortieMatin,
                     heureEntreeAm: defaultEntreeAm, heureSortieAm: defaultSortieAm,
                     horaireContinu: Boolean(ptg.horaireContinuJour),
-                    codeStatut, motifAjustement: '',
+                    codeStatut, motifAjustement: ptg.observation || '',
                     heuresFaites: heuresFaitesStr, totalHeuresDecimal: totalHeuresDec,
                     minutesRetard: empAutonome ? 0 : (ptg.minutesRetard || 0),
                     indemniteRepas: repasInd ? Boolean(dynamicIndemnites[String(repasInd.idIndemnite)]?.accordee)
@@ -255,72 +262,15 @@ export function usePointagePeriodeEmploye({
 
     useEffect(() => { loadFicheEmploye(); }, [loadFicheEmploye]);
 
-    // ── Preview batch (aligné sur usePointageSaisie) ─────────────────────────
-    useEffect(() => {
-        const pendingRows = grilleRows.filter(row => row._previewPending);
-        if (!pendingRows.length) return undefined;
-        const timers = previewTimers.current;
-        timers.forEach(clearTimeout); timers.clear();
-
-        const timer = setTimeout(async () => {
-            try {
-                const results = await attendanceService.daily.previewBatch(pendingRows);
-                const byDate = new Map();
-                (results || []).forEach((result, index) => {
-                    const date = result?.preview?.datePointage || pendingRows[index]?.datePointage;
-                    if (date) byDate.set(date, result);
-                });
-                setGrilleRows(current => current.map(item => {
-                    if (!item._previewPending) return item;
-                    const result = byDate.get(item.datePointage);
-                    if (!result || result.error || !result.preview) {
-                        const message = result?.error || 'Calcul de la journée indisponible. Vérifiez le site et les horaires.';
-                        return {
-                            ...item,
-                            _previewPending: false,
-                            _previewError: message,
-                            hasValidationError: true,
-                            validationMessages: [message]
-                        };
-                    }
-                    const preview = result.preview;
-                    return {
-                        ...item,
-                        heuresFaites: preview.totalHeures != null ? formatHeuresMinutes(preview.totalHeures) : item.heuresFaites,
-                        totalHeuresDecimal: preview.totalHeures != null ? preview.totalHeures : item.totalHeuresDecimal,
-                        minutesRetard: item.estAutonome ? 0 : (preview.minutesRetard || 0),
-                        codeStatut: preview.codeStatut || item.codeStatut,
-                        libelleStatut: preview.libelleStatut,
-                        _previewError: null,
-                        hasValidationError: preview.hasValidationError,
-                        validationMessages: preview.validationMessages || [],
-                        statusActions: preview.statusActions || [],
-                        present: preview.present, retard: preview.retard, conge: preview.conge,
-                        absenceJustifiee: preview.absenceJustifiee, absenceNonJustifiee: preview.absenceNonJustifiee,
-                        nonSaisi: preview.nonSaisi, anomalie: preview.anomalie,
-                        dispensePointage: preview.dispensePointage, ferieTravaille: preview.ferieTravaille,
-                        ferieChome: preview.ferieChome, samediTravaille: preview.samediTravaille,
-                        dimancheTravaille: preview.dimancheTravaille, repos: preview.repos,
-                        _previewPending: false
-                    };
-                }));
-            } catch {
-                setGrilleRows(current => current.map(item =>
-                    item._previewPending ? { ...item, _previewPending: false } : item
-                ));
-            } finally { timers.clear(); }
-        }, 300);
-
-        timers.set('batch', timer);
-        return () => { timers.forEach(clearTimeout); timers.clear(); };
-    }, [grilleRows]);
+    // Même prévisualisation que la saisie quotidienne, avec contrôle des réponses périmées.
+    usePointageBatchPreview(grilleRows, setGrilleRows, periodRowKey, decoratePeriodPreview, 300);
 
     // ── Lignes modifiées ─────────────────────────────────────────────────────
     const modifiedRows = useMemo(() => {
         if (!initialRows || initialRows.length === 0) return [];
         return grilleRows.filter(row => {
             const initial = initialRows.find(i => i.datePointage === row.datePointage);
-            return isDayRowModified(row, initial);
+            return !isUnenteredNewDay(row) && isDayRowModified(row, initial);
         });
     }, [grilleRows, initialRows]);
     const dirtyCount = modifiedRows.length;
@@ -388,27 +338,25 @@ export function usePointagePeriodeEmploye({
                 heureEntreeAm:    field === 'heureEntreeAm'    ? value : row.heureEntreeAm,
                 heureSortieAm:    field === 'heureSortieAm'    ? value : row.heureSortieAm,
             };
-            const hasHours = Object.values(updatedHours).some(Boolean);
             const indList = row._dateAllowances || siteIndemnites;
             const syncedIndemnites = syncRowIndemnites(row, updatedHours, indList, derogationsMap);
             return {
-                ...row, ...updatedHours,
-                codeStatut: hasHours
-                    ? (row.codeStatut === 'NON_SAISI' ? 'PRESENT' : row.codeStatut)
-                    : (row.weekend ? 'REPOS' : row.ferie ? 'FERIE_CHOME' : row.conge ? 'CONGE' : 'NON_SAISI'),
-                ...syncedIndemnites, _previewPending: true
+                ...changePointageHours(row, updatedHours),
+                ...syncedIndemnites
             };
         }));
     }, [siteIndemnites, derogationsMap, syncRowIndemnites]);
 
     const toggleDayContinu = useCallback((datePointage) => {
         setGrilleRows(prev => prev.map(row => row.datePointage !== datePointage ? row
-            : { ...row, horaireContinu: !row.horaireContinu, _previewPending: true }));
+            : changePointageHours(row, { horaireContinu: !row.horaireContinu, horaireContinuJour: !row.horaireContinu })));
     }, []);
 
     const updateDayStatut = useCallback((datePointage, codeStatut, motif = '') => {
-        setGrilleRows(prev => prev.map(row => row.datePointage !== datePointage ? row
-            : { ...row, codeStatut, motifAjustement: motif, _previewPending: true }));
+        setGrilleRows(prev => prev.map(row => {
+            if (row.datePointage !== datePointage) return row;
+            return changePointageStatus(row, codeStatut, motif);
+        }));
     }, []);
 
     const updateRowDynamicIndemnite = useCallback((datePointage, idIndemnite, value, moment) => {
@@ -428,22 +376,14 @@ export function usePointagePeriodeEmploye({
                 am: previous.am ?? (fractionnable ? defaultGranted : undefined),
                 ...previous
             };
-            const boolVal = Boolean(value);
-            if (moment === 'MATIN')           current.matin = boolVal;
-            else if (moment === 'APRES_MIDI') current.am = boolVal;
-            else                              current.accordee = boolVal;
-            if (moment === 'MATIN' || moment === 'APRES_MIDI') {
-                current.accordee = Boolean(current.matin || current.am);
-                current.fractionJour = (current.matin ? 0.5 : 0) + (current.am ? 0.5 : 0);
-            } else { current.fractionJour = boolVal ? 1 : 0; }
-            existingDyn[key] = current;
+            const next = changePointageAllowance(current, value, moment);
+            existingDyn[key] = next;
             const ind = allowance;
             return {
-                ...row, dynamicIndemnites: existingDyn,
-                ...(ind?.code === 'REPAS' ? { indemniteRepas: current.accordee } : {}),
+                ...markPointageForPreview(row), dynamicIndemnites: existingDyn,
+                ...(ind?.code === 'REPAS' ? { indemniteRepas: next.accordee } : {}),
                 ...(['DEPLACEMENT','DPLCT','TRANSPORT'].includes(ind?.code)
-                    ? { deplacementMatin: Boolean(current.matin), deplacementAm: Boolean(current.am) } : {}),
-                _previewPending: true
+                    ? { deplacementMatin: Boolean(next.matin), deplacementAm: Boolean(next.am) } : {})
             };
         }));
     }, [siteIndemnites]);
@@ -459,10 +399,8 @@ export function usePointagePeriodeEmploye({
             if (!isBlank) return row;
             count++;
             const stdHours = { heureEntreeMatin: hDebM, heureSortieMatin: hFinM, heureEntreeAm: hDebA, heureSortieAm: hFinA };
-            return { ...row, ...stdHours,
-                codeStatut: row.estAutonome ? 'DISPENSE_POINTAGE' : 'PRESENT',
-                ...syncRowIndemnites(row, stdHours, row._dateAllowances || siteIndemnites, derogationsMap),
-                _previewPending: true };
+            return { ...changePointageHours(row, stdHours),
+                ...syncRowIndemnites(row, stdHours, row._dateAllowances || siteIndemnites, derogationsMap) };
         }));
         notify(count > 0
             ? { title: 'Horaire standard appliqué', message: `${count} journée(s) mise(s) à jour.`, type: 'success' }
@@ -476,7 +414,7 @@ export function usePointagePeriodeEmploye({
             if (!row.canCorrect || row.weekend || row.ferie || row.conge) return row;
             if (row.heureEntreeMatin && row.heureSortieAm && (!row.heureSortieMatin || !row.heureEntreeAm) && !row.horaireContinu) {
                 count++;
-                return { ...row, heureSortieMatin: hFinM, heureEntreeAm: hDebA, _previewPending: true };
+                return changePointageHours(row, { heureSortieMatin: hFinM, heureEntreeAm: hDebA });
             }
             return row;
         }));
@@ -491,6 +429,7 @@ export function usePointagePeriodeEmploye({
             const emptyHours = { heureEntreeMatin: '', heureSortieMatin: '', heureEntreeAm: '', heureSortieAm: '' };
             return { ...row, ...emptyHours, horaireContinu: false,
                 codeStatut: row.weekend ? 'REPOS' : row.ferie ? 'FERIE_CHOME' : row.conge ? 'CONGE' : 'NON_SAISI',
+                motifAjustement: '',
                 totalHeuresDecimal: 0, heuresFaites: '00h00', minutesRetard: 0,
                 ...syncRowIndemnites(row, emptyHours, row._dateAllowances || siteIndemnites, derogationsMap),
                 _previewPending: true };
@@ -503,10 +442,8 @@ export function usePointagePeriodeEmploye({
         setGrilleRows(prev => prev.map(row => {
             if (row.datePointage !== datePointage || !row.canCorrect) return row;
             const stdHours = { heureEntreeMatin: hDebM, heureSortieMatin: hFinM, heureEntreeAm: hDebA, heureSortieAm: hFinA };
-            return { ...row, ...stdHours,
-                codeStatut: row.estAutonome ? 'DISPENSE_POINTAGE' : (row.ferie ? 'FERIE_TRAVAILLE' : row.weekend ? 'SAMEDI_TRAVAILLE' : 'PRESENT'),
-                ...syncRowIndemnites(row, stdHours, row._dateAllowances || siteIndemnites, derogationsMap),
-                _previewPending: true };
+            return { ...changePointageHours(row, stdHours),
+                ...syncRowIndemnites(row, stdHours, row._dateAllowances || siteIndemnites, derogationsMap) };
         }));
     }, [siteParams, siteIndemnites, derogationsMap, syncRowIndemnites]);
 
@@ -520,10 +457,8 @@ export function usePointagePeriodeEmploye({
             if (!weekDates.has(row.datePointage) || !row.canCorrect) return row;
             count++;
             const stdHours = { heureEntreeMatin: hDebM, heureSortieMatin: hFinM, heureEntreeAm: hDebA, heureSortieAm: hFinA };
-            return { ...row, ...stdHours,
-                codeStatut: row.estAutonome ? 'DISPENSE_POINTAGE' : 'PRESENT',
-                ...syncRowIndemnites(row, stdHours, row._dateAllowances || siteIndemnites, derogationsMap),
-                _previewPending: true };
+            return { ...changePointageHours(row, stdHours),
+                ...syncRowIndemnites(row, stdHours, row._dateAllowances || siteIndemnites, derogationsMap) };
         }));
         if (count > 0) notify({ title: 'Semaine complétée', message: `${count} jour(s) mis à jour.`, type: 'success' });
     }, [siteParams, siteIndemnites, derogationsMap, syncRowIndemnites, notify]);
@@ -537,15 +472,7 @@ export function usePointagePeriodeEmploye({
         }
         setSaving(true);
         try {
-            const payload = modifiedRows.map(row => ({
-                idPointage: row.idPointage, version: row.version,
-                idEmploye: row.idEmploye, idSite: row.idSite, datePointage: row.datePointage,
-                heureEntreeMatin: row.heureEntreeMatin || null, heureSortieMatin: row.heureSortieMatin || null,
-                heureEntreeAm: row.heureEntreeAm || null, heureSortieAm: row.heureSortieAm || null,
-                horaireContinu: Boolean(row.horaireContinu), horaireContinuJour: Boolean(row.horaireContinu),
-                codeStatut: row.codeStatut || 'PRESENT', motifAjustement: row.motifAjustement || null,
-                estAutonome: Boolean(row.estAutonome), dynamicIndemnites: row.dynamicIndemnites || {}
-            }));
+            const payload = modifiedRows.map(toPointageBatchPayload);
             const res = await attendanceService.daily.saveBatch(payload);
             if (res && res.success !== false) {
                 notify({ title: 'Enregistrement confirmé', message: `${payload.length} journée(s) enregistrée(s).`, type: 'success' });
@@ -580,7 +507,13 @@ export function usePointagePeriodeEmploye({
             if (res && (res.success || res === true)) {
                 notify({ title: 'Régularisation effectuée', message: res.message || 'Pointage régularisé avec succès.', type: 'success' });
                 setImportSignals(prev => { const next = { ...prev }; delete next[regularisationRow.datePointage]; return next; });
-                await loadFicheEmploye();
+                setImportPreview(current => current ? ({ ...current, lines: current.lines.map(line =>
+                    line.date === regularisationRow.datePointage && line.decision === 'SIGNAL'
+                        ? { ...line, decision: 'IGNORE', warnings: ['Régularisation enregistrée'] } : line) }) : current);
+                setImportSelections(current => ({ ...current, ...Object.fromEntries(
+                    (importPreview?.lines || []).filter(line => line.date === regularisationRow.datePointage && line.decision === 'SIGNAL')
+                        .map(line => [line.ligne, false])) }));
+                await loadFicheEmploye({ keepImportPreview: true });
                 return true;
             } else {
                 const errorMsg = res?.error || res?.message || 'Erreur lors de la régularisation.';
@@ -592,7 +525,7 @@ export function usePointagePeriodeEmploye({
             notify({ title: 'Erreur', message: msg, type: 'error' });
             return { error: msg };
         }
-    }, [canEditPeriod, selectedEmployeId, selectedSiteId, selectedPeriodeId, loadFicheEmploye, notify]);
+    }, [canEditPeriod, selectedEmployeId, selectedSiteId, selectedPeriodeId, importPreview, loadFicheEmploye, notify]);
 
     // ── Import/Export ────────────────────────────────────────────────────────
     const handleDownloadImportTemplate = useCallback(async () => {
@@ -625,8 +558,14 @@ export function usePointagePeriodeEmploye({
         } finally { setImportLoading(false); setImportPreviewLoading(false); }
     }, [selectedEmployeId, selectedPeriodeId, notify]);
 
-    const handleApplyImport = useCallback(async () => {
+    const handleApplyImport = useCallback(async (approvedConflicts = {}) => {
         if (importApplyLock.current) return;
+        const unresolved = (importPreview?.lines || []).some(line => importSelections[line.ligne]
+            && importLineNeedsReview(line, approvedConflicts));
+        if (unresolved) {
+            notify({ title: 'Import à vérifier', message: 'Corrigez les journées et confirmez chaque remplacement avant de charger la grille.', type: 'error' });
+            return;
+        }
         importApplyLock.current = true;
         setImportApplying(true);
         await new Promise(resolve => window.setTimeout(resolve, 0));
@@ -643,10 +582,7 @@ export function usePointagePeriodeEmploye({
             if (line.eventCode) {
                 signalsByDate[line.date] = {
                     code: line.eventCode, allowanceOverrides: line.allowanceOverrides || {},
-                    halfDayMoment: line.proposed.heureEntreeMatin && line.proposed.heureSortieMatin
-                        && !line.proposed.heureEntreeAm && !line.proposed.heureSortieAm ? 'APRES_MIDI'
-                        : !line.proposed.heureEntreeMatin && !line.proposed.heureSortieMatin
-                            && line.proposed.heureEntreeAm && line.proposed.heureSortieAm ? 'MATIN' : null
+                    halfDayMoment: importHalfDayMoment(line.proposed)
                 };
             }
             if (line.decision === 'SIGNAL') return;
@@ -685,6 +621,51 @@ export function usePointagePeriodeEmploye({
         }
     }, [importPreview, importSelections, grilleRows, notify]);
 
+    const handleSaveImport = useCallback(async (approvedConflicts = {}) => {
+        if (importApplyLock.current || !canEditPeriod) return false;
+        const selected = (importPreview?.lines || []).filter(line => importSelections[line.ligne] && line.decision === 'IMPORT');
+        if (!selected.length) return false;
+        if (selected.some(line => line.eventCode || importLineNeedsReview(line, approvedConflicts))) {
+            notify({ title: 'Import à vérifier', message: 'Régularisez les événements, corrigez les journées et confirmez chaque remplacement avant d’enregistrer.', type: 'error' });
+            return false;
+        }
+        const current = new Map(grilleRows.map(row => [row.datePointage, row]));
+        if (selected.some(line => !line.proposed || !current.get(line.date) || current.get(line.date).canCorrect === false)) {
+            notify({ title: 'Import à vérifier', message: 'Une journée sélectionnée n’est pas modifiable.', type: 'error' });
+            return false;
+        }
+        importApplyLock.current = true;
+        setImportApplying(true);
+        try {
+            const payload = selected.map(line => toPointageBatchPayload({ ...current.get(line.date), ...line.proposed,
+                datePointage: line.date, idPointage: current.get(line.date)?.idPointage,
+                version: current.get(line.date)?.version,
+                dynamicIndemnites: line.proposed.dynamicIndemnites || {} }));
+            const verification = await attendanceService.daily.previewBatch(payload);
+            if (!Array.isArray(verification) || verification.length !== payload.length) {
+                throw new Error('Le contrôle du lot est incomplet. Aucun pointage n’a été enregistré.');
+            }
+            const invalid = verification?.find(result => result.error || !result.preview || result.preview.hasValidationError);
+            if (invalid) {
+                notify({ title: 'Import à vérifier', message: invalid.error || invalid.preview?.validationMessages?.[0] || 'Une journée est invalide.', type: 'error' });
+                return false;
+            }
+            const response = await attendanceService.daily.saveBatch(payload);
+            if (response?.success === false) throw new Error(response.message || 'Enregistrement refusé.');
+            await loadFicheEmploye();
+            setImportPreview(null);
+            setImportSelections({});
+            notify({ title: 'Import enregistré', message: `${payload.length} journée(s) enregistrée(s).`, type: 'success' });
+            return true;
+        } catch (error) {
+            notify({ title: 'Erreur d’import', message: error?.response?.data?.message || error.message || 'Impossible d’enregistrer l’import.', type: 'error' });
+            return false;
+        } finally {
+            importApplyLock.current = false;
+            setImportApplying(false);
+        }
+    }, [canEditPeriod, importPreview, importSelections, grilleRows, loadFicheEmploye, notify]);
+
     // ── KPIs ─────────────────────────────────────────────────────────────────
     const kpis = useMemo(() => {
         const joursOuvres = grilleRows.filter(r => !r.weekend && !r.ferie);
@@ -707,7 +688,7 @@ export function usePointagePeriodeEmploye({
         handleApplyStandardHours, handleDeducePauses, handleResetDay,
         handleApplyDayStandard, handleApplyWeekStandard,
         handleSaveBatch, handleSaveRegularisation,
-        handleDownloadImportTemplate, handleImportFile, handleApplyImport,
+        handleDownloadImportTemplate, handleImportFile, handleApplyImport, handleSaveImport,
         loadFicheEmploye
     };
 }

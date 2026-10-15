@@ -149,12 +149,13 @@ export default function DemandeDetailsModal({
       icon={<FileText size={20} />}
       size="xl"
       footer={
-        <div className="flex w-full flex-wrap items-center justify-between gap-2">
-          <div>
+        <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:w-auto">
             {showCancelAction && (
               <Button
                 variant="danger"
                 size="sm"
+                className="w-full sm:w-auto"
                 iconLeft={<X size={14} />}
                 onClick={() => {
                   onClose();
@@ -165,7 +166,7 @@ export default function DemandeDetailsModal({
               </Button>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-col-reverse items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             {/* Si congé validé : modification des dates uniquement */}
             {isValide && canModifyDates && (
               <Button
@@ -238,10 +239,6 @@ export default function DemandeDetailsModal({
                 Modifier
               </Button>
             )}
-
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              Fermer
-            </Button>
           </div>
         </div>
       }

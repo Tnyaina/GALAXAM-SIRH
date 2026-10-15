@@ -16,9 +16,9 @@ export const ATTENDANCE_STATUS = {
     NON_SAISI: { label: 'Non saisi', variant: 'neutral', icon: AlertTriangle, dotColor: 'bg-[var(--color-fg-subtle)]', textColor: 'text-[var(--color-fg-muted)]', bgHover: 'hover:bg-[var(--color-bg-subtle)]' },
     NON_ECHU: { label: 'Non échu', variant: 'neutral' },
     PLANIFIE: { label: 'Planifié', variant: 'neutral' },
-    ANOMALIE_SAISIE: { label: 'Incomplet', variant: 'warning' },
+    ANOMALIE_SAISIE: { label: 'Anomalie de pointage', variant: 'warning', icon: AlertTriangle, dotColor: 'bg-[var(--color-warning-500)]', textColor: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]', bgHover: 'hover:bg-[var(--color-warning-500)]/10' },
     RETARD: { label: 'Retard', variant: 'warning' },
-    DEMI_JOURNEE: { label: 'Demi-journée', variant: 'sky' },
+    DEMI_JOURNEE: { label: 'Demi-journée', variant: 'sky', icon: CheckCircle2, dotColor: 'bg-[var(--color-sky-500)]', textColor: 'text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)]', bgHover: 'hover:bg-[var(--color-sky-500)]/10', requiresMotif: true },
     SAMEDI_TRAVAILLE: { label: 'Samedi travaillé', variant: 'primary' },
     DIMANCHE_TRAVAILLE: { label: 'Dimanche travaillé', variant: 'primary' }
 };
@@ -27,24 +27,12 @@ export const getAttendanceStatus = (code) => ATTENDANCE_STATUS[String(code || 'N
     label: String(code || 'Non saisi'), variant: 'neutral'
 };
 
-export const getDefaultAttendanceStatusActions = (autonomous = false) => autonomous ? [
-    { code: 'DISPENSE_POINTAGE', label: 'Autonome (8h présumé)', description: 'Présomption légale de travail 8h' },
-    { code: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée', description: 'Absence autorisée avec motif', requiresMotif: true },
-    { code: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée', description: 'Absence non justifiée constatée' },
-    { code: 'CONGE', label: 'Congé payé', description: 'Imputer sur solde congé payé' }
-] : [
-    { code: 'PRESENT', label: 'Présent', description: 'Collaborateur présent sur le site' },
-    { code: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée', description: 'Absence autorisée avec motif', requiresMotif: true },
-    { code: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée', description: 'Absence non justifiée constatée' },
-    { code: 'CONGE', label: 'Congé payé', description: 'Imputer sur solde congé payé' }
-];
-
 /** Normalise les anciens statuts de fiche sans transformer une absence explicitement enregistrée. */
-export function resolveAttendanceStatus({ status, hasHours, weekend, holiday, leave, autonomous }) {
+export function resolveAttendanceStatus({ status, hasHours, weekend, sunday, holiday, leave, autonomous }) {
     const code = String(status || '').toUpperCase();
     if (code && code !== 'NON_SAISI' && !(code === 'ABSENT' && !hasHours)) return code;
     if (holiday) return hasHours ? 'FERIE_TRAVAILLE' : 'FERIE_CHOME';
-    if (weekend) return hasHours ? 'SAMEDI_TRAVAILLE' : 'REPOS';
+    if (weekend) return hasHours ? (sunday ? 'DIMANCHE_TRAVAILLE' : 'SAMEDI_TRAVAILLE') : 'REPOS';
     if (leave) return 'CONGE';
     if (autonomous) return 'DISPENSE_POINTAGE';
     return hasHours ? 'PRESENT' : 'NON_SAISI';
@@ -59,7 +47,8 @@ export const isAttendancePresent = (row) => Boolean(row?.present || row?.dispens
 export const isAttendanceLeave = (row) => Boolean(row?.conge || row?.absenceJustifiee);
 export const isAttendanceUnentered = (row) => Boolean(row?.nonSaisi || row?.codeStatut === 'NON_SAISI' || !row?.codeStatut);
 export const isAttendanceLate = (row) => Boolean(row?.retard || Number(row?.minutesRetard) > 0);
-export const isAttendanceUnjustifiedAbsence = (row) => Boolean(row?.absenceNonJustifiee || row?.codeStatut === 'ABSENCE_NON_JUSTIFIEE');
+export const isAttendanceUnjustifiedAbsence = (row) => Boolean(row?.absenceNonJustifiee
+    || ['ABSENT', 'ABSENCE_NON_JUSTIFIEE'].includes(String(row?.statut || row?.codeStatut || '').toUpperCase()));
 
 /** Drapeaux métier d'une ligne, avec priorité aux valeurs explicites de l'API. */
 export function deriveAttendanceFlags(row = {}, { isWeekend = false, isSunday = false, isSaturday = false, hasWorked = false } = {}) {

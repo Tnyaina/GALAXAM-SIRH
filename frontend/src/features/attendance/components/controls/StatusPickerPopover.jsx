@@ -7,7 +7,9 @@ import {
     Palmtree
 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
-import { ATTENDANCE_STATUS, getAttendanceStatus, getDefaultAttendanceStatusActions } from '@/features/attendance/utils/attendanceStatus';
+import { ATTENDANCE_STATUS, getAttendanceStatus } from '@/features/attendance/utils/attendanceStatus';
+import { attendanceService } from '@/features/attendance/api/attendanceApi';
+import { toPointageBatchPayload } from '@/features/attendance/utils/pointageBatchPayload';
 
 const SUGGESTIONS_MOTIF = [
     'Certificat médical',
@@ -35,15 +37,18 @@ export default function StatusPickerPopover({
     const [selectedStatut, setSelectedStatut] = useState(currentStatus || row?.codeStatut || 'NON_SAISI');
     const [motif, setMotif] = useState(currentMotif || '');
     const [position, setPosition] = useState({ top: 0, left: 0, openAbove: false });
+    const [loadedActions, setLoadedActions] = useState({ key: null, actions: [] });
+    const [actionsLoading, setActionsLoading] = useState(false);
+    const [actionsError, setActionsError] = useState('');
 
     // Références DOM et données dérivées
     const triggerRef = useRef(null);
     const popoverRef = useRef(null);
 
     const isAutonome = Boolean(row?.estAutonome);
-    const defaultStatusActions = getDefaultAttendanceStatusActions(isAutonome);
-
-    const statusOptions = (row?.statusActions && row.statusActions.length > 0) ? row.statusActions : defaultStatusActions;
+    const actionKey = `${row?.idEmploye || ''}:${row?.datePointage || ''}`;
+    const statusOptions = Array.isArray(row?.statusActions) && !row?._previewPending
+        ? row.statusActions : loadedActions.key === actionKey ? loadedActions.actions : [];
 
     // Effets : synchronise les props, la position et la fermeture du popover.
     useEffect(() => {
@@ -79,14 +84,29 @@ export default function StatusPickerPopover({
         });
     }, []);
 
-    const handleToggle = () => {
+    const handleToggle = async () => {
         if (disabled) return;
         if (!isOpen) {
             setSelectedStatut(currentStatus || row?.codeStatut || 'NON_SAISI');
             setMotif(currentMotif || '');
             updatePosition();
+            setIsOpen(true);
+            if (!Array.isArray(row?.statusActions) || row?._previewPending) {
+                setActionsLoading(true);
+                setActionsError('');
+                try {
+                    const preview = await attendanceService.daily.preview(toPointageBatchPayload(row));
+                    setLoadedActions({ key: actionKey, actions: preview?.statusActions || [] });
+                } catch {
+                    setLoadedActions({ key: actionKey, actions: [] });
+                    setActionsError('Actions de statut indisponibles. Réessayez après avoir rechargé la journée.');
+                } finally {
+                    setActionsLoading(false);
+                }
+            }
+        } else {
+            setIsOpen(false);
         }
-        setIsOpen(prev => !prev);
     };
 
     // Gestion du clic extérieur et de la touche Échap
@@ -131,6 +151,7 @@ export default function StatusPickerPopover({
 
     const handleApply = (statutToApply = selectedStatut) => {
         const action = statusOptions.find((option) => option.code === statutToApply);
+        if (!action) return;
         if (action?.requiresMotif && !motif.trim()) {
             return; // Motif obligatoire
         }
@@ -216,6 +237,10 @@ export default function StatusPickerPopover({
 
                     {/* Liste des statuts d'absence / présence */}
                     <div className="space-y-1 pr-0.5">
+                        {actionsLoading && <p className="text-[var(--color-fg-muted)]">Chargement des actions autorisées…</p>}
+                        {actionsError && <p role="alert" className="text-[var(--color-danger-600)]">{actionsError}</p>}
+                        {!actionsLoading && !actionsError && statusOptions.length === 0 &&
+                            <p className="text-[var(--color-fg-muted)]">Aucune action autorisée pour cette journée.</p>}
                         {statusOptions.map((option) => {
                             const opt = { ...option, ...(ATTENDANCE_STATUS[option.code] || {}) };
                             if (!opt.icon) return null;
@@ -256,7 +281,7 @@ export default function StatusPickerPopover({
                         })}
                     </div>
 
-                    {/* Zone de motif si Absence justifiée (obligatoire) */}
+                    {/* Motif obligatoire pour une absence justifiée ou une demi-journée validée. */}
                     {selectedAction?.requiresMotif && (
                         <div className="mt-2.5 pt-2 border-t border-[var(--color-border-subtle)] space-y-2">
                             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">

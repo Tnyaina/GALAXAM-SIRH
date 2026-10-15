@@ -81,7 +81,7 @@ describe('Supervision carrières', () => {
         expect(host.textContent).toContain('Mutation');
         expect(host.textContent).toContain('Effet planifié');
         await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Voir').click());
-        expect(host.textContent).toContain('Ouvrir la carrière');
+        expect(document.body.textContent).toContain('Ouvrir la carrière');
     });
 
     it('charge tous les contrats du salarié avant de comparer un doublon potentiel', async () => {
@@ -93,6 +93,6 @@ describe('Supervision carrières', () => {
         await act(async () => root.render(<MemoryRouter><CarrieresSupervisionPage /></MemoryRouter>));
         await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Comparer').click());
         expect(contratService.getContratsGlobal).toHaveBeenCalledWith({ idEmploye: 7, page: 1, size: 50 });
-        expect(host.textContent).toContain('Vérification des Doublons');
+        expect(document.body.textContent).toContain('Vérification des Doublons');
     });
 });

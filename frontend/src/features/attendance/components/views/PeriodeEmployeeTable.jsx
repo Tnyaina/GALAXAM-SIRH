@@ -1,21 +1,22 @@
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import {
-    Calendar,
-    ClockCheck,
+    ChevronDown,
+    ChevronRight,
     FastForward,
-    Palmtree,
-    RotateCcw
+    ClockCheck,
 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
 import TimeInput from '@/components/ui/forms/TimeInput';
 import StatusPickerPopover from '@/features/attendance/components/controls/StatusPickerPopover';
+import ActionMenu from '@/components/ui/overlays/ActionMenu';
 import { formatHeuresDecimal, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { isAttendanceUnentered } from '@/features/attendance/utils/attendanceStatus';
 
 export default function PeriodeEmployeeTable({
     groupedByWeeks = [],
+    filterJour = 'ALL',
     canEditPeriod = false,
     isAutonome = false,
     displayedIndemnites = [],
@@ -32,6 +33,8 @@ export default function PeriodeEmployeeTable({
 }) {
     // ── Navigation clavier rapide et saut automatique ────────────────────────
     const inputRefs = useRef({});
+    const [expandedWeeks, setExpandedWeeks] = useState({});
+    useEffect(() => { setExpandedWeeks({}); }, [filterJour]);
 
     const registerInputRef = (datePointage, fieldIndex, el) => {
         if (!inputRefs.current[datePointage]) {
@@ -191,7 +194,9 @@ export default function PeriodeEmployeeTable({
     return (
         <div className="space-y-4">
             {/* Bandeau d'assistance & Raccourcis Clavier */}
-            <div className="flex items-center justify-between text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] px-3 py-1.5 border border-[var(--color-border-subtle)]">
+            <details className="text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] px-3 py-1.5 border border-[var(--color-border-subtle)]">
+                <summary className="cursor-pointer font-semibold text-[var(--color-fg)]">Aide à la saisie et raccourcis clavier</summary>
+                <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-[var(--color-fg)]">Aide à la saisie :</span>
                     <span>Tapez 4 chiffres (ex: <kbd className="px-1 py-0.2 font-mono text-[10px] bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">0800</kbd> → 08:00) avec saut automatique</span>
@@ -202,25 +207,31 @@ export default function PeriodeEmployeeTable({
                     <kbd className="px-1.5 py-0.2 font-mono text-[10px] bg-[var(--color-surface)] border border-[var(--color-border-subtle)] font-bold text-[var(--color-brand-600)]">Ctrl+S</kbd>
                     <span>enregistrer</span>
                 </div>
-            </div>
+                </div>
+            </details>
 
             {/* Liste des Semaines */}
             {groupedByWeeks.map((week, wIdx) => {
-                const weekTotalHeures = week.rows.reduce((acc, r) => acc + (Number(r.totalHeuresDecimal) || 0), 0);
-                const weekTotalRetard = week.rows.reduce((acc, r) => acc + (r.minutesRetard || 0), 0);
+                const summaryRows = week.summaryRows || week.rows;
+                const weekTotalHeures = summaryRows.reduce((acc, r) => acc + (Number(r.totalHeuresDecimal) || 0), 0);
+                const weekTotalRetard = summaryRows.reduce((acc, r) => acc + (r.minutesRetard || 0), 0);
+                const weekMissing = summaryRows.filter(row => !row.weekend && !row.ferie && !row.conge && isAttendanceUnentered(row)).length;
+                const isExpanded = expandedWeeks[week.weekKey] ?? true;
 
                 return (
-                    <div key={week.weekKey || wIdx} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+                    <div key={week.weekKey || wIdx} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
                         {/* En-tête de la Semaine */}
-                        <div className="px-3.5 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center justify-between text-xs font-bold text-[var(--color-fg)]">
-                            <div className="flex items-center gap-2">
-                                <Calendar size={13} className="text-[var(--color-brand-600)]" />
-                                <span>Semaine {wIdx + 1}</span>
+                        <div className="px-3.5 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3 text-xs font-bold text-[var(--color-fg)]">
+                            <button type="button" aria-expanded={isExpanded} aria-controls={`week-${week.weekKey}`}
+                                onClick={() => setExpandedWeeks(previous => ({ ...previous, [week.weekKey]: !isExpanded }))}
+                                className="flex items-center gap-2 text-left cursor-pointer hover:text-[var(--color-brand-700)]">
+                                {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                                <span>Semaine {week.weekNumber || wIdx + 1}</span>
                                 <span className="font-normal text-[var(--color-fg-muted)]">
-                                    ({week.rows[0]?.date} au {week.rows[week.rows.length - 1]?.date})
+                                    ({summaryRows[0]?.date} au {summaryRows[summaryRows.length - 1]?.date})
                                 </span>
-                            </div>
-                            <div className="flex items-center gap-3 text-[11px] font-mono">
+                            </button>
+                            <div className="flex items-center gap-3 text-[11px] tabular-nums">
                                 <span>
                                     Total réalisé : <strong className="text-[var(--color-fg)]">{formatHeuresDecimal(weekTotalHeures)}</strong>
                                     <span className="text-[var(--color-fg-muted)] font-normal ml-1">
@@ -228,7 +239,7 @@ export default function PeriodeEmployeeTable({
                                     </span>
                                     {week.totalFeriesSemaine > 0 && (
                                         <span className="text-[var(--color-purple-600)] font-sans font-medium text-[10px] ml-1.5">
-                                            ({week.totalFeriesSemaine} férié chômé payé)
+                                            ({week.totalFeriesSemaine} jour{week.totalFeriesSemaine > 1 ? 's' : ''} férié{week.totalFeriesSemaine > 1 ? 's' : ''})
                                         </span>
                                     )}
                                 </span>
@@ -237,22 +248,16 @@ export default function PeriodeEmployeeTable({
                                         Retard : {weekTotalRetard} min
                                     </span>
                                 )}
+                                {weekMissing > 0 && <span className="text-[var(--color-warning-700)]">{weekMissing} à saisir</span>}
                                 {canEditPeriod && (
-                                    <Button
-                                        variant="outline"
-                                        size="xs"
-                                        iconLeft={<ClockCheck size={11} />}
-                                        onClick={() => handleApplyWeekStandard(week.rows)}
-                                        title="Appliquer l'horaire standard aux jours ouvrés de cette semaine"
-                                        className="font-sans font-semibold text-[10px] border-[var(--color-brand-500)]/30 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] hover:bg-[var(--color-brand-500)]/10"
-                                    >
-                                        Remplir semaine
+                                    <Button variant="outline" size="xs" onClick={() => handleApplyWeekStandard(summaryRows)}>
+                                        <ClockCheck size={13} /> Remplir semaine
                                     </Button>
                                 )}
                             </div>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        {isExpanded && <div id={`week-${week.weekKey}`} className="overflow-x-auto">
                             <Table bordered={false} density="compact" className="w-full text-left text-xs">
                                 <Thead>
                                     <Tr className="border-b border-[var(--color-border-subtle)] text-[10px] uppercase font-bold text-[var(--color-fg-muted)] bg-[var(--color-surface)]">
@@ -270,7 +275,7 @@ export default function PeriodeEmployeeTable({
                                                 Indemnités
                                             </Th>
                                         )}
-                                        <Th className="w-24 px-1.5 py-2 text-center">Actions</Th>
+                                        <Th className="w-12 px-1.5 py-2 text-center">Actions</Th>
                                     </Tr>
                                 </Thead>
                                 <Tbody>
@@ -301,17 +306,17 @@ export default function PeriodeEmployeeTable({
                                                 key={row.datePointage}
                                                 id={`pointage-day-${row.datePointage}`}
                                                 className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue} ${
-                                                    isWeekend
-                                                        ? 'bg-[var(--color-bg-subtle)]/40 text-[var(--color-fg-muted)]'
-                                                        : isFerie
-                                                            ? 'bg-[var(--color-purple-500)]/[0.04]'
+                                                    isFerie
+                                                        ? 'bg-[var(--color-purple-500)]/[0.04]'
+                                                        : isWeekend
+                                                            ? 'bg-[var(--color-bg-subtle)]/40 text-[var(--color-fg-muted)]'
                                                             : isConge
                                                                 ? 'bg-[var(--color-sky-500)]/[0.04]'
                                                                 : ''
                                                 }`}
                                             >
                                                 {/* 1. Date */}
-                                                <Td className="font-mono font-bold text-xs px-3 py-2 whitespace-nowrap">
+                                                <Td className="font-semibold tabular-nums text-xs px-3 py-2 whitespace-nowrap">
                                                     {row.date}
                                                 </Td>
 
@@ -319,6 +324,7 @@ export default function PeriodeEmployeeTable({
                                                 <Td className="text-xs text-[var(--color-fg-muted)] px-2 py-2 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         <span>{row.jour}</span>
+                                                        {isFerie && hasPunches && <span className="text-[10px] font-semibold text-[var(--color-purple-700)]" title={row.libelleFerie || 'Jour férié'}>Férié{row.libelleFerie ? ` · ${row.libelleFerie}` : ''}</span>}
                                                         {canEditRow && !isConge && (
                                                             <button
                                                                 type="button"
@@ -347,6 +353,25 @@ export default function PeriodeEmployeeTable({
                                                             <Badge variant="info" size="sm">Congé payé validé</Badge>
                                                         </div>
                                                     </Td>
+                                                ) : isFerie && !hasPunches ? (
+                                                    <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-medium">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <Badge variant="purple" size="sm">Férié chômé</Badge>
+                                                            <span className="text-[10px] text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)]">
+                                                                {row.libelleFerie ? `${row.libelleFerie} · ` : ''}{isWeekend ? 'Jour non ouvré' : 'Chômé payé'}
+                                                            </span>
+                                                            {canEditRow && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="xs"
+                                                                    onClick={() => handleApplyDayStandard(row.datePointage)}
+                                                                    className="text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)]"
+                                                                >
+                                                                    + Travaillé (+100%)
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </Td>
                                                 ) : isWeekend && !hasPunches ? (
                                                     <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-fg-muted)]">
                                                         <div className="flex items-center justify-center gap-2">
@@ -359,25 +384,6 @@ export default function PeriodeEmployeeTable({
                                                                     className="text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)]"
                                                                 >
                                                                     + Déclarer travaillé
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </Td>
-                                                ) : isFerie && !hasPunches ? (
-                                                    <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-medium">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <Badge variant="purple" size="sm">Férié chômé payé</Badge>
-                                                            <span className="text-[10px] text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)]">
-                                                                Jour chômé légal (-8h d'obligation de présence)
-                                                            </span>
-                                                            {canEditRow && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="xs"
-                                                                    onClick={() => handleApplyDayStandard(row.datePointage)}
-                                                                    className="text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)]"
-                                                                >
-                                                                    + Travaillé (+100%)
                                                                 </Button>
                                                             )}
                                                         </div>
@@ -459,7 +465,7 @@ export default function PeriodeEmployeeTable({
                                                         </Td>
 
                                                         {/* 7. Retard */}
-                                                        <Td className="px-1 py-2 text-center font-mono text-xs">
+                                                        <Td className="px-1 py-2 text-center tabular-nums text-xs">
                                                             {isAutonome ? (
                                                                 <span className="text-[var(--color-fg-muted)] opacity-50">—</span>
                                                             ) : row.minutesRetard > 0 ? (
@@ -472,7 +478,7 @@ export default function PeriodeEmployeeTable({
                                                         </Td>
 
                                                         {/* 8. Heures Faites */}
-                                                        <Td className="px-2 py-2 text-center font-mono font-bold text-xs text-[var(--color-fg)]">
+                                                        <Td className="px-2 py-2 text-center tabular-nums font-bold text-xs text-[var(--color-fg)]">
                                                             <div>{row.heuresFaites}</div>
                                                             {row.totalHeuresDecimal > 0 && (
                                                                 <div className="text-[10px] text-[var(--color-fg-muted)] font-normal">
@@ -542,57 +548,27 @@ export default function PeriodeEmployeeTable({
                                                     </Td>
                                                 )}
 
-                                                {/* 11. Actions rapides */}
-                                                        <Td className="px-1.5 py-2 text-center whitespace-nowrap">
-                                                        <div className="flex items-center justify-center gap-1">
-                                                        {/* Action Régularisation Congé / Absence */}
-                                                        <Button
-                                                            variant="outline"
-                                                            size="xs"
-                                                            iconLeft={<Palmtree size={13} />}
-                                                            onClick={() => openRegularisation(row)}
-                                                            disabled={!canEditRow}
-                                                            title="Signaler un congé annuel, une permission exceptionnelle ou une absence déduite"
-                                                            className="!px-1 !py-0.5 !text-[9px] [&_svg]:!w-2 [&_svg]:!h-2 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/40 hover:bg-[var(--color-brand-500)]/10"
-                                                        >
-                                                            Absence / congé
-                                                        </Button>
-
-                                                        {/* Action Heures : Vider ou Standard */}
-                                                        {(isWeekend && !hasPunches) || (isFerie && !hasPunches) || (isConge && !hasPunches) ? (
-                                                            <span className="opacity-30 text-[10px]">—</span>
-                                                        ) : hasPunches ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="xs"
-                                                                iconOnly
-                                                                icon={<RotateCcw size={12} />}
-                                                                onClick={() => handleResetDay(row.datePointage)}
-                                                                disabled={!canEditRow}
-                                                                title="Vider les heures de cette journée"
-                                                                aria-label="Vider les heures de cette journée"
-                                                                className="hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 text-[var(--color-fg-muted)]"
-                                                            />
-                                                        ) : (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="xs"
-                                                                onClick={() => handleApplyDayStandard(row.datePointage)}
-                                                                disabled={!canEditRow}
-                                                                title="Appliquer l'horaire standard (08h-17h)"
-                                                                className="!px-1.5 !py-0.5 !text-[9px] text-[var(--color-brand-600)] border-[var(--color-brand-500)]/30 hover:bg-[var(--color-brand-500)]/10"
-                                                            >
-                                                                Standard
-                                                            </Button>
-                                                        )}
-                                                    </div>
+                                                {/* Les actions secondaires partagent le même menu dans toute la grille. */}
+                                                <Td className="px-1.5 py-2 text-center whitespace-nowrap">
+                                                    <ActionMenu label={`Actions du ${row.datePointage}`}
+                                                        disabled={!canEditRow || Boolean(row.congeApprouve)}
+                                                        items={[
+                                                            { label: 'Marquer en congé payé',
+                                                                onClick: () => openRegularisation({ ...row, regularisationIntent: 'CONGE_PAYE' }) },
+                                                            { label: 'Marquer absent',
+                                                                onClick: () => openRegularisation({ ...row, regularisationIntent: 'ABSENCE_DEDUITE' }) },
+                                                            { label: 'Appliquer l’horaire standard',
+                                                                onClick: () => handleApplyDayStandard(row.datePointage) },
+                                                            { label: 'Vider la ligne', disabled: !hasPunches, danger: true,
+                                                                onClick: () => handleResetDay(row.datePointage) }
+                                                        ]} />
                                                 </Td>
                                             </Tr>
                                         );
                                     })}
                                 </Tbody>
                             </Table>
-                        </div>
+                        </div>}
                     </div>
                 );
             })}

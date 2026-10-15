@@ -76,16 +76,16 @@ describe('Détail de demande de congé', () => {
     });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
-    expect(host.textContent).toContain('Demande de congé #1');
-    expect(host.textContent).toContain('Régularisation de pointage');
-    expect(host.textContent).toContain('Congé lery');
-    expect(host.textContent).not.toContain('[REGULARISATION_POINTAGE]');
-    expect(host.textContent).toContain('Jours décomptés');
-    expect(host.textContent).toContain('Vérification du solde');
-    expect(host.textContent).toContain('4.00 j');
-    expect(host.textContent).toContain('3.00 j');
-    expect(host.textContent).toContain('7.00 j');
-    expect(host.textContent).toContain('Annuler ce congé');
+    expect(document.body.textContent).toContain('Demande de congé #1');
+    expect(document.body.textContent).toContain('Régularisation de pointage');
+    expect(document.body.textContent).toContain('Congé lery');
+    expect(document.body.textContent).not.toContain('[REGULARISATION_POINTAGE]');
+    expect(document.body.textContent).toContain('Jours décomptés');
+    expect(document.body.textContent).toContain('Vérification du solde');
+    expect(document.body.textContent).toContain('4.00 j');
+    expect(document.body.textContent).toContain('3.00 j');
+    expect(document.body.textContent).toContain('7.00 j');
+    expect(document.body.textContent).toContain('Annuler ce congé');
   });
 
   it('affiche des boutons épurés pour une demande en attente sans bouton redondant "Annuler ce congé"', async () => {
@@ -132,17 +132,23 @@ describe('Détail de demande de congé', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
     // Boutons décisionnels attendus
-    expect(host.textContent).toContain('Valider');
-    expect(host.textContent).toContain('Refuser');
-    expect(host.textContent).toContain('Modifier');
-    expect(host.textContent).toContain('Fermer');
+    expect(document.body.textContent).toContain('Valider');
+    expect(document.body.textContent).toContain('Refuser');
+    expect(document.body.textContent).toContain('Modifier');
 
     // "Annuler ce congé" NE DOIT PAS être affiché quand la demande est en cours de validation
-    expect(host.textContent).not.toContain('Annuler ce congé');
+    expect(document.body.textContent).not.toContain('Annuler ce congé');
 
     // Vérification du solde résolu sans afficher "Non calculé"
-    expect(host.textContent).not.toContain('Non calculé');
-    expect(host.textContent).toContain('9.00 j');
-    expect(host.textContent).toContain('0.00 j');
+    expect(document.body.textContent).not.toContain('Non calculé');
+    expect(document.body.textContent).toContain('9.00 j');
+    expect(document.body.textContent).toContain('0.00 j');
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    const buttons = [...dialog.querySelectorAll('button')]
+      .map((button) => button.textContent.trim())
+      .filter(Boolean);
+    expect(buttons).toEqual(['Modifier', 'Refuser', 'Valider']);
+    expect(dialog.querySelector('.sm\\:flex-row')).not.toBeNull();
   });
 });
