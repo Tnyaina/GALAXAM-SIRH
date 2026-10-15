@@ -330,61 +330,6 @@ public class CongeTauxApplicableService {
     }
 
     /**
-     * Enregistre l'activation datée d'un taux calculé à la suite de la clôture d'une référence de 12 mois.
-     */
-    public int activerTauxCalculeReference(int idEmploye,
-                                          int idPeriodeReference,
-                                          BigDecimal tauxJournalier,
-                                          LocalDate dateEffet,
-                                          LocalDate dateFin,
-                                          String commentaire,
-                                          Integer idUtilisateur,
-                                          Connection c) throws SQLException {
-        if (tauxJournalier == null || tauxJournalier.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Le taux calculé doit être strictement positif.");
-        }
-        if (dateEffet == null) {
-            throw new IllegalArgumentException("La date d'effet est obligatoire pour activer le taux calculé.");
-        }
-        if (dateFin != null && !dateFin.isAfter(dateEffet)) {
-            throw new IllegalArgumentException("La date de fin doit être strictement postérieure à la date d'effet.");
-        }
-
-        verifierAbsenceChevauchement(idEmploye, dateEffet, dateFin, null, c);
-
-        String sql = "INSERT INTO conge_taux_applicable (" +
-                "id_employe, taux_journalier, date_effet, date_fin, source_provenance, " +
-                "id_periode_reference, commentaire, cree_par" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_taux_applicable";
-
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idEmploye);
-            ps.setBigDecimal(2, tauxJournalier.setScale(2, RoundingMode.HALF_UP));
-            ps.setDate(3, Date.valueOf(dateEffet));
-            if (dateFin != null) {
-                ps.setDate(4, Date.valueOf(dateFin));
-            } else {
-                ps.setNull(4, Types.DATE);
-            }
-            ps.setString(5, TcongeSourceProvenance.CALCUL_PERIODE_REFERENCE.name());
-            ps.setInt(6, idPeriodeReference);
-            ps.setString(7, commentaire);
-            if (idUtilisateur != null) {
-                ps.setInt(8, idUtilisateur);
-            } else {
-                ps.setNull(8, Types.INTEGER);
-            }
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
-            }
-        }
-        throw new IllegalStateException("Impossible d'activer le taux calculé de référence.");
-    }
-
-    /**
      * Valide que la durée de la période de référence correspond exactement à DUREE_REFERENCE_TCONGE_MOIS (12 mois).
      */
     public void validerDureeReference(LocalDate debut, LocalDate fin, Connection c) throws SQLException {
@@ -1194,68 +1139,6 @@ public class CongeTauxApplicableService {
                 return !dateAcquisition.isAfter(cutover);
             }
         }
-    }
-
-    /**
-     * Clôture arbitrée explicite par les RH pour les cas MINIMAL_OPENING ou arbitrage exceptionnel (Section 19).
-     * Enregistre l'utilisateur, la justification, et le nouveau taux calculé/arbitré.
-     */
-    public void cloturerPeriodeArbitree(int idPeriodeReference,
-                                       BigDecimal tauxArbitre,
-                                       String justification,
-                                       Integer idUtilisateur,
-                                       Connection c) throws SQLException {
-        if (tauxArbitre == null || tauxArbitre.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Le taux arbitré doit être strictement positif.");
-        }
-        if (justification == null || justification.isBlank()) {
-            throw new IllegalArgumentException("Une justification explicite est obligatoire pour un arbitrage RH de clôture.");
-        }
-
-        String sqlRef = "SELECT id_periode_reference, statut, id_employe FROM conge_periode_reference WHERE id_periode_reference = ? FOR UPDATE";
-        try (PreparedStatement psRef = c.prepareStatement(sqlRef)) {
-            psRef.setInt(1, idPeriodeReference);
-            try (ResultSet rsRef = psRef.executeQuery()) {
-                if (!rsRef.next()) {
-                    throw new IllegalArgumentException("Période de référence introuvable : ID " + idPeriodeReference);
-                }
-                if ("CLOTUREE".equals(rsRef.getString("statut"))) {
-                    throw new IllegalStateException("La période " + idPeriodeReference + " est déjà clôturée.");
-                }
-            }
-        }
-
-        String sqlSum = "SELECT COALESCE(SUM(jours_droit_acquis), 0) AS sum_droits, " +
-                "COALESCE(SUM(valorisation_mensuelle), 0) AS sum_valo " +
-                "FROM conge_journal_droit WHERE id_periode_reference = ?";
-        BigDecimal postDroits = BigDecimal.ZERO;
-        BigDecimal postValo = BigDecimal.ZERO;
-        try (PreparedStatement psSum = c.prepareStatement(sqlSum)) {
-            psSum.setInt(1, idPeriodeReference);
-            try (ResultSet rsSum = psSum.executeQuery()) {
-                if (rsSum.next()) {
-                    postDroits = rsSum.getBigDecimal("sum_droits");
-                    postValo = rsSum.getBigDecimal("sum_valo");
-                }
-            }
-        }
-
-        String sqlUp = "UPDATE conge_periode_reference SET " +
-                "statut = 'CLOTUREE', " +
-                "cumul_droits_cloture = ?, " +
-                "cumul_valorisation_cloture = ?, " +
-                "taux_calcule_cloture = ? " +
-                "WHERE id_periode_reference = ?";
-        try (PreparedStatement psUp = c.prepareStatement(sqlUp)) {
-            psUp.setBigDecimal(1, postDroits);
-            psUp.setBigDecimal(2, postValo);
-            psUp.setBigDecimal(3, tauxArbitre.setScale(2, RoundingMode.HALF_UP));
-            psUp.setInt(4, idPeriodeReference);
-            psUp.executeUpdate();
-        }
-
-        log.info("[CongeTauxApplicableService] Période {} clôturée par arbitrage RH par utilisateur {} : taux={}, motif='{}'",
-                idPeriodeReference, idUtilisateur, tauxArbitre, justification);
     }
 
     /**

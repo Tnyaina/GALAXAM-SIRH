@@ -22,9 +22,46 @@
 | **Entreprise d'Accueil** | **GALAXAM Logistics SARL** (Code filiale : `GLX`) |
 | **Encadreur Professionnel** | **Mme RALAMBOMANANA Tatamo Michele** (Gérante, Directrice Administrative, Financière et RH) |
 | **Dirigeant / Fondateur** | **M. RANDRASANA Eric Jean-Joël** (Fondateur & Directeur Général, 25 ans d'exercice en 2026) |
-| **Période Conventionnée** | Du **06 juillet 2026 au 06 octobre 2026** (3 mois conventionnels, prolongation d'un mois actée) |
+| **Période Conventionnée Initiale** | Du **06 juillet 2026 au 06 octobre 2026** (3 mois conventionnels indiqués sur la fiche de stage) |
+| **Période Réelle Prolongée** | Du **06 juillet 2026 au 06 novembre 2026** (Prolongation formelle d'un mois accordée) |
 | **Rattachement Interne** | Directement rattaché au **Département Logistics** (absence de service informatique interne propre) |
 | **Dépôt & Branches Git** | Monolithe Git : `feature/* → develop → staging → main` (déploiement Docker sur Render) |
+
+### 1.1 Chronologie Réelle du Projet & Courriel Officiel de Prolongation
+
+Bien que la convention de stage initiale auprès de l'IT University (ITU) mentionnait une durée indicative de 3 mois (du 6 juillet au 6 octobre 2026), **le sujet du SIRH n'a été formellement cadré, validé et lancé par la direction de GALAXAM que vers la fin du mois de juillet 2026 (vers le 24-27 juillet 2026)**.
+
+Les trois premières semaines (du 6 au 24 juillet 2026, soit 15 jours ouvrés) ont constitué une phase d'immersion opérationnelle, d'observation des flux douaniers et fret, et d'audit exploratoire des classeurs Excel existants.
+
+Par conséquent, à la date d'échéance théorique du **06 octobre 2026**, le volume de travail effectif consacré au développement du SIRH n'était que d'environ **52 jours ouvrés**, ne permettant pas d'atteindre le total requis de **66 jours ouvrés** de réalisation et de recette technique. Face à ce décalage de périmètre temporel, la Direction Administrative et Financière a formellement sollicité une prolongation d'un mois auprès de l'école :
+
+> **Courriel officiel de demande de prolongation (06 octobre 2026 à 13:27) :**  
+> **De :** GALAXAM DAF (`daf@galaxam.com`)  
+> **À :** Dr RAKOTOARIMALALA Tsinjo Tony (`tsinjo@itu.mg`)  
+> **Date :** Mardi 6 octobre 2026, 13:27  
+> **Objet :** *Demande de prolongation de stage – ETU003080 ANDRIAMALALA Rivo Ny Aina Tojonirina*  
+>  
+> *« Bonjour,*  
+> *Nous vous informons que le stage de fin d’études de M. ANDRIAMALALA Rivo Ny Aina Tojonirina (ETU003080), initialement prévu jusqu’au 6 octobre 2026, nécessite une prolongation d’un mois.*  
+> *Le projet ayant été défini et lancé vers la fin du mois de juillet, certains travaux de finalisation et de validation restent à réaliser.*  
+> *Nous sommes donc favorables à une prolongation du stage jusqu’au 6 novembre 2026.*  
+> *Nous vous remercions de bien vouloir nous indiquer les éventuelles démarches à effectuer pour formaliser cette prolongation. »*
+
+### 1.2 Justification Temporelle de l'Estimation Agile (Todo List : 66 Jours Ouvrés)
+
+Le document de planification de référence de l'entreprise (`docs/context/Todo list GLX.xlsx`, feuille *Estimation Agile info*) établit un backlog prévisionnel structuré en **6 Sprints totalisant rigoureusement 66 jours ouvrés de développement technique** :
+- **Phase 0 : Immersion, Découverte Métier & Audit de l'Existant** (06/07/2026 au 24/07/2026) : 15 jours ouvrés.
+- **Sprint I : Analyse, Modélisation & Socle PostgreSQL** : 14 jours ouvrés.
+- **Sprint II : Sécurité IAM/RBAC & Dossier Salarié / Carrière** : 8 jours ouvrés.
+- **Sprint III : Module Pointage & Suivi des Présences** : 10 jours ouvrés.
+- **Sprint IV : Module Congés & Absences (FIFO & Décompte Fériés)** : 11 jours ouvrés.
+- **Sprint V : Moteur de Paie, Déclarations Fiscales & STC** : 15 jours ouvrés.
+- **Sprint VI : Tests d'Intégration, Recette DAF & Déploiement Render** : 8 jours ouvrés.
+
+$$\text{Total Réalisation Technique} = 14 + 8 + 10 + 11 + 15 + 8 = \mathbf{66\text{ jours ouvrés}}$$
+$$\text{Total Global Stage (Immersion + Dév)} = 15 + 66 = \mathbf{81\text{ jours ouvrés (du 06/07/2026 au 06/11/2026)}}$$
+
+Au 06 octobre 2026 (52 jours ouvrés de dev écoulés), le projet se trouvait en cours d'achèvement du Sprint V (Paie). Les **14 jours ouvrés restants** pour finaliser la recette DAF, les tests de conformité légale et le déploiement justifient mathématiquement l'extension jusqu'au **06 novembre 2026**.
 
 ---
 
@@ -240,7 +277,7 @@ L'impôt sur les Revenus Salariaux et Assimilés (IRSA) est calculé par tranche
 | **02** | **Sécurité, IAM & Traçabilité** | `01_schema_core_securite.sql` | Authentification JWT HS512 (clé $\ge 64$ octets), refresh tokens sécurisés en cookie `HttpOnly`, 2 rôles seedés (`ROLE_ADMIN`, `ROLE_AGENT_POINTAGE`), table d'audit `audit_log` en JSONB immuable. |
 | **03** | **Employé, Contrat & Carrière** | `03_schema_employes_contrats.sql` | Dissociation tripartite : identité civile (`employe`), contrat juridique (`contrat_travail`) et affectation salariale (`employe_affectation_carriere`). Matrice de 17 événements gérée par `CarriereTransitionValidator`, verrou pessimiste et génération de contrats Word via Apache POI. |
 | **04** | **Pointage & Présence** | `05_schema_pointage.sql` | Cycle de paie décalé du 26 au 25 du mois suivant. Découpage en tranches spatio-temporelles (`TemporalAttendanceEngine`), compensation hebdomadaire des heures, saisie journalière, régularisations d'anomalies et 4 tables de snapshots gelés. |
-| **05** | **Congés & Absences** | `04_schema_conges.sql` | Moteur FIFO par lots mensuels (`conge_lot_valorisation`), décompte dynamique excluant les jours fériés chômés (Art. 127), blocage absolu du solde négatif (`RG-CON-05`), détection des conflits de présence (`CongeContinuiteService`). |
+| **05** | **Congés & Absences** | `04_schema_conges.sql` | Moteur FIFO par lots de valorisation (`CongeLotValorisationService`), gestion unifiée des 2 flux (nouvel embauché avec carence 12 mois vs cutover DAF à date d'arrêté), décompte dynamique excluant les jours fériés chômés (Art. 127), blocage absolu du solde négatif (`RG-CON-05`), détection des collisions d'équipe (`CongeContinuiteService`), examen triennal DAF de prescription (Art. 129). |
 | **06** | **Paie, Cotisations & STC** | `06_schema_paie.sql` | Moteur déterministe à 6 paliers : brut, cotisations CNaPS/Santé, base imposable, barème IRSA progressif 2026, acomptes/prêts, net à payer. Clôture irréversible, génération de bulletins PDF officiels et procédure légale de Solde de Tout Compte (STC). |
 
 ---

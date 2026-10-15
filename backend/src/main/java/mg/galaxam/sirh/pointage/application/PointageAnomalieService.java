@@ -809,24 +809,15 @@ public class PointageAnomalieService {
                             idEmp, datePtg, leaveEndDate, nbJours, momentConge, motif, currentUserId(), c);
                     validatedLeaveId = regRes.demandeId();
 
-                    if (regRes.joursCouverts() >= nbJours) {
-                        codeStatut = "CONGE";
-                    } else if (regRes.joursCouverts() > 0.0) {
-                        // Couverture partielle : statut DEMI_JOURNEE (synthèse), l'absence résiduelle est décomptée
-                        codeStatut = "DEMI_JOURNEE";
-                    } else {
-                        // Solde nul : aucune couverture, absence non couverte
-                        codeStatut = (motif != null && !motif.isBlank()) ? "ABSENCE_JUSTIFIEE" : "ABSENCE_NON_JUSTIFIEE";
-                    }
+                    codeStatut = AttendanceStatusPolicy.resolveRegularizedLeaveCoverage(
+                            regRes.joursCouverts(), nbJours, motif);
                 } else if ("PERMISSION_EXCEPTIONNELLE".equalsIgnoreCase(optionAbsence)) {
                     codeStatut = "CONGE";
                     validatedLeaveId = congeService.regulariserPermissionDepuisPointage(
                             idEmp, datePtg, motif, currentUserId(), c);
                 } else {
                     // Absence déduite (justifiée ou non justifiée)
-                    if (codeStatut == null || codeStatut.trim().isEmpty() || "NON_SAISI".equals(codeStatut)) {
-                        codeStatut = (motif != null && !motif.isBlank()) ? "ABSENCE_JUSTIFIEE" : "ABSENCE_NON_JUSTIFIEE";
-                    }
+                    codeStatut = AttendanceStatusPolicy.resolveRegularizedAbsence(codeStatut, motif);
                 }
             } else {
                 // Mode 1 : Saisie / Rectification des heures
@@ -870,13 +861,8 @@ public class PointageAnomalieService {
                 retMins = Math.toIntExact(dailyResult.lateMinutes());
                 boolean isDemiMatin = (em != null && sm != null && ea == null && sa == null);
                 boolean isDemiAm = (em == null && sm == null && ea != null && sa != null);
-                if (codeStatut == null || codeStatut.trim().isEmpty() || "NON_SAISI".equals(codeStatut) || "ANOMALIE_SAISIE".equals(codeStatut)) {
-                    if (isDemiMatin || isDemiAm) {
-                        codeStatut = "DEMI_JOURNEE";
-                    } else {
-                        codeStatut = totalH > 0 ? "PRESENT" : "ABSENCE_NON_JUSTIFIEE";
-                    }
-                }
+                codeStatut = AttendanceStatusPolicy.resolveRegularizedWork(
+                        codeStatut, isDemiMatin, isDemiAm, totalH);
 
                 String optionAutreDemiJournee = payload.get("optionAutreDemiJournee") != null ? payload.get("optionAutreDemiJournee").toString() : "";
                 if ((isDemiMatin || isDemiAm || "DEMI_JOURNEE".equalsIgnoreCase(codeStatut))

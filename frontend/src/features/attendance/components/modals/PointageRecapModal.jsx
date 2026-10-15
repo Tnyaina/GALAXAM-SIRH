@@ -114,7 +114,7 @@ export default function PointageRecapModal({
                 <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                     <div className="flex items-center gap-2 text-xs font-bold text-[var(--color-fg)]">
                         <Calendar size={15} className="text-[var(--color-brand-500)]" />
-                        <span>Date de pointage : <strong className="font-mono text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">{selectedDate}</strong></span>
+                        <span>Date de pointage : <strong className="font-data text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">{selectedDate}</strong></span>
                     </div>
                     <div className="text-xs text-[var(--color-fg-muted)]">
                         Site ciblé : <span className="font-bold text-[var(--color-fg)]">{siteLabel}</span>
@@ -127,7 +127,7 @@ export default function PointageRecapModal({
                         <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
                             <Users size={14} className="text-[var(--color-brand-500)]" /> Présence
                         </p>
-                        <p className="text-xl font-bold font-mono text-[var(--color-fg)] mt-1.5">
+                        <p className="text-xl font-bold font-data text-[var(--color-fg)] mt-1.5">
                             {presents.length} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">/ {totalInscrits}</span>
                         </p>
                     </div>
@@ -135,7 +135,7 @@ export default function PointageRecapModal({
                         <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
                             <Clock size={14} className="text-[var(--color-warning-600)]" /> Retards
                         </p>
-                        <p className={`text-xl font-bold font-mono mt-1.5 ${retards.length > 0 ? 'text-[var(--color-warning-700)]' : 'text-[var(--color-fg)]'}`}>
+                        <p className={`text-xl font-bold font-data mt-1.5 ${retards.length > 0 ? 'text-[var(--color-warning-700)]' : 'text-[var(--color-fg)]'}`}>
                             {retards.length} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">({cumulRetard} min)</span>
                         </p>
                     </div>
@@ -144,7 +144,7 @@ export default function PointageRecapModal({
                             <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
                                 <Gift size={14} className="text-[var(--color-info-500)]" /> {allowance.code}
                             </p>
-                            <p className="text-xl font-bold font-mono text-[var(--color-info-600)] mt-1.5">{allowance.count}</p>
+                            <p className="text-xl font-bold font-data text-[var(--color-info-600)] mt-1.5">{allowance.count}</p>
                         </div>
                     ))}
                 </div>
@@ -209,17 +209,17 @@ export default function PointageRecapModal({
                                     <Tr key={row.idEmploye} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/50">
                                         <Td className="py-2.5 px-4 font-semibold">
                                             {row.nom} {row.prenom}
-                                            <span className="block text-[10.5px] font-mono text-[var(--color-fg-muted)]">
+                                            <span className="block text-[10.5px] font-data text-[var(--color-fg-muted)]">
                                                 Matricule {row.matricule}
                                             </span>
                                         </Td>
-                                        <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{matinStr}</Td>
-                                        <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{amStr}</Td>
-                                        <Td className="py-2.5 px-3 text-center font-mono font-bold text-[12.5px]">
+                                        <Td className="py-2.5 px-3 text-center font-data text-[12px]">{matinStr}</Td>
+                                        <Td className="py-2.5 px-3 text-center font-data text-[12px]">{amStr}</Td>
+                                        <Td className="py-2.5 px-3 text-center font-data font-bold text-[12.5px]">
                                             <div>{row._previewPending ? 'Calcul…' : row._previewError ? '—' : formatHeuresMinutes(row.totalHeures, true)}</div>
-                                            {!row._previewPending && !row._previewError && <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresDecimal(row.totalHeures)})</div>}
+                                            {!row._previewPending && !row._previewError && <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-data">({formatHeuresDecimal(row.totalHeures)})</div>}
                                         </Td>
-                                        <Td className="py-2.5 px-3 text-center font-mono">
+                                        <Td className="py-2.5 px-3 text-center font-data">
                                             {row.minutesRetard > 0 ? (
                                                 <span className="text-[var(--color-danger-600)] font-bold">+{row.minutesRetard}m</span>
                                             ) : (
@@ -239,7 +239,7 @@ export default function PointageRecapModal({
                                                     </span>
                                                 ))}
                                                 {choices.length === 0 && (
-                                                    <span className="text-[var(--color-fg-muted)] font-mono">—</span>
+                                                    <span className="text-[var(--color-fg-muted)] font-data">—</span>
                                                 )}
                                             </div>
                                         </Td>

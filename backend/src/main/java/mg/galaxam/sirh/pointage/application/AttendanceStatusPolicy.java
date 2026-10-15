@@ -75,6 +75,41 @@ public final class AttendanceStatusPolicy {
         };
     }
 
+    /** Qualification commune utilisée avant la valorisation des indemnités. */
+    public static boolean isNonWorkedDay(String status, boolean fullDayLeave,
+            boolean holiday, boolean weekend, double workedHours) {
+        String code = normalize(status);
+        return fullDayLeave || (holiday && workedHours <= 0.0)
+                || "CONGE".equals(code) || "FERIE_CHOME".equals(code)
+                || "ABSENCE_NON_JUSTIFIEE".equals(code) || "ABSENCE_JUSTIFIEE".equals(code)
+                || "REPOS".equals(code) || (weekend && workedHours <= 0.0);
+    }
+
+    /** Une régularisation est une décision humaine : son choix explicite prime sur la déduction automatique. */
+    public static String resolveRegularizedAbsence(String explicitStatus, String reason) {
+        String code = normalize(explicitStatus);
+        if (code.isEmpty() || "NON_SAISI".equals(code)) {
+            return reason != null && !reason.isBlank() ? "ABSENCE_JUSTIFIEE" : "ABSENCE_NON_JUSTIFIEE";
+        }
+        return code;
+    }
+
+    public static String resolveRegularizedWork(String explicitStatus, boolean morningOnly,
+            boolean afternoonOnly, double workedHours) {
+        String code = normalize(explicitStatus);
+        if (code.isEmpty() || "NON_SAISI".equals(code) || "ANOMALIE_SAISIE".equals(code)) {
+            if (morningOnly || afternoonOnly) return "DEMI_JOURNEE";
+            return workedHours > 0 ? "PRESENT" : "ABSENCE_NON_JUSTIFIEE";
+        }
+        return code;
+    }
+
+    public static String resolveRegularizedLeaveCoverage(double coveredDays, double requestedDays, String reason) {
+        if (coveredDays >= requestedDays) return "CONGE";
+        if (coveredDays > 0.0) return "DEMI_JOURNEE";
+        return resolveRegularizedAbsence(null, reason);
+    }
+
     public static List<SaisiePointageJourDTO.StatusAction> actions(SaisiePointageJourDTO dto) {
         if (dto.isFerieChome() || dto.isCongeApprouve() || dto.isEstAutonome()) return List.of();
         var actions = new ArrayList<SaisiePointageJourDTO.StatusAction>();

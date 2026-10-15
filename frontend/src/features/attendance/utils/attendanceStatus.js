@@ -27,44 +27,12 @@ export const getAttendanceStatus = (code) => ATTENDANCE_STATUS[String(code || 'N
     label: String(code || 'Non saisi'), variant: 'neutral'
 };
 
-/** Normalise les anciens statuts de fiche sans transformer une absence explicitement enregistrée. */
-export function resolveAttendanceStatus({ status, hasHours, weekend, sunday, holiday, leave, autonomous }) {
-    const code = String(status || '').toUpperCase();
-    if (code && code !== 'NON_SAISI' && !(code === 'ABSENT' && !hasHours)) return code;
-    if (holiday) return hasHours ? 'FERIE_TRAVAILLE' : 'FERIE_CHOME';
-    if (weekend) return hasHours ? (sunday ? 'DIMANCHE_TRAVAILLE' : 'SAMEDI_TRAVAILLE') : 'REPOS';
-    if (leave) return 'CONGE';
-    if (autonomous) return 'DISPENSE_POINTAGE';
-    return hasHours ? 'PRESENT' : 'NON_SAISI';
-}
-
-/** Défaut UI d'indemnité aligné sur la décision renvoyée par le backend. */
-export function isAllowanceGrantedByDefault(allowance, { weekend = false, holiday = false, leave = false, excluded = false } = {}) {
-    return allowance?.cocheParDefaut !== false && !weekend && !holiday && !leave && !excluded;
-}
-
 export const isAttendancePresent = (row) => Boolean(row?.present || row?.dispensePointage || row?.ferieTravaille || row?.samediTravaille || row?.dimancheTravaille);
 export const isAttendanceLeave = (row) => Boolean(row?.conge || row?.absenceJustifiee);
 export const isAttendanceUnentered = (row) => Boolean(row?.nonSaisi || row?.codeStatut === 'NON_SAISI' || !row?.codeStatut);
 export const isAttendanceLate = (row) => Boolean(row?.retard || Number(row?.minutesRetard) > 0);
 export const isAttendanceUnjustifiedAbsence = (row) => Boolean(row?.absenceNonJustifiee
     || ['ABSENT', 'ABSENCE_NON_JUSTIFIEE'].includes(String(row?.statut || row?.codeStatut || '').toUpperCase()));
-
-/** Drapeaux métier d'une ligne, avec priorité aux valeurs explicites de l'API. */
-export function deriveAttendanceFlags(row = {}, { isWeekend = false, isSunday = false, isSaturday = false, hasWorked = false } = {}) {
-    const statut = String(row.statut || row.codeStatut || '').toUpperCase();
-    const isAbsent = Boolean(row.isAbsent ?? (statut === 'ABSENT' || statut === 'ABSENCE_NON_JUSTIFIEE'));
-    const isConge = Boolean(row.isConge ?? (statut === 'CONGE' || Boolean(row.typeConge)));
-    const isRetard = Boolean(row.isRetard ?? (statut === 'RETARD' || (row.ecart && row.ecart.startsWith('-') && !row.ecartPositif) || Number(row.minutesRetard) > 0));
-    const isRepos = Boolean(row.isRepos ?? ((isWeekend && !hasWorked) || statut === 'REPOS'));
-    const isDimancheTravaille = Boolean(row.isDimancheTravaille ?? (isSunday && hasWorked));
-    const isSamediTravaille = Boolean(row.isSamediTravaille ?? (isSaturday && hasWorked));
-    const isPlanifie = Boolean(row.isPlanifie ?? (statut === 'PLANIFIE' || statut === 'NON_ECHU'));
-    const isAutonome = Boolean(row.isDispensePointage ?? ((statut === 'AUTONOME' || statut === 'DISPENSE_POINTAGE') && !isWeekend));
-    const isPresent = Boolean(row.isPresent ?? ((statut === 'PRESENT' || hasWorked || row.present) && !isRepos && !isDimancheTravaille && !isSamediTravaille));
-    const hasAnomalie = Boolean(row.isAnomalie ?? (row.anomalieSaisie || isAbsent || isRetard || statut === 'ANOMALIE'));
-    return { isAbsent, isConge, isRetard, isRepos, isDimancheTravaille, isSamediTravaille, isPlanifie, isAutonome, isPresent, hasAnomalie };
-}
 
 export function countAttendanceStatuses(rows = []) {
     const list = Array.isArray(rows) ? rows : [];

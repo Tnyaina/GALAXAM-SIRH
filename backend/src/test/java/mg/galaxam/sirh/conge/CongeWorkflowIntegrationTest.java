@@ -403,8 +403,11 @@ class CongeWorkflowIntegrationTest {
             DemandeConge cree = congeService.creerDemande(d, adminUserId, c);
             congeService.validerDemande(cree.getIdDemandeConge(), adminUserId, "Validation normale", c);
 
-            // Clôturer la période de paie d'octobre 2026
-            CongeTestFixtureHelper.createPeriodePaie(c, "2026-10", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), "CLOTUREE");
+            // Clôturer la période de paie couvrant les dates de congé
+            LocalDate debutPeriode = debut.withDayOfMonth(1);
+            LocalDate finPeriode = debut.withDayOfMonth(debut.lengthOfMonth());
+            String codePeriode = debut.getYear() + "-" + String.format("%02d", debut.getMonthValue());
+            CongeTestFixtureHelper.createPeriodePaie(c, codePeriode, debutPeriode, finPeriode, "CLOTUREE");
 
             // Tentative d'annulation sur période clôturée -> bloquée
             IllegalStateException exAnnul = assertThrows(IllegalStateException.class, () -> {

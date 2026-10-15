@@ -7,6 +7,7 @@ import mg.galaxam.sirh.pointage.api.dto.PointageTronconSemaineDTO;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.PointageAllowancePolicy;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -69,6 +71,11 @@ public class PointageEmployeService {
     }
 
     public FichePointageEmployeDTO getFichePointageEmploye(Integer idEmploye, String date, String period, Integer idPeriode) {
+        return getFichePointageEmploye(idEmploye, date, period, idPeriode, false);
+    }
+
+    public FichePointageEmployeDTO getFichePointageEmploye(Integer idEmploye, String date,
+            String period, Integer idPeriode, boolean includeAllowanceSuggestions) {
         FichePointageEmployeDTO result = new FichePointageEmployeDTO();
 
         LocalDate targetDate;
@@ -1117,10 +1124,129 @@ public class PointageEmployeService {
                 : "Solde positif : jusqu’à " + formatHoursMinutes(synDto.getMinutesPremierPalierHs())
                     + " à 30 %, puis le reste à 50 %.");
         result.setReglesAppliquees(regles);
+        if (includeAllowanceSuggestions) populateAllowanceSuggestions(list, idEmploye, startDate, endDate);
         result.setPointagesData(list);
         result.setBilansHebdo(synDto != null ? synDto.getTronconsSemaine() : java.util.Collections.emptyList());
 
         return result;
+    }
+
+    private record PeriodAllowance(int id, int siteId, String code, String label,
+            boolean fractionable, String periodicity, BigDecimal siteAmount, LocalDate start, LocalDate end) {
+        boolean applies(int site, LocalDate date) {
+            return siteId == site && !date.isBefore(start) && (end == null || !date.isAfter(end));
+        }
+    }
+
+    private record PeriodDerogation(int allowanceId, boolean benefits, String reason,
+            LocalDate start, LocalDate end) {
+        boolean applies(int id, LocalDate date) {
+            return allowanceId == id && !date.isBefore(start) && (end == null || !date.isAfter(end));
+        }
+    }
+
+    /** Deux lectures pour toute la période ; aucune requête SQL ni HTTP par journée. */
+    private void populateAllowanceSuggestions(List<PointageJourDTO> days, int employeeId,
+            LocalDate start, LocalDate end) {
+        Set<Integer> siteIds = new HashSet<>();
+        for (PointageJourDTO day : days) {
+            if (day.getIdSite() != null && day.getIdSite() > 0) siteIds.add(day.getIdSite());
+        }
+        if (siteIds.isEmpty()) return;
+
+        List<PeriodAllowance> configurations = new ArrayList<>();
+        List<PeriodDerogation> derogations = new ArrayList<>();
+        String configSql = "SELECT c.id_site, c.id_indemnite, c.date_debut, c.date_fin, "
+                + "c.montant_reference, c.periodicite, i.code, i.libelle, "
+                + "COALESCE(i.fractionnable, FALSE) AS fractionnable "
+                + "FROM site_indemnite_config c JOIN ref_indemnite i ON i.id_indemnite = c.id_indemnite "
+                + "WHERE c.id_site = ANY (?) AND c.est_actif = TRUE AND i.est_actif = TRUE "
+                + "AND c.periodicite != 'FIXE_MENSUEL' AND c.date_debut <= ? "
+                + "AND (c.date_fin IS NULL OR c.date_fin >= ?)";
+        String derogationSql = "SELECT id_indemnite, beneficie, motif, date_debut, date_fin "
+                + "FROM employe_indemnite_derogation WHERE id_employe = ? "
+                + "AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?)";
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement query = c.prepareStatement(configSql)) {
+                query.setArray(1, c.createArrayOf("integer", siteIds.toArray()));
+                query.setDate(2, Date.valueOf(end));
+                query.setDate(3, Date.valueOf(start));
+                try (ResultSet rows = query.executeQuery()) {
+                    while (rows.next()) {
+                        configurations.add(new PeriodAllowance(rows.getInt("id_indemnite"),
+                                rows.getInt("id_site"), rows.getString("code"), rows.getString("libelle"),
+                                rows.getBoolean("fractionnable"), rows.getString("periodicite"),
+                                zeroIfNull(rows.getBigDecimal("montant_reference")),
+                                rows.getDate("date_debut").toLocalDate(),
+                                rows.getDate("date_fin") == null ? null : rows.getDate("date_fin").toLocalDate()));
+                    }
+                }
+            }
+            try (PreparedStatement query = c.prepareStatement(derogationSql)) {
+                query.setInt(1, employeeId);
+                query.setDate(2, Date.valueOf(end));
+                query.setDate(3, Date.valueOf(start));
+                try (ResultSet rows = query.executeQuery()) {
+                    while (rows.next()) {
+                        derogations.add(new PeriodDerogation(rows.getInt("id_indemnite"),
+                                rows.getBoolean("beneficie"), rows.getString("motif"),
+                                rows.getDate("date_debut").toLocalDate(),
+                                rows.getDate("date_fin") == null ? null : rows.getDate("date_fin").toLocalDate()));
+                    }
+                }
+            }
+        } catch (SQLException error) {
+            throw new IllegalStateException("Impossible de charger les propositions d'indemnités de la période.", error);
+        }
+
+        Map<Integer, Integer> workingDaysBySite = new HashMap<>();
+        try (Connection connection = dataSource.getConnection()) {
+            for (Integer siteId : siteIds) {
+                int workingDays = calendrierEngine.compterJoursOuvrables(start, end, siteId, connection);
+                workingDaysBySite.put(siteId, workingDays > 0 ? workingDays : 22);
+            }
+        } catch (SQLException error) {
+            throw new IllegalStateException("Impossible de calculer les jours ouvrables des indemnités.", error);
+        }
+
+        for (PointageJourDTO day : days) {
+            if (day.getIdSite() == null) continue;
+            LocalDate date = LocalDate.parse(day.getDateComplete());
+            String status = day.getStatut();
+            boolean eligible = !Set.of("CONGE", "FERIE_CHOME", "REPOS", "NON_CONCERNE")
+                    .contains(status == null ? "" : status.toUpperCase(Locale.ROOT));
+            Map<String, PointageJourDTO.IndemniteProposeeDTO> proposals = new LinkedHashMap<>();
+            Map<String, PointageJourDTO.IndemniteApplicableDTO> applicable = new LinkedHashMap<>();
+            for (PeriodAllowance config : configurations) {
+                if (!config.applies(day.getIdSite(), date)) continue;
+                PeriodDerogation excluded = derogations.stream()
+                        .filter(d -> d.applies(config.id(), date) && !d.benefits())
+                        .findFirst().orElse(null);
+                boolean defaultChecked = config.siteAmount().signum() > 0
+                        || !"REPAS".equalsIgnoreCase(config.code());
+                boolean granted = PointageAllowancePolicy.defaultGranted(
+                        eligible, defaultChecked, excluded != null);
+                String key = Integer.toString(config.id());
+                BigDecimal dayAmount = PointageAllowancePolicy.dailyAmount(config.periodicity(),
+                        config.siteAmount(), workingDaysBySite.get(config.siteId()), calendrierEngine);
+                BigDecimal tripAmount = config.fractionable()
+                        ? calendrierEngine.calculerMontantTrajet(dayAmount) : dayAmount;
+                if (applicable.put(key, new PointageJourDTO.IndemniteApplicableDTO(
+                        config.id(), config.code(), config.label(), config.fractionable(),
+                        config.periodicity(), dayAmount, tripAmount)) != null) {
+                    throw new IllegalStateException("Plusieurs tarifs actifs couvrent le " + date
+                            + " pour l'indemnité " + config.code() + ".");
+                }
+                if (proposals.put(key, new PointageJourDTO.IndemniteProposeeDTO(
+                        granted, config.fractionable() && granted,
+                        config.fractionable() && granted, excluded == null ? null : excluded.reason())) != null) {
+                    throw new IllegalStateException("Plusieurs tarifs actifs couvrent le " + date
+                            + " pour l'indemnité " + config.code() + ".");
+                }
+            }
+            day.setIndemnitesProposees(proposals);
+            day.setIndemnitesApplicables(applicable);
+        }
     }
 
     private static String signedHours(Integer minutes) {

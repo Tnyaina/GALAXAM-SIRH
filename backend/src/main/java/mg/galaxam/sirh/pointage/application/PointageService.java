@@ -43,6 +43,8 @@ public class PointageService {
 
     record DailyAllowanceTariff(int id, String code, String label, boolean fractionable,
             String periodicity, BigDecimal siteAmount) {}
+    private record DynamicAllowanceAmount(int id, String fraction, BigDecimal quantity,
+            BigDecimal amount, boolean granted, BigDecimal deduction) {}
 
     DailyAllowanceTariff loadDailyAllowanceTariff(
             Connection connection, int siteId, int allowanceId, Date businessDate) throws SQLException {
@@ -82,18 +84,13 @@ public class PointageService {
             throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
                     "Montant négatif pour l'indemnité " + tariff.code() + ".");
         }
-        return switch (tariff.periodicity().toUpperCase(Locale.ROOT)) {
-            case "JOURNALIER", "FORFAIT" -> reference;
-            case "MENSUEL", "MENSUEL_PRORATISE" -> {
-                if (workingDays <= 0) {
-                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
-                            "Jours ouvrables manquants pour l'indemnité " + tariff.code() + ".");
-                }
-                yield calendrierEngine.calculerProrataJournalier(reference, workingDays);
-            }
-            default -> throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
-                    "Périodicité non applicable au pointage quotidien : " + tariff.periodicity() + ".");
-        };
+        try {
+            return PointageAllowancePolicy.dailyAmount(tariff.periodicity(), reference,
+                    workingDays, calendrierEngine);
+        } catch (IllegalArgumentException error) {
+            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                    error.getMessage() + " Indemnité " + tariff.code() + ".");
+        }
     }
 
     static BigDecimal requireMonetaryStateParameter(
@@ -434,18 +431,26 @@ public class PointageService {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "La sortie précède l'heure minimale comptabilisée du site.");
         }
+        LocalDate periodStart = date;
+        LocalDate periodEnd = date;
+        int workingDays = 0;
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT date_fin FROM periode_paie WHERE date_debut<=? AND date_fin>=?")) {
+                "SELECT date_debut, date_fin FROM periode_paie WHERE date_debut<=? AND date_fin>=?")) {
             ps.setDate(1, Date.valueOf(date));
             ps.setDate(2, Date.valueOf(date));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    verifierVacationDansCampagne(dto.getIdEmploye(), date, rs.getDate(1).toLocalDate(),
+                    periodStart = rs.getDate("date_debut").toLocalDate();
+                    periodEnd = rs.getDate("date_fin").toLocalDate();
+                    verifierVacationDansCampagne(dto.getIdEmploye(), date, periodEnd,
                             effectiveEntry, morningExit, toLocalTime(parseTime(dto.getHeureEntreeAm())),
                             dayExit, dto.isHoraireContinu());
                     if (rs.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: PERIODE_PAIE au " + date);
                 }
             }
+        }
+        if (dto.isInclureIndemnitesCalculeesPreview()) {
+            workingDays = calendrierEngine.compterJoursOuvrables(periodStart, periodEnd, dto.getIdSite(), c);
         }
         AttendanceEngine.Result result = dailyAttendanceCalculator.calculateDay(new AttendanceEngine.Context(
                 dto.getIdEmploye(), date, effectiveEntry,
@@ -466,6 +471,13 @@ public class PointageService {
         dto.setCodeStatut(AttendanceStatusPolicy.resolve(dto, result, date));
         dto.setLibelleStatut(AttendanceStatusPolicy.label(dto.getCodeStatut()));
         dto.setStatusActions(resolveStatusActions(dto));
+        if (dto.isInclureIndemnitesCalculeesPreview()) {
+            dto.setIndemnitesCalculeesPreview(previewDynamicAllowanceAmounts(
+                    dto.getDynamicIndemnites(), dto.getIdSite(), Date.valueOf(date), workingDays,
+                    AttendanceStatusPolicy.isNonWorkedDay(dto.getCodeStatut(),
+                            "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()), dto.isFerieJour(),
+                            CalendrierOuvrableEngine.isWeekend(date), dto.getTotalHeures() == null ? 0 : dto.getTotalHeures()), c));
+        }
         return dto;
     }
 
@@ -501,10 +513,22 @@ public class PointageService {
         }
     }
 
+    public Map<String, Object> getGrilleSaisie(int idSite, String dateStr, Integer employeeFilter)
+            throws SQLException {
+        try (Connection c = dataSource.getConnection()) {
+            return getGrilleSaisie(idSite, dateStr, employeeFilter, c);
+        }
+    }
+
     /**
      * Génère la grille de saisie quotidienne pour un site et une date donnés (avec Connection fournie)
      */
     public Map<String, Object> getGrilleSaisie(int idSite, String dateStr, Connection c) throws SQLException {
+        return getGrilleSaisie(idSite, dateStr, null, c);
+    }
+
+    private Map<String, Object> getGrilleSaisie(int idSite, String dateStr,
+            Integer employeeFilter, Connection c) throws SQLException {
         Map<String, Object> result = new HashMap<>();
         Date date = Date.valueOf(dateStr);
             // 1. Informations de la Période de Paie correspondante
@@ -708,6 +732,7 @@ public class PointageService {
             String sqlPtgIds = (idSite > 0)
                 ? "SELECT DISTINCT id_employe FROM pointage_jour WHERE id_site = ? AND date_pointage = ?"
                 : "SELECT DISTINCT id_employe FROM pointage_jour WHERE date_pointage = ?";
+            if (employeeFilter != null) sqlPtgIds += " AND id_employe = ?";
             try (PreparedStatement psPtgIds = c.prepareStatement(sqlPtgIds)) {
                 if (idSite > 0) {
                     psPtgIds.setInt(1, idSite);
@@ -715,6 +740,7 @@ public class PointageService {
                 } else {
                     psPtgIds.setDate(1, date);
                 }
+                if (employeeFilter != null) psPtgIds.setInt(idSite > 0 ? 3 : 2, employeeFilter);
                 try (ResultSet rsPtgIds = psPtgIds.executeQuery()) {
                     while (rsPtgIds.next()) {
                         existingPtgEmpIds.add(rsPtgIds.getInt("id_employe"));
@@ -729,10 +755,12 @@ public class PointageService {
             String sqlCtAll = "SELECT ct.id_employe, ct.date_debut, ct.date_fin, rsc.code AS code_statut " +
                               "FROM contrat_travail ct " +
                               "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                              (employeeFilter == null ? "" : "WHERE ct.id_employe = ? ") +
                               "ORDER BY ct.date_debut ASC";
-            try (PreparedStatement psCtAll = c.prepareStatement(sqlCtAll);
-                 ResultSet rsCtAll = psCtAll.executeQuery()) {
-                while (rsCtAll.next()) {
+            try (PreparedStatement psCtAll = c.prepareStatement(sqlCtAll)) {
+                if (employeeFilter != null) psCtAll.setInt(1, employeeFilter);
+                try (ResultSet rsCtAll = psCtAll.executeQuery()) {
+                    while (rsCtAll.next()) {
                     int empId = rsCtAll.getInt("id_employe");
                     Date dDeb = rsCtAll.getDate("date_debut");
                     Date dFin = rsCtAll.getDate("date_fin");
@@ -753,6 +781,7 @@ public class PointageService {
                         if (currentMax == null || ldFin.isAfter(currentMax)) {
                             departMap.put(empId, ldFin);
                         }
+                    }
                     }
                 }
             }
@@ -781,11 +810,13 @@ public class PointageService {
                                "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                                "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
                                "WHERE e.est_actif = TRUE " +
+                               (employeeFilter == null ? "" : "AND e.id_employe = ? ") +
                                "ORDER BY e.nom, e.prenom, a.date_debut ASC, a.id_affectation ASC";
 
-            try (PreparedStatement psEA = c.prepareStatement(sqlEmpAff);
-                 ResultSet rsEA = psEA.executeQuery()) {
-                while (rsEA.next()) {
+            try (PreparedStatement psEA = c.prepareStatement(sqlEmpAff)) {
+                if (employeeFilter != null) psEA.setInt(1, employeeFilter);
+                try (ResultSet rsEA = psEA.executeQuery()) {
+                    while (rsEA.next()) {
                     int idEmp = rsEA.getInt("id_employe");
                     if (!empInfoMap.containsKey(idEmp)) {
                         EmployeCandidatSite cnd = new EmployeCandidatSite();
@@ -813,6 +844,7 @@ public class PointageService {
                         aff.dispensePointage = rsEA.getBoolean("dispense_pointage");
                         affMap.computeIfAbsent(idEmp, k -> new ArrayList<>()).add(aff);
                     }
+                    }
                 }
             }
 
@@ -821,6 +853,7 @@ public class PointageService {
 
             for (EmployeCandidatSite emp : empInfoMap.values()) {
                 int idEmp = emp.idEmploye;
+                if (employeeFilter != null && idEmp != employeeFilter) continue;
                 boolean hasPtg = existingPtgEmpIds.contains(idEmp);
                 List<AffCandidat> affs = affMap.getOrDefault(idEmp, Collections.emptyList());
 
@@ -888,9 +921,11 @@ public class PointageService {
                     + "dc.est_demi_journee, dc.moment_demi_journee "
                     + "FROM demande_conge dc JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge "
                     + "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge "
-                    + "WHERE ? BETWEEN dc.date_debut AND dc.date_fin AND sc.code IN ('VALIDE', 'APPROUVEE')";
+                    + "WHERE ? BETWEEN dc.date_debut AND dc.date_fin AND sc.code IN ('VALIDE', 'APPROUVEE')"
+                    + (employeeFilter == null ? "" : " AND dc.id_employe = ?");
             try (PreparedStatement ps = c.prepareStatement(sqlCongesJour)) {
                 ps.setDate(1, date);
+                if (employeeFilter != null) ps.setInt(2, employeeFilter);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         Map<String, Object> row = new HashMap<>();
@@ -911,9 +946,12 @@ public class PointageService {
                     + "p.total_heures, p.minutes_retard, p.heures_nuit, p.motif_ajustement, "
                     + "st.code AS statut_code, st.libelle AS statut_libelle, p.horaire_continu_jour "
                     + "FROM pointage_jour p LEFT JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
-                    + "WHERE p.date_pointage = ? ORDER BY p.id_pointage";
+                    + "WHERE p.date_pointage = ?"
+                    + (employeeFilter == null ? "" : " AND p.id_employe = ?")
+                    + " ORDER BY p.id_pointage";
             try (PreparedStatement ps = c.prepareStatement(sqlPointagesJour)) {
                 ps.setDate(1, date);
+                if (employeeFilter != null) ps.setInt(2, employeeFilter);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         Map<String, Object> row = new HashMap<>();
@@ -939,9 +977,11 @@ public class PointageService {
             String sqlIndemnitesJour = "SELECT p.id_employe, pij.id_pointage, pij.id_indemnite, ri.code, "
                     + "pij.fraction, pij.quantite, pij.montant_calcule, pij.accorde "
                     + "FROM pointage_jour p JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
-                    + "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite WHERE p.date_pointage = ?";
+                    + "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite WHERE p.date_pointage = ?"
+                    + (employeeFilter == null ? "" : " AND p.id_employe = ?");
             try (PreparedStatement ps = c.prepareStatement(sqlIndemnitesJour)) {
                 ps.setDate(1, date);
+                if (employeeFilter != null) ps.setInt(2, employeeFilter);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         Map<String, Object> row = new HashMap<>();
@@ -959,10 +999,12 @@ public class PointageService {
             Map<Integer, List<Map<String, Object>>> derogationsParEmploye = new HashMap<>();
             String sqlDerogationsJour = "SELECT d.id_employe, d.id_indemnite, i.code, d.beneficie, d.motif "
                     + "FROM employe_indemnite_derogation d JOIN ref_indemnite i ON d.id_indemnite = i.id_indemnite "
-                    + "WHERE d.date_debut <= ? AND (d.date_fin IS NULL OR d.date_fin >= ?)";
+                    + "WHERE d.date_debut <= ? AND (d.date_fin IS NULL OR d.date_fin >= ?)"
+                    + (employeeFilter == null ? "" : " AND d.id_employe = ?");
             try (PreparedStatement ps = c.prepareStatement(sqlDerogationsJour)) {
                 ps.setDate(1, date);
                 ps.setDate(2, date);
+                if (employeeFilter != null) ps.setInt(3, employeeFilter);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         Map<String, Object> row = new HashMap<>();
@@ -1490,23 +1532,6 @@ public class PointageService {
         String sqlCheckPer = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR SHARE";
         String sqlCheckRow = "SELECT id_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?";
 
-        String sqlUpdate = "UPDATE pointage_jour SET " +
-                "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
-                "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
-                "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                "montant_total_indemnites = ?, horaire_continu_jour = ?, heure_entree_matin_effective = ?, " +
-                "ajuste_par = NULL, date_ajustement = NULL, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
-                "WHERE id_pointage = ? AND version = ? RETURNING id_pointage, version";
-
-        String sqlInsert = "INSERT INTO pointage_jour (" +
-                "id_employe, date_pointage, id_periode_paie, id_site, " +
-                "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
-                "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
-                "motif_ajustement, id_statut_jour, montant_total_indemnites, horaire_continu_jour, heure_entree_matin_effective, version, updated_at" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
-                "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                "?, ?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
-
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +
                 "id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at" +
                 ") VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) " +
@@ -1552,8 +1577,6 @@ public class PointageService {
              PreparedStatement psPerById = c.prepareStatement(sqlPerById);
              PreparedStatement psCheckPer = c.prepareStatement(sqlCheckPer);
              PreparedStatement psCheckRow = c.prepareStatement(sqlCheckRow);
-             PreparedStatement psUp = c.prepareStatement(sqlUpdate);
-             PreparedStatement psIns = c.prepareStatement(sqlInsert);
              PreparedStatement psDyn = c.prepareStatement(sqlDynInd)) {
 
             for (SaisiePointageJourDTO dto : pointages) {
@@ -1739,112 +1762,56 @@ public class PointageService {
                     continue;
                 }
 
-                boolean estNonTravaille = "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())
-                        || (dto.isFerieJour() && totalH <= 0.0)
-                        || "CONGE".equalsIgnoreCase(codeStatut)
-                        || "FERIE_CHOME".equalsIgnoreCase(codeStatut)
-                        || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(codeStatut)
-                        || "ABSENCE_JUSTIFIEE".equalsIgnoreCase(codeStatut)
-                        || "REPOS".equalsIgnoreCase(codeStatut)
-                        || (isWeekendPtg && totalH <= 0.0);
+                boolean estNonTravaille = AttendanceStatusPolicy.isNonWorkedDay(codeStatut,
+                        "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()),
+                        dto.isFerieJour(), isWeekendPtg, totalH);
 
-                int idPtg;
                 if (existingIdPointage != null) {
                     if (dto.getVersion() == null) {
                         throw new IllegalStateException("Le champ 'version' est obligatoire pour modifier le pointage existant du "
                                 + dto.getDatePointage() + " pour l'employé ID " + dto.getIdEmploye() + ".");
                     }
                     if (!dto.getVersion().equals(currentDbVersion)) {
-                        throw new IllegalStateException("Conflit de modification concurrente sur le pointage du " + dto.getDatePointage()
-                                + " pour l'employé ID " + dto.getIdEmploye()
-                                + " (version attendue: " + currentDbVersion + ", version fournie: " + dto.getVersion() + "). Veuillez recharger la grille.");
-                    }
-
-                    psUp.setTime(1, em);
-                    psUp.setTime(2, sm);
-                    psUp.setTime(3, ea);
-                    psUp.setTime(4, sa);
-                    psUp.setDouble(5, hMatin);
-                    psUp.setDouble(6, hAm);
-                    psUp.setDouble(7, totalH);
-                    psUp.setInt(8, retMins);
-                    psUp.setDouble(9, hNuit);
-                    psUp.setString(10, dto.getMotifAjustement());
-                    psUp.setString(11, codeStatut);
-                    psUp.setBigDecimal(12, BigDecimal.ZERO);
-                    psUp.setBoolean(13, dto.isHoraireContinu());
-                    psUp.setTime(14, emEffectif);
-                    psUp.setInt(15, existingIdPointage);
-                    psUp.setInt(16, dto.getVersion());
-
-                    try (ResultSet rsUp = psUp.executeQuery()) {
-                        if (rsUp.next()) {
-                            idPtg = rsUp.getInt("id_pointage");
-                        } else {
-                            throw new IllegalStateException("Conflit de modification concurrente sur le pointage du " + dto.getDatePointage()
-                                    + " pour l'employé ID " + dto.getIdEmploye() + ". Les données ont été modifiées par un autre utilisateur.");
-                        }
+                        throw new IllegalStateException("Conflit de modification concurrente sur le pointage du "
+                                + dto.getDatePointage() + " pour l'employé ID " + dto.getIdEmploye()
+                                + " (version attendue: " + currentDbVersion + ", version fournie: "
+                                + dto.getVersion() + "). Veuillez recharger la grille.");
                     }
                 } else {
-                    // En week-end ou jour férié chômé, on n'insère QUE les salariés réellement pointés (avec heures) ou ayant un congé approuvé
-                    // Évite que les autres salariés soient insérés à 0h et marqués absents
-                    boolean sansHeures = (em == null && sm == null && ea == null && sa == null && totalH <= 0.0);
-                    boolean sansConge = (dto.getTypeCongeJour() == null || dto.getTypeCongeJour().isEmpty());
-                    if ((isWeekendPtg || dto.isFerieJour()) && sansHeures && sansConge) {
-                        continue;
-                    }
+                    // Aucun pointage implicite à zéro heure sur un repos ou un férié chômé.
+                    boolean sansHeures = em == null && sm == null && ea == null && sa == null && totalH <= 0.0;
+                    boolean sansConge = dto.getTypeCongeJour() == null || dto.getTypeCongeJour().isEmpty();
+                    if ((isWeekendPtg || dto.isFerieJour()) && sansHeures && sansConge) continue;
+                }
 
-                    psIns.setInt(1, dto.getIdEmploye());
-                    psIns.setDate(2, Date.valueOf(dto.getDatePointage()));
-                    psIns.setObject(3, idPer);
-                    psIns.setInt(4, dto.getIdSite());
-                    psIns.setTime(5, em);
-                    psIns.setTime(6, sm);
-                    psIns.setTime(7, ea);
-                    psIns.setTime(8, sa);
-                    psIns.setDouble(9, hMatin);
-                    psIns.setDouble(10, hAm);
-                    psIns.setDouble(11, totalH);
-                    psIns.setInt(12, retMins);
-                    psIns.setDouble(13, hNuit);
-                    psIns.setString(14, dto.getMotifAjustement());
-                    psIns.setString(15, codeStatut);
-                    psIns.setBigDecimal(16, BigDecimal.ZERO);
-                    psIns.setBoolean(17, dto.isHoraireContinu());
-                    psIns.setTime(18, emEffectif);
-
-                    try (ResultSet rsIns = psIns.executeQuery()) {
-                        if (rsIns.next()) {
-                            idPtg = rsIns.getInt("id_pointage");
-                        } else {
-                            throw new SQLException("Échec de l'insertion du pointage.");
-                        }
-                    } catch (SQLException eIns) {
-                        if (eIns.getMessage() != null && (eIns.getMessage().toLowerCase().contains("duplicate") || eIns.getMessage().toLowerCase().contains("unique"))) {
-                            throw new IllegalStateException("Conflit de modification concurrente : le pointage a été créé en parallèle.");
-                        }
-                        throw eIns;
+                RegularizedDayWrite write = new RegularizedDayWrite(
+                        existingIdPointage == null ? 0 : existingIdPointage,
+                        dto.getIdEmploye(), idPer, idSiteRow, dtPtg,
+                        em, sm, ea, sa, hMatin, hAm, totalH, retMins, hNuit,
+                        dto.getMotifAjustement(), codeStatut, dto.isHoraireContinu(),
+                        dto.getVersion() == null ? 1 : dto.getVersion(), emEffectif,
+                        dto.getDynamicIndemnites(), null);
+                int idPtg;
+                try {
+                    idPtg = writeDay(write, false, true, c);
+                } catch (SQLException exception) {
+                    if (existingIdPointage == null && exception.getMessage() != null
+                            && (exception.getMessage().toLowerCase(Locale.ROOT).contains("duplicate")
+                            || exception.getMessage().toLowerCase(Locale.ROOT).contains("unique"))) {
+                        throw new IllegalStateException(
+                                "Conflit de modification concurrente : le pointage a été créé en parallèle.");
                     }
+                    throw exception;
                 }
 
                 // Le choix vient du pointage ; les montants viennent exclusivement de la configuration datée.
-                try (PreparedStatement reset = c.prepareStatement(
-                        "UPDATE pointage_indemnite_jour SET accorde = FALSE, quantite = 0, montant_calcule = 0, "
-                                + "updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ?")) {
-                    reset.setInt(1, idPtg);
-                    reset.executeUpdate();
-                }
+                clearDailyAllowances(idPtg, c);
                 int workingDays = calendrierEngine.compterJoursOuvrables(perDebut, perFin, idSiteRow, c);
                 persistDynamicAllowances(dto.getDynamicIndemnites(), idPtg, idSiteRow, dtPtg,
                         workingDays, estNonTravaille, toLocalTime(sa), c, psDyn);
 
                 // Recalcul du montant_total_indemnites dénormalisé depuis pointage_indemnite_jour
-                try (PreparedStatement psUpdateTotal = c.prepareStatement(
-                        "UPDATE pointage_jour SET montant_total_indemnites = COALESCE((SELECT SUM(montant_calcule) FROM pointage_indemnite_jour WHERE id_pointage = ? AND accorde = true), 0) WHERE id_pointage = ?")) {
-                    psUpdateTotal.setInt(1, idPtg);
-                    psUpdateTotal.setInt(2, idPtg);
-                    psUpdateTotal.executeUpdate();
-                }
+                updateDailyAllowanceTotal(idPtg, c);
             }
         }
         result.put("success", true);
@@ -1862,110 +1829,114 @@ public class PointageService {
             Time effectiveMorningEntry, Map<String, Object> dynamicAllowances, Integer validatedLeaveId
     ) {}
 
+    /** Unique écriture SQL de pointage_jour ; chaque parcours conserve ses contrôles en amont. */
+    private int writeDay(RegularizedDayWrite day, boolean linkValidatedLeave,
+            boolean resetAdjustmentAudit, Connection c) throws SQLException {
+        if (day.pointageId() <= 0) {
+            String sql = "INSERT INTO pointage_jour ("
+                    + "id_employe, date_pointage, id_periode_paie, id_site, "
+                    + "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, "
+                    + "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, "
+                    + "motif_ajustement, id_statut_jour, montant_total_indemnites, horaire_continu_jour, "
+                    + "heure_entree_matin_effective, id_demande_conge, version, created_at, updated_at"
+                    + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                    + "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), "
+                    + "?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
+            try (PreparedStatement statement = c.prepareStatement(sql)) {
+                statement.setInt(1, day.employeeId());
+                statement.setDate(2, day.date());
+                statement.setObject(3, day.periodId());
+                statement.setInt(4, day.siteId());
+                bindDayValues(statement, day, 5);
+                statement.setObject(19, linkValidatedLeave ? day.validatedLeaveId() : null);
+                try (ResultSet result = statement.executeQuery()) {
+                    if (!result.next()) throw new SQLException("Échec de l'insertion du pointage.");
+                    return result.getInt(1);
+                }
+            }
+        }
+
+        String sql = "UPDATE pointage_jour SET "
+                + "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, "
+                + "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, "
+                + "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), "
+                + "montant_total_indemnites = ?, horaire_continu_jour = ?, heure_entree_matin_effective = ?, "
+                + "id_demande_conge = CASE WHEN ? THEN ? ELSE id_demande_conge END, "
+                + "ajuste_par = CASE WHEN ? THEN NULL ELSE ajuste_par END, "
+                + "date_ajustement = CASE WHEN ? THEN NULL ELSE date_ajustement END, "
+                + "version = version + 1, updated_at = CURRENT_TIMESTAMP "
+                + "WHERE id_pointage = ? AND version = ? RETURNING id_pointage";
+        try (PreparedStatement statement = c.prepareStatement(sql)) {
+            bindDayValues(statement, day, 1);
+            statement.setBoolean(15, linkValidatedLeave);
+            statement.setObject(16, day.validatedLeaveId());
+            statement.setBoolean(17, resetAdjustmentAudit);
+            statement.setBoolean(18, resetAdjustmentAudit);
+            statement.setInt(19, day.pointageId());
+            statement.setInt(20, day.expectedVersion());
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) throw new IllegalStateException(
+                        "Conflit de modification concurrente sur le pointage ID " + day.pointageId()
+                                + ". La ligne a été modifiée par un tiers.");
+                return result.getInt(1);
+            }
+        }
+    }
+
+    private static void bindDayValues(PreparedStatement statement, RegularizedDayWrite day, int start)
+            throws SQLException {
+        statement.setTime(start, day.morningEntry());
+        statement.setTime(start + 1, day.morningExit());
+        statement.setTime(start + 2, day.afternoonEntry());
+        statement.setTime(start + 3, day.afternoonExit());
+        statement.setDouble(start + 4, day.morningHours());
+        statement.setDouble(start + 5, day.afternoonHours());
+        statement.setDouble(start + 6, day.totalHours());
+        statement.setInt(start + 7, day.lateMinutes());
+        statement.setDouble(start + 8, day.nightHours());
+        statement.setString(start + 9, day.adjustmentReason());
+        statement.setString(start + 10, day.statusCode());
+        statement.setBigDecimal(start + 11, BigDecimal.ZERO);
+        statement.setBoolean(start + 12, day.continuousSchedule());
+        statement.setTime(start + 13, day.effectiveMorningEntry());
+    }
+
     /**
      * Persiste une journée corrigée et ses indemnités. La transaction et le recalcul hebdomadaire
      * restent possédés par l'appelant pour préserver l'atomicité historique.
      */
     public int saveRegularizedDay(RegularizedDayWrite day, Connection c) throws SQLException {
-        if (day.pointageId() <= 0) {
-            String sql = "INSERT INTO pointage_jour (" +
-                    "id_employe, id_periode_paie, id_site, date_pointage, " +
-                    "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
-                    "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
-                    "motif_ajustement, id_statut_jour, montant_total_indemnites, horaire_continu_jour, heure_entree_matin_effective, id_demande_conge, version, created_at, updated_at " +
-                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
-                    "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                    "?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
-            try (PreparedStatement statement = c.prepareStatement(sql)) {
-                statement.setInt(1, day.employeeId());
-                statement.setObject(2, day.periodId());
-                statement.setInt(3, day.siteId());
-                statement.setDate(4, day.date());
-                statement.setTime(5, day.morningEntry());
-                statement.setTime(6, day.morningExit());
-                statement.setTime(7, day.afternoonEntry());
-                statement.setTime(8, day.afternoonExit());
-                statement.setDouble(9, day.morningHours());
-                statement.setDouble(10, day.afternoonHours());
-                statement.setDouble(11, day.totalHours());
-                statement.setInt(12, day.lateMinutes());
-                statement.setDouble(13, day.nightHours());
-                statement.setString(14, day.adjustmentReason());
-                statement.setString(15, day.statusCode());
-                statement.setBigDecimal(16, BigDecimal.ZERO);
-                statement.setBoolean(17, day.continuousSchedule());
-                statement.setTime(18, day.effectiveMorningEntry());
-                statement.setObject(19, day.validatedLeaveId());
-                try (ResultSet result = statement.executeQuery()) {
-                    if (!result.next()) throw new SQLException("Échec de l'insertion du pointage régularisé.");
-                    int id = result.getInt(1);
-                    syncRegularizedAllowances(day, id, c);
-                    return id;
-                }
-            } catch (SQLException exception) {
-                if (exception.getMessage() != null
-                        && (exception.getMessage().toLowerCase(Locale.ROOT).contains("duplicate")
-                        || exception.getMessage().toLowerCase(Locale.ROOT).contains("unique"))) {
-                    throw new IllegalStateException("Conflit : le pointage pour cet employé à cette date existe déjà.");
-                }
-                throw exception;
-            }
-        }
-
-        try (PreparedStatement linked = c.prepareStatement(
-                "SELECT id_demande_conge FROM pointage_jour WHERE id_pointage = ? FOR UPDATE")) {
-            linked.setInt(1, day.pointageId());
-            try (ResultSet current = linked.executeQuery()) {
-                if (current.next() && current.getObject(1) != null && day.validatedLeaveId() == null) {
-                    throw new IllegalStateException(
-                            "Cette journée est liée à un congé validé. Modifier d'abord ce congé dans le domaine Congés.");
+        if (day.pointageId() > 0) {
+            try (PreparedStatement linked = c.prepareStatement(
+                    "SELECT id_demande_conge FROM pointage_jour WHERE id_pointage = ? FOR UPDATE")) {
+                linked.setInt(1, day.pointageId());
+                try (ResultSet current = linked.executeQuery()) {
+                    if (current.next() && current.getObject(1) != null && day.validatedLeaveId() == null) {
+                        throw new IllegalStateException(
+                                "Cette journée est liée à un congé validé. Modifier d'abord ce congé dans le domaine Congés.");
+                    }
                 }
             }
         }
-
-        String sql = "UPDATE pointage_jour SET " +
-                "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
-                "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
-                "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                "montant_total_indemnites = ?, horaire_continu_jour = ?, heure_entree_matin_effective = ?, id_demande_conge = ?, " +
-                "version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ? AND version = ?";
-        try (PreparedStatement statement = c.prepareStatement(sql)) {
-            statement.setTime(1, day.morningEntry());
-            statement.setTime(2, day.morningExit());
-            statement.setTime(3, day.afternoonEntry());
-            statement.setTime(4, day.afternoonExit());
-            statement.setDouble(5, day.morningHours());
-            statement.setDouble(6, day.afternoonHours());
-            statement.setDouble(7, day.totalHours());
-            statement.setInt(8, day.lateMinutes());
-            statement.setDouble(9, day.nightHours());
-            statement.setString(10, day.adjustmentReason());
-            statement.setString(11, day.statusCode());
-            statement.setBigDecimal(12, BigDecimal.ZERO);
-            statement.setBoolean(13, day.continuousSchedule());
-            statement.setTime(14, day.effectiveMorningEntry());
-            statement.setObject(15, day.validatedLeaveId());
-            statement.setInt(16, day.pointageId());
-            statement.setInt(17, day.expectedVersion());
-            if (statement.executeUpdate() == 0) {
-                throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID "
-                        + day.pointageId() + ". La ligne a été modifiée par un tiers.");
+        try {
+            int pointageId = writeDay(day, true, false, c);
+            syncRegularizedAllowances(day, pointageId, c);
+            return pointageId;
+        } catch (SQLException exception) {
+            if (day.pointageId() <= 0 && exception.getMessage() != null
+                    && (exception.getMessage().toLowerCase(Locale.ROOT).contains("duplicate")
+                    || exception.getMessage().toLowerCase(Locale.ROOT).contains("unique"))) {
+                throw new IllegalStateException("Conflit : le pointage pour cet employé à cette date existe déjà.");
             }
+            throw exception;
         }
-        syncRegularizedAllowances(day, day.pointageId(), c);
-        return day.pointageId();
     }
 
     private void syncRegularizedAllowances(RegularizedDayWrite day, int pointageId, Connection c) throws SQLException {
         if (day.dynamicAllowances() == null) {
             throw new IllegalArgumentException("La sélection dynamique des indemnités est obligatoire.");
         }
-        try (PreparedStatement clear = c.prepareStatement(
-                "UPDATE pointage_indemnite_jour SET accorde = FALSE, quantite = 0, montant_calcule = 0, "
-                        + "updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ?")) {
-            clear.setInt(1, pointageId);
-            clear.executeUpdate();
-        }
+        clearDailyAllowances(pointageId, c);
         int workingDays = 0;
         if (day.periodId() != null) {
             try (PreparedStatement period = c.prepareStatement(
@@ -1992,17 +1963,22 @@ public class PointageService {
                 + "accorde = EXCLUDED.accorde, updated_at = CURRENT_TIMESTAMP";
         try (PreparedStatement statement = c.prepareStatement(upsert)) {
             persistDynamicAllowances(day.dynamicAllowances(), pointageId, day.siteId(), day.date(),
-                    workingDays, isNonWorkedStatus(day.statusCode()), toLocalTime(day.afternoonExit()), c, statement);
+                    workingDays, AttendanceStatusPolicy.isNonWorkedDay(day.statusCode(),
+                            false, false, false, day.totalHours()),
+                    toLocalTime(day.afternoonExit()), c, statement);
         }
-        updateRegularizedAllowanceTotal(pointageId, c);
-    }
-    private static boolean isNonWorkedStatus(String status) {
-        return "CONGE".equals(status) || "ABSENCE_NON_JUSTIFIEE".equals(status)
-                || "ABSENCE_JUSTIFIEE".equals(status) || "FERIE_CHOME".equals(status)
-                || "REPOS".equals(status);
+        updateDailyAllowanceTotal(pointageId, c);
     }
 
-    private void updateRegularizedAllowanceTotal(int pointageId, Connection c) throws SQLException {
+    private void clearDailyAllowances(int pointageId, Connection c) throws SQLException {
+        try (PreparedStatement clear = c.prepareStatement(
+                "UPDATE pointage_indemnite_jour SET accorde = FALSE, quantite = 0, montant_calcule = 0, "
+                        + "updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ?")) {
+            clear.setInt(1, pointageId);
+            clear.executeUpdate();
+        }
+    }
+    private void updateDailyAllowanceTotal(int pointageId, Connection c) throws SQLException {
         try (PreparedStatement update = c.prepareStatement(
                 "UPDATE pointage_jour SET montant_total_indemnites = COALESCE((SELECT SUM(montant_calcule) "
                         + "FROM pointage_indemnite_jour WHERE id_pointage = ? AND accorde = true), 0) WHERE id_pointage = ?")) {
@@ -2015,10 +1991,52 @@ public class PointageService {
     private void persistDynamicAllowances(Map<String, Object> selections, int pointageId, int siteId,
             Date date, int workingDays, boolean nonWorked, LocalTime afternoonExit,
             Connection c, PreparedStatement statement) throws SQLException {
+        for (DynamicAllowanceAmount calculated : calculateDynamicAllowanceAmounts(
+                selections, siteId, date, workingDays, nonWorked, c)) {
+            statement.setInt(1, pointageId);
+            statement.setInt(2, calculated.id());
+            statement.setString(3, calculated.fraction());
+            statement.setBigDecimal(4, calculated.quantity());
+            statement.setBigDecimal(5, calculated.amount());
+            statement.setBoolean(6, calculated.granted());
+            statement.executeUpdate();
+        }
+        persistSecondMeal(pointageId, date, nonWorked, afternoonExit, c, statement);
+    }
+
+    public Map<String, Map<String, Object>> previsualiserIndemnites(Map<String, Object> selections,
+            int siteId, String dateText, int workingDays, boolean nonWorked) throws SQLException {
+        try (Connection connection = dataSource.getConnection()) {
+            return previewDynamicAllowanceAmounts(selections, siteId, Date.valueOf(dateText),
+                    workingDays, nonWorked, connection);
+        }
+    }
+
+    private Map<String, Map<String, Object>> previewDynamicAllowanceAmounts(Map<String, Object> selections,
+            int siteId, Date date, int workingDays, boolean nonWorked, Connection c) throws SQLException {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        for (DynamicAllowanceAmount item : calculateDynamicAllowanceAmounts(
+                selections, siteId, date, workingDays, nonWorked, c)) {
+            Map<String, Object> amounts = new LinkedHashMap<>();
+            amounts.put("accordee", item.granted());
+            amounts.put("quantite", item.quantity());
+            amounts.put("montantApplique", item.amount());
+            amounts.put("deductionRepas", item.deduction());
+            result.put(Integer.toString(item.id()), amounts);
+        }
+        return result;
+    }
+
+    private List<DynamicAllowanceAmount> calculateDynamicAllowanceAmounts(Map<String, Object> selections,
+            int siteId, Date date, int workingDays, boolean nonWorked, Connection c) throws SQLException {
+        if (selections == null || selections.isEmpty()) return List.of();
         boolean repasFourniSansVersement = false;
+        Map<Integer, DailyAllowanceTariff> tariffs = new HashMap<>();
         for (Map.Entry<String, Object> entry : selections.entrySet()) {
             if (!(entry.getValue() instanceof Map<?, ?> values)) continue;
-            DailyAllowanceTariff tariff = loadDailyAllowanceTariff(c, siteId, Integer.parseInt(entry.getKey()), date);
+            int allowanceId = Integer.parseInt(entry.getKey());
+            DailyAllowanceTariff tariff = loadDailyAllowanceTariff(c, siteId, allowanceId, date);
+            tariffs.put(allowanceId, tariff);
             if ("REPAS".equalsIgnoreCase(tariff.code()) && tariff.siteAmount().signum() == 0
                     && !nonWorked && Boolean.TRUE.equals(values.get("accordee"))) {
                 repasFourniSansVersement = true;
@@ -2028,17 +2046,18 @@ public class PointageService {
                 ? requireMonetaryStateParameter(ParametreGlobal.loadEtatMapAtDate(date, c),
                         "REDUCTION_DEPLACT_REPAS_MIDI")
                 : BigDecimal.ZERO;
+        List<DynamicAllowanceAmount> calculated = new ArrayList<>();
         for (Map.Entry<String, Object> entry : selections.entrySet()) {
             int allowanceId = Integer.parseInt(entry.getKey());
             if (!(entry.getValue() instanceof Map<?, ?> values)) continue;
-            DailyAllowanceTariff tariff = loadDailyAllowanceTariff(c, siteId, allowanceId, date);
+            DailyAllowanceTariff tariff = tariffs.get(allowanceId);
             boolean morning = Boolean.TRUE.equals(values.get("matin"));
             boolean afternoon = Boolean.TRUE.equals(values.get("am"));
             boolean explicitlyGranted = tariff.fractionable()
                     ? (morning || afternoon)
                     : Boolean.TRUE.equals(values.get("accordee"));
             // Sur un jour non-travaille (conge, absence...) : autoriser uniquement si explicitement accorde (exception manuelle).
-            boolean requested = explicitlyGranted && (!nonWorked || explicitlyGranted);
+            boolean requested = explicitlyGranted;
             BigDecimal units = tariff.fractionable()
                     ? (morning ? new BigDecimal("0.5") : BigDecimal.ZERO)
                             .add(afternoon ? new BigDecimal("0.5") : BigDecimal.ZERO)
@@ -2056,24 +2075,21 @@ public class PointageService {
             boolean granted = requested && (unitAmount.signum() > 0 || repasSansVersement);
             BigDecimal quantity = granted ? units : BigDecimal.ZERO;
             BigDecimal amount = granted ? MoneyRoundingPolicy.amount(unitAmount.multiply(units)) : BigDecimal.ZERO;
+            BigDecimal deduction = BigDecimal.ZERO;
             if (granted && repasFourniSansVersement
                     && ("DPLCT".equalsIgnoreCase(tariff.code())
                             || "DEPLACEMENT".equalsIgnoreCase(tariff.code())
                             || "TRANSPORT".equalsIgnoreCase(tariff.code()))) {
-                amount = amount.subtract(MoneyRoundingPolicy.amount(reductionDeplacement.multiply(units)))
+                deduction = MoneyRoundingPolicy.amount(reductionDeplacement.multiply(units))
+                        .min(amount);
+                amount = amount.subtract(deduction)
                         .max(BigDecimal.ZERO);
             }
             String fraction = tariff.fractionable() && granted && units.compareTo(BigDecimal.ONE) < 0
                     ? (morning ? "MATIN" : "APRES_MIDI") : "JOUR_ENTIER";
-            statement.setInt(1, pointageId);
-            statement.setInt(2, allowanceId);
-            statement.setString(3, fraction);
-            statement.setBigDecimal(4, quantity);
-            statement.setBigDecimal(5, amount);
-            statement.setBoolean(6, granted);
-            statement.executeUpdate();
+            calculated.add(new DynamicAllowanceAmount(allowanceId, fraction, quantity, amount, granted, deduction));
         }
-        persistSecondMeal(pointageId, date, nonWorked, afternoonExit, c, statement);
+        return calculated;
     }
 
     private void persistSecondMeal(int pointageId, Date date, boolean nonWorked, LocalTime afternoonExit,

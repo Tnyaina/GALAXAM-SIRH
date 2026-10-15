@@ -336,6 +336,15 @@ class CongePointageIntegrationTest {
             List<SaisiePointageJourDTO> lignes = (List<SaisiePointageJourDTO>) grille.get("grilleData");
             assertNotNull(lignes);
 
+            Map<String, Object> grilleEmploye = pointageSaisieService.getGrilleSaisie(
+                    1, dateConge.toString(), employeId);
+            @SuppressWarnings("unchecked")
+            List<SaisiePointageJourDTO> lignesEmploye =
+                    (List<SaisiePointageJourDTO>) grilleEmploye.get("grilleData");
+            assertEquals(1, lignesEmploye.size());
+            assertEquals(employeId, lignesEmploye.get(0).getIdEmploye());
+            assertEquals(grille.get("siteIndemnites"), grilleEmploye.get("siteIndemnites"));
+
             SaisiePointageJourDTO pointageEmp = lignes.stream()
                     .filter(p -> p.getIdEmploye() == employeId)
                     .findFirst()

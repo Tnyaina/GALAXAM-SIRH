@@ -636,23 +636,23 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         {preflight.journeesManquantes?.length > 0 && <>
                             <p><strong>{preflight.journeesManquantes.length} journée(s) ouvrable(s)</strong> sans pointage ni statut explicite. Cliquez sur une journée pour ouvrir la saisie au bon jour.</p>
                             <div className="flex flex-wrap gap-2">{preflight.journeesManquantes.slice(0, 12).map((jour) => (
-                                <button key={`${jour.idEmploye}-${jour.date}`} type="button"
-                                    className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 text-xs font-mono hover:bg-[var(--color-warning-100)]"
+                                <Button key={`${jour.idEmploye}-${jour.date}`} type="button" variant="outline" size="xs"
+                                    className="border-[var(--color-warning-400)]"
                                     title={`${jour.nom} ${jour.prenom} — journée du ${jour.date} sans pointage`}
                                     onClick={() => navigate(`/pointages?tab=saisie&date=${jour.date}${jour.idSite ? `&site=${jour.idSite}` : ''}`)}>
                                     {jour.matricule} · {jour.date}
-                                </button>
+                                </Button>
                             ))}</div>
                             {preflight.journeesManquantes.length > 12 && <p className="text-xs">+ {preflight.journeesManquantes.length - 12} autres journées à traiter.</p>}
                         </>}
                         {preflight.vacationsChevauchantes?.length > 0 && <>
                             <p><strong>{preflight.vacationsChevauchantes.length} vacation(s)</strong> dépassent minuit le dernier jour de la campagne. Scindez chaque vacation en deux pointages : les heures du lendemain appartiennent à la campagne suivante.</p>
                             <div className="flex flex-wrap gap-2">{preflight.vacationsChevauchantes.map((vacation) => (
-                                <button key={vacation.idPointage} type="button"
-                                    className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 text-xs font-mono hover:bg-[var(--color-warning-100)]"
+                                <Button key={vacation.idPointage} type="button" variant="outline" size="xs"
+                                    className="border-[var(--color-warning-400)]"
                                     onClick={() => navigate(`/pointages?tab=saisie&date=${vacation.datePointage}`)}>
                                     Pointage #{vacation.idPointage} · {vacation.datePointage} → {vacation.dateSuivante}
-                                </button>
+                                </Button>
                             ))}</div>
                         </>}
                         {preflight.changementsEligibiliteHs?.length > 0 && <>
@@ -667,10 +667,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         {preflight.blocages?.length > 0 && <>
                             <p>{preflight.blocages.length} collaborateur(s) ont des HS sans semaine de rattachement. Corrigez leur journée avant de sceller le pointage.</p>
                             <div className="flex flex-wrap gap-2">{preflight.blocages.map((blocker) => (
-                                <button key={blocker.idEmploye} type="button" className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 hover:bg-[var(--color-warning-100)]"
+                                <Button key={blocker.idEmploye} type="button" variant="outline" size="xs" className="border-[var(--color-warning-400)]"
                                     onClick={() => { setSearchTerm(blocker.matricule || `${blocker.nom} ${blocker.prenom}`); setCurrentPage(1); }}>
                                     {blocker.matricule} · {blocker.nom} {blocker.prenom} · {(blocker.minutesHsSansSemaine / 60).toFixed(2)} h HS non rattachées
-                                </button>
+                                </Button>
                             ))}</div>
                         </>}
                         {preflight.nombreEmployes > 0 && !preflight.journeesManquantes?.length && !preflight.blocages?.length && !preflight.vacationsChevauchantes?.length && !preflight.changementsEligibiliteHs?.length && (

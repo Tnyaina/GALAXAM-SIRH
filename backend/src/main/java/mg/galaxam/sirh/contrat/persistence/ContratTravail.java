@@ -204,28 +204,6 @@ public class ContratTravail extends ClassMere {
         }
     }
 
-    /**
-     * Rompt un contrat de façon anticipée (→ ROMPU).
-     * Utilisé lors des ruptures de période d'essai, licenciements, etc.
-     */
-    public void rompreContrat(Date dateRupture, Integer idMotif, String commentaireRupture, Connection c) throws Exception {
-        String sql = "UPDATE contrat_travail SET " +
-                "id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ROMPU'), id_statut_rh), " +
-                "date_fin = ?, " +
-                "id_motif_sortie = ?, " +
-                "commentaire = COALESCE(commentaire || ' | ' || ?, ?), " +
-                "updated_at = CURRENT_TIMESTAMP " +
-                "WHERE id_contrat = ?";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, dateRupture);
-            setNullableInt(ps, 2, idMotif);
-            setNullableString(ps, 3, commentaireRupture);
-            setNullableString(ps, 4, commentaireRupture);
-            ps.setInt(5, idContrat);
-            ps.executeUpdate();
-        }
-    }
-
     @Override
     protected ClassMere rechercherParId(String id, Connection c) throws Exception {
         if (id == null || id.isBlank()) return null;
@@ -426,15 +404,6 @@ public class ContratTravail extends ClassMere {
 
     private static final mg.galaxam.sirh.contrat.domain.AncienneteEngine ANCIENNETE_ENGINE =
             new mg.galaxam.sirh.contrat.domain.AncienneteEngine();
-
-    /**
-     * Calcule l'ancienneté effective totale en années en déléguant au moteur centralisé AncienneteEngine.
-     */
-    public static double calculerAncienneteEffectiveAnnees(Integer idContratActuel, Connection c) {
-        if (idContratActuel == null) return 0.0;
-        var bilan = ANCIENNETE_ENGINE.calculerAnciennete(idContratActuel, c);
-        return bilan.anneesEffectives();
-    }
 
     /**
      * Calcule l'ensemble des métriques d'ancienneté via AncienneteEngine (source de vérité unique, sans N+1).

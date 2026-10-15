@@ -42,8 +42,9 @@ export default function ActionMenu({ label = 'Actions', triggerLabel, items = []
     const toggle = () => {
         if (open) return setPosition(null);
         const rect = triggerRef.current.getBoundingClientRect();
-        const width = 240;
-        const height = Math.min(items.length * 42 + 12, 240);
+        const width = 264;
+        const sectionCount = new Set(items.map(item => item.section).filter(Boolean)).size;
+        const height = Math.min(items.length * 42 + sectionCount * 28 + 12, 320);
         setPosition({
             left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
             top: rect.bottom + height > window.innerHeight ? Math.max(8, rect.top - height - 4) : rect.bottom + 4
@@ -57,13 +58,21 @@ export default function ActionMenu({ label = 'Actions', triggerLabel, items = []
             aria-label={label} aria-haspopup="menu" aria-expanded={open}
             disabled={disabled} onClick={toggle}>{triggerLabel}</Button>
         {open && createPortal(<div ref={menuRef} role="menu" aria-label={label}
-            className="fixed z-[80] w-60 border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg"
+            className="fixed z-[80] w-[264px] border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg"
             style={position}>
-            {items.map(item => <button key={item.label} type="button" role="menuitem"
+            {items.map((item, index) => <div key={item.label}>
+                {item.section && item.section !== items[index - 1]?.section && (
+                    <div role="presentation" className={`${index > 0 ? 'border-t border-[var(--color-border-subtle)] mt-1 pt-2' : 'pt-1'} px-3 pb-1 text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]`}>
+                        {item.section}
+                    </div>
+                )}
+                <button type="button" role="menuitem"
                 disabled={item.disabled} onClick={() => { setPosition(null); item.onClick?.(); triggerRef.current?.focus(); }}
-                className={`block w-full px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-subtle)] focus:bg-[var(--color-bg-subtle)] disabled:opacity-40 disabled:cursor-not-allowed ${item.danger ? 'text-[var(--color-danger-700)]' : 'text-[var(--color-fg)]'}`}>
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-[var(--color-bg-subtle)] focus:bg-[var(--color-bg-subtle)] disabled:opacity-40 disabled:cursor-not-allowed ${item.danger ? 'text-[var(--color-danger-700)]' : 'text-[var(--color-fg)]'}`}>
+                {item.icon && <span aria-hidden="true" className="shrink-0 text-[var(--color-fg-muted)]">{item.icon}</span>}
                 {item.label}
-            </button>)}
+                </button>
+            </div>)}
         </div>, document.body)}
     </>;
 }

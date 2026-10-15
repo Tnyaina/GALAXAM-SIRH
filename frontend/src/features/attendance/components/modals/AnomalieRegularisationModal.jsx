@@ -401,7 +401,7 @@ export default function AnomalieRegularisationModal({
                             <div className="font-semibold text-sm text-[var(--color-fg)]">
                                 {anomalie.nom} {anomalie.prenom}
                             </div>
-                            <div className="text-xs text-[var(--color-fg-muted)] font-mono">
+                            <div className="text-xs text-[var(--color-fg-muted)] font-data">
                                 {anomalie.matricule} • {anomalie.siteNom || 'Site non renseigné'}
                             </div>
                         </div>
@@ -411,7 +411,7 @@ export default function AnomalieRegularisationModal({
                             {fmtDate(anomalie.datePointage)}
                         </div>
                         <div className="flex items-center gap-1.5 justify-end mt-1">
-                            <span className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded-none bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
+                            <span className="text-[11px] font-data font-medium px-1.5 py-0.5 rounded-none bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
                                 {anomalie.semaineCode || 'S1'}
                             </span>
                             <Badge 
@@ -613,7 +613,7 @@ export default function AnomalieRegularisationModal({
                                             <span>Matinée</span>
                                         </div>
                                         {modePresence === 'APRES_MIDI_SEUL' && (
-                                            <span className="text-[10px] font-mono text-[var(--color-fg-muted)] bg-[var(--color-surface-subtle)] px-1.5 py-0.5 rounded-none">
+                                            <span className="text-[10px] font-data text-[var(--color-fg-muted)] bg-[var(--color-surface-subtle)] px-1.5 py-0.5 rounded-none">
                                                 Non travaillée
                                             </span>
                                         )}
@@ -655,7 +655,7 @@ export default function AnomalieRegularisationModal({
                                             <span>Après-midi</span>
                                         </div>
                                         {modePresence === 'MATIN_SEUL' && (
-                                            <span className="text-[10px] font-mono text-[var(--color-fg-muted)] bg-[var(--color-surface-subtle)] px-1.5 py-0.5 rounded-none">
+                                            <span className="text-[10px] font-data text-[var(--color-fg-muted)] bg-[var(--color-surface-subtle)] px-1.5 py-0.5 rounded-none">
                                                 Non travaillée
                                             </span>
                                         )}
@@ -768,7 +768,7 @@ export default function AnomalieRegularisationModal({
                             <span className="text-[var(--color-fg-muted)]">
                                 Total d&apos;heures de travail calculé :
                             </span>
-                            <span className="font-mono font-bold text-sm text-[var(--color-fg)]">
+                            <span className="font-data font-bold text-sm text-[var(--color-fg)]">
                                 {previewPending ? 'Calcul…' : dayPreview?.totalHeures != null ? `${dayPreview.totalHeures} h` : '—'}
                             </span>
                         </div>
@@ -806,7 +806,7 @@ export default function AnomalieRegularisationModal({
                             </div>
                             <div className="text-right">
                                 <div className="text-[11px] text-[var(--color-fg-muted)]">Disponible net</div>
-                                <div className={`font-mono text-base font-bold ${Number(soldeRestant) > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
+                                <div className={`font-data text-base font-bold ${Number(soldeRestant) > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
                                     {soldeRestant ?? '—'} j.
                                 </div>
                             </div>

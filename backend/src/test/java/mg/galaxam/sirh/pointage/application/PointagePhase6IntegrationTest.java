@@ -65,6 +65,68 @@ class PointagePhase6IntegrationTest {
     private int autonomousAllowanceId;
     private String autonomousAllowanceCode;
 
+    @Test
+    @DisplayName("La fiche propose les indemnités de la période en deux lectures groupées")
+    void periodAllowanceSuggestionsFollowDayContext() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement update = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET id_site = ? WHERE id_affectation = ?")) {
+                update.setInt(1, activeSiteId);
+                update.setInt(2, initialAssignmentId);
+                update.executeUpdate();
+            }
+            autonomousAllowanceCode = "SUG_" + Long.toString(System.nanoTime(), 36).toUpperCase();
+            try (PreparedStatement insert = c.prepareStatement(
+                    "INSERT INTO ref_indemnite (code, libelle, imposable_irsa, soumis_cotisation, fractionnable, est_actif) "
+                            + "VALUES (?, 'Indemnité test période', FALSE, FALSE, TRUE, TRUE) RETURNING id_indemnite")) {
+                insert.setString(1, autonomousAllowanceCode);
+                try (ResultSet rows = insert.executeQuery()) {
+                    assertTrue(rows.next());
+                    autonomousAllowanceId = rows.getInt(1);
+                }
+            }
+            try (PreparedStatement insert = c.prepareStatement(
+                    "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, "
+                            + "date_debut, date_fin, est_actif) VALUES (?, ?, 'JOURNALIER', 10000, "
+                            + "DATE '2026-09-02', DATE '2026-09-02', TRUE)")) {
+                insert.setInt(1, activeSiteId);
+                insert.setInt(2, autonomousAllowanceId);
+                insert.executeUpdate();
+            }
+            try (PreparedStatement insert = c.prepareStatement(
+                    "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, "
+                            + "date_debut, date_fin, est_actif) VALUES (?, ?, 'JOURNALIER', 20000, "
+                            + "DATE '2026-09-03', DATE '2026-09-03', TRUE)")) {
+                insert.setInt(1, activeSiteId);
+                insert.setInt(2, autonomousAllowanceId);
+                insert.executeUpdate();
+            }
+        }
+
+        var fiche = pointageEmployeService.getFichePointageEmploye(
+                employeId, null, "periode", testPeriodId, true);
+        var first = fiche.getPointagesData().stream()
+                .filter(day -> "2026-09-01".equals(day.getDateComplete())).findFirst().orElseThrow();
+        var active = fiche.getPointagesData().stream()
+                .filter(day -> "2026-09-02".equals(day.getDateComplete())).findFirst().orElseThrow();
+        var changed = fiche.getPointagesData().stream()
+                .filter(day -> "2026-09-03".equals(day.getDateComplete())).findFirst().orElseThrow();
+        var expired = fiche.getPointagesData().stream()
+                .filter(day -> "2026-09-04".equals(day.getDateComplete())).findFirst().orElseThrow();
+        String key = Integer.toString(autonomousAllowanceId);
+        assertFalse(first.getIndemnitesProposees().containsKey(key));
+        assertTrue(active.getIndemnitesProposees().get(key).accordee());
+        assertTrue(active.getIndemnitesProposees().get(key).matin());
+        assertTrue(active.getIndemnitesProposees().get(key).am());
+        assertEquals(0, active.getIndemnitesApplicables().get(key).montantJour()
+                .compareTo(new java.math.BigDecimal("10000")));
+        assertEquals(0, changed.getIndemnitesApplicables().get(key).montantJour()
+                .compareTo(new java.math.BigDecimal("20000")));
+        assertFalse(first.getIndemnitesApplicables().containsKey(key));
+        assertFalse(expired.getIndemnitesApplicables().containsKey(key));
+        assertFalse(expired.getIndemnitesProposees().containsKey(key));
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         try (Connection c = dataSource.getConnection()) {

@@ -126,6 +126,7 @@ export default function SaisiePeriodeEmployePage({
         handleImportFile,
         handleApplyImport,
         handleSaveImport,
+        handleStartImportRegularisation,
         loadFicheEmploye
     } = usePointagePeriodeEmploye({
         selectedEmployeId,
@@ -557,6 +558,7 @@ export default function SaisiePeriodeEmployePage({
                             onClose={() => setImportPreview(null)}
                             onApply={handleApplyImport}
                             onSave={handleSaveImport}
+                            onStartRegularisation={handleStartImportRegularisation}
                             onRegularize={(line) => {
                                 const row = grilleRows.find(item => item.datePointage === line.date);
                                 if (!row || row.canCorrect === false) return;

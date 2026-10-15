@@ -45,6 +45,12 @@ public class PointageJourDTO {
     private boolean horaireContinuJour; // Indique si la journée a été réalisée en continu (sans pause méridienne)
     private Double totalHeuresDecimal;  // Heures en centésimal (décimal) ex: 8.85
     private Map<String, IndemniteJourDTO> indemnites = new LinkedHashMap<>();
+    private Map<String, IndemniteProposeeDTO> indemnitesProposees = new LinkedHashMap<>();
+    private Map<String, IndemniteApplicableDTO> indemnitesApplicables = new LinkedHashMap<>();
+
+    public record IndemniteProposeeDTO(boolean accordee, boolean matin, boolean am, String motifSuggestion) {}
+    public record IndemniteApplicableDTO(int idIndemnite, String code, String libelle,
+            boolean fractionnable, String periodicite, BigDecimal montantJour, BigDecimal montantTrajet) {}
 
     public record IndemniteJourDTO(String code, boolean accordee, BigDecimal montant, BigDecimal quantite,
                                    Boolean matin, Boolean am) {
@@ -85,6 +91,14 @@ public class PointageJourDTO {
     public Map<String, IndemniteJourDTO> getIndemnites() { return indemnites; }
     public void setIndemnites(Map<String, IndemniteJourDTO> indemnites) {
         this.indemnites = indemnites == null ? new LinkedHashMap<>() : new LinkedHashMap<>(indemnites);
+    }
+    public Map<String, IndemniteProposeeDTO> getIndemnitesProposees() { return indemnitesProposees; }
+    public void setIndemnitesProposees(Map<String, IndemniteProposeeDTO> value) {
+        this.indemnitesProposees = value == null ? new LinkedHashMap<>() : new LinkedHashMap<>(value);
+    }
+    public Map<String, IndemniteApplicableDTO> getIndemnitesApplicables() { return indemnitesApplicables; }
+    public void setIndemnitesApplicables(Map<String, IndemniteApplicableDTO> value) {
+        this.indemnitesApplicables = value == null ? new LinkedHashMap<>() : new LinkedHashMap<>(value);
     }
     public Integer getIdPointage() { return idPointage; }
     public void setIdPointage(Integer idPointage) { this.idPointage = idPointage; }

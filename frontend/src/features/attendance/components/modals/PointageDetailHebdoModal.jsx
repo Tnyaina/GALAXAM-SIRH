@@ -97,7 +97,7 @@ export default function PointageDetailHebdoModal({
                             Audit &amp; Décomposition Pointage — {employeNom}
                         </div>
                         <div className="text-[11px] font-normal text-[var(--color-fg-muted)] flex items-center gap-2 mt-0.5">
-                            <span className="font-mono font-semibold">Matricule : {matricule}</span>
+                            <span className="font-data font-semibold">Matricule : {matricule}</span>
                             <span>•</span>
                             <span>{periodeLibelle || ficheData?.libellePeriode || 'Période en cours'}</span>
                             {employe?.dispensePointage && (
@@ -157,7 +157,7 @@ export default function PointageDetailHebdoModal({
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1">
                                     <Calendar size={11} /> Jours
                                 </div>
-                                <div className="text-base font-bold text-[var(--color-fg)] mt-1 font-mono">
+                                <div className="text-base font-bold text-[var(--color-fg)] mt-1 font-data">
                                     {kpis.joursTravailles || (recap.totalJoursPresents != null ? `${recap.totalJoursPresents}j` : '—')}
                                 </div>
                                 <div className="text-[9.5px] text-[var(--color-fg-subtle)] mt-0.5">
@@ -170,10 +170,10 @@ export default function PointageDetailHebdoModal({
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1">
                                     <Clock size={11} /> Heures faites
                                 </div>
-                                <div className="text-base font-bold text-[var(--color-fg)] mt-1 font-mono">
+                                <div className="text-base font-bold text-[var(--color-fg)] mt-1 font-data">
                                     {kpis.heuresRealisees || recap.tempsRealise || formatHeuresMinutes(recap.totalHeuresFaites)}
                                 </div>
-                                <div className="text-[9.5px] text-[var(--color-fg-subtle)] mt-0.5 font-mono">
+                                <div className="text-[9.5px] text-[var(--color-fg-subtle)] mt-0.5 font-data">
                                     {kpis.heuresObjectif ? `objectif ${kpis.heuresObjectif.replace(/^objectif\s*/i, '')}` : formatHeuresDecimal(recap.totalHeuresFaites)}
                                 </div>
                             </div>
@@ -248,7 +248,7 @@ export default function PointageDetailHebdoModal({
                                         <div key={code} className="flex items-start justify-between gap-3 py-1.5 text-xs">
                                             <div>
                                                 <div className="font-medium">{ficheData?.indemnitesDisponibles?.[code]?.libelle || code}</div>
-                                                {ficheData?.indemnitesDisponibles?.[code]?.libelle && <div className="font-mono text-[var(--color-fg-muted)]">{code}</div>}
+                                                {ficheData?.indemnitesDisponibles?.[code]?.libelle && <div className="font-data text-[var(--color-fg-muted)]">{code}</div>}
                                                 {Number(dailyAllowances[code]) > 0 && <div className="text-[var(--color-fg-muted)]">Selon les jours pointés : {formatMonnaie(dailyAllowances[code])}</div>}
                                                 {Number(fixedAllowances[code]) > 0 && <div className="text-[var(--color-fg-muted)]">Mensuel fixe {fixedEstimated ? 'estimé' : 'validé'} : {formatMonnaie(fixedAllowances[code])}</div>}
                                             </div>
@@ -356,26 +356,26 @@ export default function PointageDetailHebdoModal({
 
                                                 return (
                                                     <Tr key={dtComp || idx}>
-                                                        <Td className="font-mono text-xs">
+                                                        <Td className="font-data text-xs">
                                                             {fmtDate(dtComp)}
                                                         </Td>
                                                         <Td className="text-xs font-semibold capitalize">
                                                             {nomJour}
                                                         </Td>
-                                                        <Td className="text-center font-mono text-xs">
+                                                        <Td className="text-center font-data text-xs">
                                                             {entree}
                                                         </Td>
-                                                        <Td className="text-center font-mono text-xs">
+                                                        <Td className="text-center font-data text-xs">
                                                             {sortiePause}
                                                         </Td>
-                                                        <Td className="text-center font-mono text-xs">
+                                                        <Td className="text-center font-data text-xs">
                                                             {retourPause}
                                                         </Td>
-                                                        <Td className="text-center font-mono text-xs">
+                                                        <Td className="text-center font-data text-xs">
                                                             {sortie}
                                                         </Td>
                                                         {/* Retard (Avertissement) */}
-                                                        <Td className="text-center font-mono text-xs">
+                                                        <Td className="text-center font-data text-xs">
                                                             {retMin > 0 ? (
                                                                 <span className="font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
                                                                     +{retMin}m
@@ -385,11 +385,11 @@ export default function PointageDetailHebdoModal({
                                                             )}
                                                         </Td>
                                                         {/* Heures faites */}
-                                                        <Td className="text-center font-mono text-xs font-semibold">
+                                                        <Td className="text-center font-data text-xs font-semibold">
                                                             {faitStr}
                                                         </Td>
                                                         {/* Écart vs Norme */}
-                                                        <Td className="text-center font-mono text-xs">
+                                                        <Td className="text-center font-data text-xs">
                                                             {ecartStr && ecartStr !== '00 min' && ecartStr !== '0.00h' && ecartStr !== '—' ? (
                                                                 <span className={isEcartPos ? "text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-bold" : "text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold"}>
                                                                     {ecartStr}

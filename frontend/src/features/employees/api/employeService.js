@@ -21,11 +21,6 @@ const employeService = {
         return response.data.matricule;
     },
 
-    checkMatriculeExists: async (matricule) => {
-        const response = await apiClient.get('/employes/matricule/check', { params: { matricule } });
-        return response.data.exists;
-    },
-
     checkMatriculeAvailable: async (matricule) => {
         const response = await apiClient.get('/employes/matricule/check', { params: { matricule } });
         return !response.data.exists;

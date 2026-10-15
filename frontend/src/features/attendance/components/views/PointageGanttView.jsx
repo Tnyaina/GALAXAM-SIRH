@@ -178,7 +178,7 @@ export default function PointageGanttView({
                                                 {day.label}
                                                 {isToday && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-brand-500)] inline-block" title="Aujourd'hui" />}
                                             </div>
-                                            <div className="font-mono text-[9px] text-[var(--color-fg-muted)] mt-0.5">{day.dateShort}</div>
+                                            <div className="font-data text-[9px] text-[var(--color-fg-muted)] mt-0.5">{day.dateShort}</div>
                                             {isFuture && <div className="text-[8px] font-normal uppercase tracking-wider text-[var(--color-fg-muted)]/70">Non échu</div>}
                                         </th>
                                     );
@@ -206,7 +206,7 @@ export default function PointageGanttView({
                                                 <div className="font-semibold text-[11.5px] text-[var(--color-fg)] truncate max-w-[160px]">
                                                     {emp.nom} {emp.prenom}
                                                 </div>
-                                                <div className="text-[9.5px] font-mono text-[var(--color-fg-muted)] flex items-center gap-1 mt-0.5">
+                                                <div className="text-[9.5px] font-data text-[var(--color-fg-muted)] flex items-center gap-1 mt-0.5">
                                                     <User size={9} />
                                                     {emp.matricule}
                                                     {emp.badgeProfilLabel && (
@@ -249,7 +249,7 @@ export default function PointageGanttView({
                                         })}
 
                                         <td className="px-2 py-1.5 text-center">
-                                            <span className={`font-mono text-[11px] font-bold ${totalHeures > 0 ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            <span className={`font-data text-[11px] font-bold ${totalHeures > 0 ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-muted)]'}`}>
                                                 {totalHeures > 0 ? `${totalHeures.toFixed(1)}h` : '—'}
                                             </span>
                                         </td>
@@ -295,7 +295,7 @@ function GanttCell({ cellData, day }) {
         >
             <span className="text-[9px] font-bold leading-tight truncate px-1 max-w-full">{label}</span>
             {timeStr && (
-                <span className="text-[8px] font-mono leading-tight opacity-80">{timeStr}</span>
+                <span className="text-[8px] font-data leading-tight opacity-80">{timeStr}</span>
             )}
             {cellData?.retard && cellData?.minutesRetard > 0 && (
                 <span className="text-[7px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] leading-tight">
@@ -337,9 +337,9 @@ function GanttTooltip({ tooltip, tooltipRef }) {
             <div className="flex items-center justify-between font-bold text-[var(--color-fg)] mb-1.5 pb-1.5 border-b border-[var(--color-border-subtle)]">
                 <div className="truncate">
                     <div className="truncate">{emp.nom} {emp.prenom}</div>
-                    <div className="font-mono font-normal text-[9.5px] text-[var(--color-fg-muted)]">{emp.matricule}</div>
+                    <div className="font-data font-normal text-[9.5px] text-[var(--color-fg-muted)]">{emp.matricule}</div>
                 </div>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] shrink-0">
+                <span className="font-data text-[10px] px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] shrink-0">
                     {day.label} {day.dateShort}
                 </span>
             </div>
@@ -363,11 +363,11 @@ function GanttTooltip({ tooltip, tooltipRef }) {
                 {amTime && <TooltipRow label="Après-midi" value={amTime} />}
 
                 {totalH > 0 && (
-                    <TooltipRow label="Total heures" value={<span className="font-mono font-bold">{totalH.toFixed(2)}h</span>} />
+                    <TooltipRow label="Total heures" value={<span className="font-data font-bold">{totalH.toFixed(2)}h</span>} />
                 )}
 
                 {Number(cellData?.heuresNuit || 0) > 0 && (
-                    <TooltipRow label="Heures de nuit" value={<span className="font-mono text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-bold">{Number(cellData.heuresNuit).toFixed(2)}h</span>} />
+                    <TooltipRow label="Heures de nuit" value={<span className="font-data text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-bold">{Number(cellData.heuresNuit).toFixed(2)}h</span>} />
                 )}
 
                 {cellData?.retard && cellData?.minutesRetard > 0 && (

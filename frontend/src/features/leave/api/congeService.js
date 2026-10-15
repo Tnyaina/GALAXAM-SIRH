@@ -5,6 +5,10 @@
  */
 import apiClient from '@/api/apiClient';
 
+const notifyLeaveUpdated = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('conge-data-updated'));
+};
+
 const congeService = {
   // =========================================================================
   // RÉFÉRENTIELS CONGÉS & ABSENCES
@@ -325,6 +329,7 @@ const congeService = {
       dateFin: congeService.toIsoDateString(demandeData.dateFin),
     } : demandeData;
     const response = await apiClient.post('/conges/demandes', payload);
+    notifyLeaveUpdated();
     return response.data;
   },
 
@@ -354,6 +359,7 @@ const congeService = {
       dateFin: congeService.toIsoDateString(demandeData.dateFin),
     } : demandeData;
     const response = await apiClient.put(`/conges/demandes/${id}`, payload);
+    notifyLeaveUpdated();
     return response.data;
   },
 
@@ -394,6 +400,7 @@ const congeService = {
     const queryString = params.toString();
     const url = `/conges/demandes/${id}/valider${queryString ? `?${queryString}` : ''}`;
     const response = await apiClient.post(url);
+    notifyLeaveUpdated();
     return response.data;
   },
 
@@ -402,6 +409,7 @@ const congeService = {
    */
   refuserDemande: async (id, motifRefus) => {
     const response = await apiClient.post(`/conges/demandes/${id}/refuser`, { motifRefus });
+    notifyLeaveUpdated();
     return response.data;
   },
 
@@ -411,6 +419,7 @@ const congeService = {
   annulerDemande: async (id, motif) => {
     const payload = typeof motif === 'string' ? { motif } : (motif || {});
     const response = await apiClient.post(`/conges/demandes/${id}/annuler`, payload);
+    notifyLeaveUpdated();
     return response.data;
   },
 

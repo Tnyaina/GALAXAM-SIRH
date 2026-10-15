@@ -260,7 +260,7 @@ export default function PointageGridTable({
                                                         {row.nom} {row.prenom}
                                                     </Link>
                                                 </p>
-                                                <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--color-fg-muted)] mt-0.5">
+                                                <div className="flex items-center gap-1.5 text-xs font-data text-[var(--color-fg-muted)] mt-0.5">
                                                     <span>{row.matricule}</span>
                                                     {row.badgeProfilLabel && (
                                                         <span

@@ -2,6 +2,10 @@ import {
     ChevronLeft,
     ChevronRight,
     Save,
+    Download,
+    Upload,
+    Clock3,
+    Coffee,
 } from 'lucide-react';
 import Card from '@/components/ui/data-display/Card';
 import Badge from '@/components/ui/data-display/Badge';
@@ -206,13 +210,13 @@ export default function PeriodeEmployeeHeader({
                 {/* Outils Assistants & Enregistrement */}
                 <div className="flex items-center gap-2">
                     <ActionMenu label="Outils de la période" triggerLabel="Outils" items={[
-                        { label: 'Télécharger le modèle Excel', onClick: onDownloadTemplate,
+                        { section: 'Fichiers Excel', icon: <Download size={14} />, label: 'Télécharger le modèle Excel', onClick: onDownloadTemplate,
                             disabled: !canEditPeriod || importLoading },
-                        { label: dirtyCount > 0 ? 'Importer Excel (enregistrer d’abord)' : 'Importer Excel',
+                        { section: 'Fichiers Excel', icon: <Upload size={14} />, label: dirtyCount > 0 ? 'Importer Excel (enregistrer d’abord)' : 'Importer Excel',
                             onClick: onImportClick, disabled: !canEditPeriod || importLoading || dirtyCount > 0 },
-                        { label: 'Appliquer l’horaire standard aux jours vides', onClick: onApplyStandard,
+                        { section: 'Saisie des horaires', icon: <Clock3 size={14} />, label: 'Appliquer l’horaire standard aux jours vides', onClick: onApplyStandard,
                             disabled: !canEditPeriod },
-                        { label: 'Déduire les pauses', onClick: onDeducePauses,
+                        { section: 'Saisie des horaires', icon: <Coffee size={14} />, label: 'Déduire les pauses', onClick: onDeducePauses,
                             disabled: !canEditPeriod }
                     ]} />
 

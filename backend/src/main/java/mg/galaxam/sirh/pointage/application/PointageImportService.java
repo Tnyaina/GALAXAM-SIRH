@@ -357,6 +357,16 @@ public class PointageImportService {
                     Map<String, Object> selections = allowances(source, headers, allowanceStart, availableAllowances, proposed,
                             hours, continuous, formatter, errors, allowanceOverrides);
                     proposed.setDynamicIndemnites(selections);
+                    proposed.setInclureIndemnitesCalculeesPreview(true);
+                    int workingDays = availableAllowances.stream()
+                            .map(item -> item.get("nbJoursOuvrablesPeriode"))
+                            .filter(Number.class::isInstance).map(Number.class::cast)
+                            .mapToInt(Number::intValue).findFirst().orElse(0);
+                    boolean nonWorked = !hasHours && !eventCode.isEmpty()
+                            || "CONGE".equals(existing.getStatut())
+                            || "CONGE_PAYE".equals(existing.getStatut())
+                            || "FERIE_CHOME".equals(existing.getStatut())
+                            || "REPOS".equals(existing.getStatut());
                     if (!hasHours && hasAllowanceInput && eventCode.isEmpty()
                             && !"CONGE".equals(existing.getStatut()) && !"CONGE_PAYE".equals(existing.getStatut()))
                         errors.add("Indemnités sans horaires : indiquer C ou A pour examiner la journée");
@@ -373,6 +383,10 @@ public class PointageImportService {
                         } catch (Exception error) {
                             errors.add(error.getMessage() == null ? "Pointage invalide" : error.getMessage());
                         }
+                    }
+                    if (!hasHours && !eventCode.isEmpty() && errors.isEmpty()) {
+                        proposed.setIndemnitesCalculeesPreview(pointages.previsualiserIndemnites(
+                                selections, proposed.getIdSite(), date, workingDays, nonWorked));
                     }
                 }
                 String decision = !errors.isEmpty() ? "ERROR" : repeatedLeaveMarker ? "IGNORE" : hasHours ? "IMPORT"
@@ -510,7 +524,8 @@ public class PointageImportService {
             boolean split = Boolean.TRUE.equals(allowance.get("fractionnable"));
             @SuppressWarnings("unchecked") Map<String, Object> current = defaults.get(id) instanceof Map<?, ?> map
                     ? new LinkedHashMap<>((Map<String, Object>) map) : new LinkedHashMap<>();
-            boolean suggested = current.get("motifSuggestion") == null;
+            boolean suggested = current.get("motifSuggestion") == null
+                    && Boolean.TRUE.equals(allowance.get("cocheParDefaut"));
             if (split) {
                 validHeaders.add(code);
                 Double fraction = allowanceFractionCell(source, headers, code, formatter, errors);

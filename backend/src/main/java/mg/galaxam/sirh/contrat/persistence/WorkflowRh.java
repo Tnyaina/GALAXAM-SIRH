@@ -251,21 +251,6 @@ public class WorkflowRh extends ClassMere {
     }
 
     /**
-     * Retourne le workflow d'origine d'une affectation (remplace id_workflow_origine supprimé).
-     * Cherche dans workflow_rh le workflow qui a créé cette affectation comme cible.
-     */
-    public static WorkflowRh rechercherWorkflowOrigineAffectation(Integer idAffectation, Connection c) throws Exception {
-        String sql = "SELECT * FROM workflow_rh WHERE id_affectation_cible = ? ORDER BY created_at DESC LIMIT 1";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idAffectation);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return mapResultSet(rs);
-            }
-        }
-        return null;
-    }
-
-    /**
      * Retourne le workflow BROUILLON en cours pour un employé (s'il existe).
      * Un employé ne devrait pas avoir plus d'un workflow BROUILLON à la fois.
      */

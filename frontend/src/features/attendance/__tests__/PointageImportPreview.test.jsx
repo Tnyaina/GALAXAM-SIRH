@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import PeriodeEmployeeImportPreview from '../components/views/PeriodeEmployeeImportPreview';
@@ -39,7 +39,8 @@ it('compte les lignes ignorées et distingue signalement et pointage enregistrab
     expect(host.textContent).toContain('1 ignorées');
     expect(host.textContent).toContain('1 absentes du fichier');
     expect(host.textContent).toContain('1 pointage(s) · 1 signalement(s)');
-    expect([...host.querySelectorAll('button')].find(button => button.textContent.includes('Enregistrer 1 pointage')).disabled).toBe(true);
+    expect([...host.querySelectorAll('button')].find(button => button.textContent.includes('Enregistrer 1 pointage')).disabled).toBe(false);
+    expect([...host.querySelectorAll('button')].find(button => button.textContent === 'Régulariser').disabled).toBe(true);
 });
 
 it('exige un accord explicite avant de remplacer un pointage existant', async () => {
@@ -54,4 +55,40 @@ it('exige un accord explicite avant de remplacer un pointage existant', async ()
     expect(approval).toBeDefined();
     await act(async () => { approval.click(); });
     expect(save.disabled).toBe(false);
+});
+
+it('permet de transformer un repos ignoré en journée travaillée à contrôler', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    function Preview() {
+        const [preview, setPreview] = useState({ lines: [line(1, '2026-08-02', 'IGNORE')] });
+        const [selections, setSelections] = useState({});
+        return <PeriodeEmployeeImportPreview importPreview={preview} importSelections={selections}
+            setImportSelections={setSelections} setImportPreview={setPreview}
+            grilleRows={[{ datePointage: '2026-08-02', idEmploye: 10, idSite: 1, canCorrect: true }]}
+            onClose={vi.fn()} onApply={vi.fn()} onSave={vi.fn()} />;
+    }
+    await act(async () => root.render(<Preview />));
+    await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Déclarer travaillé').click());
+    expect(host.textContent).toContain('1 pointage(s)');
+    expect(host.textContent).toContain('Entrée');
+    expect(host.textContent).toContain('Retour');
+    expect([...host.querySelectorAll('button')].find(button => button.textContent.includes('Enregistrer 1 pointage')).disabled).toBe(true);
+});
+
+it('ne montre que la régularisation après la sauvegarde des pointages', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => root.render(<PeriodeEmployeeImportPreview
+        importPreview={{ phase: 'REGULARIZE', savedCount: 21,
+            lines: [line(3, '2026-08-07', 'SIGNAL', { eventCode: 'C' })] }}
+        importSelections={{ 3: true }} setImportSelections={vi.fn()} setImportPreview={vi.fn()}
+        grilleRows={[{ datePointage: '2026-08-07', canCorrect: true }]}
+        onClose={vi.fn()} onRegularize={vi.fn()} />));
+    expect(host.textContent).toContain('21 pointage(s) enregistré(s)');
+    expect(host.textContent).toContain('Régulariser');
+    expect(host.textContent).not.toContain('Enregistrer 0 pointage');
+    expect(host.textContent).toContain('Terminer plus tard');
 });

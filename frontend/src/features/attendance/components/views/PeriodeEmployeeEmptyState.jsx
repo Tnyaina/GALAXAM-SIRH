@@ -97,7 +97,7 @@ export default function PeriodeEmployeeEmptyState({
                                                 <div className="font-bold text-xs text-[var(--color-fg)] group-hover:text-[var(--color-brand-600)] transition-colors truncate">
                                                     {emp.nom} {emp.prenom}
                                                 </div>
-                                                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-fg-muted)] font-mono mt-0.5">
+                                                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-fg-muted)] font-data mt-0.5">
                                                     <span>{emp.matricule}</span>
                                                     <span>·</span>
                                                     <span className="truncate">{emp.siteNom || emp.siteCode || 'Site'}</span>

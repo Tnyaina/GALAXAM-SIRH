@@ -926,7 +926,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                                 {ano.nom} {ano.prenom}
                                                             </Link>
                                                         </div>
-                                                <div className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                                <div className="text-xs font-data text-[var(--color-fg-muted)]">
                                                             {ano.matricule}
                                                         </div>
                                                     </div>
@@ -935,7 +935,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
                                             {/* Semaine */}
                                             <Td className="text-center font-bold text-xs">
-                                                <span className="inline-block px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[10px] font-mono">
+                                                <span className="inline-block px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[10px] font-data">
                                                     {ano.semaineCode || '—'}
                                                 </span>
                                             </Td>

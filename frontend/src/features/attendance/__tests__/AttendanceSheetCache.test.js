@@ -1,9 +1,10 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { get, post, put } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }));
 vi.mock('@/api/apiClient', () => ({ default: { get, post, put }, getAccessToken: () => 'session-test' }));
 
-import { attendanceService } from '../api/attendanceApi';
+import { attendanceService, periodePaieService } from '../api/attendanceApi';
 
 describe('partage des fiches de pointage', () => {
     beforeEach(() => {
@@ -47,6 +48,25 @@ describe('partage des fiches de pointage', () => {
         await oldRead;
         const current = await attendanceService.getFicheEmploye(904, { idPeriode: 804 });
         expect(current.version).toBe(2);
+        expect(get).toHaveBeenCalledTimes(2);
+    });
+
+    it('invalide la fiche après une décision de congé', async () => {
+        get.mockResolvedValue({ data: { idPeriode: 805 } });
+        await attendanceService.getFicheEmploye(905, { idPeriode: 805 });
+        window.dispatchEvent(new Event('conge-data-updated'));
+        await attendanceService.getFicheEmploye(905, { idPeriode: 805 });
+        expect(get).toHaveBeenCalledTimes(2);
+    });
+
+    it('réutilise les options de période puis les recharge après une transition', async () => {
+        get.mockResolvedValue({ data: [{ idPeriodePaie: 906 }] });
+        post.mockResolvedValue({ data: { success: true } });
+        await Promise.all([periodePaieService.getPeriodOptions(), periodePaieService.getPeriodOptions()]);
+        await periodePaieService.getPeriodOptions();
+        expect(get).toHaveBeenCalledTimes(1);
+        await periodePaieService.executeCommand(906, 'REOPEN', { version: 1 });
+        await periodePaieService.getPeriodOptions();
         expect(get).toHaveBeenCalledTimes(2);
     });
 });

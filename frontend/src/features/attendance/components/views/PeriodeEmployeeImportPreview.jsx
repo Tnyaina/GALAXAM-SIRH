@@ -14,7 +14,7 @@ import { POINTAGE_TIME_FIELDS } from '@/features/attendance/utils/pointageRow';
 
 const TIME_FIELDS = POINTAGE_TIME_FIELDS.map((field, index) => [field, ['Entrée', 'Sortie', 'Retour', 'Fin'][index]]);
 
-function AllowanceEditor({ allowance, value = {}, disabled, onChange }) {
+function AllowanceEditor({ allowance, value = {}, amountPreview, disabled, onChange }) {
     const fractionable = allowance.fractionnable ?? allowance.estFractionnable;
     const granted = Boolean(value.accordee);
     const inputClass = 'accent-[var(--color-brand-600)] cursor-pointer';
@@ -22,7 +22,7 @@ function AllowanceEditor({ allowance, value = {}, disabled, onChange }) {
         <div className="flex min-w-[126px] flex-col gap-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-1.5 py-1">
             <span className="truncate text-[9px] font-semibold text-[var(--color-fg)]" title={allowance.code || allowance.libelle}>
                 {allowance.code || allowance.libelle}
-                {allowance.montantJour != null && <span className="ml-1 text-[9px] font-normal text-[var(--color-fg-muted)]">{allowance.montantJour} Ar/j</span>}
+                {allowance.montantJour != null && <span className="ml-1 text-[9px] font-normal text-[var(--color-fg-muted)]">Tarif {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(allowance.montantJour))} Ar/j</span>}
             </span>
             {fractionable ? (
                 <div className="flex gap-1.5 text-[9px]">
@@ -59,6 +59,14 @@ function AllowanceEditor({ allowance, value = {}, disabled, onChange }) {
                     Accordée
                 </label>
             )}
+            {allowance.code === 'REPAS' && Number(allowance.montantJour) === 0 && granted &&
+                <span className="text-[9px] font-semibold text-[var(--color-warning-700)]">Repas fourni · 0 Ar versé</span>}
+            {amountPreview && <span className="text-[9px] font-semibold text-[var(--color-fg-muted)]">
+                {amountPreview.deductionRepas > 0 ? (
+                    <><span className="text-[var(--color-warning-700)]">−{new Intl.NumberFormat('fr-FR').format(Number(amountPreview.deductionRepas))} Ar repas</span>
+                        <span> · Net {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(amountPreview.montantApplique))} Ar</span></>
+                ) : <>Appliqué {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(amountPreview.montantApplique))} Ar</>}
+            </span>}
         </div>
     );
 }
@@ -97,33 +105,39 @@ export default function PeriodeEmployeeImportPreview({
     onClose,
     onApply,
     onSave,
+    onStartRegularisation,
     onRegularize
 }) {
     const [filter, setFilter] = useState('ALL');
     const [expanded, setExpanded] = useState({});
     const [approvedConflicts, setApprovedConflicts] = useState({});
     const lines = useMemo(() => importPreview?.lines || [], [importPreview]);
+    const isRegularisationPhase = importPreview?.phase === 'REGULARIZE';
     const selectedImportCount = lines.filter(line => importSelections[line.ligne] && line.decision === 'IMPORT' && !line.eventCode).length;
     const selectedSignalCount = lines.filter(line => importSelections[line.ligne] && (line.decision === 'SIGNAL' || (line.decision === 'IMPORT' && line.eventCode))).length;
     const selectedCount = selectedImportCount + selectedSignalCount;
+    const selectedImportNeedsReview = lines.some(line => importSelections[line.ligne]
+        && line.decision === 'IMPORT' && !line.eventCode && importLineNeedsReview(line, approvedConflicts));
     const readyCount = lines.filter(line => line.decision === 'IMPORT' && !line.errors?.length && !line._previewPending && !line._previewError && !line.proposed?.hasValidationError).length;
     const signalCount = lines.filter(line => line.decision === 'SIGNAL').length;
     const restCount = lines.filter(line => line.decision === 'IGNORE').length;
     const missingCount = lines.filter(line => line.decision === 'MISSING').length;
     const conflictCount = lines.filter(line => line.conflict && line.decision === 'IMPORT').length;
     const selectedNeedsReview = lines.some(line => importSelections[line.ligne] && importLineNeedsReview(line, approvedConflicts));
-    const visibleLines = useMemo(() => lines.filter(line => filter === 'ALL'
+    const visibleLines = useMemo(() => lines.filter(line => isRegularisationPhase || filter === 'ALL'
         || (filter === 'READY' && line.decision === 'IMPORT' && !line.errors?.length)
         || (filter === 'ISSUE' && (line.decision === 'SIGNAL' || line.decision === 'ERROR' || line.decision === 'MISSING' || line._previewError))
         || (filter === 'CONFLICT' && line.conflict)
-        || (filter === 'IGNORE' && line.decision === 'IGNORE')), [lines, filter]);
+        || (filter === 'IGNORE' && line.decision === 'IGNORE')), [lines, filter, isRegularisationPhase]);
     useEffect(() => {
         const pending = lines.filter(line => line._previewPending && line.proposed);
         if (!pending.length) return undefined;
         let cancelled = false;
         const timer = setTimeout(async () => {
             try {
-                const results = await attendanceService.daily.previewBatch(pending.map(line => toPointageBatchPayload(line.proposed)));
+                const results = await attendanceService.daily.previewBatch(pending.map(line => toPointageBatchPayload({
+                    ...line.proposed, inclureIndemnitesCalculeesPreview: true
+                })));
                 if (cancelled) return;
                 const byId = new Map(pending.map((line, index) => [line.ligne, results?.[index]]));
                 setImportPreview(current => current ? ({ ...current, lines: current.lines.map(line => {
@@ -172,12 +186,13 @@ export default function PeriodeEmployeeImportPreview({
         <Modal
             isOpen={Boolean(importPreview || importPreviewLoading)}
             onClose={importPreviewLoading ? undefined : onClose}
-            title={importPreviewLoading ? 'Lecture du fichier d’import' : `Aperçu de l’import · ${lines.length} journées`}
+            title={importPreviewLoading ? 'Lecture du fichier d’import' : isRegularisationPhase
+                ? `Signalements à régulariser · ${lines.length}` : `Aperçu de l’import · ${lines.length} journées`}
             icon={importPreviewLoading ? <LoaderCircle size={17} className="animate-spin" /> : <FileSpreadsheet size={17} />}
             size="full"
             closeOnBackdrop={!importPreviewLoading}
             closeOnEscape={!importPreviewLoading}
-            className="!max-w-[88vw] w-[88vw] max-h-[88vh]"
+            className={isRegularisationPhase ? '!max-w-[72vw] w-[72vw] max-h-[88vh]' : '!max-w-[88vw] w-[88vw] max-h-[88vh]'}
         >
             {importPreviewLoading ? (
                 <div className="space-y-4">
@@ -192,6 +207,10 @@ export default function PeriodeEmployeeImportPreview({
                 </div>
             ) : (
                 <>
+                    {isRegularisationPhase && <div className="mb-3 border border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/5 p-3 text-xs text-[var(--color-fg)]">
+                        {importPreview?.savedCount ? `${importPreview.savedCount} pointage(s) enregistré(s). ` : ''}
+                        Traitez maintenant les congés et absences détectés. Chaque régularisation est enregistrée immédiatement ; l’aperçu se fermera après la dernière.
+                    </div>}
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2">
                         <div className="flex min-w-0 items-center gap-2 text-xs text-[var(--color-fg-muted)]">
                             <CalendarDays size={15} className="shrink-0 text-[var(--color-brand-600)]" />
@@ -206,21 +225,21 @@ export default function PeriodeEmployeeImportPreview({
                         </div>
                     </div>
 
-                    <div className="mb-2 flex items-center justify-between gap-3">
+                    {!isRegularisationPhase && <div className="mb-2 flex items-center justify-between gap-3">
                         <p className="text-xs text-[var(--color-fg-muted)]">Vérifiez les heures et indemnités. Les modifications sont recalculées avant l’enregistrement.</p>
                         <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 text-xs font-semibold">
                             <input type="checkbox" checked={lines.length > 0 && lines.filter(line => ['IMPORT', 'SIGNAL'].includes(line.decision) && !line.errors?.length).every(line => importSelections[line.ligne])} onChange={event => toggleAll(event.target.checked)} className="accent-[var(--color-brand-600)]" />
                             Tout sélectionner
                         </label>
-                    </div>
+                    </div>}
 
-                    <div className="mb-2 flex flex-wrap gap-1" aria-label="Filtrer les journées d’import">
+                    {!isRegularisationPhase && <div className="mb-2 flex flex-wrap gap-1" aria-label="Filtrer les journées d’import">
                         {[
                             ['ALL', `Toutes (${lines.length})`], ['READY', `Prêtes (${readyCount})`],
                             ['ISSUE', `À traiter (${signalCount + missingCount + lines.filter(line => line.decision === 'ERROR').length})`],
                             ['CONFLICT', `Conflits (${conflictCount})`], ['IGNORE', `Ignorées (${restCount})`]
                         ].map(([value, label]) => <Button key={value} variant={filter === value ? 'primary' : 'secondary'} size="xs" onClick={() => setFilter(value)}>{label}</Button>)}
-                    </div>
+                    </div>}
 
                     <Table maxHeight="52vh" className="w-full" tableClassName="w-full min-w-[940px] border-collapse text-left text-xs" aria-label="Journées importées et valeurs modifiables">
                             <thead className="sticky top-0 z-10 bg-[var(--color-bg-subtle)] text-[10px] font-bold uppercase text-[var(--color-fg-muted)] shadow-sm">
@@ -247,23 +266,35 @@ export default function PeriodeEmployeeImportPreview({
                                         const selectable = ['IMPORT', 'SIGNAL'].includes(line.decision) && row?.canCorrect !== false && !line.errors?.length && !(existing?.congeApprouve && line.eventCode);
                                         const selected = Boolean(importSelections[line.ligne]);
                                         const editable = selected && line.decision === 'IMPORT' && Boolean(proposed) && selectable;
+                                        const editableSignalAllowance = selected && line.decision === 'SIGNAL' && selectable;
                                         const updateTime = (field, value) => updateLine(line.ligne, current => ({
                                             ...current,
                                             proposed: { ...current.proposed, [field]: value || null }, _previewPending: true, _previewError: null
                                         }));
-                                        const updateAllowance = (id, value) => updateLine(line.ligne, current => ({
-                                            ...current,
-                                            proposed: { ...current.proposed, dynamicIndemnites: { ...current.proposed.dynamicIndemnites, [String(id)]: value } },
-                                            _previewPending: true, _previewError: null
-                                        }));
+                                        const updateAllowance = (id, value) => updateLine(line.ligne, current => {
+                                            const dynamicIndemnites = { ...(current.proposed?.dynamicIndemnites || {}), [String(id)]: value };
+                                            const isLeaveSignal = current.decision === 'SIGNAL' && current.eventCode === 'C';
+                                            const isAbsenceSignal = current.decision === 'SIGNAL' && current.eventCode === 'A';
+                                            return {
+                                                ...current,
+                                                ...(current.decision === 'SIGNAL' ? { allowanceOverrides: {
+                                                    ...(current.allowanceOverrides || {}), [String(id)]: value
+                                                } } : {}),
+                                                proposed: { ...current.proposed, dynamicIndemnites,
+                                                    ...(isLeaveSignal ? { codeStatut: 'CONGE', typeCongeJour: 'FULL_DAY' } : {}),
+                                                    ...(isAbsenceSignal ? { codeStatut: 'ABSENCE_JUSTIFIEE', typeCongeJour: null } : {}) },
+                                                _previewPending: true, _previewError: null
+                                            };
+                                        });
                                         return (<Fragment key={line.ligne}>
                                             <tr className={`border-b border-[var(--color-border-subtle)] align-middle ${selected ? 'bg-[var(--color-brand-500)]/5' : 'bg-[var(--color-surface)]'} hover:bg-[var(--color-bg-subtle)]/40`}>
                                                 <td className="p-2 text-center">
-                                                    <input type="checkbox" checked={selected} disabled={!selectable} onChange={event => setImportSelections(current => ({ ...current, [line.ligne]: event.target.checked }))} className="accent-[var(--color-brand-600)]" />
+                                                    <input type="checkbox" checked={selected} disabled={isRegularisationPhase || !selectable} onChange={event => setImportSelections(current => ({ ...current, [line.ligne]: event.target.checked }))} className="accent-[var(--color-brand-600)]" />
                                                 </td>
                                                 <td className="whitespace-nowrap p-2 font-semibold text-[var(--color-fg)]">
                                                     {line.date}
                                                     <div className="text-[10px] font-normal text-[var(--color-fg-muted)]">{new Date(`${line.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
+                                                    {(existing?.libelleFerie || existing?.isFerie) && <div><Badge variant="warning" size="sm">{existing.libelleFerie || 'Jour férié'}</Badge></div>}
                                                     {line.eventCode && <Badge variant="warning" size="sm">{line.eventCode === 'C' ? 'Congé' : 'Absence'}</Badge>}
                                                 </td>
                                                 <td className="px-2 py-1.5">
@@ -276,6 +307,30 @@ export default function PeriodeEmployeeImportPreview({
                                                                 </label>
                                                             ))}
                                                         </div>
+                                                    ) : line.decision === 'IGNORE' && !line.eventCode && row?.canCorrect !== false && !existing?.congeApprouve ? (
+                                                        <Button variant="secondary" size="xs" onClick={() => {
+                                                            if (!row) return;
+                                                            const dateAllowances = line.allowances?.length ? line.allowances : row._dateAllowances || [];
+                                                            const dynamicIndemnites = Object.fromEntries(dateAllowances.map(allowance => {
+                                                                const key = String(allowance.idIndemnite);
+                                                                const proposal = row._allowanceDefaults?.[key] || {};
+                                                                const fractionable = allowance.fractionnable ?? allowance.estFractionnable;
+                                                                const accordee = Boolean(proposal.accordee);
+                                                                return [key, {
+                                                                    accordee,
+                                                                    fractionJour: fractionable ? (accordee ? (Number(proposal.fractionJour) || 1) : 0) : (accordee ? 1 : 0),
+                                                                    ...(fractionable ? { matin: Boolean(proposal.matin), am: Boolean(proposal.am) } : {})
+                                                                }];
+                                                            }));
+                                                            updateLine(line.ligne, current => ({ ...current, decision: 'IMPORT',
+                                                                proposed: { ...row, datePointage: line.date, codeStatut: 'PRESENT',
+                                                                    heureEntreeMatin: '', heureSortieMatin: '', heureEntreeAm: '', heureSortieAm: '',
+                                                                    dynamicIndemnites, inclureIndemnitesCalculeesPreview: true, totalHeures: null },
+                                                                allowances: dateAllowances,
+                                                                _previewPending: true, _previewError: null,
+                                                                warnings: ['Renseignez les horaires avant l’enregistrement.'] }));
+                                                            setImportSelections(current => ({ ...current, [line.ligne]: true }));
+                                                        }}>Déclarer travaillé</Button>
                                                     ) : line.decision === 'MISSING' && proposed ? (
                                                         <Button variant="secondary" size="xs" onClick={() => {
                                                             updateLine(line.ligne, current => ({ ...current, decision: 'IMPORT', _previewPending: true,
@@ -284,7 +339,7 @@ export default function PeriodeEmployeeImportPreview({
                                                         }}>Compléter cette journée</Button>
                                                     ) : <span className="text-[var(--color-fg-muted)]">{proposed ? 'À régulariser' : 'Aucune heure'}</span>}
                                                 </td>
-                                                <td className="whitespace-nowrap p-2 font-mono font-semibold text-[var(--color-fg)]">
+                                                <td className="whitespace-nowrap p-2 font-data font-semibold text-[var(--color-fg)]">
                                                     {line._previewPending ? '…' : proposed?.totalHeures != null ? formatHeuresMinutes(proposed.totalHeures) : '—'}
                                                     {proposed?.libelleStatut && <div className="mt-1 font-sans text-[10px] font-normal text-[var(--color-fg-muted)]">{proposed.libelleStatut}</div>}
                                                 </td>
@@ -293,7 +348,13 @@ export default function PeriodeEmployeeImportPreview({
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {line.allowances.map(allowance => {
                                                                 const value = proposed?.dynamicIndemnites?.[String(allowance.idIndemnite)] || {};
-                                                                return <AllowanceEditor key={allowance.idIndemnite} allowance={allowance} value={value} disabled={!editable} onChange={next => updateAllowance(allowance.idIndemnite, next)} />;
+                                                                const selectedValue = line.decision === 'SIGNAL'
+                                                                    ? line.allowanceOverrides?.[String(allowance.idIndemnite)] || value : value;
+                                                                const amountPreview = proposed?.indemnitesCalculeesPreview?.[String(allowance.idIndemnite)];
+                                                                return <AllowanceEditor key={allowance.idIndemnite} allowance={allowance} value={selectedValue}
+                                                                    amountPreview={amountPreview}
+                                                                    disabled={!editable && !editableSignalAllowance}
+                                                                    onChange={next => updateAllowance(allowance.idIndemnite, next)} />;
                                                             })}
                                                         </div>
                                                     ) : <span className="text-[var(--color-fg-muted)]">—</span>}
@@ -309,7 +370,9 @@ export default function PeriodeEmployeeImportPreview({
                                                     {(line.conflict || line.errors?.length || line.warnings?.length || line._previewError) &&
                                                         <Button variant="ghost" size="xs" onClick={() => setExpanded(current => ({ ...current, [line.ligne]: !current[line.ligne] }))}>{expanded[line.ligne] ? 'Masquer' : 'Détails'}</Button>}
                                                     {line.decision === 'SIGNAL' && !line.errors?.length && row?.canCorrect !== false &&
-                                                        <Button variant="secondary" size="xs" onClick={() => onRegularize(line)}>Régulariser</Button>}
+                                                        <Button variant="secondary" size="xs" disabled={selectedImportCount > 0 || importApplying}
+                                                            title={selectedImportCount > 0 ? 'Enregistrez d’abord les pointages prêts avant de régulariser le congé ou l’absence.' : undefined}
+                                                            onClick={() => onRegularize(line)}>Régulariser</Button>}
                                                 </td>
                                             </tr>
                                             {expanded[line.ligne] && <tr key={`${line.ligne}-detail`} className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
@@ -331,17 +394,20 @@ export default function PeriodeEmployeeImportPreview({
                     </Table>
 
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-3">
-                        <p className="max-w-2xl text-xs text-[var(--color-fg-muted)]">
-                            <strong className="text-[var(--color-fg)]">{selectedImportCount} pointage(s) · {selectedSignalCount} signalement(s) sélectionné(s).</strong> Les congés et absences signalés demandent une régularisation dans la grille avant d’être réglés.
-                        </p>
+                        {!isRegularisationPhase && <p className="max-w-2xl text-xs text-[var(--color-fg-muted)]">
+                            <strong className="text-[var(--color-fg)]">{selectedImportCount} pointage(s) · {selectedSignalCount} signalement(s) sélectionné(s).</strong> Enregistrez d’abord les pointages prêts, puis régularisez les congés et absences. Leurs indemnités sont reprises dans la régularisation et contrôlées par le serveur.
+                        </p>}
+                        {isRegularisationPhase && <p className="max-w-2xl text-xs text-[var(--color-fg-muted)]">Les indemnités restent modifiables avant chaque régularisation. Vous pouvez terminer plus tard ; les signalements non traités ne sont pas enregistrés.</p>}
                         <div className="flex gap-2">
-                            <Button variant="secondary" size="sm" onClick={onClose} disabled={importApplying}>Annuler</Button>
-                            <Button variant="secondary" size="sm" onClick={() => onApply(approvedConflicts)} disabled={!selectedCount || importApplying || selectedNeedsReview}>
+                            <Button variant="secondary" size="sm" onClick={onClose} disabled={importApplying}>{isRegularisationPhase ? 'Terminer plus tard' : 'Annuler'}</Button>
+                            {!isRegularisationPhase && <Button variant="secondary" size="sm" onClick={() => onApply(approvedConflicts)} disabled={!selectedCount || importApplying || selectedNeedsReview}>
                                 Charger dans la grille
-                            </Button>
-                            <Button variant="primary" size="sm" iconLeft={<Check size={14} />} onClick={() => onSave(approvedConflicts)} disabled={!selectedImportCount || selectedSignalCount > 0 || importApplying || selectedNeedsReview} loading={importApplying}>
+                            </Button>}
+                            {!isRegularisationPhase && selectedImportCount === 0 && signalCount > 0 &&
+                                <Button variant="primary" size="sm" onClick={onStartRegularisation}>Traiter les signalements</Button>}
+                            {!isRegularisationPhase && selectedImportCount > 0 && <Button variant="primary" size="sm" iconLeft={<Check size={14} />} onClick={() => onSave(approvedConflicts)} disabled={importApplying || selectedImportNeedsReview} loading={importApplying}>
                                 Enregistrer {selectedImportCount} pointage{selectedImportCount > 1 ? 's' : ''}
-                            </Button>
+                            </Button>}
                         </div>
                     </div>
                 </>

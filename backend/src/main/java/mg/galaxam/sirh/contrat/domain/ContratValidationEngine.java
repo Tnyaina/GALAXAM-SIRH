@@ -2,15 +2,14 @@ package mg.galaxam.sirh.contrat.domain;
 
 
 import java.sql.Date;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * Moteur de validation des règles métier de gestion des contrats et transitions de carrière RH.
- * Encapsule les contraintes légales du Code du Travail (CDI, CDD, Périodes d'essai, Transitions).
+ * Moteur de validation des règles métier de gestion des contrats RH.
+ * Encapsule les contraintes légales du Code du Travail (CDI, CDD, Périodes d'essai).
  */
 @Component
 public class ContratValidationEngine {
@@ -53,56 +52,5 @@ public class ContratValidationEngine {
         if (!erreurs.isEmpty()) {
             throw new IllegalArgumentException(String.join(" | ", erreurs));
         }
-    }
-
-    /**
-     * Calcule la date de fin prévisionnelle d'une période d'essai.
-     */
-    public LocalDate calculerFinPeriodeEssai(LocalDate dateDebut, int dureeMois) {
-        if (dateDebut == null || dureeMois <= 0) return null;
-        return dateDebut.plusMonths(dureeMois).minusDays(1);
-    }
-
-    /**
-     * Valide l'éligibilité d'une transition de carrière.
-     */
-    public void validerTransitionCarriere(String codeEvenement, boolean hasContratActif, String motifSortie) {
-        if (codeEvenement == null || codeEvenement.isBlank()) {
-            throw new IllegalArgumentException("Le type d'événement de transition RH est obligatoire.");
-        }
-
-        String code = codeEvenement.toUpperCase();
-        if (Set.of("MUTATION", "PROMOTION", "REVALORISATION", "RENOUVELLEMENT_CDD", "CONFIRMATION_ESSAI").contains(code)) {
-            if (!hasContratActif) {
-                throw new IllegalArgumentException("L'événement " + code + " requiert un contrat en cours actif.");
-            }
-        }
-
-        if (Set.of("RUPTURE_ESSAI", "DEPART_RETRAITE", "FIN_CONTRAT", "DEMISSION", "LICENCIEMENT").contains(code)) {
-            if (motifSortie == null || motifSortie.isBlank()) {
-                throw new IllegalArgumentException("Un motif de sortie explicite est obligatoire pour l'événement " + code + ".");
-            }
-        }
-    }
-
-    /**
-     * Valide la légitimité d'un changement de statut de workflow.
-     */
-    public boolean estTransitionStatutAutorisee(String statutActuel, String statutCible) {
-        if (statutActuel == null || statutCible == null) return false;
-        String cur = statutActuel.toUpperCase();
-        String target = statutCible.toUpperCase();
-
-        if (cur.equals(target)) return true;
-
-        return switch (cur) {
-            case "BROUILLON" -> Set.of("EN_ATTENTE", "VALIDE", "ANNULE", "REFUSE").contains(target);
-            case "EN_ATTENTE" -> Set.of("VALIDE", "REFUSE", "ANNULE").contains(target);
-            case "VALIDE" -> Set.of("ACTIF", "PLANIFIE", "ANNULE").contains(target);
-            case "PLANIFIE" -> Set.of("ACTIF", "ANNULE").contains(target);
-            case "ACTIF" -> Set.of("CLOTURE", "ROMPU", "TERMINE").contains(target);
-            case "CLOTURE", "ROMPU", "TERMINE", "ANNULE", "REFUSE" -> false; // États terminaux
-            default -> false;
-        };
     }
 }

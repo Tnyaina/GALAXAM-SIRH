@@ -58,7 +58,7 @@ export default function PeriodeRecapModal({
                             {modifiedRows.length} journée{modifiedRows.length > 1 ? 's' : ''} modifiée{modifiedRows.length > 1 ? 's' : ''} à sauvegarder
                         </span>
                     </div>
-                    <div className="flex items-center gap-3 font-mono text-[11px]">
+                    <div className="flex items-center gap-3 font-data text-[11px]">
                         <span>
                             Cumul heures modifiées : <strong className="text-[var(--color-brand-600)]">{formatHeuresDecimal(totalHeures)}</strong>
                         </span>
@@ -120,19 +120,19 @@ export default function PeriodeRecapModal({
 
                                 return (
                                     <Tr key={row.datePointage} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/30">
-                                        <Td className="px-2.5 py-1.5 font-mono font-bold whitespace-nowrap">
+                                        <Td className="px-2.5 py-1.5 font-data font-bold whitespace-nowrap">
                                             {row.datePointage}
                                             <span className="text-[10px] text-[var(--color-fg-muted)] font-normal ml-1">
                                                 ({row.jour})
                                             </span>
                                         </Td>
-                                        <Td className="px-2 py-1.5 font-mono text-center text-[11px]">
+                                        <Td className="px-2 py-1.5 font-data text-center text-[11px]">
                                             {hoursSummary}
                                         </Td>
-                                        <Td className="px-2 py-1.5 font-mono font-bold text-center">
+                                        <Td className="px-2 py-1.5 font-data font-bold text-center">
                                             {row.heuresFaites || formatHeuresMinutes(row.totalHeuresDecimal)}
                                         </Td>
-                                        <Td className="px-2 py-1.5 text-center font-mono">
+                                        <Td className="px-2 py-1.5 text-center font-data">
                                             {row.minutesRetard > 0 ? (
                                                 <span className="text-[var(--color-warning-600)] font-semibold">
                                                     +{row.minutesRetard}m

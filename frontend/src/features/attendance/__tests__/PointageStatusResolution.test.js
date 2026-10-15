@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAttendanceStatus } from '../utils/attendanceStatus';
+import { getAttendanceStatus } from '../utils/attendanceStatus';
 
-describe('qualification affichée dans la grille par période', () => {
-    it('distingue le samedi travaillé du dimanche travaillé', () => {
-        expect(resolveAttendanceStatus({ hasHours: true, weekend: true, sunday: false })).toBe('SAMEDI_TRAVAILLE');
-        expect(resolveAttendanceStatus({ hasHours: true, weekend: true, sunday: true })).toBe('DIMANCHE_TRAVAILLE');
+describe('présentation du statut renvoyé par le serveur', () => {
+    it('conserve les libellés distincts du samedi et du dimanche travaillés', () => {
+        expect(getAttendanceStatus('SAMEDI_TRAVAILLE').label).toBe('Samedi travaillé');
+        expect(getAttendanceStatus('DIMANCHE_TRAVAILLE').label).toBe('Dimanche travaillé');
     });
 });

@@ -766,36 +766,6 @@ public class PaieAjustementController {
         return ResponseEntity.ok(decision);
     }
 
-    /**
-     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni
-     *             par le client,
-     *             violant le principe « le backend décide ». Utilisez POST
-     *             /{id}/commands.
-     *
-     *             <p>
-     *             Retourne 410 Gone pour détecter les consommateurs obsolètes.
-     */
-    @PutMapping("/{id}/statut")
-    @Deprecated(forRemoval = true)
-    public ResponseEntity<Map<String, String>> changerStatutDeprecated(@PathVariable("id") int id) {
-        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
-                "code", "ENDPOINT_DEPRECATED",
-                "message", "Cet endpoint est déprécié (P1-01). Utilisez POST /paie/ajustements/"
-                        + id + "/commands avec une commande explicite (APPROVE, REJECT, CANCEL).",
-                "newEndpoint", "/paie/ajustements/" + id + "/commands"));
-    }
-
-    /**
-     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni
-     *             par le client.
-     *             Retourne 410 Gone pour détecter les consommateurs obsolètes
-     *             utilisant PATCH.
-     */
-    @PatchMapping("/{id}/statut")
-    @Deprecated(forRemoval = true)
-    public ResponseEntity<Map<String, String>> changerStatutPatchDeprecated(@PathVariable("id") int id) {
-        return changerStatutDeprecated(id);
-    }
 
     /**
      * Supprime un ajustement (si non encore imputé).

@@ -13,6 +13,28 @@ class PointageDayStatusTest {
     private final AttendanceEngine engine = new AttendanceEngine();
 
     @Test
+    void jourNonTravailleEstQualifiePareilPourSaisieEtRegularisation() {
+        assertEquals(true, AttendanceStatusPolicy.isNonWorkedDay("CONGE", false, false, false, 0));
+        assertEquals(true, AttendanceStatusPolicy.isNonWorkedDay("PRESENT", false, true, false, 0));
+        assertEquals(true, AttendanceStatusPolicy.isNonWorkedDay("REPOS", false, false, true, 0));
+        assertEquals(false, AttendanceStatusPolicy.isNonWorkedDay("FERIE_TRAVAILLE", false, true, false, 8));
+        assertEquals(false, AttendanceStatusPolicy.isNonWorkedDay("PRESENT", false, false, false, 8));
+    }
+
+    @Test
+    void regularisationGardeLaDecisionExpliciteEtQualifieLaCouvertureDuConge() {
+        assertEquals("DEMI_JOURNEE", AttendanceStatusPolicy.resolveRegularizedWork(
+                "ANOMALIE_SAISIE", true, false, 4.5));
+        assertEquals("PRESENT", AttendanceStatusPolicy.resolveRegularizedWork(
+                "NON_SAISI", false, false, 8.0));
+        assertEquals("ABSENCE_JUSTIFIEE", AttendanceStatusPolicy.resolveRegularizedWork(
+                "ABSENCE_JUSTIFIEE", false, false, 8.0));
+        assertEquals("CONGE", AttendanceStatusPolicy.resolveRegularizedLeaveCoverage(1.0, 1.0, "Congé"));
+        assertEquals("DEMI_JOURNEE", AttendanceStatusPolicy.resolveRegularizedLeaveCoverage(0.5, 1.0, "Congé"));
+        assertEquals("ABSENCE_JUSTIFIEE", AttendanceStatusPolicy.resolveRegularizedLeaveCoverage(0, 1.0, "Justifié"));
+    }
+
+    @Test
     void jourOuvrableVideResteNonSaisi() {
         assertEquals("NON_SAISI", status(LocalDate.of(2026, 9, 28), null, null, null, null,
                 "NON_SAISI", false));

@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.pointage.api.dto;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.math.BigDecimal;
 
@@ -61,6 +62,8 @@ public class SaisiePointageJourDTO {
     private Boolean congeDecompteSolde = true;
     private Integer version; // Optimistic locking version
     private Map<String, Object> dynamicIndemnites;
+    private Map<String, Map<String, Object>> indemnitesCalculeesPreview = new LinkedHashMap<>();
+    private boolean inclureIndemnitesCalculeesPreview;
     private boolean hasValidationError;
     private List<String> validationMessages = List.of();
     private List<StatusAction> statusActions = List.of();
@@ -234,6 +237,12 @@ public class SaisiePointageJourDTO {
 
     public Map<String, Object> getDynamicIndemnites() { return dynamicIndemnites; }
     public void setDynamicIndemnites(Map<String, Object> dynamicIndemnites) { this.dynamicIndemnites = dynamicIndemnites; }
+    public Map<String, Map<String, Object>> getIndemnitesCalculeesPreview() { return indemnitesCalculeesPreview; }
+    public void setIndemnitesCalculeesPreview(Map<String, Map<String, Object>> value) {
+        this.indemnitesCalculeesPreview = value == null ? new LinkedHashMap<>() : new LinkedHashMap<>(value);
+    }
+    public boolean isInclureIndemnitesCalculeesPreview() { return inclureIndemnitesCalculeesPreview; }
+    public void setInclureIndemnitesCalculeesPreview(boolean value) { this.inclureIndemnitesCalculeesPreview = value; }
     public boolean isHasValidationError() { return hasValidationError; }
     public void setHasValidationError(boolean hasValidationError) { this.hasValidationError = hasValidationError; }
     public List<String> getValidationMessages() { return validationMessages; }

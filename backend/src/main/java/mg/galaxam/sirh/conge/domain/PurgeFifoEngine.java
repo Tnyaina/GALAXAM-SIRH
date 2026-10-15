@@ -346,16 +346,4 @@ public class PurgeFifoEngine {
         return Math.round(aExpirer * 100.0) / 100.0;
     }
 
-    /**
-     * Méthode mathématique historique conservée pour rétro-compatibilité unitaire.
-     */
-    public double calculerJoursAExpier(double totalAcquisAnciens, double totalPris, double totalDejaExpire) {
-        if (totalAcquisAnciens <= 0.0001) {
-            return 0.0;
-        }
-        double consommeSurAnciens = Math.min(totalAcquisAnciens, Math.max(0.0, totalPris));
-        double anciensNonConsommes = Math.max(0.0, totalAcquisAnciens - consommeSurAnciens);
-        double joursAExpirer = Math.max(0.0, anciensNonConsommes - Math.max(0.0, totalDejaExpire));
-        return Math.round(joursAExpirer * 100.0) / 100.0;
-    }
 }

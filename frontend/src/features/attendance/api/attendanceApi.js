@@ -9,18 +9,68 @@ async function exportDocument(idEmploye, format, params) {
 
 const cleanSite = (site) => (Number(site) > 0 ? Number(site) : undefined);
 
-// Une fiche est coûteuse à calculer. Les vues de la même période partagent
-// brièvement sa lecture ; toute écriture de pointage vide ce cache.
-const employeeSheetRequests = new Map();
-const employeeSheetCache = new Map();
-const SHEET_TTL_MS = 15_000;
-let sheetRevision = 0;
+// Cache court partagé : dédoublonne les lectures simultanées et ignore toute
+// réponse lancée avant une invalidation. Les décisions restent côté serveur.
+function createReadCache(ttlMs) {
+    const pending = new Map();
+    const values = new Map();
+    let revision = 0;
+    return {
+        invalidate() {
+            revision += 1;
+            pending.clear();
+            values.clear();
+        },
+        get(key, load) {
+            const cached = values.get(key);
+            if (cached?.expiresAt > Date.now()) return Promise.resolve(cached.data);
+            if (!pending.has(key)) {
+                const currentRevision = revision;
+                const request = load().then(data => {
+                    if (currentRevision === revision) {
+                        values.set(key, { data, expiresAt: Date.now() + ttlMs });
+                    }
+                    return data;
+                }).finally(() => {
+                    if (pending.get(key) === request) pending.delete(key);
+                });
+                pending.set(key, request);
+            }
+            return pending.get(key);
+        }
+    };
+}
+
+const employeeSheets = createReadCache(15_000);
+const periodOptions = createReadCache(15_000);
 let cacheToken = getAccessToken();
 
+function invalidatePeriodOptions() {
+    periodOptions.invalidate();
+}
+
+function ensureCacheSession() {
+    const token = getAccessToken();
+    if (token !== cacheToken) {
+        invalidateEmployeeSheets();
+        invalidatePeriodOptions();
+        cacheToken = token;
+    }
+}
+
+function getPeriodOptions() {
+    ensureCacheSession();
+    return periodOptions.get('lightweight', async () =>
+        (await apiClient.get('/periodes', { params: { lightweight: true } })).data);
+}
+
 function invalidateEmployeeSheets() {
-    sheetRevision += 1;
-    employeeSheetRequests.clear();
-    employeeSheetCache.clear();
+    employeeSheets.invalidate();
+}
+
+// Une validation ou annulation de congé modifie aussi les journées affichées dans la fiche.
+if (typeof window !== 'undefined') {
+    window.addEventListener('conge-data-updated', invalidateEmployeeSheets);
 }
 
 function notifyPointageUpdated() {
@@ -37,43 +87,27 @@ function getEmployeeSheet(idEmploye, params = {}) {
         cleanParams = { ...idEmploye };
         delete cleanParams.idEmploye;
     }
-    const token = getAccessToken();
-    if (token !== cacheToken) {
-        invalidateEmployeeSheets();
-        cacheToken = token;
-    }
+    ensureCacheSession();
     const periodId = Number(cleanParams.idPeriode);
-    const key = periodId > 0
+    const keyBase = periodId > 0
         ? `${cleanId}:periode:${periodId}`
         : `${cleanId}:${cleanParams.period || 'mois'}:${cleanParams.date || ''}`;
-    const cached = employeeSheetCache.get(key);
-    if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
-    if (!employeeSheetRequests.has(key)) {
-        const revision = sheetRevision;
-        const request = apiClient.get(`/pointages/employes/${cleanId}`, { params: cleanParams })
-            .then((response) => {
-                if (revision === sheetRevision) {
-                    employeeSheetCache.set(key, { data: response.data, expiresAt: Date.now() + SHEET_TTL_MS });
-                }
-                return response.data;
-            })
-            .finally(() => {
-                if (employeeSheetRequests.get(key) === request) employeeSheetRequests.delete(key);
-            });
-        employeeSheetRequests.set(key, request);
-    }
-    return employeeSheetRequests.get(key);
+    const key = `${keyBase}:propositions:${Boolean(cleanParams.propositionsIndemnites)}`;
+    return employeeSheets.get(key, async () =>
+        (await apiClient.get(`/pointages/employes/${cleanId}`, { params: cleanParams })).data);
 }
 
 /** Tous les appels Pointage et son contrat de période, regroupés par intention. */
 const attendanceApi = {
     daily: {
-        getGrid: async ({ idSite, date }) => {
+        getGrid: async ({ idSite, date, idEmploye }) => {
             const parsedSite = Number(idSite);
             if (!parsedSite || parsedSite <= 0) {
                 throw new Error(`Identifiant de site obligatoire et strictement positif pour la saisie (reçu: ${idSite}).`);
             }
-            return (await apiClient.get('/pointages/saisie', { params: { idSite: parsedSite, date } })).data;
+            return (await apiClient.get('/pointages/saisie', {
+                params: { idSite: parsedSite, date, ...(idEmploye ? { idEmploye } : {}) }
+            })).data;
         },
         preview: async (pointage) => (await apiClient.post('/pointages/saisie/preview', pointage)).data,
         previewBatch: async (pointages) => (await apiClient.post('/pointages/saisie/preview/batch', pointages)).data,
@@ -135,7 +169,6 @@ const attendanceApi = {
     summary: {
         getPeriod: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite: cleanSite(idSite), search, filtre, page, size } })).data,
         getWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.get('/pointages/synthese/semaines', { params: { idPeriodePaie, idSite: cleanSite(idSite) } })).data,
-        getWeekDetail: async ({ idPeriodePaie, dateDebut, dateFin, idSite }) => (await apiClient.get('/pointages/synthese/semaine-detail', { params: { idPeriodePaie, dateDebut, dateFin, idSite: cleanSite(idSite) } })).data,
         getPreflight: async ({ idPeriodePaie }) => {
             const data = (await apiClient.get('/pointages/synthese/preflight', { params: { idPeriodePaie } })).data;
             if (typeof data?.pret !== 'boolean') throw new Error('Précontrôle Pointage invalide : décision serveur absente.');
@@ -165,17 +198,22 @@ const attendanceApi = {
     },
     period: {
         list: async () => (await apiClient.get('/periodes')).data,
-        options: async () => (await apiClient.get('/periodes', { params: { lightweight: true } })).data,
+        options: getPeriodOptions,
         getContext: async (periodId = null, date = null) => {
             const params = {};
             if (periodId) params.periodId = periodId;
             if (date) params.date = date;
             return (await apiClient.get('/periodes/context', { params })).data;
         },
-        create: async (periodData) => (await apiClient.post('/periodes', periodData)).data,
+        create: async (periodData) => {
+            const data = (await apiClient.post('/periodes', periodData)).data;
+            invalidatePeriodOptions();
+            return data;
+        },
         execute: async (id, command, payload) => {
             const data = (await apiClient.post(`/periodes/${id}/actions/${command}`, payload)).data;
             invalidateEmployeeSheets();
+            invalidatePeriodOptions();
             return data;
         },
         simulate: async (dateDebut, dateFin) => (await apiClient.get('/periodes/simuler', { params: { dateDebut, dateFin } })).data
@@ -189,7 +227,6 @@ export const attendanceService = {
     daily: attendanceApi.daily,
     getGrilleSaisie: attendanceApi.daily.getGrid,
     previewDay: attendanceApi.daily.preview,
-    previewDays: attendanceApi.daily.previewBatch,
     enregistrerBatch: attendanceApi.daily.saveBatch,
     getAnomalies: attendanceApi.anomalies.list,
     regulariser: attendanceApi.anomalies.regularize,
@@ -203,13 +240,11 @@ export const attendanceService = {
 export const pointageSyntheseService = {
     getSynthese: attendanceApi.summary.getPeriod,
     getSemaines: attendanceApi.summary.getWeeks,
-    getSemaineDetail: attendanceApi.summary.getWeekDetail,
     getPreflight: attendanceApi.summary.getPreflight,
     getAjustements: attendanceApi.summary.getAdjustments,
     creerAjustement: attendanceApi.summary.createAdjustment,
     annulerAjustement: attendanceApi.summary.cancelAdjustment,
-    calculerTout: attendanceApi.summary.recalculateWeeks,
-    calculerSemaines: attendanceApi.summary.recalculateWeeks
+    calculerTout: attendanceApi.summary.recalculateWeeks
 };
 export const periodePaieService = {
     getAllPeriodes: attendanceApi.period.list,

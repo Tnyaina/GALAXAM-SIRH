@@ -185,8 +185,8 @@ public class PointageController {
     @GetMapping("/saisie")
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getGrilleSaisie(@RequestParam(defaultValue = "0") int idSite,
-            @RequestParam String date) throws Exception {
-        return ResponseEntity.ok(pointageSaisieService.getGrilleSaisie(idSite, date));
+            @RequestParam String date, @RequestParam(required = false) Integer idEmploye) throws Exception {
+        return ResponseEntity.ok(pointageSaisieService.getGrilleSaisie(idSite, date, idEmploye));
     }
 
     @PostMapping("/saisie/preview")
@@ -283,13 +283,21 @@ public class PointageController {
         return ResponseEntity.ok(pointageImportService.preview(idEmploye, idPeriode, file));
     }
 
+    public ResponseEntity<FichePointageEmployeDTO> getFichePointageEmploye(Integer idEmploye,
+            String date, String period, Integer idPeriode) {
+        return getFichePointageEmploye(idEmploye, date, period, idPeriode, false);
+    }
+
     @GetMapping("/employes/{idEmploye}")
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FichePointageEmployeDTO> getFichePointageEmploye(@PathVariable Integer idEmploye,
             @RequestParam(required = false) String date,
             @RequestParam(required = false, defaultValue = "periode") String period,
-            @RequestParam(required = false) Integer idPeriode) {
-        FichePointageEmployeDTO fiche = pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode);
+            @RequestParam(required = false) Integer idPeriode,
+            @RequestParam(defaultValue = "false") boolean propositionsIndemnites) {
+        FichePointageEmployeDTO fiche = propositionsIndemnites
+                ? pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode, true)
+                : pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode);
         var user = mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext.from(
                 SecurityContextHolder.getContext().getAuthentication());
         boolean periodAvailable = fiche.getIdPeriode() != null;

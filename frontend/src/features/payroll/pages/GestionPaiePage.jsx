@@ -22,7 +22,6 @@ import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/
 import HasPermission from '@/features/auth/components/HasPermission';
 
 const PeriodePaiePage = lazy(() => import('@/features/payroll/pages/PeriodePaiePage'));
-const ExportsPaieTab = lazy(() => import('@/features/payroll/components/tabs/ExportsPaieTab'));
 const VariablesPaieTab = lazy(() => import('@/features/payroll/components/tabs/VariablesPaieTab'));
 
 /**
@@ -193,13 +192,6 @@ export default function GestionPaiePage() {
         );
     }
 
-    if (rawTab === 'exports') {
-        return (
-            <Suspense fallback={<SkeletonTable rows={6} cols={6} />}>
-                <ExportsPaieTab />
-            </Suspense>
-        );
-    }
 
     if (rawTab === 'variables') {
         const addVariableCapability = context?.availableActions?.ADD_VARIABLE;

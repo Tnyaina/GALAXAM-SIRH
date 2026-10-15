@@ -4,6 +4,7 @@ import { getTodayDateString } from '@/utils/dateUtils';
 import { usePointageBatchPreview } from '@/features/attendance/hooks/usePointageBatchPreview';
 import { changePointageAllowance, changePointageHours, changePointageStatus, isPointageRowModified, markPointageForPreview } from '@/features/attendance/utils/pointageRow';
 import { toPointageBatchPayload } from '@/features/attendance/utils/pointageBatchPayload';
+import { getConfiguredStandardHours } from '@/features/attendance/utils/pointageStandardHours';
 
 const dailyRowKey = row => row.idEmploye;
 const isRowDataModified = (row, initialList) => isPointageRowModified(
@@ -146,21 +147,14 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     };
 
     const bulkApplyStandardHours = (empIds) => {
-        if (!siteParams || !empIds || empIds.size === 0) return;
-        const { heureDebutMatin: hDebM, heureFinMatin: hFinM,
-            heureDebutAm: hDebA, heureFinAm: hFinA } = siteParams;
-        if (![hDebM, hFinM, hDebA, hFinA].every(Boolean)) return;
+        const standardHours = getConfiguredStandardHours(siteParams);
+        if (!standardHours || !empIds || empIds.size === 0) return;
 
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (!empIds.has(row.idEmploye)) return row;
 
-                const filled = changePointageHours(row, {
-                    heureEntreeMatin: hDebM,
-                    heureSortieMatin: hFinM,
-                    heureEntreeAm: hDebA,
-                    heureSortieAm: hFinA
-                });
+                const filled = changePointageHours(row, standardHours);
                 return markForPreview(filled);
             })
         );
@@ -213,22 +207,15 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     };
 
     const autoFillStandardHours = () => {
-        if (!siteParams) return;
-        const { heureDebutMatin: hDebM, heureFinMatin: hFinM,
-            heureDebutAm: hDebA, heureFinAm: hFinA } = siteParams;
-        if (![hDebM, hFinM, hDebA, hFinA].every(Boolean)) return;
+        const standardHours = getConfiguredStandardHours(siteParams);
+        if (!standardHours) return;
 
         setGrilleData((prev) =>
             prev.map((row) => {
                 const isBlank = !row.heureEntreeMatin && !row.heureSortieMatin && !row.heureEntreeAm && !row.heureSortieAm;
                 if (!isBlank) return row;
 
-                const filled = changePointageHours(row, {
-                    heureEntreeMatin: hDebM,
-                    heureSortieMatin: hFinM,
-                    heureEntreeAm: hDebA,
-                    heureSortieAm: hFinA
-                });
+                const filled = changePointageHours(row, standardHours);
                 return markForPreview(filled);
             })
         );

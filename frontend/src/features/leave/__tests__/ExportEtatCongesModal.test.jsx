@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import ExportEtatCongesModal from '../components/ExportEtatCongesModal';
@@ -29,6 +29,14 @@ describe('ExportEtatCongesModal', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+    document.body.innerHTML = '';
   });
 
   it('charge et liste les périodes de référence avec sélection par défaut', async () => {
@@ -65,13 +73,13 @@ describe('ExportEtatCongesModal', () => {
     });
 
     expect(congeService.getPeriodesReferenceEmploye).toHaveBeenCalledWith(42);
-    expect(container.textContent).toContain('Bilan annuel des congés');
-    expect(container.textContent).toContain('ANDRIA Tojo');
-    expect(container.textContent).toContain('2 période(s) disponible(s)');
-    expect(container.textContent).toContain('En cours');
-    expect(container.textContent).toContain('Clôturée');
-    expect(container.textContent).toContain('Feuille 1 (État des congés)');
-    expect(container.textContent).toContain('Feuille 2 (Mouvements)');
+    expect(document.body.textContent).toContain('Bilan annuel des congés');
+    expect(document.body.textContent).toContain('ANDRIA Tojo');
+    expect(document.body.textContent).toContain('2 période(s) disponible(s)');
+    expect(document.body.textContent).toContain('En cours');
+    expect(document.body.textContent).toContain('Clôturée');
+    expect(document.body.textContent).toContain('Feuille 1 (État des congés)');
+    expect(document.body.textContent).toContain('Feuille 2 (Mouvements)');
   });
 
   it('déclenche le téléchargement du classeur avec la période sélectionnée', async () => {
@@ -101,7 +109,7 @@ describe('ExportEtatCongesModal', () => {
     });
 
     // Trouver le bouton Télécharger
-    const downloadBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+    const downloadBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
       b.textContent.includes('Télécharger')
     );
     expect(downloadBtn).toBeTruthy();
@@ -120,8 +128,8 @@ describe('ExportEtatCongesModal', () => {
       root.render(<ExportEtatCongesModal isOpen onClose={vi.fn()} idEmploye={42}
         employe={{ nom: 'ANDRIA', prenom: 'Tojo' }} />);
     });
-    expect(container.textContent).toContain('Créez ou régularisez sa période');
-    const download = [...container.querySelectorAll('button')].find(button => button.textContent.includes('Télécharger'));
+    expect(document.body.textContent).toContain('Créez ou régularisez sa période');
+    const download = [...document.body.querySelectorAll('button')].find(button => button.textContent.includes('Télécharger'));
     expect(download.disabled).toBe(true);
   });
 });

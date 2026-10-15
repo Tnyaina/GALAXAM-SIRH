@@ -199,19 +199,6 @@ public class Utilisateur extends ClassMere {
         return null;
     }
 
-    public static Utilisateur rechercherParIdentifiant(String login, Connection c) throws Exception {
-        String sql = "SELECT * FROM utilisateur WHERE LOWER(identifiant) = LOWER(?)";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, login != null ? login.trim() : "");
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return mapResultSet(rs);
-                }
-            }
-        }
-        return null;
-    }
-
     public static Utilisateur rechercherParEmail(String email, Connection c) throws Exception {
         String sql = "SELECT * FROM utilisateur WHERE LOWER(email) = LOWER(?)";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
