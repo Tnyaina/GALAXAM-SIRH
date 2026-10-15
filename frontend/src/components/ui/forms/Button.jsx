@@ -38,6 +38,7 @@ export default function Button({
   wrapLabel = false,
   loading = false,
   disabled = false,
+  plain = false,
   className = '',
   onClick,
   ...props
@@ -64,7 +65,7 @@ export default function Button({
       disabled={isDisabled}
       aria-disabled={isDisabled}
       onClick={handleClick}
-      className={`
+      className={plain ? `font-sans transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] disabled:cursor-not-allowed ${className}` : `
         inline-flex flex-row items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
         rounded-none transition-all duration-200 ease-in-out select-none ${wrapLabel ? 'whitespace-normal' : 'whitespace-nowrap'} leading-none
         focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]
@@ -76,16 +77,16 @@ export default function Button({
       `}
       {...props}
     >
-      {loading ? (
+      {plain ? children : loading ? (
         <svg className="animate-spin w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
       ) : (iconLeft ?? icon)}
-      {hasChildren && (
+      {!plain && hasChildren && (
         <span className={`inline-flex flex-row items-center gap-2 ${wrapLabel ? 'min-w-0 flex-1 justify-start whitespace-normal text-left leading-snug' : 'justify-center whitespace-nowrap leading-none'} ${loading ? 'opacity-90' : ''}`}>{children}</span>
       )}
-      {!loading && iconRight}
+      {!plain && !loading && iconRight}
     </button>
   );
 }

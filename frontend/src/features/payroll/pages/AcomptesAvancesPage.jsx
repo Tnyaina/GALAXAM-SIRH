@@ -283,10 +283,10 @@ export default function AcomptesAvancesPage() {
                 : <div className="overflow-x-auto"><Table className="w-full text-xs" bordered={false}><Thead><Tr><Th>Salarié</Th><Th>Nature</Th><Th>Demandé</Th><Th>Versé le</Th><Th className="text-right">Imputé</Th><Th className="text-right">Reste</Th><Th>État</Th><Th className="text-right">Détail</Th></Tr></Thead><Tbody>
                     {visible.map(item => <Tr key={item.idAvance}>
                         <Td><span className="font-semibold">{item.nomComplet}</span><span className="block text-[var(--color-fg-muted)]">{item.matricule}</span></Td>
-                        <Td>{item.typeLibelle}</Td><Td className="font-mono">{formatMoneyAr(item.montantInitial)}</Td>
+                        <Td>{item.typeLibelle}</Td><Td className="font-data">{formatMoneyAr(item.montantInitial)}</Td>
                         <Td>{item.dateVersementConfirme ? fmtDate(item.dateVersementConfirme) : '—'}</Td>
-                        <Td className="text-right font-mono">{formatMoneyAr(item.montantImpute)}</Td>
-                        <Td className="text-right font-mono font-bold">{formatMoneyAr(item.soldeRestant)}</Td>
+                        <Td className="text-right font-data">{formatMoneyAr(item.montantImpute)}</Td>
+                        <Td className="text-right font-data font-bold">{formatMoneyAr(item.soldeRestant)}</Td>
                         <Td><Badge variant={ETATS[item.etatDossier]?.variant || 'default'} size="xs">{ETATS[item.etatDossier]?.label || item.statut}</Badge></Td>
                         <Td className="text-right"><Button variant="outline" size="xs" onClick={() => setSelectedId(item.idAvance)}>Voir</Button></Td>
                     </Tr>)}

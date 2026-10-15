@@ -1,3 +1,5 @@
+import SharedButton from '@/components/ui/forms/Button';
+import { Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -17,6 +19,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import PageHeader from '@/components/ui/navigation/PageHeader';
+import Pagination from '@/components/ui/navigation/Pagination';
 import { getErrorMessage } from '@/api/apiClient';
 import { useAuth } from '@/context/AuthContext';
 import paieService from '@/features/payroll/api/paieService';
@@ -70,6 +73,8 @@ export default function PayrollEngineMap() {
     const [filterAlimentation, setFilterAlimentation] = useState('');
     const [filterSens, setFilterSens] = useState('');
     const [filterStatut, setFilterStatut] = useState('');
+    const [rubriquePage, setRubriquePage] = useState(1);
+    const [rubriquePageSize, setRubriquePageSize] = useState(25);
 
     // Accordéon des groupes (rétractables)
     const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -79,6 +84,7 @@ export default function PayrollEngineMap() {
 
     // Modal éditeur (création / modification)
     const [editor, setEditor] = useState(null); // { domaine: 'types' | 'rubriques', item: null | object, version: boolean }
+    const [creationStep, setCreationStep] = useState(0);
     const [catalogueMeta, setCatalogueMeta] = useState(null);
     const [form, setForm] = useState({});
     const [rubriqueGuide, setRubriqueGuide] = useState('');
@@ -167,6 +173,20 @@ export default function PayrollEngineMap() {
 
         return groups;
     }, [filteredRubriques, phaseList, knownPhases, data?.rubriques]);
+
+    const visibleRubriqueGroups = useMemo(() => {
+        const start = (rubriquePage - 1) * rubriquePageSize;
+        const visibleIds = new Set(rubriqueGroups.flatMap(group => group.rows).slice(start, start + rubriquePageSize).map(item => item.id));
+        return rubriqueGroups.map(group => ({
+            ...group,
+            totalRows: group.rows.length,
+            rows: group.rows.filter(item => visibleIds.has(item.id)),
+        })).filter(group => group.rows.length > 0);
+    }, [rubriqueGroups, rubriquePage, rubriquePageSize]);
+
+    useEffect(() => {
+        setRubriquePage(1);
+    }, [query, filterEtape, filterNiveau, filterAlimentation, mode]);
 
     // Types filtrés
     const filteredTypes = useMemo(() => {
@@ -327,10 +347,12 @@ export default function PayrollEngineMap() {
         setRubriqueGuide('');
         setErrors({});
         setFormError('');
+        setCreationStep(0);
         setEditor({ domaine, item, version: isVersion, intent });
     }
 
     const isEditingTypes = editor?.domaine === 'types';
+    const isGuidedCreate = editor?.intent === 'create';
     const modalOptions = catalogueMeta?.options || {};
     const treatmentLocked = editor?.item?.traitementVerrouille && !editor?.version;
     const identityLocked = isEditingTypes && !!editor?.item;
@@ -381,8 +403,21 @@ export default function PayrollEngineMap() {
         setErrors(previous => ({ ...previous, [name]: validateField(name, form[name]) }));
     }
 
+    function advanceCreationStep() {
+        const fields = creationStep === 0 ? ['code', 'libelle'] : [isEditingTypes ? 'idRubrique' : 'etapeCalcul'];
+        const invalid = Object.fromEntries(fields.map(name => [name, validateField(name, form[name])]));
+        setErrors(previous => ({ ...previous, ...invalid }));
+        if (Object.values(invalid).some(Boolean)) return;
+        setFormError('');
+        setCreationStep(step => Math.min(step + 1, 2));
+    }
+
     async function handleSubmit(event) {
         event.preventDefault();
+        if (isGuidedCreate && creationStep < 2) {
+            advanceCreationStep();
+            return;
+        }
         if (submitLock.current || saving) return;
         const isTypes = editor.domaine === 'types';
         const fields = isTypes
@@ -390,7 +425,13 @@ export default function PayrollEngineMap() {
             : ['code', 'libelle', 'etapeCalcul', 'referenceReglementaire', 'dateDebutEffet', 'dateFinEffet'];
         const invalid = Object.fromEntries(fields.map(name => [name, validateField(name, form[name])]));
         setErrors(invalid);
-        if (Object.values(invalid).some(Boolean)) return;
+        if (Object.values(invalid).some(Boolean)) {
+            if (isGuidedCreate) {
+                if (invalid.code || invalid.libelle) setCreationStep(0);
+                else if (invalid.idRubrique || invalid.etapeCalcul) setCreationStep(1);
+            }
+            return;
+        }
 
         submitLock.current = true;
         setSaving(true);
@@ -502,14 +543,14 @@ export default function PayrollEngineMap() {
                             </div>
                         </div>
                     </div>
-                    <button
+                    <SharedButton plain
                         type="button"
                         onClick={() => setShowGuide(false)}
                         aria-label="Masquer l'information"
                         className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] shrink-0 cursor-pointer"
                     >
                         <X size={15} />
-                    </button>
+                    </SharedButton>
                 </div>
             )}
 
@@ -518,11 +559,11 @@ export default function PayrollEngineMap() {
                 {[
                     { id: 'rubriques', label: 'Rubriques de calcul', count: data?.rubriques?.length ?? 0 },
                     { id: 'types', label: 'Types de variable', count: data?.types?.length ?? 0 },
-                ].map(tab => <button key={tab.id} type="button" aria-current={mode === tab.id ? 'page' : undefined}
+                ].map(tab => <SharedButton plain key={tab.id} type="button" aria-current={mode === tab.id ? 'page' : undefined}
                     onClick={() => changeMode(tab.id)}
                     className={`flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] ${mode === tab.id ? 'border-[var(--color-brand-600)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]' : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}>
                     {tab.label}<Badge variant={mode === tab.id ? 'primary' : 'neutral'} size="sm">{tab.count}</Badge>
-                </button>)}
+                </SharedButton>)}
             </nav>
 
             {error && <Alert type="error" title="Référentiel indisponible" message={error} />}
@@ -552,13 +593,13 @@ export default function PayrollEngineMap() {
                                     </p>
                                 </div>
                                 {rubriqueGroups.length > 0 && (
-                                    <button
+                                    <SharedButton plain
                                         type="button"
                                         onClick={() => toggleAllGroups(rubriqueGroups)}
                                         className="text-xs text-[var(--color-brand-600)] hover:underline font-semibold self-start sm:self-auto cursor-pointer"
                                     >
                                         {areAllGroupsCollapsed ? 'Tout déplier' : 'Tout replier'}
-                                    </button>
+                                    </SharedButton>
                                 )}
                             </div>
 
@@ -610,6 +651,10 @@ export default function PayrollEngineMap() {
                                 </div>
                             </div>
 
+                            <p className="text-xs text-[var(--color-fg-muted)]">
+                                {filteredRubriques.length} rubrique{filteredRubriques.length > 1 ? 's' : ''} trouvée{filteredRubriques.length > 1 ? 's' : ''}. Sélectionnez une ligne pour ouvrir sa fiche.
+                            </p>
+
                             {/* Groupes de rubriques (rétractables) */}
                             {rubriqueGroups.length === 0 ? (
                                 <EmptyState
@@ -626,12 +671,12 @@ export default function PayrollEngineMap() {
                                 />
                             ) : (
                                 <div className="space-y-4">
-                                    {rubriqueGroups.map(group => {
+                                    {visibleRubriqueGroups.map(group => {
                                         const isCollapsed = Boolean(collapsedGroups[group.code]);
                                         return (
                                             <Card key={group.code} className="overflow-hidden">
                                                 {/* En-tête rétractable du groupe */}
-                                                <button
+                                                <SharedButton plain
                                                     type="button"
                                                     aria-expanded={!isCollapsed}
                                                     onClick={() => toggleGroup(group.code)}
@@ -647,9 +692,9 @@ export default function PayrollEngineMap() {
                                                         </span>
                                                     </div>
                                                     <span className="text-xs text-[var(--color-fg-muted)] font-medium">
-                                                        {group.rows.length} rubrique{group.rows.length > 1 ? 's' : ''}
+                                                        {group.rows.length === group.totalRows ? `${group.totalRows} rubrique${group.totalRows > 1 ? 's' : ''}` : `${group.rows.length} affichée${group.rows.length > 1 ? 's' : ''} sur ${group.totalRows}`}
                                                     </span>
-                                                </button>
+                                                </SharedButton>
 
                                                 {/* Liste des rubriques */}
                                                 {!isCollapsed && (
@@ -680,7 +725,7 @@ export default function PayrollEngineMap() {
                                                                             <p className="text-sm font-semibold text-[var(--color-fg)] leading-snug">
                                                                                 {item.libelle}
                                                                             </p>
-                                                                            <p className="text-[11px] font-mono text-[var(--color-fg-subtle)] mt-1">
+                                                                            <p className="text-[11px] font-data text-[var(--color-fg-subtle)] mt-1">
                                                                                 Code : {item.code}
                                                                             </p>
                                                                         </div>
@@ -701,7 +746,7 @@ export default function PayrollEngineMap() {
 
                                                                         {/* Bouton flèche */}
                                                                         <div className="shrink-0">
-                                                                            <button
+                                                                            <SharedButton plain
                                                                                 type="button"
                                                                                 aria-label={`Ouvrir le détail de ${item.libelle}`}
                                                                                 onClick={e => {
@@ -711,7 +756,7 @@ export default function PayrollEngineMap() {
                                                                                 className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                                                                             >
                                                                                 <ArrowRight size={16} />
-                                                                            </button>
+                                                                            </SharedButton>
                                                                         </div>
                                                                     </div>
                                                                 </li>
@@ -722,6 +767,15 @@ export default function PayrollEngineMap() {
                                             </Card>
                                         );
                                     })}
+                                    <Pagination
+                                        currentPage={rubriquePage}
+                                        totalItems={filteredRubriques.length}
+                                        pageSize={rubriquePageSize}
+                                        pageSizeOptions={[10, 25, 50]}
+                                        onPageChange={setRubriquePage}
+                                        onPageSizeChange={size => { setRubriquePageSize(size); setRubriquePage(1); }}
+                                        className="border border-[var(--color-border-subtle)]"
+                                    />
                                 </div>
                             )}
                         </div>
@@ -748,13 +802,13 @@ export default function PayrollEngineMap() {
                                     </p>
                                 </div>
                                 {typeGroups.length > 0 && (
-                                    <button
+                                    <SharedButton plain
                                         type="button"
                                         onClick={() => toggleAllGroups(typeGroups)}
                                         className="text-xs text-[var(--color-brand-600)] hover:underline font-semibold self-start sm:self-auto cursor-pointer"
                                     >
                                         {areAllGroupsCollapsed ? 'Tout déplier' : 'Tout replier'}
-                                    </button>
+                                    </SharedButton>
                                 )}
                             </div>
 
@@ -817,7 +871,7 @@ export default function PayrollEngineMap() {
                                         return (
                                             <Card key={group.code} className="overflow-hidden">
                                                 {/* En-tête rétractable du groupe */}
-                                                <button
+                                                <SharedButton plain
                                                     type="button"
                                                     aria-expanded={!isCollapsed}
                                                     onClick={() => toggleGroup(group.code)}
@@ -835,7 +889,7 @@ export default function PayrollEngineMap() {
                                                     <span className="text-xs text-[var(--color-fg-muted)] font-medium">
                                                         {group.rows.length} type{group.rows.length > 1 ? 's' : ''}
                                                     </span>
-                                                </button>
+                                                </SharedButton>
 
                                                 {/* Liste des types */}
                                                 {!isCollapsed && (
@@ -872,7 +926,7 @@ export default function PayrollEngineMap() {
                                                                                     {item.sens === 'GAIN' ? '+ Gain' : '- Retenue'}
                                                                                 </span>
                                                                             </div>
-                                                                            <p className="text-[11px] font-mono text-[var(--color-fg-subtle)] mt-1">
+                                                                            <p className="text-[11px] font-data text-[var(--color-fg-subtle)] mt-1">
                                                                                 Code : {item.code}
                                                                             </p>
                                                                         </div>
@@ -899,7 +953,7 @@ export default function PayrollEngineMap() {
 
                                                                         {/* Bouton flèche */}
                                                                         <div className="shrink-0">
-                                                                            <button
+                                                                            <SharedButton plain
                                                                                 type="button"
                                                                                 aria-label={`Ouvrir le détail de ${item.libelle}`}
                                                                                 onClick={e => {
@@ -909,7 +963,7 @@ export default function PayrollEngineMap() {
                                                                                 className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                                                                             >
                                                                                 <ArrowRight size={16} />
-                                                                            </button>
+                                                                            </SharedButton>
                                                                         </div>
                                                                     </div>
                                                                 </li>
@@ -1033,7 +1087,7 @@ export default function PayrollEngineMap() {
                                         <h3 className="text-lg font-bold text-[var(--color-fg)] mt-2 leading-snug">
                                             {type.libelle}
                                         </h3>
-                                        <p className="text-xs font-mono text-[var(--color-fg-muted)] mt-0.5">
+                                        <p className="text-xs font-data text-[var(--color-fg-muted)] mt-0.5">
                                             Code : {type.code}
                                         </p>
                                         <div className="mt-2.5">
@@ -1085,7 +1139,7 @@ export default function PayrollEngineMap() {
                                                 {targetRubrique ? targetRubrique.libelle : 'Aucune rubrique liée'}
                                             </p>
                                             {targetRubrique?.code && (
-                                                <p className="text-xs font-mono text-[var(--color-fg-muted)] mt-0.5">
+                                                <p className="text-xs font-data text-[var(--color-fg-muted)] mt-0.5">
                                                     Code : {targetRubrique.code}
                                                 </p>
                                             )}
@@ -1166,7 +1220,7 @@ export default function PayrollEngineMap() {
                                         <h3 className="text-lg font-bold text-[var(--color-fg)] mt-2 leading-snug">
                                             {rubrique.libelle}
                                         </h3>
-                                        <p className="text-xs font-mono text-[var(--color-fg-muted)] mt-0.5">
+                                        <p className="text-xs font-data text-[var(--color-fg-muted)] mt-0.5">
                                             Code : {rubrique.code}
                                         </p>
                                         <p className="text-xs text-[var(--color-fg-muted)] mt-1">
@@ -1278,7 +1332,7 @@ export default function PayrollEngineMap() {
                                                     >
                                                         <div>
                                                             <p className="text-xs font-bold text-[var(--color-fg)]">{t.libelle}</p>
-                                                            <p className="text-[11px] font-mono text-[var(--color-fg-muted)]">Code : {t.code}</p>
+                                                            <p className="text-[11px] font-data text-[var(--color-fg-muted)]">Code : {t.code}</p>
                                                         </div>
                                                         <Button
                                                             variant="outline"
@@ -1361,6 +1415,7 @@ export default function PayrollEngineMap() {
             {/* ═════════════════════════════════════════════════════════ */}
             <FormModal
                 noValidate
+                formId="payroll-configuration-form"
                 isOpen={!!editor}
                 onClose={() => { if (!submitLock.current) setEditor(null); }}
                 onSubmit={handleSubmit}
@@ -1375,10 +1430,34 @@ export default function PayrollEngineMap() {
                 }
                 size="4xl"
                 submitLabel={editor?.version ? 'Enregistrer la nouvelle version' : 'Enregistrer'}
+                customFooter={isGuidedCreate ? (
+                    <div className="flex w-full items-center justify-between gap-3">
+                        <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => creationStep === 0 ? setEditor(null) : setCreationStep(step => step - 1)}>
+                            {creationStep === 0 ? 'Annuler' : 'Précédent'}
+                        </Button>
+                        {creationStep < 2 ? (
+                            <Button type="button" variant="primary" size="sm" onClick={advanceCreationStep}>Continuer</Button>
+                        ) : (
+                            <Button type="submit" form="payroll-configuration-form" variant="primary" size="sm" loading={saving}>Enregistrer</Button>
+                        )}
+                    </div>
+                ) : undefined}
             >
+                {isGuidedCreate && (
+                    <nav aria-label="Étapes de création" className="grid grid-cols-3 gap-2 text-xs">
+                        {(isEditingTypes
+                            ? ['Identification', 'Rubrique liée', 'Vérification']
+                            : ['Identification', 'Calcul et assiettes', 'Vérification']).map((label, index) => (
+                            <div key={label} aria-current={creationStep === index ? 'step' : undefined}
+                                className={`border-b-2 px-2 py-2 ${creationStep === index ? 'border-[var(--color-brand-500)] text-[var(--color-fg)] font-bold' : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]'}`}>
+                                {index + 1}. {label}
+                            </div>
+                        ))}
+                    </nav>
+                )}
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)] gap-8">
                     <div className="space-y-6 min-w-0">
-                        <fieldset disabled={saving} className="space-y-4">
+                        <fieldset disabled={saving} className={`space-y-4 ${isGuidedCreate && creationStep !== 0 ? 'hidden' : ''}`}>
                             <legend className="font-semibold mb-3">1. Identification</legend>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
@@ -1469,7 +1548,7 @@ export default function PayrollEngineMap() {
 
                         <fieldset
                             disabled={saving || (!isEditingTypes && treatmentLocked)}
-                            className="space-y-4 border-t border-[var(--color-border-subtle)] pt-5"
+                            className={`space-y-4 border-t border-[var(--color-border-subtle)] pt-5 ${isGuidedCreate && creationStep !== 1 ? 'hidden' : ''}`}
                         >
                             <legend className="font-semibold pt-3">
                                 2. {isEditingTypes ? 'Règle associée' : 'Calcul et assiettes'}
@@ -1590,7 +1669,7 @@ export default function PayrollEngineMap() {
                                                         {label}
                                                         {isFmfp ? ' · suit la CNaPS' : heriteDe && form[key] == null ? ' · Traitement hérité' : ''}
                                                     </span>
-                                                    <input
+                                                    <SharedCheckbox plain
                                                         type="checkbox"
                                                         className="w-4 h-4 accent-[var(--color-brand-500)] cursor-pointer disabled:cursor-not-allowed"
                                                         checked={Boolean(isFmfp ? form.soumisCnaps : form[key] ?? form[heriteDe])}
@@ -1618,7 +1697,7 @@ export default function PayrollEngineMap() {
                         {!isEditingTypes && (
                             <fieldset
                                 disabled={saving || treatmentLocked}
-                                className="space-y-4 border-t border-[var(--color-border-subtle)] pt-5"
+                                className={`space-y-4 border-t border-[var(--color-border-subtle)] pt-5 ${isGuidedCreate && creationStep !== 2 ? 'hidden' : ''}`}
                             >
                                 <legend className="font-semibold pt-3">3. Justification et validité</legend>
                                 <Input
@@ -1646,6 +1725,18 @@ export default function PayrollEngineMap() {
                             </fieldset>
                         )}
 
+                        <div className={`space-y-4 ${isGuidedCreate && creationStep !== 2 ? 'hidden' : ''}`}>
+                        {isGuidedCreate && (
+                            <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs space-y-1">
+                                <p className="font-semibold text-[var(--color-fg)]">Vérifiez avant l’enregistrement</p>
+                                <p>{form.libelle || 'Libellé à renseigner'} · {form.code || 'Code à renseigner'}</p>
+                                <p className="text-[var(--color-fg-muted)]">
+                                    {isEditingTypes
+                                        ? `Rubrique liée : ${availableRubriques.find(r => String(r.id) === String(form.idRubrique))?.libelle || 'à sélectionner'}`
+                                        : `Étape de calcul : ${chosenStage?.label || form.etapeCalcul || 'à sélectionner'}`}
+                                </p>
+                            </div>
+                        )}
                         <Input
                             label="Ordre dans le catalogue"
                             type="number"
@@ -1663,7 +1754,7 @@ export default function PayrollEngineMap() {
                             rows={3}
                         />
                         <label className="flex gap-3 items-center py-2 text-sm cursor-pointer">
-                            <input
+                            <SharedCheckbox plain
                                 type="checkbox"
                                 className="w-4 h-4 accent-[var(--color-brand-500)]"
                                 checked={!!form.estActif}
@@ -1672,6 +1763,7 @@ export default function PayrollEngineMap() {
                             />
                             Actif dans le catalogue
                         </label>
+                        </div>
                     </div>
 
                     {/* Aperçu à droite du modal */}
@@ -1717,7 +1809,7 @@ export default function PayrollEngineMap() {
                                                 Règle moteur associée
                                             </span>
                                             <p className="text-xs font-bold text-[var(--color-fg)]">{selectedRub.libelle}</p>
-                                            <p className="text-[11px] font-mono text-[var(--color-fg-muted)]">{selectedRub.code}</p>
+                                            <p className="text-[11px] font-data text-[var(--color-fg-muted)]">{selectedRub.code}</p>
                                         </div>
 
                                         <RubriqueCyclePreview start={selectedRub.dateDebutEffet} end={selectedRub.dateFinEffet} />

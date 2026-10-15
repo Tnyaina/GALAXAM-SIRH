@@ -1,3 +1,4 @@
+import { default as SharedInput, Select as SharedSelect } from '@/components/ui/forms/Input';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {   Calendar, MapPin, Search, Filter } from 'lucide-react';
@@ -451,7 +452,7 @@ export default function CalendrierFerieTab() {
                 <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
                     <div className="relative flex-1 sm:w-64 sm:flex-initial">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
-                        <input
+                        <SharedInput plain
                             type="text"
                             placeholder="Rechercher un férié..."
                             value={search}
@@ -462,7 +463,7 @@ export default function CalendrierFerieTab() {
 
                     <div className="flex items-center gap-1.5 h-9 bg-[var(--color-surface)] px-2.5 border border-[var(--color-border)] rounded-none">
                         <Filter size={13} className="text-[var(--color-fg-muted)] shrink-0" />
-                        <select
+                        <SharedSelect plain
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(e.target.value)}
                             className="bg-transparent text-xs font-semibold text-[var(--color-fg)] focus:outline-none cursor-pointer h-full"
@@ -473,11 +474,11 @@ export default function CalendrierFerieTab() {
                                     Année {year}
                                 </option>
                             ))}
-                        </select>
+                        </SharedSelect>
                     </div>
 
                     {subSection === 'site_feries' && (
-                        <select
+                        <SharedSelect plain
                             value={selectedSiteFilter}
                             onChange={(e) => setSelectedSiteFilter(e.target.value)}
                             className="h-9 bg-[var(--color-surface)] text-xs font-semibold text-[var(--color-fg)] px-3 border border-[var(--color-border)] rounded-none focus:outline-none cursor-pointer transition-colors"
@@ -488,7 +489,7 @@ export default function CalendrierFerieTab() {
                                 .map(s => (
                                     <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
                                 ))}
-                        </select>
+                        </SharedSelect>
                     )}
                 </div>
             </div>

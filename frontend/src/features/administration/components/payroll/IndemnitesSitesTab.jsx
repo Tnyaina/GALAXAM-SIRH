@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, Gift, MapPin, ShieldAlert, Power, Check } from 'lucide-react';
@@ -332,7 +333,7 @@ export default function IndemnitesSitesTab() {
                                             </Td>
                                             <Td className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button
+                                                    <SharedButton plain
                                                         onClick={() => {
                                                             setEditingIndemnite(ind);
                                                             setIndemniteFormData({
@@ -351,25 +352,25 @@ export default function IndemnitesSitesTab() {
                                                         aria-label={`Modifier ${ind.libelle}`}
                                                     >
                                                         <Edit2 size={15} />
-                                                    </button>
+                                                    </SharedButton>
                                                     {isActif ? (
-                                                        <button
+                                                        <SharedButton plain
                                                             onClick={() => requestToggleIndemniteStatus(ind)}
                                                             className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                             title="Désactiver l'indemnité (cascade sur sites et dérogations)"
                                                             aria-label={`Désactiver ${ind.libelle}`}
                                                         >
                                                             <Power size={15} />
-                                                        </button>
+                                                        </SharedButton>
                                                     ) : (
-                                                        <button
+                                                        <SharedButton plain
                                                             onClick={() => requestToggleIndemniteStatus(ind)}
                                                             className="p-1.5 text-[var(--color-success-600)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer transition-colors"
                                                             title="Réactiver l'indemnité"
                                                             aria-label={`Réactiver ${ind.libelle}`}
                                                         >
                                                             <Check size={15} />
-                                                        </button>
+                                                        </SharedButton>
                                                     )}
                                                 </div>
                                             </Td>
@@ -458,7 +459,7 @@ export default function IndemnitesSitesTab() {
                                                 </div>
                                             </Td>
                                             <Td className="font-medium text-[var(--color-fg)]">
-                                                {si.indemniteLibelle} <span className="font-mono text-xs text-[var(--color-fg-muted)]">({si.indemniteCode})</span>
+                                                {si.indemniteLibelle} <span className="font-data text-xs text-[var(--color-fg-muted)]">({si.indemniteCode})</span>
                                             </Td>
                                             <Td>
                                                 <Badge variant="default" size="sm">
@@ -479,7 +480,7 @@ export default function IndemnitesSitesTab() {
                                             </Td>
                                             <Td className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button
+                                                    <SharedButton plain
                                                         onClick={() => {
                                                             setEditingSiteIndemnite(si);
                                                             setSiteIndemniteFormData({
@@ -498,25 +499,25 @@ export default function IndemnitesSitesTab() {
                                                         aria-label={`Modifier le tarif pour ${si.siteLibelle}`}
                                                     >
                                                         <Edit2 size={15} />
-                                                    </button>
+                                                    </SharedButton>
                                                     {isActif ? (
-                                                        <button
+                                                        <SharedButton plain
                                                             onClick={() => requestToggleSiteIndemniteStatus(si)}
                                                             className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                             title="Désactiver le tarif site"
                                                             aria-label={`Désactiver le tarif pour ${si.siteLibelle}`}
                                                         >
                                                             <Power size={15} />
-                                                        </button>
+                                                        </SharedButton>
                                                     ) : (
-                                                        <button
+                                                        <SharedButton plain
                                                             onClick={() => requestToggleSiteIndemniteStatus(si)}
                                                             className="p-1.5 text-[var(--color-success-600)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer transition-colors"
                                                             title="Réactiver le tarif site"
                                                             aria-label={`Réactiver le tarif pour ${si.siteLibelle}`}
                                                         >
                                                             <Check size={15} />
-                                                        </button>
+                                                        </SharedButton>
                                                     )}
                                                 </div>
                                             </Td>

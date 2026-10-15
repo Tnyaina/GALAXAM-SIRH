@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { CheckCircle2, Lock, AlertTriangle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
@@ -127,7 +128,7 @@ export default function PayrollPeriodStepper({
                                 ${isActive ? 'bg-[var(--color-brand-500)]/5' : ''}
                             `}
                         >
-                            <button
+                            <SharedButton plain
                                 type="button"
                                 aria-disabled={!accessible}
                                 onClick={() => accessible ? navigate(step.destination) : setBlockedStep(step)}
@@ -168,7 +169,7 @@ export default function PayrollPeriodStepper({
                                         </span>
                                     )}
                                 </span>
-                            </button>
+                            </SharedButton>
                         </li>
                     );
                 })}

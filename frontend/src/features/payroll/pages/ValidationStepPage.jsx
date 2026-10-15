@@ -1,3 +1,4 @@
+import { Textarea as SharedTextarea } from '@/components/ui/forms/Input';
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react';
@@ -286,7 +287,7 @@ export default function ValidationStepPage() {
                         <label htmlFor="reopen-reason" className="mb-1 block text-sm font-semibold text-[var(--color-fg)]">
                             Motif
                         </label>
-                        <textarea
+                        <SharedTextarea plain
                             id="reopen-reason"
                             className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]"
                             rows={3}

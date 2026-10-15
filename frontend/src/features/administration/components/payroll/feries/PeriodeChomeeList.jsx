@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState } from 'react';
 import { Edit2, Trash2, Calendar, MapPin, CheckCircle, Clock } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
@@ -100,22 +101,22 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
                                     </Td>
                                     <Td>
                                         <div className="flex items-center justify-end gap-1.5">
-                                            <button
+                                            <SharedButton plain
                                                 onClick={() => onOpenEdit(p)}
                                                 className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier"
                                                 aria-label={`Modifier période ${p.libelle}`}
                                             >
                                                 <Edit2 size={16} />
-                                            </button>
-                                            <button
+                                            </SharedButton>
+                                            <SharedButton plain
                                                 onClick={() => setDeleteTarget(p)}
                                                 className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                 title="Supprimer"
                                                 aria-label={`Supprimer période ${p.libelle}`}
                                             >
                                                 <Trash2 size={16} />
-                                            </button>
+                                            </SharedButton>
                                         </div>
                                     </Td>
                                 </Tr>

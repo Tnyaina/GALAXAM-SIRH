@@ -1,3 +1,4 @@
+import { Radio as SharedRadio } from '@/components/ui/forms/Input';
 import { useEffect } from 'react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -90,7 +91,7 @@ export default function PeriodeChomeeFormModal({
                     </label>
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]">
-                            <input
+                            <SharedRadio plain
                                 type="radio"
                                 name="portee"
                                 checked={!isSite}
@@ -100,7 +101,7 @@ export default function PeriodeChomeeFormModal({
                             Nationale (Tous sites)
                         </label>
                         <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]">
-                            <input
+                            <SharedRadio plain
                                 type="radio"
                                 name="portee"
                                 checked={isSite}
@@ -134,7 +135,7 @@ export default function PeriodeChomeeFormModal({
                     </label>
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]">
-                            <input
+                            <SharedRadio plain
                                 type="radio"
                                 name="estPaye"
                                 checked={formData.estPaye}
@@ -144,7 +145,7 @@ export default function PeriodeChomeeFormModal({
                             Maintenu / Payé
                         </label>
                         <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]">
-                            <input
+                            <SharedRadio plain
                                 type="radio"
                                 name="estPaye"
                                 checked={!formData.estPaye}

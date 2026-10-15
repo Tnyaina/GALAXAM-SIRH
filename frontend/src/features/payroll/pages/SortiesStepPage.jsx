@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Archive, ArrowRight, BookOpen, CheckCircle2, FileText, LockKeyhole, ShieldCheck } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/data-display/Card';
@@ -13,6 +13,7 @@ import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
+import { periodState } from '@/features/payroll/utils/documentPeriodState';
 
 /** Dernière étape : contrôle des sorties disponibles et clôture de la période. */
 export default function SortiesStepPage() {
@@ -20,13 +21,13 @@ export default function SortiesStepPage() {
     const navigate = useNavigate();
     const toast = useToast();
     const id = Number(periodId) || null;
-    const { periodes, context, loading, refreshSilent } = usePayrollCampaign(id);
+    const { periodes, context, loading, error, refreshSilent } = usePayrollCampaign(id);
     const [cockpit, setCockpit] = useState(null);
     const [cockpitError, setCockpitError] = useState('');
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [closing, setClosing] = useState(false);
     const period = context?.selectedPeriod || context?.currentPeriod;
-    const status = period?.workflowStatuses?.paie?.code || period?.state;
+    const status = periodState(period);
     const closed = status === 'CLOTUREE';
     const validated = ['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(status);
     const canClose = context?.availableActions?.CLOSE?.allowed === true;
@@ -34,12 +35,12 @@ export default function SortiesStepPage() {
 
     useEffect(() => {
         let active = true;
-        if (!id) return undefined;
+        if (!id || !validated) return undefined;
         paieService.getCockpitPeriode(id, { page: 1, size: 1 })
             .then(data => { if (active) setCockpit(data); })
             .catch(error => { if (active) setCockpitError(getErrorMessage(error, 'Totaux indisponibles.')); });
         return () => { active = false; };
-    }, [id]);
+    }, [id, validated]);
 
     const closePeriod = useCallback(async () => {
         if (!id || !canClose) return;
@@ -60,6 +61,10 @@ export default function SortiesStepPage() {
     const kpis = cockpit?.kpis || {};
     const totalBrut = kpis.totalGainsBruts ?? kpis.totalBrut ?? kpis.masseSalarialeBrute ?? null;
     const totalNet = kpis.totalNetAPayer ?? kpis.masseNetAPayer ?? null;
+
+    if (loading) return <div role="status" className="p-6 text-sm text-[var(--color-fg-muted)]">Vérification de l’accès à la clôture…</div>;
+    if (error) return <Alert type="error" title="Campagne indisponible" message={error} />;
+    if (!context || !validated) return <Navigate to={id ? `/paie?periodId=${id}` : '/paie'} replace state={{ blockedOutputs: true }} />;
 
     return (
         <PayrollCampaignShell context={context} periodes={periodes} activeStep="OUTPUTS" loading={loading}

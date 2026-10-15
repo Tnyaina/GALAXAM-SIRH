@@ -1,3 +1,5 @@
+import SharedButton from '@/components/ui/forms/Button';
+import { Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Building2, Check, Edit2, MapPin, Plus, Power, ShieldCheck, Eye } from 'lucide-react';
@@ -176,7 +178,7 @@ function CotisationFormModal({ isOpen, onClose, onSubmit, editingCotisation, for
                         </label>
                         <div className="flex gap-2">
                             {[['SITE', MapPin, 'Par site'], ['ENTREPRISE', Building2, 'Entreprise entière']].map(([value, Icon, label]) => (
-                                <button
+                                <SharedButton plain
                                     key={value}
                                     type="button"
                                     onClick={() => setFormData({ ...formData, portee: value })}
@@ -188,7 +190,7 @@ function CotisationFormModal({ isOpen, onClose, onSubmit, editingCotisation, for
                                 >
                                     <Icon size={13} />
                                     {label}
-                                </button>
+                                </SharedButton>
                             ))}
                         </div>
                         <p className="text-[10px] text-[var(--color-fg-muted)] mt-1 truncate">
@@ -299,13 +301,13 @@ function SiteCotisationsList({ siteCotisations = [], onOpenCreate, onToggleStatu
                                     </Badge>
                                 </Td>
                                 <Td className="text-right">
-                                    <button
+                                    <SharedButton plain
                                         onClick={() => onToggleStatus(item)}
                                         className={`p-1.5 rounded-none cursor-pointer ${item.estActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`}
                                         title={item.estActif ? "Désactiver l'association" : "Réactiver l'association"}
                                     >
                                         {item.estActif ? <Power size={16} /> : <Check size={16} />}
-                                    </button>
+                                    </SharedButton>
                                 </Td>
                             </Tr>
                         ))}
@@ -384,8 +386,8 @@ function CotisationsList({ cotisations = [], onOpenCreate, onOpenEdit, onToggleS
                                     <Td isData muted className="text-xs">Du {fmtDate(item.dateDebut)} {item.dateFin ? `au ${fmtDate(item.dateFin)}` : '(actif)'}</Td>
                                     <Td><Badge variant={active ? 'success' : 'default'} size="sm" dot>{active ? 'Actif' : 'Désactivé'}</Badge></Td>
                                     <Td className="text-right">
-                                        <button onClick={() => onOpenEdit(item)} className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer" title="Modifier"><Edit2 size={16} /></button>
-                                        <button onClick={() => onToggleStatus(item)} className={`p-1.5 rounded-none cursor-pointer ${active ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`} title={active ? 'Désactiver' : 'Réactiver'}>{active ? <Power size={16} /> : <Check size={16} />}</button>
+                                        <SharedButton plain onClick={() => onOpenEdit(item)} className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer" title="Modifier"><Edit2 size={16} /></SharedButton>
+                                        <SharedButton plain onClick={() => onToggleStatus(item)} className={`p-1.5 rounded-none cursor-pointer ${active ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`} title={active ? 'Désactiver' : 'Réactiver'}>{active ? <Power size={16} /> : <Check size={16} />}</SharedButton>
                                     </Td>
                                 </Tr>
                             );
@@ -445,13 +447,13 @@ function OrganismesSociauxList({ organismes = [], onOpenCreate, onToggleStatus }
                                         </Badge>
                                     </Td>
                                     <Td className="text-right">
-                                        <button
+                                        <SharedButton plain
                                             onClick={() => onToggleStatus(item)}
                                             className={`p-1.5 rounded-none cursor-pointer ${active ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`}
                                             title={active ? 'Désactiver' : 'Réactiver'}
                                         >
                                             {active ? <Power size={16} /> : <Check size={16} />}
-                                        </button>
+                                        </SharedButton>
                                     </Td>
                                 </Tr>
                             );
@@ -796,7 +798,7 @@ export default function CotisationsIrsaTab() {
             <div className="flex justify-end">
                 {subSection === 'site_cotisations' && (
                     <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none">
-                        <input
+                        <SharedCheckbox plain
                             type="checkbox"
                             checked={showInactive}
                             onChange={(e) => setShowInactive(e.target.checked)}

@@ -430,13 +430,13 @@ export default function StcPreparationModal({
                             </div>
                             <div>
                                 <span className="text-[11px] text-[var(--color-fg-muted)] block">Salaire Base Contractuel</span>
-                                <strong className="font-mono text-[var(--color-fg)]">{formatMoneyAr(prepData.salaireBase)}</strong>
-                                <span className="text-[10px] text-[var(--color-fg-muted)] font-mono block">({formatMoneyAr(prepData.tauxHoraire)}/h)</span>
+                                <strong className="font-data text-[var(--color-fg)]">{formatMoneyAr(prepData.salaireBase)}</strong>
+                                <span className="text-[10px] text-[var(--color-fg-muted)] font-data block">({formatMoneyAr(prepData.tauxHoraire)}/h)</span>
                             </div>
                             <div>
                                 <span className="text-[11px] text-[var(--color-fg-muted)] block">Solde Congés & Taux congés</span>
                                 <strong className="text-[var(--color-fg)]">{prepData.soldeCongesRestant} jours</strong>
-                                <span className="text-[10px] text-[var(--color-fg-muted)] font-mono block">({formatMoneyAr(prepData.tauxJournalierConge)}/j)</span>
+                                <span className="text-[10px] text-[var(--color-fg-muted)] font-data block">({formatMoneyAr(prepData.tauxJournalierConge)}/j)</span>
                             </div>
                         </div>
                         {!simulationOnly && prepData.controlesApplication?.length > 0 && (
@@ -655,7 +655,7 @@ export default function StcPreparationModal({
                                         <p className="text-[11px] text-[var(--color-fg-muted)]">
                                             Acomptes versés et créances financières pour ce collaborateur :
                                         </p>
-                                        <ul className="list-disc pl-5 space-y-0.5 text-[11px] font-mono">
+                                        <ul className="list-disc pl-5 space-y-0.5 text-[11px] font-data">
                                             {Number(prepData.capitalRestantPrets) > 0 && (
                                                 <li>Prêt(s) d'entreprise en cours : <strong>{formatMoneyAr(prepData.capitalRestantPrets)}</strong></li>
                                             )}
@@ -735,7 +735,7 @@ export default function StcPreparationModal({
                                             <Th className="text-right">Montant</Th>
                                         </Tr>
                                     </Thead>
-                                    <Tbody className="font-mono text-[11px]">
+                                    <Tbody className="font-data text-[11px]">
                                         {Number(calculResult.salaireProrata) > 0 && (
                                             <Tr>
                                                 <Td className="font-sans">
@@ -820,7 +820,7 @@ export default function StcPreparationModal({
                                                     Arrondi légal à la dizaine d'Ariary
                                                 </span>
                                             </Td>
-                                            <Td className="p-3 text-right text-lg font-mono font-black text-inherit">
+                                            <Td className="p-3 text-right text-lg font-data font-black text-inherit">
                                                 {formatMoneyAr(calculResult.netAPayerStc ?? calculResult.netAPayer)}
                                             </Td>
                                         </Tr>

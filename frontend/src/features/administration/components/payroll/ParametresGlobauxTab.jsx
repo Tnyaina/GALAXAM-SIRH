@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     Sliders, Search, Calendar, ShieldCheck,
@@ -887,7 +888,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                         ];
                         return <Card key={block.id} className="overflow-hidden p-0" shadow="sm">
                             <div className="w-full flex flex-wrap items-center gap-3 px-4 py-3 text-left bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)]">
-                                <button
+                                <SharedButton plain
                                     type="button"
                                     aria-expanded={!isCollapsed}
                                     aria-controls={`param-block-${block.id}`}
@@ -902,7 +903,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 <span className="flex h-9 w-9 items-center justify-center border border-[var(--color-brand-500)]/20 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]"><BlockIcon size={18} /></span>
                                 <span className="min-w-0 flex-1"><span role="heading" aria-level="2" className="block text-sm font-bold text-[var(--color-fg)]">{block.titre}</span>{block.sousTitre && <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">{block.sousTitre}</span>}</span>
                                 <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-[var(--color-fg-muted)] transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
-                                </button>
+                                </SharedButton>
                                 {canWrite && toggleableGroups.map(group => {
                                     const members = parametres.filter(p => group.codes.includes(p.codeParametre) && getStatut(p) === 'EN_VIGUEUR');
                                     const active = members.length === group.codes.length && members.every(p => p.estActif);
@@ -926,7 +927,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                             <span className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)]"><ParamIcon size={17} /></span>
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <button type="button" onClick={() => { setDetailsError(''); setDetails(param); }} className="text-left text-sm font-semibold text-[var(--color-fg)] hover:text-[var(--color-brand-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]">{meta?.titre || param.codeParametre}</button>
+                                                    <SharedButton plain type="button" onClick={() => { setDetailsError(''); setDetails(param); }} className="text-left text-sm font-semibold text-[var(--color-fg)] hover:text-[var(--color-brand-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]">{meta?.titre || param.codeParametre}</SharedButton>
                                                     <StatutBadge statut={getStatut(param)} />
                                                 </div>
                                                 <p className="mt-1 text-xs text-[var(--color-fg-muted)] leading-relaxed">{param.description || meta?.explication || param.codeParametre}</p>
@@ -970,11 +971,11 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             )}
             <Modal isOpen={!!details} onClose={() => setDetails(null)} title="Détail du paramètre" size="lg">
                 {details && <div className="space-y-4">
-                    <div><h3 className="font-semibold">{PARAMETRE_METADATA[details.codeParametre]?.titre || details.codeParametre}</h3><p className="font-mono text-xs text-[var(--color-fg-muted)]">{details.codeParametre}</p></div>
+                    <div><h3 className="font-semibold">{PARAMETRE_METADATA[details.codeParametre]?.titre || details.codeParametre}</h3><p className="font-data text-xs text-[var(--color-fg-muted)]">{details.codeParametre}</p></div>
                     <p className="text-sm">{details.description || 'Description non renseignée.'}</p>
                     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"><div><dt className="text-[var(--color-fg-muted)]">Valeur</dt><dd>{formatValeurAffichage(details.codeParametre,details.valeur)}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Domaine</dt><dd>{CATEGORIE_LABELS[details.categorie] || details.categorie}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Validité</dt><dd>{formatPeriodeValidite(details.dateDebut,details.dateFin,getStatut(details))}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Version</dt><dd><StatutBadge statut={getStatut(details)} /></dd></div></dl>
                     {details.historiqueNonConsomme && <p className="text-sm text-[var(--color-fg-muted)]">Paramètre historique non consommé par le moteur.</p>}
-                    {parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).length > 0 && <div className="border-t border-[var(--color-border-subtle)] pt-3 space-y-2"><h4 className="font-semibold text-sm">Autres versions</h4>{parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).map(param => <div key={param.idParametre} className="flex flex-wrap justify-between gap-2 text-sm"><span>{formatPeriodeValidite(param.dateDebut,param.dateFin,getStatut(param))}</span><span className="font-mono">{formatValeurAffichage(param.codeParametre,param.valeur)}</span></div>)}</div>}
+                    {parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).length > 0 && <div className="border-t border-[var(--color-border-subtle)] pt-3 space-y-2"><h4 className="font-semibold text-sm">Autres versions</h4>{parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).map(param => <div key={param.idParametre} className="flex flex-wrap justify-between gap-2 text-sm"><span>{formatPeriodeValidite(param.dateDebut,param.dateFin,getStatut(param))}</span><span className="font-data">{formatValeurAffichage(param.codeParametre,param.valeur)}</span></div>)}</div>}
                     {details.effetDesactivation && <div className="border-t border-[var(--color-border-subtle)] pt-3"><h4 className="font-semibold text-sm">Effet de la désactivation</h4><p className="text-sm text-[var(--color-fg-muted)]">{details.effetDesactivation}</p></div>}
                     {detailsError && <FormError message={detailsError} />}
                     {canWrite && details.peutBasculer && !THEMATIC_BLOCKS.some(block => [...(block.activationCodes || []), ...(block.activationGroups || []).flatMap(group => group.codes)].includes(details.codeParametre)) && <Button variant="outline" onClick={event => handleToggleActif(details, event)}>{details.estActif ? 'Désactiver' : 'Activer'}</Button>}
@@ -1078,7 +1079,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                         onBlur={() => setFieldErrors(previous => ({ ...previous, valeur: validateField('valeur', formData.valeur) }))}
                                         placeholder={meta?.unite === 'Ar' ? "Ex: 350000.01 ou 2000" : "Ex: 8 ou 19:30"}
                                         hint={meta?.unite ? `Unité de compte : ${meta.unite}. Accepte les valeurs décimales (ex: 350000.01).` : "Saisie de la valeur pivot du moteur."}
-                                        className="font-mono font-bold text-sm"
+                                        className="font-data font-bold text-sm"
                                     />
                                 </div>
 
@@ -1098,7 +1099,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                         : (formData.effetDesactivation || 'La règle est désactivée.')}
                                                 </div>
                                             </div>
-                                            <button
+                                            <SharedButton plain
                                                 type="button"
                                                 role="switch"
                                                 aria-checked={formData.estActif}
@@ -1114,7 +1115,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                         formData.estActif ? 'translate-x-4 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
                                                     }`}
                                                 />
-                                            </button>
+                                            </SharedButton>
                                         </div>
 
                                         {!isNouvelleVersion && formData.dateDebut && (

@@ -41,7 +41,7 @@ export default function PayrollIssueBadge({
         >
             <Icon size={12} className="shrink-0" aria-hidden="true" />
             {count !== undefined && count !== null && (
-                <span className="font-mono font-bold">{count}</span>
+                <span className="font-data font-bold">{count}</span>
             )}
             <span>{label || config.label}</span>
         </span>

@@ -1,3 +1,5 @@
+import SharedButton from '@/components/ui/forms/Button';
+import { default as SharedInput } from '@/components/ui/forms/Input';
 import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -250,7 +252,7 @@ export default function CalculStepPage() {
                                     {affectedEmployees.map((emp, idx) => (
                                         <div key={idx} className="flex items-center justify-between p-2 bg-[var(--color-bg-subtle)] rounded border border-[var(--color-border-subtle)]">
                                             <span className="font-medium text-[var(--color-fg)]">{emp.nomPrenom || emp.matricule}</span>
-                                            <span className="text-[11px] text-[var(--color-fg-muted)] font-mono">
+                                            <span className="text-[11px] text-[var(--color-fg-muted)] font-data">
                                                 {[emp.source, emp.detail].filter(Boolean).join(' · ')}
                                             </span>
                                         </div>
@@ -411,7 +413,7 @@ export default function CalculStepPage() {
                                         {/* Champ de recherche */}
                                         <div className="relative">
                                             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
-                                            <input
+                                            <SharedInput plain
                                                 type="text"
                                                 placeholder="Nom, matricule, erreur…"
                                                 value={blockedSearch}
@@ -419,9 +421,9 @@ export default function CalculStepPage() {
                                                 className="pl-8 pr-8 py-1.5 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)] w-52"
                                             />
                                             {blockedSearch && (
-                                                <button type="button" onClick={() => { setBlockedSearch(''); setBlockedPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer">
+                                                <SharedButton plain type="button" onClick={() => { setBlockedSearch(''); setBlockedPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer">
                                                     <XCircle size={13} />
-                                                </button>
+                                                </SharedButton>
                                             )}
                                         </div>
                                     </div>
@@ -434,7 +436,7 @@ export default function CalculStepPage() {
                                                 <div className="min-w-0">
                                                     <p className="font-semibold text-[var(--color-fg)]">
                                                         {outcome.employeeName || `Salarié ${outcome.employeeId}`}
-                                                        {outcome.matricule && <span className="ml-2 font-normal font-mono text-[var(--color-fg-muted)] text-xs">{outcome.matricule}</span>}
+                                                        {outcome.matricule && <span className="ml-2 font-normal font-data text-[var(--color-fg-muted)] text-xs">{outcome.matricule}</span>}
                                                     </p>
                                                     <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
                                                         {outcome.reasonCode === 'LEAVE_RATE_MISSING'
@@ -444,7 +446,7 @@ export default function CalculStepPage() {
                                                     {(outcome.message || outcome.reasonCode) && (
                                                         <details className="mt-1 text-xs text-[var(--color-fg-muted)]">
                                                             <summary className="cursor-pointer">Détail technique</summary>
-                                                            <p className="mt-1 break-words font-mono">{outcome.message || outcome.reasonCode}</p>
+                                                            <p className="mt-1 break-words font-data">{outcome.message || outcome.reasonCode}</p>
                                                         </details>
                                                     )}
                                                 </div>

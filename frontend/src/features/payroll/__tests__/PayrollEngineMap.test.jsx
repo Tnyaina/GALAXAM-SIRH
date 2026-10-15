@@ -54,6 +54,36 @@ it('place les données du serveur dans leur phase et relie type et rubrique selo
     expect(document.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Prime exceptionnelle');
 });
 
+it('limite le catalogue de rubriques à une page et garde l’accès aux suivantes', async () => {
+    const rubriques = Array.from({ length: 30 }, (_, index) => ({
+        ...rule,
+        id: index + 1,
+        code: `RUBRIQUE_${index + 1}`,
+        libelle: `Rubrique ${index + 1}`,
+    }));
+    paieService.getParcoursConfiguration.mockResolvedValue({
+        phases: [{ code: 'BRUT', libelle: 'Brut et gains' }], rubriques, types: [],
+    });
+    await act(async () => root.render(<MemoryRouter initialEntries={['/paie/configuration']}><PayrollEngineMap /></MemoryRouter>));
+
+    expect(host.querySelector('button[aria-label="Ouvrir le détail de Rubrique 25"]')).toBeTruthy();
+    expect(host.querySelector('button[aria-label="Ouvrir le détail de Rubrique 26"]')).toBeNull();
+    await act(async () => host.querySelector('button[aria-label="Page 2"]').click());
+    expect(host.querySelector('button[aria-label="Ouvrir le détail de Rubrique 26"]')).toBeTruthy();
+    expect(host.querySelector('button[aria-label="Ouvrir le détail de Rubrique 1"]')).toBeNull();
+});
+
+it('guide la création et bloque le passage si l’identification est vide', async () => {
+    await act(async () => root.render(<MemoryRouter initialEntries={['/paie/configuration']}><PayrollEngineMap /></MemoryRouter>));
+    const create = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Nouvelle règle'));
+    await act(async () => create.click());
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.querySelector('[aria-current="step"]').textContent).toContain('Identification');
+    await act(async () => [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Continuer').click());
+    expect(dialog.querySelector('[aria-current="step"]').textContent).toContain('Identification');
+    expect(dialog.textContent).toContain('Renseignez ce champ');
+});
+
 it('ouvre la création d’un type prélié depuis une rubrique sans type', async () => {
     paieService.getConfigurationCatalogue.mockResolvedValue({ rubriquesCompatibles: [{ ...rule, id: 42, code: 'PRIME_PROJET_TEST', libelle: 'Prime projet', categorie: 'PRIME', sens: 'GAIN', typeValeur: 'MONTANT' }], defautsType: { sens: 'GAIN' }, options: { etapes: [] } });
     paieService.getParcoursConfiguration.mockResolvedValue({

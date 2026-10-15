@@ -12,6 +12,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/data-disp
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
+import { periodState } from '@/features/payroll/utils/documentPeriodState';
 
 const MONTHLY = [
     { id: 'bulletins', name: 'Bulletins individuels', detail: 'Un bulletin par salarié, consultable depuis la campagne.', format: 'PDF · Excel', ready: true },
@@ -42,12 +43,11 @@ const monthKey = (period) => {
     return code || period?.dateFin?.slice(0, 7) || null;
 };
 const quarterKey = (month) => month ? `${month.slice(0, 4)}-T${Math.ceil(Number(month.slice(5, 7)) / 3)}` : null;
-const periodState = (period) => period?.workflowStatuses?.paie?.code || period?.statutCode || period?.statut || period?.state;
 const monthStatus = (period) => !period
     ? { label: 'Période absente', variant: 'secondary' }
     : VALIDATED_STATES.has(periodState(period))
         ? { label: periodState(period) === 'CLOTUREE' ? 'Clôturée' : 'Paie validée', variant: 'success' }
-        : { label: period.workflowStatuses?.paie?.label || 'À valider', variant: 'warning' };
+        : { label: period.workflowStatuses?.paie?.label || 'Paie non validée', variant: 'warning' };
 
 /** Catalogue des documents de paie. Les exports futurs sont présentés sans action fictive. */
 export default function DeclarationsSortiesPage() {
@@ -101,6 +101,23 @@ export default function DeclarationsSortiesPage() {
     const list = activeTab === 'mensuel' ? MONTHLY : activeTab === 'trimestriel' ? QUARTERLY : YEARLY;
     const canExport = context?.availableActions?.GENERATE_OUTPUT?.allowed === true
         && VALIDATED_STATES.has(periodState(period));
+    const documentState = (item) => {
+        if (activeTab === 'trimestriel') {
+            if (validatedMonthCount !== 3) return { available: false, label: `${3 - validatedMonthCount} mois à valider` };
+            if (quarterStatusError) return { available: false, label: 'Statut indisponible' };
+            if (quarterStatus == null) return { available: false, label: 'Vérification en cours' };
+            return Number(quarterStatus[item.id]) > 0
+                ? { available: true, label: 'À contrôler par la DAF' }
+                : { available: false, label: 'Aucune cotisation à déclarer' };
+        }
+        if (activeTab === 'annuel') return validatedMonthCount > 0
+            ? { available: true, label: validatedMonthCount === 12 ? 'Année complète' : `Partiel · ${validatedMonthCount}/12 mois` }
+            : { available: false, label: 'Aucune paie validée' };
+        if (!periodId) return { available: false, label: 'Choisir une période' };
+        return canExport ? { available: true, label: item.id === 'bulletins' ? 'Consultables' : 'Disponible' }
+            : { available: false, label: 'Après validation de la paie' };
+    };
+    const availableCount = list.filter(item => documentState(item).available).length;
     const downloadExcel = async (type) => {
         if (!periodId || !canExport) return;
         setDownloading(type);
@@ -153,22 +170,20 @@ export default function DeclarationsSortiesPage() {
     return (
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full space-y-5 pb-8">
             <SEO title="Documents et exports de paie | GALAXAM GRH" description="Catalogue des documents mensuels, trimestriels et annuels de paie." />
-            <PageHeader title="Documents et exports de paie" subtitle="Retrouvez les pièces par période. Les formats déclaratifs restent soumis à la revue de la DAF."
-                icon={FolderOpen} backLink="/paie" backLabel="Centre de paie"
-                actions={activeTab === 'mensuel' && periodId && <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/sorties`)}>Étape de clôture</Button>} />
+            <PageHeader title="Documents et exports de paie" subtitle="Consultez les bulletins et téléchargez les états disponibles pour la période choisie."
+                icon={FolderOpen} backLink="/paie" backLabel="Centre de paie" />
             {downloadError && <Alert type="error" message={downloadError} onClose={() => setDownloadError('')} />}
             {quarterStatusError && <Alert type="error" message={quarterStatusError} />}
 
             <Card shadow="none">
-                <CardBody className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2"><CalendarDays size={17} className="text-[var(--color-brand-600)]" /><span className="text-sm font-semibold">{activeTab === 'mensuel' ? 'Période de paie' : activeTab === 'trimestriel' ? 'Trimestre' : 'Année'}</span><Badge variant="secondary" size="sm">{activeTab === 'mensuel' ? periodCode : activeTab === 'trimestriel' ? `${selectedQuarter.slice(5)} ${selectedQuarter.slice(0, 4)}` : selectedYear}</Badge></div>
-                    <div className="flex items-center gap-2 min-w-[280px]">
-                        <span className="text-xs text-[var(--color-fg-muted)] shrink-0">{activeTab === 'mensuel' ? 'Changer de période :' : activeTab === 'trimestriel' ? 'Choisir un trimestre :' : 'Choisir une année :'}</span>
+                <CardBody className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-2"><CalendarDays size={17} className="text-[var(--color-brand-600)]" /><span className="text-sm font-semibold">{activeTab === 'mensuel' ? 'Période de paie' : activeTab === 'trimestriel' ? 'Trimestre' : 'Année'}</span></div>
                         <SearchSelect
                             placeholder={activeTab === 'mensuel' ? 'Rechercher une période…' : activeTab === 'trimestriel' ? 'Choisir un trimestre…' : 'Choisir une année…'}
                             value={activeTab === 'mensuel' ? periodId ? String(periodId) : '' : activeTab === 'trimestriel' ? selectedQuarter : selectedYear}
                             onChange={(val) => changeParam(activeTab === 'mensuel' ? 'periodId' : activeTab === 'trimestriel' ? 'trimestre' : 'annee', val)}
-                            className="w-full min-w-[220px]"
+                            className="w-full sm:w-80"
                             options={activeTab === 'mensuel' ? periodes.map(p => {
                                 const id = p.idPeriodePaie || p.id;
                                 return {
@@ -179,26 +194,26 @@ export default function DeclarationsSortiesPage() {
                             }) : activeTab === 'trimestriel' ? quarterOptions : yearOptions}
                         />
                     </div>
+                    <Tabs tabs={TABS} activeTab={activeTab} onChange={(id) => changeParam('vue', id)} />
+                    <div className="flex flex-wrap items-center gap-2 border-t border-[var(--color-border-subtle)] pt-3 text-xs text-[var(--color-fg-muted)]" aria-live="polite">
+                        {activeTab === 'mensuel' && <Badge variant={VALIDATED_STATES.has(periodState(period)) ? 'success' : 'warning'} size="sm">{monthStatus(period).label}</Badge>}
+                        <strong className="text-[var(--color-fg)]">{availableCount} document{availableCount > 1 ? 's' : ''} disponible{availableCount > 1 ? 's' : ''}</strong>
+                        <span>· {list.length - availableCount} à débloquer ou vérifier</span>
+                    </div>
                 </CardBody>
             </Card>
-
-            <Tabs
-                tabs={TABS}
-                activeTab={activeTab}
-                onChange={(id) => changeParam('vue', id)}
-                className="mt-2"
-            />
 
             {activeTab !== 'mensuel' && <Card shadow="none">
                 <CardHeader><CardTitle size="sm">{activeTab === 'trimestriel' ? `Couverture de ${selectedQuarter.slice(5)} ${selectedQuarter.slice(0, 4)}` : `Couverture de ${selectedYear}`} · {validatedMonthCount}/{coveredMonths.length} périodes validées</CardTitle></CardHeader>
                 <CardBody>
-                    <div className={`grid gap-3 ${activeTab === 'trimestriel' ? 'md:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
+                    <div className={`grid gap-1 ${activeTab === 'trimestriel' ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-6 lg:grid-cols-12'}`}>
                         {coveredMonths.map(key => {
                             const item = periodsByMonth.get(key);
                             const state = monthStatus(item);
-                            return <div key={key} className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3 min-w-0">
-                                <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{MONTH_NAMES[Number(key.slice(5)) - 1]} {key.slice(0, 4)}</span><Badge variant={state.variant} size="xs">{state.label}</Badge></div>
-                                {item && <Button variant="link" size="xs" className="mt-2 p-0 h-auto font-semibold" onClick={() => navigate(`/paie/periodes/${item.idPeriodePaie || item.id}/sorties`)}>Voir la campagne →</Button>}
+                            return <div key={key} className={`min-w-0 border-t-2 px-2 py-2.5 bg-[var(--color-bg-subtle)]/60 ${state.variant === 'success' ? 'border-[var(--color-success-500)]' : 'border-[var(--color-warning-500)]'}`}>
+                                <span className="block text-xs font-semibold truncate" title={`${MONTH_NAMES[Number(key.slice(5)) - 1]} ${key.slice(0, 4)}`}>{activeTab === 'trimestriel' ? MONTH_NAMES[Number(key.slice(5)) - 1] : MONTH_NAMES[Number(key.slice(5)) - 1].slice(0, 3)}</span>
+                                <span className="block mt-1 text-[11px] text-[var(--color-fg-muted)]">{state.label}</span>
+                                {item && <Button variant="link" size="xs" className="mt-1 p-0 h-auto text-[11px]" onClick={() => navigate(state.variant === 'success' ? `/paie/periodes/${item.idPeriodePaie || item.id}/sorties` : `/paie?periodId=${item.idPeriodePaie || item.id}`)}>{state.variant === 'success' ? 'Ouvrir' : 'Voir la campagne'}</Button>}
                             </div>;
                         })}
                     </div>
@@ -211,25 +226,33 @@ export default function DeclarationsSortiesPage() {
                 <div className="divide-y divide-[var(--color-border-subtle)]">
                     {list.map(item => {
                         const needsValidation = item.id === 'grand-livre' || item.id === 'irsa' || item.id === 'social';
-                        const available = activeTab === 'trimestriel' ? validatedMonthCount === 3 && Number(quarterStatus?.[item.id]) > 0 : activeTab === 'annuel' ? validatedMonthCount > 0 : Boolean(periodId) && canExport;
-                        const status = activeTab === 'trimestriel' ? validatedMonthCount !== 3 ? '3 mois requis' : quarterStatus == null ? 'Vérification' : available ? 'À contrôler' : 'Aucune cotisation' : activeTab === 'annuel' ? validatedMonthCount === 12 ? 'Année complète' : available ? `Partiel · ${validatedMonthCount}/12` : 'Aucune paie validée' : !periodId ? 'Période absente' : available ? 'Disponible' : 'Après validation de la paie';
+                        const { available, label: status } = documentState(item);
                         const Icon = activeTab === 'mensuel' ? item.id === 'bulletins' ? FileText : FileSpreadsheet : activeTab === 'trimestriel' ? CalendarDays : Archive;
-                        return <div key={item.id || item.name} className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-start gap-3 min-w-0">
-                                <Icon size={19} className="mt-0.5 shrink-0 text-[var(--color-brand-600)]" />
-                                <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold text-[var(--color-fg)]">{item.name}</h3><Badge variant={available ? 'success' : 'secondary'} size="xs">{status}</Badge></div>
-                                    <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{item.detail}</p>
-                                    {item.format && <p className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">{item.ready || activeTab !== 'mensuel' ? 'Format' : 'Format prévu'} : {item.format}</p>}
+                        return <div key={item.id || item.name}>
+                            {activeTab === 'mensuel' && (item.id === 'bulletins' || item.id === 'grand-livre') && <div className="px-4 sm:px-5 py-2 bg-[var(--color-bg-subtle)] text-[11px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">{item.id === 'bulletins' ? 'Bulletins' : 'États de paie'}</div>}
+                            <div className="px-4 sm:px-5 py-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(150px,auto)_minmax(160px,auto)] sm:items-center">
+                                <div className="flex items-start gap-3 min-w-0">
+                                    <Icon size={19} className="mt-0.5 shrink-0 text-[var(--color-brand-600)]" />
+                                    <div className="min-w-0"><h3 className="text-sm font-semibold text-[var(--color-fg)]">{item.name}</h3>
+                                        <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{item.detail}</p>
+                                        {item.format && <p className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">Format : {item.format}</p>}
+                                    </div>
+                                </div>
+                                <Badge variant={available ? 'success' : 'secondary'} size="xs" className="justify-self-start">{status}</Badge>
+                                <div className="sm:justify-self-end">
+                                    {available && item.id === 'bulletins' && <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/controle`)}>Choisir un salarié</Button>}
+                                    {available && needsValidation && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadExcel(item.id)}>Télécharger Excel</Button>}
+                                    {activeTab === 'trimestriel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadQuarterly(item.id)}>Télécharger le modèle</Button>}
+                                    {activeTab === 'annuel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={downloadAnnual}>Télécharger Excel</Button>}
                                 </div>
                             </div>
-                            {available && item.id === 'bulletins' && <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/controle`)}>Choisir un salarié</Button>}
-                            {available && needsValidation && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadExcel(item.id)}>Télécharger Excel</Button>}
-                            {activeTab === 'trimestriel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadQuarterly(item.id)}>Télécharger le modèle</Button>}
-                            {activeTab === 'annuel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={downloadAnnual}>Télécharger Excel</Button>}
                         </div>;
                     })}
                 </div>
             </Card>
+            {activeTab === 'mensuel' && periodId && VALIDATED_STATES.has(periodState(period)) && <div className="flex justify-end border-t border-[var(--color-border-subtle)] pt-4">
+                <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/sorties`)}>Voir l’étape de clôture</Button>
+            </div>}
             {activeTab === 'trimestriel' && <p className="text-xs text-[var(--color-fg-muted)]">Ces modèles sont des brouillons à revoir par la DAF. Les identifiants préremplis du modèle sont conservés ; les champs d’adhésion vides restent à compléter. L’acceptation sur les portails officiels n’a pas été vérifiée.</p>}
             {activeTab === 'annuel' && <p className="text-xs text-[var(--color-fg-muted)]">Le récapitulatif utilise uniquement les campagnes de paie validées. Si l’année est incomplète, les mois inclus sont indiqués dans le classeur ; les mois absents ou non validés n’y figurent pas.</p>}
         </div>

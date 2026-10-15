@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { Plus, Edit2, Power, Check, Calendar } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -81,33 +82,33 @@ export default function JoursFeriesList({
                                     </Td>
                                     <Td className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <button
+                                            <SharedButton plain
                                                 onClick={() => onOpenEdit(f)}
                                                 className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier"
                                                 aria-label={`Modifier ${f.libelle}`}
                                             >
                                                 <Edit2 size={15} />
-                                            </button>
+                                            </SharedButton>
                                             {onToggleStatus && (
                                                 isActif ? (
-                                                    <button
+                                                    <SharedButton plain
                                                         onClick={() => onToggleStatus(f)}
                                                         className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                         title="Désactiver ce jour férié"
                                                         aria-label={`Désactiver ${f.libelle}`}
                                                     >
                                                         <Power size={15} />
-                                                    </button>
+                                                    </SharedButton>
                                                 ) : (
-                                                    <button
+                                                    <SharedButton plain
                                                         onClick={() => onToggleStatus(f)}
                                                         className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer transition-colors"
                                                         title="Réactiver ce jour férié"
                                                         aria-label={`Réactiver ${f.libelle}`}
                                                     >
                                                         <Check size={15} />
-                                                    </button>
+                                                    </SharedButton>
                                                 )
                                             )}
                                         </div>

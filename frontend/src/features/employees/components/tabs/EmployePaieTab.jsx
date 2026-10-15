@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
     Banknote,
@@ -43,7 +44,7 @@ function AccordionSection({ id, icon, title, badge = null, children, defaultOpen
     const iconColor = variant === 'warning' ? 'text-[var(--color-warning-600)]' : variant === 'danger' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-brand-600)]';
     return (
         <div className={`bg-[var(--color-surface)] border ${variantBorder} rounded-none overflow-hidden`}>
-            <button
+            <SharedButton plain
                 type="button"
                 id={id}
                 onClick={() => onToggle ? onToggle(!isOpen) : setInternalOpen(v => !v)}
@@ -58,7 +59,7 @@ function AccordionSection({ id, icon, title, badge = null, children, defaultOpen
                 <span className="shrink-0 text-[var(--color-fg-muted)] group-hover:text-[var(--color-fg)] transition-colors">
                     {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                 </span>
-            </button>
+            </SharedButton>
             {isOpen && (
                 <div className="border-t border-[var(--color-border-subtle)] px-4 py-4">{children}</div>
             )}
@@ -405,7 +406,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                                 <Td className="font-data text-[var(--color-fg-muted)]">{fmtDate(m.dateDemande || m.datePaiement)}</Td>
                                                 <Td>
                                                     <div className="font-semibold text-[var(--color-fg)]">{m.typeLibelle || m.typeMouvement}</div>
-                                                    <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono">{m.typeMouvement}</span>
+                                                    <span className="text-[10px] text-[var(--color-fg-subtle)] font-data">{m.typeMouvement}</span>
                                                 </Td>
                                                 <Td>
                                                     <Badge variant={isGain ? 'success' : 'danger'} size="xs" className="flex items-center gap-1 w-fit">
@@ -426,7 +427,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                                     {m.etatDossier
                                                         ? <span className="text-[var(--color-fg-muted)]">Solde : {formatMoneyAr(m.soldeRestant)}</span>
                                                         : m.idBulletin
-                                                            ? <span className="text-[var(--color-success-600)] font-semibold font-mono">#{m.idBulletin}</span>
+                                                            ? <span className="text-[var(--color-success-600)] font-semibold font-data">#{m.idBulletin}</span>
                                                             : <span className="text-[var(--color-warning-600)]">En attente</span>
                                                     }
                                                 </Td>
@@ -476,7 +477,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                 <Tbody>
                                     {stcList.map((s) => (
                                         <Tr key={s.idStc}>
-                                            <Td className="font-mono font-bold text-[var(--color-fg)]">{s.numeroRecu || `STC-#${s.idStc}`}</Td>
+                                            <Td className="font-data font-bold text-[var(--color-fg)]">{s.numeroRecu || `STC-#${s.idStc}`}</Td>
                                             <Td>{fmtDate(s.dateDepart)}</Td>
                                             <Td className="text-[var(--color-fg-muted)]">{s.motifRupture}</Td>
                                             <Td className="text-right font-data">{formatMoneyAr(s.totalBrutStc)}</Td>

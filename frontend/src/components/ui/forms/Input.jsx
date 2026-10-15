@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import FieldError from './FieldError';
 
 export default function Input({
+  plain = false,
   label,
   error,
   hint,
@@ -39,6 +40,10 @@ export default function Input({
   };
 
   const displayLabel = typeof label === 'string' && props.required ? label.trim().replace(/\s*\*+$/, '') : label;
+
+  if (plain) {
+    return <input {...props} id={id} ref={inputRef} onWheel={handleWheel} aria-invalid={error ? true : ariaInvalid} aria-describedby={describedBy} className={`font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] ${className}`} />;
+  }
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
@@ -86,6 +91,7 @@ export default function Input({
 }
 
 export function Textarea({
+  plain = false,
   label,
   error,
   hint,
@@ -102,6 +108,10 @@ export function Textarea({
   const hintText = hint || helpText || helperText;
   const feedback = error || hintText;
   const feedbackIds = [describedBy, feedback ? `${fieldId}-feedback` : null].filter(Boolean).join(' ') || undefined;
+
+  if (plain) {
+    return <textarea {...props} id={fieldId} aria-invalid={error ? true : props['aria-invalid']} aria-describedby={describedBy} className={`font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] ${className}`} />;
+  }
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
@@ -133,6 +143,7 @@ export function Textarea({
 }
 
 export function Select({
+  plain = false,
   label,
   error,
   hint,
@@ -150,6 +161,10 @@ export function Select({
   const hintText = hint || helpText || helperText;
   const feedback = error || hintText;
   const feedbackIds = [describedBy, feedback ? `${fieldId}-feedback` : null].filter(Boolean).join(' ') || undefined;
+
+  if (plain) {
+    return <select {...props} id={fieldId} aria-invalid={error ? true : props['aria-invalid']} aria-describedby={describedBy} className={`font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] ${className}`}>{children}</select>;
+  }
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
@@ -187,6 +202,7 @@ export function Select({
 }
 
 export function Checkbox({
+  plain = false,
   label,
   error,
   hint,
@@ -200,6 +216,10 @@ export function Checkbox({
   const feedbackId = `checkbox-${reactId}-feedback`;
   const hintText = hint || helpText || helperText;
   const describedBy = [props['aria-describedby'], error || hintText ? feedbackId : null].filter(Boolean).join(' ') || undefined;
+
+  if (plain) {
+    return <input {...props} type="checkbox" aria-invalid={error ? true : props['aria-invalid']} aria-describedby={props['aria-describedby']} className={`accent-[var(--color-brand-500)] focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] ${className}`} />;
+  }
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
@@ -230,6 +250,7 @@ export function Checkbox({
 }
 
 export function Radio({
+  plain = false,
   label,
   error,
   hint,
@@ -243,6 +264,10 @@ export function Radio({
   const feedbackId = `radio-${reactId}-feedback`;
   const hintText = hint || helpText || helperText;
   const describedBy = [props['aria-describedby'], error || hintText ? feedbackId : null].filter(Boolean).join(' ') || undefined;
+
+  if (plain) {
+    return <input {...props} type="radio" aria-invalid={error ? true : props['aria-invalid']} aria-describedby={props['aria-describedby']} className={`accent-[var(--color-brand-500)] focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] ${className}`} />;
+  }
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>

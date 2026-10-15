@@ -1,3 +1,5 @@
+import SharedButton from '@/components/ui/forms/Button';
+import { default as SharedInput } from '@/components/ui/forms/Input';
 import { Search, XCircle } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
@@ -67,7 +69,7 @@ export default function PayrollStepTable({
                                     size={13}
                                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none"
                                 />
-                                <input
+                                <SharedInput plain
                                     type="text"
                                     placeholder={searchPlaceholder}
                                     value={searchValue}
@@ -76,14 +78,14 @@ export default function PayrollStepTable({
                                     aria-label={searchPlaceholder}
                                 />
                                 {searchValue && (
-                                    <button
+                                    <SharedButton plain
                                         type="button"
                                         onClick={() => onSearchChange('')}
                                         className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer"
                                         aria-label="Effacer la recherche"
                                     >
                                         <XCircle size={13} />
-                                    </button>
+                                    </SharedButton>
                                 )}
                             </div>
                         )}
@@ -113,7 +115,7 @@ export default function PayrollStepTable({
                             })}
                         </Tr>
                     </Thead>
-                    <Tbody zebra>
+                    <Tbody>
                         {children}
                     </Tbody>
                 </Table>
@@ -150,7 +152,7 @@ export function PayrollEmployeeCell({ name, matricule, subtitle }) {
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[var(--color-fg-muted)]">
                 {matricule && (
-                    <span className="font-mono bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.2 text-[10px] border border-[var(--color-border-subtle)] font-medium">
+                    <span className="font-data bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.2 text-[10px] border border-[var(--color-border-subtle)] font-medium">
                         {matricule}
                     </span>
                 )}
@@ -164,7 +166,7 @@ export function PayrollEmployeeCell({ name, matricule, subtitle }) {
 export function PayrollMoneyCell({ value, type = 'normal' }) {
     if (type === 'net') {
         return (
-            <span className="font-mono font-bold text-xs tabular-nums whitespace-nowrap text-[var(--color-success-700)] dark:text-[var(--color-success-300)] bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)] border border-[var(--color-success-300)]/60 dark:border-[var(--color-success-800)] px-2 py-0.5 inline-block">
+            <span className="font-data font-bold text-xs tabular-nums whitespace-nowrap text-[var(--color-success-700)] dark:text-[var(--color-success-300)] bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)] border border-[var(--color-success-300)]/60 dark:border-[var(--color-success-800)] px-2 py-0.5 inline-block">
                 {formatRoundedMoneyAr(value)}
             </span>
         );
@@ -172,20 +174,20 @@ export function PayrollMoneyCell({ value, type = 'normal' }) {
     if (type === 'deduction') {
         const num = Number(value || 0);
         return (
-            <span className="font-mono text-xs tabular-nums whitespace-nowrap text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-medium">
+            <span className="font-data text-xs tabular-nums whitespace-nowrap text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-medium">
                 {num > 0 ? `−${formatRoundedMoneyAr(num)}` : '—'}
             </span>
         );
     }
     if (type === 'muted') {
         return (
-            <span className="font-mono text-xs tabular-nums whitespace-nowrap text-[var(--color-fg-muted)]">
+            <span className="font-data text-xs tabular-nums whitespace-nowrap text-[var(--color-fg-muted)]">
                 {value != null ? formatRoundedMoneyAr(value) : '—'}
             </span>
         );
     }
     return (
-        <span className="font-mono text-xs tabular-nums whitespace-nowrap font-medium text-[var(--color-fg)]">
+        <span className="font-data text-xs tabular-nums whitespace-nowrap font-medium text-[var(--color-fg)]">
             {value != null ? formatRoundedMoneyAr(value) : '—'}
         </span>
     );

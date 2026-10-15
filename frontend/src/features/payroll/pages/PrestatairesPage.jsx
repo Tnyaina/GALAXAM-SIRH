@@ -1,3 +1,4 @@
+import { default as SharedInput } from '@/components/ui/forms/Input';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Plus, Users, FileCheck2, ReceiptText, Search, ChevronDown, X } from 'lucide-react';
 import apiClient, { getErrorMessage } from '@/api/apiClient';
@@ -47,7 +48,7 @@ function PdfAttach({ label, filename, busy, onUpload }) {
     const inputRef = useRef(null);
     const [file, setFile] = useState(null);
     return <div className="flex flex-wrap items-center gap-1.5">
-        <input ref={inputRef} type="file" accept="application/pdf" className="sr-only"
+        <SharedInput plain ref={inputRef} type="file" accept="application/pdf" className="sr-only"
             aria-label={`${label}, PDF de 10 Mo maximum`} onChange={e => setFile(e.target.files?.[0] || null)} />
         <Button type="button" variant="outline" size="xs" disabled={busy} onClick={() => inputRef.current?.click()}>
             {file ? (filename || file.name) : label}

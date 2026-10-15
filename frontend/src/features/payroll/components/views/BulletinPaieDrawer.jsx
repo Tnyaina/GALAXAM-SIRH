@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FileText,
@@ -147,16 +148,16 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     <FileDown size={15} /> Exporter <ChevronDown size={14} />
                                 </Button>
                                 {exportOpen && <div role="menu" className="absolute bottom-full left-0 mb-2 w-64 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xl z-50">
-                                    <button type="button" role="menuitem" onClick={() => openDocument('xlsx')}
+                                    <SharedButton plain type="button" role="menuitem" onClick={() => openDocument('xlsx')}
                                         className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-[var(--color-bg-subtle)]">
                                         <FileSpreadsheet size={19} className="text-[var(--color-success-600)]" />
                                         <span><strong className="block text-sm">Format Excel (.xlsx)</strong><span className="block text-xs text-[var(--color-fg-muted)]">Bulletin détaillé et montants</span></span>
-                                    </button>
-                                    <button type="button" role="menuitem" onClick={() => openDocument('pdf')}
+                                    </SharedButton>
+                                    <SharedButton plain type="button" role="menuitem" onClick={() => openDocument('pdf')}
                                         className="w-full px-4 py-3 flex items-center gap-3 text-left border-t border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]">
                                         <FileText size={19} className="text-[var(--color-danger-600)]" />
                                         <span><strong className="block text-sm">Bulletin PDF</strong><span className="block text-xs text-[var(--color-fg-muted)]">Télécharger au format A4</span></span>
-                                    </button>
+                                    </SharedButton>
                                 </div>}
                             </div>
                             <div className="flex items-center gap-2">

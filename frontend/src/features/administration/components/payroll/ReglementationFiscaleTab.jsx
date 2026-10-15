@@ -1,3 +1,5 @@
+import SharedButton from '@/components/ui/forms/Button';
+import { default as SharedInput, Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
 import {
@@ -144,7 +146,7 @@ function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
                             <div className="pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-1.5">
                                 <div className="flex items-center gap-1">
                                     <span className="text-xs font-bold text-[var(--color-brand-500)]">+</span>
-                                    <input
+                                    <SharedInput plain
                                         type="number"
                                         min="0"
                                         max="500"
@@ -156,7 +158,7 @@ function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
                                     />
                                     <span className="text-xs font-semibold text-[var(--color-fg-muted)]">%</span>
                                 </div>
-                                <span className={`text-[10px] font-mono px-1.5 py-0.5 font-bold border border-[var(--color-border-subtle)] shrink-0 ${item.badgeBg}`}>
+                                <span className={`text-[10px] font-data px-1.5 py-0.5 font-bold border border-[var(--color-border-subtle)] shrink-0 ${item.badgeBg}`}>
                                     x{mult}
                                 </span>
                             </div>
@@ -254,7 +256,7 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                             value={t.trancheMin}
                                             disabled={idx === 0}
                                             onValueChange={value => handleFieldChange(idx, 'trancheMin', value)}
-                                            className="text-right font-mono"
+                                            className="text-right font-data"
                                         />
                                     </Td>
                                     <Td>
@@ -264,12 +266,12 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                             placeholder={isLast ? "Sans plafond (∞)" : "Requis"}
                                             value={t.trancheMax}
                                             onValueChange={value => handleFieldChange(idx, 'trancheMax', value)}
-                                            className="text-right font-mono"
+                                            className="text-right font-data"
                                         />
                                     </Td>
                                     <Td>
                                         <div className="relative">
-                                            <input
+                                            <SharedInput plain
                                                 type="number"
                                                 min="0"
                                                 max="100"
@@ -277,13 +279,13 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                                 required
                                                 value={t.taux}
                                                 onChange={e => handleFieldChange(idx, 'taux', e.target.value)}
-                                                className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] pl-2 pr-5 py-1 text-right font-mono font-bold text-[var(--color-danger-500)] focus:outline-none focus:border-[var(--color-brand-500)]"
+                                                className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] pl-2 pr-5 py-1 text-right font-data font-bold text-[var(--color-danger-500)] focus:outline-none focus:border-[var(--color-brand-500)]"
                                             />
                                             <span className="absolute right-1.5 top-1 text-[11px] text-[var(--color-fg-muted)] pointer-events-none">%</span>
                                         </div>
                                     </Td>
                                     <Td className="text-center">
-                                        <button
+                                        <SharedButton plain
                                             type="button"
                                             onClick={() => handleRemove(idx)}
                                             disabled={tranches.length <= 1}
@@ -291,7 +293,7 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                             title="Supprimer cette tranche"
                                         >
                                             <Trash2 size={14} />
-                                        </button>
+                                        </SharedButton>
                                     </Td>
                                 </Tr>
                             );
@@ -600,7 +602,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                         <p className="text-[11px] text-[var(--color-fg-muted)]">Article 01.03.03-9° CGI (salariés non-cadres éligibles)</p>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
+                                        <SharedCheckbox plain
                                             type="checkbox"
                                             className="sr-only peer"
                                             disabled={isReadOnly}
@@ -1022,7 +1024,7 @@ export default function ReglementationFiscaleTab() {
                         <KpiField label="Minimum IRSA" value={fmtAr(activeConfig.minimumPerceptionIrsa)} />
                     </div>
                     <div className="flex gap-1 overflow-x-auto px-5 pt-4" aria-label="Rubriques de l’exercice">
-                        {[['salaires', 'Salaires'], ['irsa', 'IRSA'], ['travail', 'Travail'], ['conges', 'Congés'], ['retenues', 'Retenues']].map(([key, label]) => <button key={key} type="button" aria-pressed={activeSection === key} onClick={() => setActiveSection(key)} className={`px-4 py-2 text-sm font-medium shrink-0 border-b-2 ${activeSection === key ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)]' : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}>{label}</button>)}
+                        {[['salaires', 'Salaires'], ['irsa', 'IRSA'], ['travail', 'Travail'], ['conges', 'Congés'], ['retenues', 'Retenues']].map(([key, label]) => <SharedButton plain key={key} type="button" aria-pressed={activeSection === key} onClick={() => setActiveSection(key)} className={`px-4 py-2 text-sm font-medium shrink-0 border-b-2 ${activeSection === key ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)]' : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}>{label}</SharedButton>)}
                     </div>
                     <div className="p-5 min-h-40 space-y-4">
                         {activeSection === 'salaires' && <div>
@@ -1142,13 +1144,13 @@ export default function ReglementationFiscaleTab() {
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button
+                    <SharedButton plain
                         onClick={() => setShowArchived(v => !v)}
                         className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] flex items-center gap-1 px-2 py-1.5 border border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] transition-colors"
                     >
                         <Clock size={13} />
                         {showArchived ? 'Masquer les archivés' : 'Afficher les archivés'}
-                    </button>
+                    </SharedButton>
 
                     {/* 'Nouvelle LF' = seul workflow autorisé lorsqu'un exercice est actif */}
                     {/* 'Initialiser' = uniquement affiché si la base est totalement vide */}
@@ -1201,40 +1203,40 @@ export default function ReglementationFiscaleTab() {
                             <div className="flex items-center gap-1 shrink-0">
                                 {/* ARCHIVÉ → bouton Détails (lecture seule) */}
                                 {isArchive && (
-                                    <button
+                                    <SharedButton plain
                                         onClick={() => handleOpenView(config)}
                                         className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
                                         title="Voir les détails de cet exercice archivé"
                                     >
                                         <Eye size={14} />
-                                    </button>
+                                    </SharedButton>
                                 )}
                                 {/* EN_VIGUEUR → bouton Corriger */}
                                 {isActive && (
-                                    <button
+                                    <SharedButton plain
                                         onClick={() => document.getElementById('exercice-actif')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                                         className="px-2 py-1 text-xs text-[var(--color-brand-600)] hover:underline"
                                     >
                                         Voir la fiche
-                                    </button>
+                                    </SharedButton>
                                 )}
                                 {/* PROGRAMMÉ → bouton Corriger + bouton Annuler */}
                                 {isProgramme && (
                                     <>
-                                        <button
+                                        <SharedButton plain
                                             onClick={() => handleOpenEdit(config)}
                                             className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
                                             title="Corriger les valeurs de cet exercice"
                                         >
                                             <Edit2 size={14} />
-                                        </button>
-                                        <button
+                                        </SharedButton>
+                                        <SharedButton plain
                                             onClick={() => setConfirmAnnulation({ id: config.idConfigLegale, codeVersion: config.codeVersion })}
                                             className="p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 transition-colors"
                                             title="Annuler cet exercice programmé (finallement aucun changement)"
                                         >
                                             <X size={14} />
-                                        </button>
+                                        </SharedButton>
                                     </>
                                 )}
                             </div>

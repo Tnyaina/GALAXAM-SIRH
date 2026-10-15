@@ -1,3 +1,5 @@
+import SharedButton from '@/components/ui/forms/Button';
+import { Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import { useState, useEffect, useCallback } from 'react';
 import { Edit2, Power, Check } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -175,22 +177,22 @@ export default function ModesPaiementTab() {
                                     </Td>
                                     <Td className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <button
+                                            <SharedButton plain
                                                 onClick={() => handleEdit(m)}
                                                 className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier le mode de paiement"
                                                 aria-label={`Modifier ${m.libelle}`}
                                             >
                                                 <Edit2 size={15} />
-                                            </button>
-                                            <button
+                                            </SharedButton>
+                                            <SharedButton plain
                                                 onClick={() => handleToggleActif(m)}
                                                 className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 ${isActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-600)] hover:bg-[var(--color-success-500)]/10'} rounded-none cursor-pointer transition-colors`}
                                                 title={isActif ? "Désactiver ce mode" : "Activer ce mode"}
                                                 aria-label={isActif ? `Désactiver ${m.libelle}` : `Activer ${m.libelle}`}
                                             >
                                                 {isActif ? <Power size={15} /> : <Check size={15} />}
-                                            </button>
+                                            </SharedButton>
                                         </div>
                                     </Td>
                                 </Tr>
@@ -236,7 +238,7 @@ export default function ModesPaiementTab() {
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider font-bold">
                                 Code technique immuable
                             </span>
-                            <p className="font-mono font-bold text-xs text-[var(--color-brand-500)]">
+                            <p className="font-data font-bold text-xs text-[var(--color-brand-500)]">
                                 {editingMode.code}
                             </p>
                         </div>
@@ -256,7 +258,7 @@ export default function ModesPaiementTab() {
 
                         <div className="space-y-2.5 pt-2 border-t border-[var(--color-border-subtle)]">
                             <div className="flex items-center gap-2">
-                                <input
+                                <SharedCheckbox plain
                                     id="mode-paiement-exige-rib"
                                     type="checkbox"
                                     checked={formData.exigeRib}
@@ -269,7 +271,7 @@ export default function ModesPaiementTab() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <input
+                                <SharedCheckbox plain
                                     id="mode-paiement-inclus-virement"
                                     type="checkbox"
                                     checked={formData.inclusFichierVirement}
@@ -282,7 +284,7 @@ export default function ModesPaiementTab() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <input
+                                <SharedCheckbox plain
                                     id="mode-paiement-actif"
                                     type="checkbox"
                                     checked={formData.actif}

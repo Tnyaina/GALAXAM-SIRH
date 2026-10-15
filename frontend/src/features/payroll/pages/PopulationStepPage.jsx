@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
@@ -194,7 +195,7 @@ export default function PopulationStepPage() {
                                 const Icon = tab.icon;
                                 const active = filterDecision === tab.id;
                                 return (
-                                    <button
+                                    <SharedButton plain
                                         key={tab.id}
                                         type="button"
                                         onClick={() => { setFilterDecision(tab.id); setCurrentPage(1); }}
@@ -207,7 +208,7 @@ export default function PopulationStepPage() {
                                     >
                                         {Icon && <Icon size={12} className={active && tab.color ? tab.color : 'text-[var(--color-fg-muted)]'} />}
                                         <span>{tab.label}</span>
-                                    </button>
+                                    </SharedButton>
                                 );
                             })}
                         </div>

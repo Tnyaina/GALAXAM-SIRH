@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Eye } from 'lucide-react';
@@ -196,7 +197,7 @@ export default function ControleStepPage() {
                             {filterTabs.map(tab => {
                                 const active = filter === tab.id;
                                 return (
-                                    <button
+                                    <SharedButton plain
                                         key={tab.id}
                                         type="button"
                                         onClick={() => { setFilter(tab.id); setPage(1); }}
@@ -208,10 +209,10 @@ export default function ControleStepPage() {
                                         }`}
                                     >
                                         <span>{tab.label}</span>
-                                        <span className="font-mono text-[10px] px-1 py-0.2 bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]">
+                                        <span className="font-data text-[10px] px-1 py-0.2 bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]">
                                             {tab.count}
                                         </span>
-                                    </button>
+                                    </SharedButton>
                                 );
                             })}
                         </div>

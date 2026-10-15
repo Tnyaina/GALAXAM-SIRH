@@ -1,3 +1,4 @@
+import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -486,7 +487,7 @@ export default function PeriodePaiePage() {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Prochaine campagne suggérée</p>
-                        <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{nextSuggestion.libelle} <span className="font-mono text-sm font-medium text-[var(--color-fg-muted)]">· {nextSuggestion.code}</span></h2>
+                        <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{nextSuggestion.libelle} <span className="font-data text-sm font-medium text-[var(--color-fg-muted)]">· {nextSuggestion.code}</span></h2>
                         <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Du {nextSuggestion.dateDebut} au {nextSuggestion.dateFin} · Cycle du 26 au 25</p>
                         <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Créée en brouillon ; la saisie du pointage s’ouvre ensuite.</p>
                     </div>
@@ -504,7 +505,7 @@ export default function PeriodePaiePage() {
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Cycle actuellement piloté</p>
-                            <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{activeCycle.libelle} <span className="font-mono text-sm font-medium text-[var(--color-fg-muted)]">· {activeCycle.dateDebut} → {activeCycle.dateFin}</span></h2>
+                            <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{activeCycle.libelle} <span className="font-data text-sm font-medium text-[var(--color-fg-muted)]">· {activeCycle.dateDebut} → {activeCycle.dateFin}</span></h2>
                         </div>
                         {(() => {
                             const dest = activeCycle.nextStep?.destination
@@ -587,10 +588,10 @@ export default function PeriodePaiePage() {
                                             <div className="min-w-0">
                                                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                                     <h3 className="text-base font-bold text-[var(--color-fg)]">{p.libelle}</h3>
-                                                    <span className="font-mono text-xs text-[var(--color-brand-600)]">{p.code}</span>
+                                                    <span className="font-data text-xs text-[var(--color-brand-600)]">{p.code}</span>
                                                 </div>
                                                 <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-                                                    <span className="font-mono">{p.dateDebut} → {p.dateFin}</span>
+                                                    <span className="font-data">{p.dateDebut} → {p.dateFin}</span>
                                                     <span className="mx-2" aria-hidden="true">·</span>
                                                     {p.nbJoursOuvrables ?? '—'} jours ouvrables
                                                     {p.nbJoursFeries > 0 && <span> · {p.nbJoursFeries} jour(s) férié(s)</span>}
@@ -633,7 +634,7 @@ export default function PeriodePaiePage() {
                                         </div>
                                         <div className="mt-4 pt-3 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
                                             <PayrollWorkflowStatusBadges statuses={p.workflowStatuses} size="xs" />
-                                            <button
+                                            <SharedButton plain
                                                 type="button"
                                                 aria-expanded={isExpanded}
                                                 aria-controls={`campagne-details-${periodId}`}
@@ -641,7 +642,7 @@ export default function PeriodePaiePage() {
                                                 className="ml-auto inline-flex items-center gap-1.5 font-semibold text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] cursor-pointer"
                                             >
                                                 Variables ({variables.length}) et détails {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                            </button>
+                                            </SharedButton>
                                         </div>
                                     </div>
                                     {isExpanded && (
@@ -657,7 +658,7 @@ export default function PeriodePaiePage() {
                                                     {variables.map(variable => (
                                                         <li key={variable.idAvance || variable.idAjustement || variable.id} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 text-xs flex items-center justify-between gap-3">
                                                             <span className="min-w-0"><strong className="block truncate text-[var(--color-fg)]">{variable.libelle || variable.typeMouvement || 'Variable de paie'}</strong><span className="text-[var(--color-fg-muted)]">{variable.nomEmploye || variable.matricule || 'Population'}</span></span>
-                                                            <strong className="font-mono whitespace-nowrap text-[var(--color-fg)]">{formatMoneyAr(variable.montant ?? variable.montantDemande ?? 0)}</strong>
+                                                            <strong className="font-data whitespace-nowrap text-[var(--color-fg)]">{formatMoneyAr(variable.montant ?? variable.montantDemande ?? 0)}</strong>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -706,7 +707,9 @@ export default function PeriodePaiePage() {
                                     Suite suggérée : <strong>{nextSuggestion.libelle}</strong> ({nextSuggestion.dateDebut} au {nextSuggestion.dateFin})
                                 </span>
                             </div>
-                            <button
+                            <Button
+                                variant="secondary"
+                                size="xs"
                                 type="button"
                                 onClick={() => setNewPeriode({
                                     code: nextSuggestion.code,
@@ -714,10 +717,9 @@ export default function PeriodePaiePage() {
                                     dateDebut: nextSuggestion.dateDebut,
                                     dateFin: nextSuggestion.dateFin
                                 })}
-                                className="px-2 py-1 bg-[var(--color-warning-500)]/20 hover:bg-[var(--color-warning-500)]/30 text-[var(--color-warning-900)] dark:text-[var(--color-warning-200)] font-bold text-[11px] border border-[var(--color-warning-500)]/40 cursor-pointer whitespace-nowrap transition-colors"
                             >
                                 Appliquer la suggestion
-                            </button>
+                            </Button>
                         </div>
                     )}
 
@@ -725,22 +727,24 @@ export default function PeriodePaiePage() {
                         <div className="space-y-2">
                             <span className="text-xs font-semibold text-[var(--color-fg)]">Type de cycle</span>
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <button
+                                <Button
+                                    variant="secondary"
+                                    size="xs"
                                     type="button"
                                     onClick={handleApplyCycle2625}
-                                    className="px-2 py-0.5 text-[10.5px] font-medium bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border border-[var(--color-border)] hover:border-[var(--color-brand-500)] transition-colors cursor-pointer"
                                     title="Appliquer le cycle standard de paie du 26 au 25"
                                 >
                                     Du 26 au 25
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="xs"
                                     type="button"
                                     onClick={handleApplyCycleCivil}
-                                    className="px-2 py-0.5 text-[10.5px] font-medium bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] transition-colors cursor-pointer"
                                     title="Appliquer le mois civil du 1er au dernier jour"
                                 >
                                     Mois civil
-                                </button>
+                                </Button>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

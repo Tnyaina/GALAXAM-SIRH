@@ -200,7 +200,7 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
                                 {variable.motif && <p className="truncate text-[11px] text-[var(--color-fg-muted)]">{variable.motif}</p>}
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-1.5">
-                                <strong className={`whitespace-nowrap font-mono text-xs ${variable.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-700)]'}`}>
+                                <strong className={`whitespace-nowrap font-data text-xs ${variable.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-700)]'}`}>
                                     {variable.sens === 'RETENUE' ? '−' : '+'}{money(variable.montant)}
                                 </strong>
                                 {canAdd && variable.statut === 'EN_ATTENTE' && <Button type="button" variant="outline" size="xs" disabled={busy}
@@ -240,10 +240,10 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
                 </div>
                 {previewBulletin && <div className="border border-[var(--color-border-subtle)]">
                     <div className="grid grid-cols-3 gap-2 bg-[var(--color-bg-subtle)] p-2 text-[11px] font-bold text-[var(--color-fg-muted)]"><span>Montant</span><span className="text-right">Actuel</span><span className="text-right">Simulé</span></div>
-                    {comparison.map(([label, current, projected]) => <div key={label} className="grid grid-cols-3 gap-2 border-t border-[var(--color-border-subtle)] p-2 text-[11px] text-[var(--color-fg)]"><span>{label}</span><span className="text-right font-mono">{money(current)}</span><span className="text-right font-mono font-semibold">{money(projected)}</span></div>)}
+                    {comparison.map(([label, current, projected]) => <div key={label} className="grid grid-cols-3 gap-2 border-t border-[var(--color-border-subtle)] p-2 text-[11px] text-[var(--color-fg)]"><span>{label}</span><span className="text-right font-data">{money(current)}</span><span className="text-right font-data font-semibold">{money(projected)}</span></div>)}
                     <div className="flex justify-between border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-2 text-[11px] font-bold text-[var(--color-fg)]">
                         <span>Écart de net à payer</span>
-                        <span className="font-mono">{Number(previewBulletin.netAPayer || 0) >= Number(bulletin.netAPayer || 0) ? '+' : '−'}{money(Math.abs(Number(previewBulletin.netAPayer || 0) - Number(bulletin.netAPayer || 0)))}</span>
+                        <span className="font-data">{Number(previewBulletin.netAPayer || 0) >= Number(bulletin.netAPayer || 0) ? '+' : '−'}{money(Math.abs(Number(previewBulletin.netAPayer || 0) - Number(bulletin.netAPayer || 0)))}</span>
                     </div>
                 </div>}
                 {!canCalculate && !pending && <p className="text-[11px] text-[var(--color-fg-muted)]">Le recalcul n’est pas autorisé pour cette campagne.</p>}

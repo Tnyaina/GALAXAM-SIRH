@@ -8,6 +8,7 @@ import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIss
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 import { fmtDate } from '@/utils/dateUtils';
+import { periodState } from '@/features/payroll/utils/documentPeriodState';
 
 /**
  * PayrollCampaignShell — Shell visuel invariant pour les 7 étapes de campagne de paie.
@@ -37,6 +38,10 @@ export default function PayrollCampaignShell({
 
     const activePeriod = context?.selectedPeriod || context?.currentPeriod;
     const campaignSteps = context?.campaignSteps || [];
+    const outputsReady = ['VALIDEE', 'CLOTUREE'].includes(periodState(activePeriod));
+    const navigableSteps = campaignSteps.map(step => step.code === 'OUTPUTS' && !outputsReady
+        ? { ...step, state: 'BLOCKED', accessible: false, issues: ['Validez la paie pour accéder aux sorties et à la clôture.'] }
+        : step);
     const currentStepCode = context?.currentStep;
     const recalcRequired = context?.recalculationRequired === true;
     const recalcReason = context?.recalculationReason;
@@ -92,10 +97,10 @@ export default function PayrollCampaignShell({
                                 <span>{periodDates}</span>
                             )}
                             {population !== undefined && population !== null && (
-                                <span>· <strong className="text-[var(--color-fg)] font-mono">{population}</strong> salariés</span>
+                                <span>· <strong className="text-[var(--color-fg)] font-data">{population}</strong> salariés</span>
                             )}
                             {context?.snapshotPointageVersion && (
-                                <span>· Snapshot Pointage : <code className="font-mono text-[11px] text-[var(--color-brand-600)]">v{context.snapshotPointageVersion}</code></span>
+                                <span>· Snapshot Pointage : <code className="font-data text-[11px] text-[var(--color-brand-600)]">v{context.snapshotPointageVersion}</code></span>
                             )}
                         </div>
                     </div>
@@ -144,13 +149,15 @@ export default function PayrollCampaignShell({
                             <span>{recalcReason || 'Des sources de pointage ou variables ont été modifiées depuis le dernier calcul.'}</span>
                         </div>
                         {activePeriod?.id && activeStep !== 'CALCUL' && activeStep !== 'CALCULATION' && (
-                            <button
+                            <Button
+                                variant="secondary"
+                                size="xs"
                                 type="button"
                                 onClick={() => navigate(`/paie/periodes/${activePeriod.id}/calcul`)}
-                                className="px-2.5 py-1 text-xs font-semibold bg-[var(--color-warning-500)] text-[var(--color-on-color)] hover:opacity-90 transition-opacity cursor-pointer shrink-0"
+                                className="shrink-0"
                             >
                                 Aller au calcul
-                            </button>
+                            </Button>
                         )}
                     </div>
                 )}
@@ -159,7 +166,7 @@ export default function PayrollCampaignShell({
                 {campaignSteps.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-[var(--color-border-subtle)]">
                         <PayrollPeriodStepper
-                            steps={campaignSteps}
+                            steps={navigableSteps}
                             currentStep={currentStepCode}
                             activeCode={activeStep}
                             loading={loading}
@@ -193,9 +200,9 @@ export default function PayrollCampaignShell({
                 {children}
             </main>
 
-            {/* 6. Navigation persistante en bas de l'étape. */}
+            {/* 6. Navigation de l'étape. */}
             {(prevStep || primaryAction || nextStep || footerCenter) && (
-            <nav aria-label="Navigation de la campagne" className="sticky bottom-0 z-20 mt-auto pt-3 pb-3 px-4 sm:px-6 -mx-2 sm:-mx-4 bg-[var(--color-surface)]/95 backdrop-blur-md border-t border-[var(--color-border-subtle)] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+            <nav aria-label="Navigation de la campagne" className="mt-5 border-t border-[var(--color-border-subtle)] pt-4 pb-1">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2">
                         {prevStep && (

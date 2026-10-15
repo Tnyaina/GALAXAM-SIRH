@@ -1,3 +1,5 @@
+import SharedButton from '@/components/ui/forms/Button';
+import { default as SharedInput, Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import ManualVariableValueFields from '../ManualVariableValueFields';
 import { manualMethod, manualValuePayload, manualValueEstimate } from '../../utils/manualVariableCalculation';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -29,7 +31,6 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
-import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import { isManualPayrollVariable } from '@/features/payroll/utils/variableTypes';
@@ -107,17 +108,12 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             setRefreshError(false);
             const loadedTypes = Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []);
             setTypesMouvements(loadedTypes);
-            if (loadedTypes.length > 0) {
-                setForm(prev => ({
-                    ...prev,
-                    typeMouvement: loadedTypes.some(type => type.code === prev.typeMouvement)
-                        ? prev.typeMouvement
-                        : loadedTypes[0].code,
-                    sens: loadedTypes.some(type => type.code === prev.typeMouvement)
-                        ? prev.sens
-                        : loadedTypes[0].sens
-                }));
-            }
+            setForm(prev => {
+                const currentType = loadedTypes.find(type => type.code === prev.typeMouvement);
+                return currentType
+                    ? { ...prev, sens: currentType.sens }
+                    : { ...prev, typeMouvement: '', sens: '' };
+            });
         } catch (err) {
             if (requestIdRef.current === requestId) {
                 setRefreshError(true);
@@ -206,8 +202,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         setForm(prev => {
             const next = { ...prev, [field]: val };
             if (field === 'sens') {
-                const firstType = typesMouvements.find(type => type.sens === val);
-                next.typeMouvement = firstType?.code || '';
+                next.typeMouvement = '';
             }
             if (field === 'typeMouvement') {
                 const found = typesMouvements.find(t => t.code === val);
@@ -279,7 +274,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             } else {
                 setIsModalOpen(false);
                 setJustificatifFrais(null);
-                setForm({ idEmploye: '', typeMouvement: typesMouvements[0]?.code || '', sens: typesMouvements[0]?.sens || '', montant: '', motif: '' });
+                setForm({ idEmploye: '', typeMouvement: '', sens: '', montant: '', motif: '' });
             }
             await chargerDonnees({ silent: true });
             if (!keepOpen) toast.success('Variable enregistrée. Approuvez-la avant le calcul réel de la paie.');
@@ -495,7 +490,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 <StatCard
                     title="À approuver"
                     value={pendingCount}
-                    subtext={pendingCount > 0 ? "En attente d'approbation" : "Toutes approuvées"}
+                    subtext={pendingCount > 0 ? "En attente d'approbation" : listVariables.length === 0 ? 'Aucune saisie' : 'Aucune en attente'}
                     color={pendingCount > 0 ? "warning" : "neutral"}
                 />
                 <StatCard
@@ -517,24 +512,11 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 <p className="mt-2">Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes et retenues exceptionnelles justifiées. Le régime fiscal et social provient du type configuré.</p>
             </details>
 
-            <section className={`flex flex-wrap items-center justify-between gap-3 border px-3 py-2.5 ${pendingCount > 0 ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10' : 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'}`} aria-live="polite">
-                <div>
-                    <h3 className="text-xs font-bold text-[var(--color-fg)]">Prérequis du calcul réel</h3>
-                    <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
-                        {loading ? 'Vérification des variables en cours…' : refreshError ? 'Statut indisponible : vérifiez les variables avant de calculer.' : pendingCount > 0
-                            ? `${pendingCount} variable(s) attendent une approbation ou une suppression.`
-                            : 'Toutes les variables actives sont approuvées.'}
-                    </p>
-                </div>
-                <Badge variant={loading || refreshError ? 'neutral' : pendingCount > 0 ? 'warning' : 'success'} size="sm">
-                    {loading ? 'Vérification' : refreshError ? 'À vérifier' : pendingCount > 0 ? `${pendingCount} à approuver` : 'Prêt'}
-                </Badge>
-            </section>
             {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
             {!canMutate && idPeriodeActive && <Alert type="info" message={disabledExplanation || 'La période est en lecture seule.'} />}
 
             {/* Barre de filtre et Action */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
+            {listVariables.length > 0 && <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
                 <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto flex-1">
                     <div className="flex-1 sm:w-72 min-w-[200px]">
                         <Input
@@ -577,7 +559,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 >
                     Ajouter une variable
                 </Button>
-            </div>
+            </div>}
 
             {/* Table des variables */}
             {loading ? (
@@ -585,11 +567,15 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             ) : filteredVariables.length === 0 ? (
                 <EmptyState
                     icon={SlidersHorizontal}
-                    title="Aucune variable de paie"
-                    description="Il n’y a aucun élément variable (prime, acompte, retenue) enregistré pour cette période ou ces filtres."
-                    actionLabel={canMutate ? 'Ajouter une variable' : undefined}
-                    onAction={canMutate ? () => { setFormError(''); setIsModalOpen(true); } : undefined}
-                    actionIcon={canMutate ? <Plus size={14} /> : undefined}
+                    title={listVariables.length === 0 ? 'Aucune variable de paie' : 'Aucun résultat pour ces filtres'}
+                    description={listVariables.length === 0
+                        ? 'Ajoutez une prime, une indemnité ou une retenue exceptionnelle pour un salarié de cette campagne. Si aucune variable n’est nécessaire, vous pouvez passer au calcul.'
+                        : 'Modifiez votre recherche ou vos filtres pour retrouver une variable.'}
+                    actionLabel={listVariables.length === 0 && canMutate ? 'Ajouter une variable' : listVariables.length > 0 ? 'Effacer les filtres' : undefined}
+                    onAction={listVariables.length === 0 && canMutate
+                        ? () => { setFormError(''); setIsModalOpen(true); }
+                        : listVariables.length > 0 ? () => { setSearchQuery(''); setFilterSens('ALL'); setShowCancelled(false); setCurrentPage(1); } : undefined}
+                    actionIcon={listVariables.length === 0 && canMutate ? <Plus size={14} /> : undefined}
                 />
             ) : (
                 <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
@@ -617,7 +603,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 <Tr key={idAvance || index} className={v.statut === 'EN_ATTENTE' ? 'bg-[var(--color-warning-50)]/50' : ''}>
                                     <Td className="font-semibold text-[var(--color-fg)]">
                                         <span className="block">{nomComplet || 'Collaborateur'}</span>
-                                        <span className="block font-mono font-normal text-[11px] text-[var(--color-fg-muted)]">{v.matricule || '—'}</span>
+                                        <span className="block font-data font-normal text-[11px] text-[var(--color-fg-muted)]">{v.matricule || '—'}</span>
                                     </Td>
                                     <Td>
                                         <span className="font-medium text-[var(--color-fg)] block">
@@ -625,7 +611,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                         </span>
                                         <span className="block text-[11px] text-[var(--color-fg-muted)]">{regimeLabel(v.sens, taxable, social)}</span>
                                     </Td>
-                                    <Td className="text-right font-mono font-bold whitespace-nowrap">
+                                    <Td className="text-right font-data font-bold whitespace-nowrap">
                                         <span className={v.sens === 'GAIN' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
                                             {v.sens === 'GAIN' ? '+' : '-'}{formatAr(v.montant)}
                                         </span>
@@ -655,7 +641,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                                 </Button>
                                             )}
                                             {v.typeMouvement === 'NOTE_DE_FRAIS' && v.justificatifPresent && idAvance && <Button variant="outline" size="xs" onClick={() => handleVoirJustificatifFrais(v)}>Voir la pièce</Button>}
-                                            {canMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label className="cursor-pointer text-xs font-semibold text-[var(--color-brand-600)]">{v.justificatifPresent ? 'Remplacer la pièce' : 'Joindre une pièce'}<input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="sr-only" onChange={event => { handleJustificatifFrais(v, event.target.files?.[0]); event.target.value = ''; }} /></label>}
+                                            {canMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label className="cursor-pointer text-xs font-semibold text-[var(--color-brand-600)]">{v.justificatifPresent ? 'Remplacer la pièce' : 'Joindre une pièce'}<SharedInput plain type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="sr-only" onChange={event => { handleJustificatifFrais(v, event.target.files?.[0]); event.target.value = ''; }} /></label>}
                                             {canMutate && v.statut === 'EN_ATTENTE' && isManualPayrollVariable(v) && idAvance && (
                                                 <Button
                                                     variant="ghost"
@@ -685,12 +671,26 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 </div>
             )}
 
+            <section className={`flex flex-wrap items-center justify-between gap-3 border px-3 py-2.5 ${pendingCount > 0 ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10' : 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'}`} aria-live="polite">
+                <div>
+                    <h3 className="text-xs font-bold text-[var(--color-fg)]">Avant le calcul réel</h3>
+                    <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                        {loading ? 'Vérification des variables en cours…' : refreshError ? 'Statut indisponible : vérifiez les variables avant de calculer.' : pendingCount > 0
+                            ? `${pendingCount} variable(s) attendent une approbation ou une suppression.`
+                            : listVariables.length === 0 ? 'Aucune variable à approuver. Vous pouvez passer au calcul.' : 'Toutes les variables actives sont approuvées.'}
+                    </p>
+                </div>
+                <Badge variant={loading || refreshError ? 'neutral' : pendingCount > 0 ? 'warning' : 'success'} size="sm">
+                    {loading ? 'Vérification' : refreshError ? 'À vérifier' : pendingCount > 0 ? `${pendingCount} à approuver` : 'Prêt'}
+                </Badge>
+            </section>
+
             {/* Modale d'ajout de variable */}
             <Modal
                 isOpen={isModalOpen}
-                onClose={() => { setIsModalOpen(false); setJustificatifFrais(null); }}
+                onClose={() => { setIsModalOpen(false); setJustificatifFrais(null); setForm({ idEmploye: '', typeMouvement: '', sens: '', montant: '', motif: '' }); }}
                 title="Ajouter une variable de paie"
-                size="4xl"
+                size={form.idEmploye ? '4xl' : 'xl'}
                 className="max-h-[92vh]"
                 icon={<SlidersHorizontal size={18} />}
                 footer={
@@ -698,45 +698,50 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => { setIsModalOpen(false); setJustificatifFrais(null); }}
+                            onClick={() => { setIsModalOpen(false); setJustificatifFrais(null); setForm({ idEmploye: '', typeMouvement: '', sens: '', montant: '', motif: '' }); }}
                             disabled={submitting}
                         >
                             Annuler
                         </Button>
-                        <div className="flex items-center gap-2">
-                            <Button
+                        {form.idEmploye ? <div className="flex items-center gap-2">
+                            {selectedType && <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={(event) => handleSubmit(event, true)}
                                 disabled={submitting || (possibleDuplicate && !duplicateAcknowledged)}
                             >
                                 Enregistrer et ajouter une autre
-                            </Button>
+                            </Button>}
                             <Button 
                                 variant="primary" 
                                 size="sm" 
                                 onClick={handleSubmit}
-                                disabled={submitting || (possibleDuplicate && !duplicateAcknowledged)}
+                                disabled={submitting || !selectedType || (possibleDuplicate && !duplicateAcknowledged)}
                             >
                                 {submitting ? 'Enregistrement…' : 'Enregistrer pour approbation'}
                             </Button>
-                        </div>
+                        </div> : <span className="text-xs text-[var(--color-fg-muted)]">Choisissez un salarié pour commencer.</span>}
                     </div>
                 }
             >
                 <form onSubmit={handleSubmit} className="text-xs">
                     {formError && <div role="alert" className="mb-4 flex items-start gap-2 border border-[var(--color-danger-500)]/35 bg-[var(--color-danger-500)]/10 p-3 text-[var(--color-danger-700)]"><AlertCircle size={14} className="mt-0.5 shrink-0" />{formError}</div>}
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.25fr] gap-6 items-start">
+                    <div className={`grid grid-cols-1 gap-6 items-start ${form.idEmploye ? 'lg:grid-cols-[1fr_1.25fr]' : ''}`}>
                       <div className="space-y-4">
                         <div className="border-l-2 border-[var(--color-brand-500)] pl-3">
                             <h4 className="text-sm font-bold text-[var(--color-fg)]">1. Salarié concerné</h4>
                             <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Choisissez un salarié inclus dans cette campagne.</p>
                         </div>
                         <div>
-                            <EmployeSearchSelect
+                            <SearchSelect
+                                label="Employé"
                                 required
                                 value={form.idEmploye}
-                                employes={eligibleEmployees}
+                                options={eligibleEmployees.map(employee => ({
+                                    value: String(employee.idEmploye ?? employee.id_employe),
+                                    label: [employee.nom, employee.prenom].filter(Boolean).join(' '),
+                                    sublabel: employee.matricule ? `Matricule ${employee.matricule}` : undefined,
+                                }))}
                                 onChange={(employeeId) => handleFormChange('idEmploye', employeeId)}
                                 placeholder="Rechercher par nom ou matricule…"
                             />
@@ -745,14 +750,15 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
                         <div className="border-l-2 border-[var(--color-brand-500)] pl-3 pt-1">
                             <h4 className="text-sm font-bold text-[var(--color-fg)]">2. Variable et justification</h4>
-                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Le traitement fiscal et social provient du type choisi.</p>
+                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">{form.idEmploye ? 'Choisissez un gain ou une retenue, puis son type configuré.' : 'Sélectionnez d’abord le salarié concerné.'}</p>
                         </div>
+                        {form.idEmploye && <>
                         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Sens de la variable">
                             {[
                                 { sens: 'GAIN', label: 'Ajouter un gain', detail: 'Prime ou indemnité', icon: <TrendingUp size={16} /> },
                                 { sens: 'RETENUE', label: 'Effectuer une retenue', detail: 'Déduction sur paie', icon: <TrendingDown size={16} /> }
                             ].map(option => (
-                                <button
+                                <SharedButton plain
                                     key={option.sens}
                                     type="button"
                                     aria-pressed={form.sens === option.sens}
@@ -762,10 +768,10 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 >
                                     <span className={option.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}>{option.icon}</span>
                                     <span><strong className="block text-[11px] text-[var(--color-fg)]">{option.label}</strong><small className="mt-0.5 block text-[10px] text-[var(--color-fg-muted)]">{option.detail}</small></span>
-                                </button>
+                                </SharedButton>
                             ))}
                         </div>
-                        <SearchSelect
+                        {form.sens && <SearchSelect
                             label="Type de variable"
                             required
                             value={form.typeMouvement}
@@ -774,16 +780,16 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 value: t.code,
                                 label: t.libelle
                             }))}
-                        />
+                        />}
 
                         {selectedType && <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 space-y-1">
                         <strong className="text-[var(--color-fg)]">{selectedType.libelle}</strong>
                         {selectedType.description && <p className="text-[var(--color-fg-muted)]">{selectedType.description}</p>}
                         <p className="text-[var(--color-fg-muted)]">Traitement : {regimeLabel(selectedType.sens, selectedType.imposable, selectedType.cotisable)}</p>
                         </div>}
-                        {selectedType?.code === 'NOTE_DE_FRAIS' && <div className="space-y-2 border border-[var(--color-border-subtle)] p-3"><label htmlFor="note-frais-file" className="block font-semibold text-[var(--color-fg)]">Justificatif de frais obligatoire</label><input id="note-frais-file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={event => setJustificatifFrais(event.target.files?.[0] || null)} className="block w-full text-xs" /><p className="text-[var(--color-fg-muted)]">Facture ou reçu PDF, PNG ou JPEG, 5 Mo maximum. La note reste en attente jusqu’à son approbation.</p></div>}
+                        {selectedType?.code === 'NOTE_DE_FRAIS' && <div className="space-y-2 border border-[var(--color-border-subtle)] p-3"><label htmlFor="note-frais-file" className="block font-semibold text-[var(--color-fg)]">Justificatif de frais obligatoire</label><SharedInput plain id="note-frais-file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={event => setJustificatifFrais(event.target.files?.[0] || null)} className="block w-full text-xs" /><p className="text-[var(--color-fg-muted)]">Facture ou reçu PDF, PNG ou JPEG, 5 Mo maximum. La note reste en attente jusqu’à son approbation.</p></div>}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {selectedType && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <ManualVariableValueFields type={selectedType} form={form} onChange={handleFormChange} />
                         {manualMethod(selectedType) === 'MONTANT' && <MoneyInput
                             label="Montant en Ariary"
@@ -805,14 +811,14 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             value={form.motif}
                             onChange={(e) => handleFormChange('motif', e.target.value)}
                         />
-                        </div>
+                        </div>}
 
                         {possibleDuplicate && (
                         <div className="border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 p-3 space-y-2">
                             <p className="text-xs font-semibold text-[var(--color-fg)]">Variable similaire déjà enregistrée</p>
                             <p className="text-[11px] text-[var(--color-fg-muted)]">Même collaborateur et même type sur cette période. Vérifiez le montant et le motif avant de poursuivre.</p>
                             <div className="flex items-start gap-2 pt-1">
-                                <input
+                                <SharedCheckbox plain
                                     id="confirm-duplicate-variable"
                                     type="checkbox"
                                     checked={duplicateAcknowledged}
@@ -825,9 +831,10 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             </div>
                         </div>
                         )}
+                        </>}
                       </div>
 
-                      <aside className="border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm p-4 space-y-3.5 border-t-2 border-t-[var(--color-brand-500)]">
+                      {form.idEmploye && <aside className="border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm p-4 space-y-3.5 border-t-2 border-t-[var(--color-brand-500)]">
                         <div className="flex items-center justify-between pb-2.5 border-b border-[var(--color-border-subtle)]">
                             <div>
                                 <div className="flex items-center gap-2 text-sm font-bold text-[var(--color-fg)]">
@@ -844,19 +851,13 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 </p>
                             </div>
                             {previewEmployee && (
-                                <Badge variant="neutral" size="xs" className="font-mono font-semibold">
+                                <Badge variant="neutral" size="xs" className="font-data font-semibold">
                                     #{previewEmployee.matricule}
                                 </Badge>
                             )}
                         </div>
 
-                        {!form.idEmploye ? (
-                            <div className="flex min-h-[160px] flex-col items-center justify-center text-center text-[var(--color-fg-muted)] p-6 bg-[var(--color-bg-subtle)]/40 border border-dashed border-[var(--color-border-subtle)]">
-                                <SlidersHorizontal size={28} className="mb-2 opacity-40 text-[var(--color-brand-600)]" />
-                                <p className="font-semibold text-xs text-[var(--color-fg)]">Sélectionnez un salarié</p>
-                                <p className="mt-1 max-w-[260px] text-[11px]">Son bulletin provisoire apparaîtra ici avec tous les calculs intermédiaires pour vous guider.</p>
-                            </div>
-                        ) : previewLoading ? (
+                        {previewLoading ? (
                             <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 text-xs text-[var(--color-fg-muted)] p-6">
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-brand-500)] border-t-transparent" />
                                 <span>Calcul de l’aperçu du bulletin…</span>
@@ -872,11 +873,11 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/60 p-3">
                                         <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Salaire contractuel</span>
-                                        <strong className="mt-1 block font-mono text-base font-bold text-[var(--color-fg)]">{formatAr(previewBase)}</strong>
+                                        <strong className="mt-1 block font-data text-base font-bold text-[var(--color-fg)]">{formatAr(previewBase)}</strong>
                                     </div>
                                     <div className="border border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/5 p-3">
                                         <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">Brut provisoire</span>
-                                        <strong className="mt-1 block font-mono text-base font-bold text-[var(--color-fg)]">{formatAr(previewGross)}</strong>
+                                        <strong className="mt-1 block font-data text-base font-bold text-[var(--color-fg)]">{formatAr(previewGross)}</strong>
                                     </div>
                                 </div>
 
@@ -884,13 +885,13 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/30 p-3.5 space-y-2" aria-label="Étapes du calcul provisoire">
                                     <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-border-subtle)]">
                                         <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">Décomposition du brut au net</p>
-                                        <span className="text-[10px] text-[var(--color-fg-muted)] font-mono">Période active</span>
+                                        <span className="text-[10px] text-[var(--color-fg-muted)] font-data">Période active</span>
                                     </div>
                                     <div className="space-y-1">
                                         {previewSteps.map(([label, amount, sign, valueClass]) => amount != null && (
                                             <div key={label} className="flex items-baseline justify-between gap-3 text-xs py-1 border-b border-[var(--color-border-subtle)]/30 last:border-0">
                                                 <span className="text-[var(--color-fg-muted)] truncate">{label}</span>
-                                                <strong className={`shrink-0 font-mono ${valueClass || 'text-[var(--color-fg)]'}`}>
+                                                <strong className={`shrink-0 font-data ${valueClass || 'text-[var(--color-fg)]'}`}>
                                                     {sign}{formatAr(amount)}
                                                 </strong>
                                             </div>
@@ -906,7 +907,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                         </span>
                                         <small className="text-[10px] text-[var(--color-fg-muted)]">Situation calculée avant ajout</small>
                                     </div>
-                                    <strong className="font-mono text-2xl font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">
+                                    <strong className="font-data text-2xl font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">
                                         {formatAr(previewNet)}
                                     </strong>
                                 </div>
@@ -938,7 +939,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <span className="block font-mono text-sm font-bold">
+                                            <span className="block font-data text-sm font-bold">
                                                 {form.sens === 'RETENUE' ? '−' : '+'}{formatAr(montantNum)}
                                             </span>
                                             <span className="text-[10px] opacity-90 block">Effet réel visible après simulation du bulletin.</span>
@@ -958,7 +959,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                             {employeeVariables.slice(0, 4).map((variable, index) => (
                                                 <div key={variable.idAvance ?? variable.id_avance ?? index} className="flex justify-between items-center gap-3 py-1 text-xs border-b border-[var(--color-border-subtle)]/30 last:border-0">
                                                     <span className="truncate text-[var(--color-fg-muted)]">{variable.typeLibelle || variable.type_libelle || variable.typeMouvement || variable.type_mouvement}</span>
-                                                    <strong className={`shrink-0 font-mono text-xs ${variable.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)]'}`}>
+                                                    <strong className={`shrink-0 font-data text-xs ${variable.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)]'}`}>
                                                         {variable.sens === 'RETENUE' ? '−' : '+'}{formatAr(variable.montant)}
                                                     </strong>
                                                 </div>
@@ -978,7 +979,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                             {previewLines.map((line, index) => (
                                                 <div key={`${line.codeRubrique || line.code_rubrique || 'ligne'}-${index}`} className="flex justify-between items-center gap-3 py-1 text-xs border-b border-[var(--color-border-subtle)]/30 last:border-0">
                                                     <span className="text-[var(--color-fg-muted)]">{line.libelleRubrique || line.libelle_rubrique || line.codeRubrique || line.code_rubrique || 'Élément de paie'}</span>
-                                                    <strong className={`shrink-0 font-mono text-xs ${line.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : line.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                                    <strong className={`shrink-0 font-data text-xs ${line.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : line.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
                                                         {line.sens === 'PATRONAL' ? 'Employeur · ' : line.sens === 'RETENUE' ? '−' : line.sens === 'GAIN' ? '+' : 'Info · '}
                                                         {formatAr(line.sens === 'PATRONAL' ? line.montantPatronal : line.montantSalarial ?? line.montant_salarial)}
                                                     </strong>
@@ -996,7 +997,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         ) : (
                             <div className="flex min-h-[120px] items-center justify-center text-xs text-[var(--color-fg-muted)]">Aucun résultat d’aperçu.</div>
                         )}
-                      </aside>
+                      </aside>}
                     </div>
                 </form>
             </Modal>
@@ -1034,7 +1035,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-[var(--color-fg-muted)]">Montant</span>
-                            <span className={`font-mono font-bold text-sm ${approvingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
+                            <span className={`font-data font-bold text-sm ${approvingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                 {approvingVariable.sens === 'GAIN' ? '+' : '-'}{formatAr(approvingVariable.montant)}
                             </span>
                         </div>
@@ -1111,7 +1112,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-[var(--color-fg-muted)]">Montant</span>
-                            <span className={`font-mono font-bold text-sm ${deletingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
+                            <span className={`font-data font-bold text-sm ${deletingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                 {deletingVariable.sens === 'GAIN' ? '+' : '-'}{formatAr(deletingVariable.montant)}
                             </span>
                         </div>

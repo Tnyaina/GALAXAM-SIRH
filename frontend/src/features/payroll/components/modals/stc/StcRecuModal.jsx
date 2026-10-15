@@ -202,12 +202,12 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                 {recu.entrepriseNom || 'GALAXAM LOGISTICS'}
                             </h2>
                             <p className="text-[11px] text-[var(--color-fg-muted)]">{recu.entrepriseAdresse}</p>
-                            <p className="text-[10px] text-[var(--color-fg-subtle)] font-mono mt-0.5">
+                            <p className="text-[10px] text-[var(--color-fg-subtle)] font-data mt-0.5">
                                 NIF : {recu.entrepriseNif} | STAT : {recu.entrepriseStat} | CNaPS : {recu.entrepriseCnaps}
                             </p>
                         </div>
                         <div className="text-right">
-                            <Badge variant="success" size="sm" className="font-bold font-mono">
+                            <Badge variant="success" size="sm" className="font-bold font-data">
                                 {recu.numeroRecu || 'STC'}
                             </Badge>
                             <p className="text-[10px] text-[var(--color-fg-muted)] mt-1">
@@ -232,7 +232,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         </div>
                         <div>
                             <span className="text-[var(--color-fg-muted)]">Matricule :</span>{' '}
-                            <span className="font-mono font-bold text-[var(--color-fg)]">{recu.matricule}</span>
+                            <span className="font-data font-bold text-[var(--color-fg)]">{recu.matricule}</span>
                         </div>
                         <div>
                             <span className="text-[var(--color-fg-muted)]">Fonction :</span>{' '}
@@ -244,7 +244,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         </div>
                         <div>
                             <span className="text-[var(--color-fg-muted)]">CIN :</span>{' '}
-                            <span className="font-mono text-[var(--color-fg)]">{recu.cinNumero || '—'}</span>
+                            <span className="font-data text-[var(--color-fg)]">{recu.cinNumero || '—'}</span>
                         </div>
                         <div>
                             <span className="text-[var(--color-fg-muted)]">Ancienneté :</span>{' '}
@@ -268,7 +268,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                 <Th className="text-right">Montant (Ariary)</Th>
                             </Tr>
                         </Thead>
-                        <Tbody className="font-mono text-[11px]">
+                        <Tbody className="font-data text-[11px]">
                             {Number(recu.salaireProrata) > 0 && (
                                 <Tr>
                                     <Td className="font-sans">
@@ -360,7 +360,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                         Règlement par {recu.modeReglement || 'VIREMENT'}
                                     </span>
                                 </Td>
-                                <Td className="p-3 text-right text-base font-mono font-black text-inherit">
+                                <Td className="p-3 text-right text-base font-data font-black text-inherit">
                                     {formatMoneyAr(recu.netAPayer ?? recu.netAPayerStc)}
                                 </Td>
                             </Tr>
