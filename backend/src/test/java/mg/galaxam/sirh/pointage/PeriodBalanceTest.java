@@ -6,40 +6,57 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PeriodBalanceTest {
     @Test
-    void seizeHeuresMoinsDeuxAbsencesMoinsCinqDiversDonnentHuitEtUne() {
-        var r = PeriodBalance.calculate(480, 480, 120, -300, 480);
+    void lesRetraitsConsommentLaTranche30PuisLaTranche50() {
+        var r = PeriodBalance.calculate(480, 480, 120, -300);
         assertEquals(540, r.balanceMinutes());
-        assertEquals(480, r.overtime30Minutes());
-        assertEquals(60, r.overtime50Minutes());
+        assertEquals(60, r.overtime30Minutes());
+        assertEquals(480, r.overtime50Minutes());
         assertEquals(0, r.absenceMinutes());
     }
 
     @Test
-    void respecteUnPalierConfigureDeSixHeures() {
-        var r = PeriodBalance.calculate(480, 480, 120, -300, 360);
-        assertEquals(360, r.overtime30Minutes());
-        assertEquals(180, r.overtime50Minutes());
+    void conserveLesTranchesHebdomadairesSansNouveauPalierDePeriode() {
+        var r = PeriodBalance.calculate(537, 0, 0, 0);
+        assertEquals(537, r.balanceMinutes());
+        assertEquals(537, r.overtime30Minutes());
+        assertEquals(0, r.overtime50Minutes());
+
+        var apresRetrait = PeriodBalance.calculate(537, 0, 0, -150);
+        assertEquals(387, apresRetrait.balanceMinutes());
+        assertEquals(387, apresRetrait.overtime30Minutes());
+        assertEquals(0, apresRetrait.overtime50Minutes());
     }
 
     @Test
     void negatifDevientAbsenceEtZeroNaAucuneHs() {
-        var r = PeriodBalance.calculate(60, 60, 180, -60, 480);
+        var r = PeriodBalance.calculate(60, 60, 180, -60);
         assertEquals(120, r.absenceMinutes());
         assertEquals(0, r.overtime30Minutes());
         assertEquals(0, r.overtime50Minutes());
-        assertEquals(0, PeriodBalance.calculate(60, 60, 180, 60, 480).balanceMinutes());
+        assertEquals(0, PeriodBalance.calculate(60, 60, 180, 60).balanceMinutes());
     }
 
     @Test
     void positifDafSansPointageHsEstUneDecisionDePaiement() {
-        var r = PeriodBalance.calculate(0, 0, 0, 120, 480);
+        var r = PeriodBalance.calculate(0, 0, 0, 120);
         assertEquals(120, r.overtime30Minutes());
         assertEquals(0, r.overtime50Minutes());
     }
 
     @Test
-    void conserveLaMinuteEtNeReinitialisePasLePalierParSemaine() {
-        assertEquals(1, PeriodBalance.calculate(481, 0, 0, 0, 480).overtime50Minutes());
-        assertEquals(480, PeriodBalance.calculate(960, 0, 0, 0, 480).overtime50Minutes());
+    void conserveLePalierHebdomadaireQuandSeuleLaTranche50Reste() {
+        var r = PeriodBalance.calculate(120, 240, 0, -180);
+        assertEquals(180, r.balanceMinutes());
+        assertEquals(0, r.overtime30Minutes());
+        assertEquals(180, r.overtime50Minutes());
+    }
+
+    @Test
+    void unRetraitAuDelaDesHsDevientUneAbsenceFinale() {
+        var r = PeriodBalance.calculate(120, 240, 0, -420);
+        assertEquals(-60, r.balanceMinutes());
+        assertEquals(60, r.absenceMinutes());
+        assertEquals(0, r.overtime30Minutes());
+        assertEquals(0, r.overtime50Minutes());
     }
 }

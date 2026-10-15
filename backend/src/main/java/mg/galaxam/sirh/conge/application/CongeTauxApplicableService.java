@@ -351,43 +351,6 @@ public class CongeTauxApplicableService {
         }
     }
 
-    private void verifierAbsenceChevauchement(int idEmploye,
-                                             LocalDate dateEffet,
-                                             LocalDate dateFin,
-                                             Integer idTauxExclu,
-                                             Connection c) throws SQLException {
-        StringBuilder sql = new StringBuilder(
-                "SELECT id_taux_applicable, date_effet, date_fin FROM conge_taux_applicable WHERE id_employe = ? "
-        );
-        if (idTauxExclu != null) {
-            sql.append("AND id_taux_applicable != ? ");
-        }
-        sql.append("AND (date_fin IS NULL OR date_fin > ?) ");
-        if (dateFin != null) {
-            sql.append("AND date_effet < ? ");
-        }
-
-        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
-            int p = 1;
-            ps.setInt(p++, idEmploye);
-            if (idTauxExclu != null) {
-                ps.setInt(p++, idTauxExclu);
-            }
-            ps.setDate(p++, Date.valueOf(dateEffet));
-            if (dateFin != null) {
-                ps.setDate(p++, Date.valueOf(dateFin));
-            }
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    throw new IllegalStateException("TCONGE_OVERLAP_DETECTED: le taux chevauche un taux existant (ID: " +
-                            rs.getInt("id_taux_applicable") + ", effet: " + rs.getDate("date_effet") +
-                            ", fin: " + rs.getDate("date_fin") + ") pour l'employé " + idEmploye + ".");
-                }
-            }
-        }
-    }
-
     /**
      * Vérifie l'absence de chevauchement temporel pour les références d'un même employé.
      */

@@ -15,9 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.sql.DataSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -42,11 +39,6 @@ import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
  */
 @Service
 public class PayrollService {
-
-    private static final Logger log = LoggerFactory.getLogger(PayrollService.class);
-
-    @Autowired
-    private DataSource dataSource;
 
     @Autowired
     private PayrollExecutionEngine payrollExecutionEngine;

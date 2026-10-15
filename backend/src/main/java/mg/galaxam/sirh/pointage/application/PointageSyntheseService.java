@@ -951,8 +951,7 @@ public class PointageSyntheseService {
             }
         }
         var balance = AttendanceEngine.PeriodBalance.calculate(
-                hs30Minutes, hs50Minutes, deficitMinutes, ajustementMinutes,
-                seuilHsTranche1.multiply(BigDecimal.valueOf(60)).intValueExact());
+                hs30Minutes, hs50Minutes, deficitMinutes, ajustementMinutes);
         dto.setMinutesPremierPalierHs(seuilHsTranche1.multiply(BigDecimal.valueOf(60)).intValueExact());
         int soldeMinutes = balance.balanceMinutes();
         dto.setMinutesDeficitHebdo(deficitMinutes);
@@ -1402,13 +1401,9 @@ public class PointageSyntheseService {
 
         LocalDate dateDebut = null;
         LocalDate dateFin = null;
-        String codePeriode = null;
-        String libellePeriode = null;
-        String statutPeriode = null;
 
-        String sqlPeriode = "SELECT p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
+        String sqlPeriode = "SELECT p.date_debut, p.date_fin " +
                             "FROM periode_paie p " +
-                            "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                             "WHERE p.id_periode_paie = ?";
         try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
             psP.setInt(1, idPeriode);
@@ -1416,9 +1411,6 @@ public class PointageSyntheseService {
                 if (rsP.next()) {
                     dateDebut = rsP.getDate("date_debut").toLocalDate();
                     dateFin = rsP.getDate("date_fin").toLocalDate();
-                    codePeriode = rsP.getString("code");
-                    libellePeriode = rsP.getString("libelle");
-                    statutPeriode = rsP.getString("statut_code");
                 }
             }
         }

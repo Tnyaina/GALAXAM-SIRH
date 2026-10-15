@@ -204,7 +204,6 @@ public class PayrollExecutionEngine {
     // 2. SALAIRE BRUT & GAINS (Palier 1)
     // =========================================================================
     public BigDecimal calculerSalaireBrut(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
-        BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
         BigDecimal tauxHoraire = input.getTauxHoraireEffectif();
 
         BigDecimal base = calculerSalaireBase(input, bp, lignes);

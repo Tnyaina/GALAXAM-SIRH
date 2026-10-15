@@ -15,3 +15,13 @@ it('envoie le même contrat de pointage pour la grille et l’import, avec les v
         dynamicIndemnites: { 5: { accordee: true } }
     });
 });
+
+it('conserve la demande de calcul des indemnités lors du preview d’import', () => {
+    const payload = toPointageBatchPayload({
+        idEmploye: 8, idSite: 2, datePointage: '2026-08-06',
+        dynamicIndemnites: { 5: { accordee: true } },
+        inclureIndemnitesCalculeesPreview: true
+    });
+    expect(payload.inclureIndemnitesCalculeesPreview).toBe(true);
+    expect(payload.dynamicIndemnites).toEqual({ 5: { accordee: true } });
+});

@@ -3,7 +3,6 @@ package mg.galaxam.sirh.conge;
 import mg.galaxam.sirh.conge.application.CongeAnnuelExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeLotValorisationService;
-import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -50,9 +49,6 @@ class CongeLongTermSimulationTest {
 
     @Autowired
     private CongeTauxApplicableService congeTauxApplicableService;
-
-    @Autowired
-    private CongeService congeService;
 
     @Autowired
     private CongeAnnuelExcelExportService congeAnnuelExcelExportService;

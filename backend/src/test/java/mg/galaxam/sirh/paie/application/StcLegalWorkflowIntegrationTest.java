@@ -236,15 +236,11 @@ class StcLegalWorkflowIntegrationTest {
                 assertEquals(0, new BigDecimal("15.00").compareTo(soldeInitial.getSoldeActuel()), "L'employé doit avoir 15j de congés");
 
                 // 5. Prêt entreprise accordé : Capital restant 500 000 Ar
-                int pretId;
                 try (PreparedStatement ps = c.prepareStatement(
                         "INSERT INTO paie_pret (id_employe, reference_pret, montant_total, montant_mensualite, nb_echeances, date_premiere_echeance, capital_rembourse, capital_restant_du, statut, motif) " +
-                        "VALUES (?, 'PRET-STC-01', 1000000.00, 100000.00, 10, '2026-01-01', 500000.00, 500000.00, 'EN_COURS', 'Prêt équipement test') RETURNING id_pret")) {
+                        "VALUES (?, 'PRET-STC-01', 1000000.00, 100000.00, 10, '2026-01-01', 500000.00, 500000.00, 'EN_COURS', 'Prêt équipement test')")) {
                     ps.setInt(1, empId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        rs.next();
-                        pretId = rs.getInt(1);
-                    }
+                    ps.executeUpdate();
                 }
 
                 // =====================================================================

@@ -11,5 +11,6 @@ export const toPointageBatchPayload = (row) => ({
     ferieJour: Boolean(row.ferieJour ?? row.ferie),
     congePaye: row.congePaye ?? true, congeDecompteSolde: row.congeDecompteSolde ?? true,
     idPeriodePaie: row.idPeriodePaie || null,
-    dynamicIndemnites: row.dynamicIndemnites || {}
+    dynamicIndemnites: row.dynamicIndemnites || {},
+    ...(row.inclureIndemnitesCalculeesPreview ? { inclureIndemnitesCalculeesPreview: true } : {})
 });

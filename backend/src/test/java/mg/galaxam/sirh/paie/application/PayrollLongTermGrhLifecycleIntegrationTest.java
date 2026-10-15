@@ -12,7 +12,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalDate;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
@@ -60,7 +59,6 @@ class PayrollLongTermGrhLifecycleIntegrationTest {
     @Autowired private AnnualPayrollExportService annualPayrollExportService;
     @Autowired private QuarterlySocialDataService quarterlySocialDataService;
     @Autowired private BulletinDocumentService bulletinDocumentService;
-    @Autowired private CongeService congeService;
     @Autowired private PayrollPopulationResolver payrollPopulationResolver;
 
     @Test

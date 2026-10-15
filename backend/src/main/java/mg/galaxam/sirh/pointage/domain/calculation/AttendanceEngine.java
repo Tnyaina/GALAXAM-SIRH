@@ -17,14 +17,19 @@ public class AttendanceEngine {
     /** Rapprochement DAF des totaux hebdomadaires, en minutes entières. */
     public record PeriodBalance(int balanceMinutes, int absenceMinutes,
                                 int overtime30Minutes, int overtime50Minutes) {
-        public static PeriodBalance calculate(int hs30, int hs50, int deficit, int adjustment, int firstBand) {
-            if (hs30 < 0 || hs50 < 0 || deficit < 0 || firstBand < 0)
+        public static PeriodBalance calculate(int hs30, int hs50, int deficit, int adjustment) {
+            if (hs30 < 0 || hs50 < 0 || deficit < 0)
                 throw new IllegalArgumentException("Volumes de rapprochement invalides.");
             int balance = Math.addExact(Math.subtractExact(Math.addExact(hs30, hs50), deficit), adjustment);
-            int overtime = Math.max(0, balance);
-            int tier30 = Math.min(overtime, firstBand);
+            // Les paliers ont déjà été appliqués à chaque semaine. Une réduction
+            // consomme d'abord la tranche à 30 %, puis celle à 50 %.
+            int netAdjustment = Math.subtractExact(adjustment, deficit);
+            int tier30 = netAdjustment >= 0 ? Math.addExact(hs30, netAdjustment)
+                    : Math.max(0, Math.addExact(hs30, netAdjustment));
+            long reduction50 = netAdjustment < 0 ? Math.max(0L, -(long) netAdjustment - hs30) : 0;
+            int tier50 = (int) Math.max(0L, hs50 - reduction50);
             return new PeriodBalance(balance, balance < 0 ? Math.negateExact(balance) : 0,
-                    tier30, overtime - tier30);
+                    tier30, tier50);
         }
     }
 

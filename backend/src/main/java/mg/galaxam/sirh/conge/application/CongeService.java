@@ -98,10 +98,6 @@ public class CongeService {
         return stateAllowed ? ActionCapability.permit() : ActionCapability.denied(reason);
     }
 
-    private int getParamGlobalInt(String code, Connection c) {
-        return getParamGlobalInt(code, LocalDate.now(), c);
-    }
-
     private int getParamGlobalInt(String code, LocalDate dateMetier, Connection c) {
         return ParametreGlobal.requirePositiveInt(ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateMetier), c), code);
     }

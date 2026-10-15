@@ -10,6 +10,7 @@ Ce document accompagne la [carte des fichiers](pointage-file-map.md). Toute évo
 | Indemnités et fractions valorisées | Configuration datée et `PointageService.persistDynamicAllowances` | La fiche fournit les propositions datées à la saisie par période ; les écrans montrent les choix provisoires et le montant appliqué vient du serveur |
 | Congé et solde de congé | Domaine Congés, appelé lors de la régularisation | Pointage affiche l'état et permet de déclencher le workflow ; il ne débite pas le solde localement |
 | Totaux hebdomadaires, mensuels, gel et validation | `PointageSyntheseService` et moteur hebdomadaire | Fiche employé, contrôle DAF, paie et exports |
+| Ventilation du solde horaire final | `AttendanceEngine.PeriodBalance`, alimenté par les tranches hebdomadaires de `PointageSyntheseService` | Contrôle DAF, fiche employé, paie et exports |
 | Import Excel | `PointageImportService.preview` pour lecture et validation initiale ; `PointageService` pour la prévisualisation de chaque jour et l'enregistrement en lot | Aperçu d'import et saisie par période |
 | Écriture de `pointage_jour` | `PointageService.writeDay`, appelé par la saisie en lot et la régularisation | Contrôles propres à chaque workflow avant écriture ; verrouillage de version commun |
 | Résolution du statut après régularisation | `AttendanceStatusPolicy` | `PointageAnomalieService` transmet le choix explicite, le contexte horaire et la couverture du congé |
@@ -21,6 +22,14 @@ Ce document accompagne la [carte des fichiers](pointage-file-map.md). Toute évo
 - `usePointageBatchPreview.js` interroge le serveur après chaque changement et ignore les réponses périmées.
 - `usePointageSaisie.js` et `usePointagePeriodeEmploye.js` orchestrent chacun une vue ; ils partagent les fonctions précédentes. Les totaux locaux ne servent qu'à résumer les résultats déjà renvoyés par l'API.
 - Les actions de régularisation sont des commandes distinctes de la saisie ordinaire, car elles portent une justification, un historique et parfois une demande de congé.
+
+## Heures supplémentaires et solde final
+
+Chaque semaine ou tronçon de semaine est calculé séparément. Le moteur compare les heures travaillées à l'objectif ajusté du tronçon, compense les écarts entre ses journées, puis répartit les heures supplémentaires éligibles entre la tranche à 30 % et celle à 50 %. Le premier palier configuré (8 h dans le cas présenté) s'applique à chaque semaine ; il est proratisé lorsque l'objectif normal du tronçon est réduit par les bornes de période, un jour férié chômé ou un congé. La qualification de chaque tranche est alors acquise pour le rapprochement de période.
+
+Le solde horaire de période est `HS30 hebdomadaires + HS50 hebdomadaires − déficits hebdomadaires + ajustements validés`. Le rapprochement ne réapplique aucun palier global. Les déficits et ajustements négatifs consomment d'abord les HS à 30 %, puis les HS à 50 %. Si leur montant dépasse toutes les HS, le reliquat devient une absence horaire finale. Un ajustement positif non typé augmente la tranche à 30 % ; une attribution explicite à 50 % demanderait un type d'ajustement dédié.
+
+Exemple : trois semaines apportent 4,40 h, 2,55 h et 2,00 h décimales à 30 %, soit 8 h 57 à 30 % et aucune HS à 50 %. Un ajustement de −2,50 h décimales (−2 h 30) donne un solde de +6 h 27, entièrement à 30 %. Avec 2 h à 30 % et 4 h à 50 %, un retrait de 3 h laisse 0 h à 30 % et 3 h à 50 %.
 
 ## Redondances encore à résorber
 

@@ -2,7 +2,6 @@ package mg.galaxam.sirh.paie.application;
 
 import mg.galaxam.sirh.conge.application.CongeAnnuelExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
-import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService.CongeModeReprise;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService.CutoverOpeningRequest;
@@ -30,8 +29,6 @@ import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.pointage.api.dto.FichePointageEmployeDTO;
 import mg.galaxam.sirh.pointage.api.dto.PointageJourDTO;
 import mg.galaxam.sirh.pointage.application.PointageDocumentData;
-import mg.galaxam.sirh.pointage.application.PointageDocumentService;
-import mg.galaxam.sirh.pointage.application.PointageEmployeService;
 import mg.galaxam.sirh.pointage.application.PointageExcelExportService;
 import mg.galaxam.sirh.pointage.application.PointagePdfExportService;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
@@ -74,8 +71,6 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
     @Autowired private PayrollService payrollService;
     @Autowired private StcService stcService;
     @Autowired private PointageSyntheseService pointageSyntheseService;
-    @Autowired private PointageEmployeService pointageEmployeService;
-    @Autowired private PointageDocumentService pointageDocumentService;
     @Autowired private PointageExcelExportService pointageExcelExportService;
     @Autowired private PointagePdfExportService pointagePdfExportService;
     @Autowired private VirementBancaireExportService virementBancaireExportService;
@@ -90,7 +85,6 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
     @Autowired private DocumentRhService documentRhService;
     @Autowired private CarriereExportService carriereExportService;
     @Autowired private CongeTauxApplicableService congeTauxApplicableService;
-    @Autowired private CongeService congeService;
     @Autowired private CongeAnnuelExcelExportService congeAnnuelExcelExportService;
     @Autowired private CongeGrandRecapExcelExportService congeGrandRecapExcelExportService;
 

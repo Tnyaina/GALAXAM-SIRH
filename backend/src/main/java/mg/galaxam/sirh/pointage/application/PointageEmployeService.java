@@ -1121,8 +1121,10 @@ public class PointageEmployeService {
         regles.put("palierHs30", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesPremierPalierHs()));
         recap.put("regleVentilation", synDto == null || synDto.getMinutesPremierPalierHs() == null
                 ? "Palier non historisé pour cette période."
-                : "Solde positif : jusqu’à " + formatHoursMinutes(synDto.getMinutesPremierPalierHs())
-                    + " à 30 %, puis le reste à 50 %.");
+                : "Palier de " + formatHoursMinutes(synDto.getMinutesPremierPalierHs())
+                    + " appliqué par semaine. Les HS de chaque tranche sont cumulées sur la période ; "
+                    + "déficits et retraits réduisent d’abord les HS à 30 %, puis celles à 50 %. "
+                    + "Un ajout d’heures sans tranche précisée est affecté aux HS à 30 %.");
         result.setReglesAppliquees(regles);
         if (includeAllowanceSuggestions) populateAllowanceSuggestions(list, idEmploye, startDate, endDate);
         result.setPointagesData(list);

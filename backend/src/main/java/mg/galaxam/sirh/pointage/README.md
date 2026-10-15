@@ -26,6 +26,12 @@ compensation reste hebdomadaire selon l'objectif de la semaine ; l'ajustement
 motivé du solde final est distinct d'une correction de badge. Les snapshots
 déjà consommés par la Paie restent historiques.
 
+Les paliers HS à 30 % et 50 % sont attribués dans chaque tronçon hebdomadaire.
+Le solde de période additionne ces tranches, retire les déficits et applique les
+ajustements validés sans nouveau palier global. Un retrait consomme les HS à
+30 % avant celles à 50 % ; un ajout non typé alimente les HS à 30 %.
+Voir `docs/pointage-source-de-verite.md` pour les exemples chiffrés.
+
 Si une affectation change l'éligibilité aux heures supplémentaires au milieu
 d'un tronçon hebdomadaire de paie, le précontrôle signale l'employé, les bornes
 du tronçon et la date de changement. La transmission et le gel sont bloqués

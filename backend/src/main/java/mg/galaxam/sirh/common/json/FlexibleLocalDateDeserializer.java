@@ -21,7 +21,7 @@ public class FlexibleLocalDateDeserializer extends ValueDeserializer<LocalDate> 
 
     @Override
     public LocalDate deserialize(JsonParser p, DeserializationContext ctxt) throws JacksonException {
-        String text = p.getText();
+        String text = p.getString();
         if (text == null || text.isBlank()) {
             return null;
         }

@@ -96,7 +96,7 @@ public class StcService {
                 || zeroIfNull(bulletin.getTotalCotisationsPatronales()).signum() > 0) && !lignesSocialesTrouvees) {
             throw new IllegalArgumentException("Les lignes de cotisation du bulletin mensuel sont nécessaires au calcul différentiel du STC.");
         }
-        return new BulletinFiscalSnapshot(zeroIfNull(bulletin.getSalaireNetImposable()).subtract(exclusionsIrsa).max(BigDecimal.ZERO),
+        return new BulletinFiscalSnapshot(zeroIfNull(bulletin.getRevenuNetImposable()).subtract(exclusionsIrsa).max(BigDecimal.ZERO),
                 zeroIfNull(bulletin.getIrsaNet()), valeurs[0], valeurs[1], valeurs[2],
                 valeurs[3], valeurs[4], valeurs[5], valeurs[6], valeurs[7]);
     }

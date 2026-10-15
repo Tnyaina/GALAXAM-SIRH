@@ -181,13 +181,12 @@ class PayrollPointageToBulletinIntegrationTest {
                 assertNotNull(result.getBulletin().getIdSnapshotPointage());
                 if (complementDaf) {
                     var hs30=result.getLignes().stream().filter(l->"HEURES_SUP_30".equals(l.getCodeRubrique())).findFirst().orElseThrow();
-                    var hs50=result.getLignes().stream().filter(l->"HEURES_SUP_50".equals(l.getCodeRubrique())).findFirst().orElseThrow();
-                    assertEquals(0,new BigDecimal("8").compareTo(hs30.getQuantite()));
-                    assertEquals(0,new BigDecimal("2").compareTo(hs50.getQuantite()));
+                    assertEquals(0,new BigDecimal("10").compareTo(hs30.getQuantite()));
+                    assertTrue(result.getLignes().stream().noneMatch(l->"HEURES_SUP_50".equals(l.getCodeRubrique())));
                     try(var ps=connection.prepareStatement(
                             "SELECT minutes_hs30_finales,minutes_hs50_finales,total_heures_travaillees FROM pointage_cumul_periode WHERE id_employe=? AND id_periode_paie=?")) {
                         ps.setInt(1,employeeId);ps.setInt(2,periodId);
-                        try(var rs=ps.executeQuery()){assertTrue(rs.next());assertEquals(480,rs.getInt(1));assertEquals(120,rs.getInt(2));assertEquals(0,new BigDecimal("16").compareTo(rs.getBigDecimal(3)));}
+                        try(var rs=ps.executeQuery()){assertTrue(rs.next());assertEquals(600,rs.getInt(1));assertEquals(0,rs.getInt(2));assertEquals(0,new BigDecimal("16").compareTo(rs.getBigDecimal(3)));}
                     }
                 }
                 var simulation = payrollService.calculerBulletinEmploye(employeeId, periodId,

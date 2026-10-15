@@ -101,7 +101,6 @@ public class RefTypeMouvementPaieController {
     /** Catalogue de paramétrage : capacités et choix du moteur, filtrage et pagination serveur. */
     @GetMapping("/configuration/parcours")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    @SuppressWarnings("unchecked")
     public ResponseEntity<?> getParcoursConfiguration() {
         return ResponseEntity.ok(Map.of(
                 "phases", mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.phases(),
