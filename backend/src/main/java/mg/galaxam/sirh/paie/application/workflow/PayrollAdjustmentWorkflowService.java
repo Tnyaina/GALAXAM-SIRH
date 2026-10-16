@@ -38,6 +38,37 @@ public class PayrollAdjustmentWorkflowService {
         this.matrix = new TransitionMatrix();
     }
 
+    /** Projection of workflow commands for list rows; the transition matrix remains authoritative. */
+    public Map<String, Boolean> describeActions(String statut, boolean canWrite, boolean paymentConfirmed,
+            boolean imputed, boolean canCancelImputed, boolean noteDeFrais, boolean proofPresent) {
+        String state = mg.galaxam.sirh.paie.domain.PayrollStatuses.canonicalAdjustment(statut);
+        boolean approve = !matrix.apply(state, PayrollAdjustmentCommand.APPROVE).blocked()
+                && (!noteDeFrais || proofPresent);
+        boolean reject = !matrix.apply(state, PayrollAdjustmentCommand.REJECT).blocked();
+        boolean cancel = !matrix.apply(state, PayrollAdjustmentCommand.CANCEL).blocked()
+                && (!paymentConfirmed) && (!imputed || canCancelImputed);
+        boolean delete = "EN_ATTENTE".equals(state) && !paymentConfirmed && !imputed;
+        return Map.of("APPROVE", canWrite && approve, "REJECT", canWrite && reject,
+                "CANCEL", canWrite && cancel, "DELETE", canWrite && delete);
+    }
+
+    /** Même critère pour projeter l'action et la revérifier sous verrou lors de l'exécution. */
+    public boolean canCancelImputedVariable(Connection connection, int adjustmentId, int periodId, int bulletinId,
+            boolean lock) throws Exception {
+        String sql = "SELECT 1 FROM periode_paie p "
+                + "JOIN ref_statut_periode_paie s ON s.id_statut_periode=p.id_statut_periode "
+                + "JOIN bulletin_paie b ON b.id_periode_paie=p.id_periode_paie "
+                + "JOIN paie_avance_acompte a ON a.id_bulletin=b.id_bulletin "
+                + "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement=a.id_type_mouvement "
+                + "WHERE p.id_periode_paie=? AND b.id_bulletin=? AND a.id_avance=? "
+                + "AND s.code='VALIDEE' AND b.statut='CALCULE' AND t.owner_code='DAF_PAIE' "
+                + "AND a.provenance='VARIABLE_DAF'" + (lock ? " FOR UPDATE OF p, b" : "");
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, periodId); statement.setInt(2, bulletinId); statement.setInt(3, adjustmentId);
+            try (ResultSet result = statement.executeQuery()) { return result.next(); }
+        }
+    }
+
     // =========================================================================
     // API publique
     // =========================================================================
@@ -101,8 +132,8 @@ public class PayrollAdjustmentWorkflowService {
                     throw new SirhBusinessException(transition.errorCode(), transition.blockingMessage());
                 }
                 if (command == PayrollAdjustmentCommand.APPROVE) {
-                    java.time.LocalDate dateDecision = dateAccord != null ? dateAccord : java.time.LocalDate.now();
-                    if (dateDecision.isAfter(java.time.LocalDate.now())) {
+                    java.time.LocalDate dateDecision = dateAccord != null ? dateAccord : mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today();
+                    if (dateDecision.isAfter(mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today())) {
                         throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                                 "La date d'approbation ne peut pas être future.");
                     }
@@ -140,31 +171,9 @@ public class PayrollAdjustmentWorkflowService {
                         throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
                                 "Le type de cette variable ne permet pas son annulation après imputation.");
                     }
-                    try (PreparedStatement ps = c.prepareStatement(
-                            "SELECT p.id_periode_paie FROM periode_paie p "
-                                    + "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode "
-                                    + "JOIN bulletin_paie b ON b.id_periode_paie = p.id_periode_paie "
-                                    + "WHERE p.id_periode_paie = ? AND b.id_bulletin = ? "
-                                    + "AND s.code = 'VALIDEE' AND b.statut = 'CALCULE' FOR UPDATE OF p, b")) {
-                        ps.setInt(1, entity.getIdPeriodePaie());
-                        ps.setInt(2, entity.getIdBulletin());
-                        try (ResultSet rs = ps.executeQuery()) {
-                            if (!rs.next()) {
-                                throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
-                                        "La variable ne peut être annulée que sur un bulletin calculé non validé.");
-                            }
-                        }
-                    }
-                    try (PreparedStatement ps = c.prepareStatement(
-                            "SELECT owner_code FROM ref_type_mouvement_paie WHERE id_type_mouvement = ?")) {
-                        ps.setInt(1, entity.getIdTypeMouvement());
-                        try (ResultSet rs = ps.executeQuery()) {
-                            if (!rs.next() || !"DAF_PAIE".equals(rs.getString(1))
-                                    || !"VARIABLE_DAF".equals(entity.getProvenance())) {
-                                throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
-                                        "Seule une variable manuelle peut être annulée après imputation.");
-                            }
-                        }
+                    if (!canCancelImputedVariable(c, adjustmentId, entity.getIdPeriodePaie(), entity.getIdBulletin(), true)) {
+                        throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                                "La variable ne peut être annulée que sur un bulletin calculé non validé.");
                     }
                 }
 
@@ -173,7 +182,7 @@ public class PayrollAdjustmentWorkflowService {
                 if (command == PayrollAdjustmentCommand.APPROVE) {
                     entity.setApprouvePar(requestingUserId);
                     entity.setDateAccord(java.sql.Date.valueOf(
-                            dateAccord != null ? dateAccord : java.time.LocalDate.now()));
+                            dateAccord != null ? dateAccord : mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today()));
                 }
                 if (reason != null && !reason.isBlank()) {
                     entity.setMotif((entity.getMotif() != null ? entity.getMotif() + " | " : "") + reason);
@@ -216,7 +225,7 @@ public class PayrollAdjustmentWorkflowService {
 
         /** Applique la commande depuis l'état courant et retourne l'état résultant. */
         public AdjustmentState apply(String currentStatut, PayrollAdjustmentCommand command) {
-            String s = currentStatut != null ? currentStatut.toUpperCase() : "";
+            String s = mg.galaxam.sirh.paie.domain.PayrollStatuses.canonicalAdjustment(currentStatut);
             return switch (command) {
                 case APPROVE -> switch (s) {
                     case "EN_ATTENTE" -> AdjustmentState.allowed("APPROUVE");
@@ -285,7 +294,7 @@ public class PayrollAdjustmentWorkflowService {
     }
 
     private static Map<String, ActionCapability> availableActionsFor(String statut) {
-        String s = statut != null ? statut.toUpperCase() : "";
+        String s = mg.galaxam.sirh.paie.domain.PayrollStatuses.canonicalAdjustment(statut);
         return switch (s) {
             case "EN_ATTENTE" -> Map.of(
                     "APPROVE", ActionCapability.permit(),

@@ -323,6 +323,19 @@ CREATE INDEX idx_bulletin_paie_valide_par ON bulletin_paie(valide_par);
 CREATE INDEX idx_bulletin_paie_cloture_par ON bulletin_paie(cloture_par);
 CREATE INDEX idx_bulletin_paie_rouvert_par ON bulletin_paie(rouvert_par);
 
+-- Identité de l'employeur conservée à la validation pour les réimpressions.
+CREATE TABLE bulletin_paie_employeur_snapshot (
+    id_bulletin INT PRIMARY KEY REFERENCES bulletin_paie(id_bulletin) ON DELETE CASCADE,
+    id_filiale INT NOT NULL,
+    raison_sociale VARCHAR(200) NOT NULL,
+    nif VARCHAR(100),
+    stat VARCHAR(100),
+    adresse_siege TEXT,
+    telephone VARCHAR(100),
+    email VARCHAR(255),
+    captured_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 6. Lignes du Bulletin de Paie
 CREATE TABLE bulletin_paie_ligne (
     id_ligne SERIAL PRIMARY KEY,

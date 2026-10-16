@@ -55,6 +55,7 @@ export default function PopulationStepPage() {
 
     // État local
     const [population, setPopulation] = useState([]);
+    const [populationSummary, setPopulationSummary] = useState({ evaluated: 0, included: 0, excluded: 0, blocked: 0 });
     const [loading, setLoading] = useState(true);
     const [refreshError, setRefreshError] = useState(false);
     const requestIdRef = useRef(0);
@@ -64,9 +65,7 @@ export default function PopulationStepPage() {
     const [pageSize, setPageSize] = useState(10);
 
     // Données dérivées
-    const blockedCount = population.filter(p => p.decision === 'BLOQUE' || p.decision === 'BLOCKED').length;
-    const includedCount = population.filter(p => p.decision === 'INCLUS' || p.decision === 'INCLUDED').length;
-    const excludedCount = population.filter(p => p.decision === 'EXCLU' || p.decision === 'EXCLUDED').length;
+    const { evaluated: evaluatedCount, blocked: blockedCount, included: includedCount, excluded: excludedCount } = populationSummary;
 
     const filteredPopulation = useMemo(() => {
         return population.filter(membre => {
@@ -101,6 +100,7 @@ export default function PopulationStepPage() {
             const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { projection: 'population' });
             if (requestIdRef.current !== requestId) return;
             setPopulation(Array.isArray(cockpit?.population) ? cockpit.population : []);
+            setPopulationSummary(cockpit?.populationSummary || { evaluated: 0, included: 0, excluded: 0, blocked: 0 });
             setRefreshError(false);
         } catch {
             if (requestIdRef.current === requestId) setRefreshError(true);
@@ -149,7 +149,7 @@ export default function PopulationStepPage() {
         >
             <div className="space-y-4">
                 <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Synthèse de la population">
-                    <StatCard title="Effectif évalué" value={loading ? '—' : population.length} subtext="Salariés sur la période" color="brand" />
+                    <StatCard title="Effectif évalué" value={loading ? '—' : evaluatedCount} subtext="Salariés sur la période" color="brand" />
                     <StatCard title="Inclus" value={loading ? '—' : includedCount} subtext="Éligibles au calcul" color="success" />
                     <StatCard title="Exclus" value={loading ? '—' : excludedCount} subtext="Hors périmètre de la campagne" color="neutral" />
                     <StatCard title="À résoudre" value={loading ? '—' : blockedCount} subtext={blockedCount > 0 ? 'Bloque la suite du workflow' : 'Aucun blocage détecté'} color={blockedCount > 0 ? 'danger' : 'success'} />
@@ -187,7 +187,7 @@ export default function PopulationStepPage() {
                     filterSlot={
                         <div className="flex items-center gap-1 text-xs flex-wrap" aria-label="Filtrer par décision">
                             {[
-                                { id: 'ALL', label: `Tous (${population.length})` },
+                                { id: 'ALL', label: `Tous (${evaluatedCount})` },
                                 { id: 'INCLUS', label: `${includedCount} inclus`, icon: CheckCircle2, color: 'text-[var(--color-success-600)]' },
                                 { id: 'EXCLU', label: `${excludedCount} exclu${excludedCount > 1 ? 's' : ''}`, icon: UserX },
                                 { id: 'BLOQUE', label: `${blockedCount} bloqué${blockedCount > 1 ? 's' : ''}`, icon: AlertTriangle, color: 'text-[var(--color-danger-600)]' },

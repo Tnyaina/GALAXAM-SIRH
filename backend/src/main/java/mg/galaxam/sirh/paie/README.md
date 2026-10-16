@@ -78,6 +78,15 @@ Toutes les routes d'origine restent préservées sous `/paie/*`, `/stc/*`, `/api
 
 ## Où modifier la paie
 
+La proposition des bornes d'une nouvelle campagne (cycle 26–25 ou mois civil)
+appartient à `application/PayrollPeriodCalendarService.java` et est exposée par
+`GET /periodes/suggestion`. La page de création ne recalcule plus ces dates.
+La couverture des pointages figés de la population incluse est vérifiée par
+`application/PayrollPointageCoverage.java`, utilisée par le workflow de calcul et
+le cockpit. La page Préparation affiche les contrôles transmis par le cockpit ;
+Calendriers, Congés, Prêts et Indemnités restent explicitement « à vérifier »
+tant qu'aucun contrôle autonome de campagne ne les prouve.
+
 Le chemin du bulletin est `PayrollService` (orchestration) →
 `PayrollCalculationContextAssembler` (lectures datées et contrôles) →
 `PayrollCalculationInput` (données du calcul) → `PayrollExecutionEngine`
@@ -106,14 +115,22 @@ Les noms des champs JSON restent ceux des records, sans enveloppe nouvelle.
 | --- | --- |
 | IRSA des salariés | `domain/engine/PayrollTaxCalculations.java` (`calculateIrsa`) |
 | Versions datées du barème IRSA | `application/PayrollFiscalRulesResolver.java` |
-| Prestataires indépendants, contrats, factures et paiements | `api/PrestataireController.java` ; voir `PRESTATAIRES_2026.md` |
+| Routes HTTP des prestataires | `api/PrestataireController.java` ; voir `PRESTATAIRES_2026.md` |
+| Commandes et transitions des factures prestataires | `application/PrestataireFactureService.java` et `domain/PrestataireFacturePolicy.java` |
 | Montant, validité et assiettes des rubriques manuelles | `domain/engine/ManualPayrollRules.java` |
+| Catalogue, validation et gestion/versionnement des rubriques manuelles | `domain/ManualRubriqueCatalog.java`, `domain/ManualRubriquePolicy.java`, `application/ManualRubriqueManagementService.java` |
+| Actions projetées et exécution des ajustements | `application/workflow/PayrollAdjustmentWorkflowService.java` |
+| Composition du brut et écarts de bulletin affichés | `domain/dto/BulletinPaieComplet.java` (`compositionBrut`) |
 | Lecture de la version de rubrique en base | `application/ManualRubriqueResolver.java` |
 | Statuts de la campagne Pointage/Paie | `application/workflow/PayrollWorkflowStatusResolver.java` |
 | Commandes typées de la période, de la paie, du pointage et des ajustements | `application/workflow/PayrollWorkflowCommands.java` |
-| Données SAFI, CSV et ODS | `application/export/SafiExportService.java` |
+| Données SAFI et CSV | `application/export/SafiExportService.java` |
+| Présentation SAFI XLS | `application/export/SafiXlsExportService.java` |
 | Données sociales trimestrielles et classeurs | `application/export/QuarterlySocialDataService.java` |
 | Employeur et départ déclarés dans les exports | `application/export/PayrollExportContextResolver.java` |
+| Éligibilité commune des exports (période/bulletins finalisés) | `application/export/PayrollExportEligibility.java` |
+| Alias d'annulation des ajustements et statuts finaux reconnus | `domain/PayrollStatuses.java` |
+| Date métier et fuseau de référence | `domain/PayrollBusinessTime.java` |
 
 Cette séparation garde les calculs unitaires regroupés et les accès SQL à
 leurs dates d'effet hors du moteur. Le résolveur des statuts conserve un fichier
@@ -122,6 +139,26 @@ de workflow. Les commandes partagent un catalogue de types, tandis que les
 requêtes d'API restent des objets de transport distincts. Chaque export conserve
 des méthodes nommées pour charger ses données et produire ses formats ; les
 entités persistées restent séparées selon leurs tables et cycles de vie.
+
+Les exports mensuels, annuels et trimestriels consultent désormais la même
+politique d'éligibilité : une période doit être en `PAIE_VALIDEE` ou `CLOTUREE`,
+et chaque bulletin en `VALIDE` ou `CLOTURE`. Les contrôles communs sont centralisés
+dans `PayrollExportEligibility`; les colonnes, règles de déclaration et modèles
+XLS/XLSX restent propres à chaque document réglementaire. Les dates courantes
+des workflows paie passent par `PayrollBusinessTime`; un calendrier peut recevoir
+un `Clock` explicite pour rester déterministe en test.
+
+### Statuts et capacités de campagne
+
+`PayrollPeriodWorkflowService` décide si `CLOSE` et `GENERATE_OUTPUT` sont
+autorisés. La commande de clôture et la projection `availableActions.CLOSE`
+utilisent le même contrôle de fin de période, de validation de paie, de calcul
+à jour et de couverture des bulletins. Le statut affiché provient de
+`describeWorkflowStatuses`, qui délègue sa traduction à
+`PayrollWorkflowStatusResolver` ; le code persistant `VALIDEE` désigne seulement
+le pointage figé. Le sélecteur Paie demande `GET /periodes?lightweight=true&includePayrollStatus=true`
+pour recevoir ces statuts sans recalculer leur sens dans le navigateur. Le
+sélecteur Pointage peut conserver la réponse légère sans cet enrichissement.
 
 ## Configuration contrôlée des rubriques (sp44 à sp47)
 
@@ -184,3 +221,44 @@ les méthodes dérivées, la simulation, la persistance annulée transactionnell
 les exports et les retenues partiellement imputées. Le bulletin de référence
 Agent Y conserve brut 411 361,01 Ar, cotisations 8 227,22 Ar, IRSA 3 000 Ar,
 net final 399 120 Ar. Ces tests ne constituent pas une certification réglementaire.
+
+### Propriété des règles de saisie (sprint 2)
+
+`ManualVariableAmountService` résout la version de rubrique à la date de la
+période et applique `ManualPayrollRules` pour l'aperçu comme pour l'enregistrement.
+L'interface saisit les paramètres et affiche le montant renvoyé par le serveur.
+`PayrollAdjustmentPaymentService` décide si un acompte ou une avance peut être
+rapproché d'un versement et valide date, mode et version dans la transaction.
+La liste réutilise sa capacité `canConfirm`.
+
+La validation STC réutilise une seule préparation dans sa transaction. Pour les
+anciens STC sans bulletin d'identité figée, le reçu signale l'absence d'identité
+historique et l'interface interdit son impression ; les données RH actuelles ne
+doivent jamais être présentées comme celles du jour de validation.
+
+### Aperçu des cycles de validité des rubriques
+
+`PayrollRubriqueCycleService` calcule côté serveur les cycles complets couverts
+par les dates d'effet d'une rubrique. `RubriqueCyclePreview` ne fait qu'afficher
+cette réponse ; le navigateur n'embarque plus sa propre interprétation du cycle
+26–25.
+
+### Documents et exports (sprint 3)
+
+`PayrollDocumentCatalogService` expose les documents mensuels, trimestriels et
+annuels avec disponibilité et motif. Pour le mensuel, il lit la capacité
+`GENERATE_OUTPUT` du workflow ; pour le trimestre, il utilise le chargement de
+`QuarterlySocialDataService` ; pour l'année, il utilise la sélection et le
+contrôle des bulletins d'`AnnualPayrollExportService`. L'écran consomme ce
+catalogue pour afficher les actions. Les générateurs restent propriétaires des
+formats et du contenu réglementaire.
+
+À partir de la migration `26-10-16-sp71-paie-identite-employeur-bulletin.sql`,
+`PayrollEmployerSnapshotService` fige la filiale, la raison sociale, le NIF et
+les coordonnées dans la transaction de validation du bulletin. Les bulletins,
+grands livres et modèles trimestriels réutilisent cet instantané. Les bulletins
+validés avant cette migration n'ont pas d'instantané fiable : ils conservent la
+résolution par contrat daté, qui peut refléter une correction ultérieure de la
+fiche filiale. Aucun ancien instantané n'est inventé ou rempli automatiquement.
+Le bulletin STC capture aussi cette identité lors de sa validation ; son reçu
+ancien sans identité employeur figée reste consultable, mais non imprimable.

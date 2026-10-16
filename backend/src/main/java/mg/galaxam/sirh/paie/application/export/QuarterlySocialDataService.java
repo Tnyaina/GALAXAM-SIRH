@@ -177,9 +177,7 @@ public class QuarterlySocialDataService {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String status = rs.getString("statut");
-                    if (!"PAIE_VALIDEE".equals(status) && !"CLOTUREE".equals(status)) {
-                        throw new IllegalStateException("La paie " + rs.getString("code") + " doit être validée avant la consolidation.");
-                    }
+                    PayrollExportEligibility.requireFinalPeriod(status, rs.getString("code"));
                     Period previous = periods.put(rs.getString("code"), new Period(rs.getInt("id_periode_paie"),
                             rs.getString("code"), rs.getDate("date_debut").toLocalDate(),
                             rs.getDate("date_fin").toLocalDate()));
@@ -202,10 +200,8 @@ public class QuarterlySocialDataService {
             PaieConfigLegale config = PaieConfigLegale.findActiveAt(connection, period.end());
             BigDecimal cap = config == null ? BigDecimal.ZERO : zero(config.getPlafondCotisationMensuel());
             for (BulletinPaie b : bulletins) {
-                if (!"VALIDE".equals(b.getStatut()) && !"CLOTURE".equals(b.getStatut())) {
-                    throw new IllegalStateException("Bulletin non validé dans " + period.code() + ".");
-                }
-                PersonMetadata metadata = metadata(b.getIdEmploye(), period.start(), period.end(), connection);
+                PayrollExportEligibility.requireFinalBulletin(b.getStatut(), period.code());
+                PersonMetadata metadata = metadata(b.getIdBulletin(), b.getIdEmploye(), period.start(), period.end(), connection);
                 if (metadata.employer() == null || metadata.employer().id() == null) {
                     throw new IllegalStateException("Filiale non renseignée pour le salarié " + b.getMatricule() + ".");
                 }
@@ -297,18 +293,23 @@ public class QuarterlySocialDataService {
 
     private record PersonMetadata(String name, String firstNames, String sex, LocalDate birth,
                                   String phone, String email, Employer employer) {}
-    private static PersonMetadata metadata(int employeeId, LocalDate start, LocalDate end,
+    private static PersonMetadata metadata(int bulletinId, int employeeId, LocalDate start, LocalDate end,
             Connection c) throws Exception {
-        var company = new mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver()
-                .resolve(employeeId, start, end, c);
+        var snapshot = new PayrollEmployerSnapshotService().find(bulletinId, c);
+        var company = snapshot == null
+                ? new mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver()
+                        .resolve(employeeId, start, end, c) : null;
         String sql = "SELECT nom,prenom,sexe,date_naissance,telephone,email FROM employe WHERE id_employe=?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Salarié introuvable : " + employeeId);
                 Date birth = rs.getDate("date_naissance");
-                Employer employer = new Employer(company.id(), company.name(), company.nif(),
-                        company.stat(), company.address(), company.phone(), company.email());
+                Employer employer = snapshot != null
+                        ? new Employer(snapshot.id(), snapshot.name(), snapshot.nif(), snapshot.stat(),
+                                snapshot.address(), snapshot.phone(), snapshot.email())
+                        : new Employer(company.id(), company.name(), company.nif(), company.stat(),
+                                company.address(), company.phone(), company.email());
                 return new PersonMetadata(rs.getString("nom"), rs.getString("prenom"), rs.getString("sexe"),
                         birth == null ? null : birth.toLocalDate(), rs.getString("telephone"), rs.getString("email"), employer);
             }

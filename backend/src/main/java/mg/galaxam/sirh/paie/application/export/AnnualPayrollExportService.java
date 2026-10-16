@@ -40,41 +40,19 @@ public class AnnualPayrollExportService {
         }
     }
 
+    public record Coverage(int validatedMonths, int bulletinCount) {}
+    private record Source(List<Period> periods, Map<Integer, List<BulletinPaie>> bulletins) {}
+
+    public Coverage coverage(int year, Connection connection) throws Exception {
+        Source source = source(year, connection);
+        return new Coverage(source.periods().size(), source.bulletins().values().stream().mapToInt(List::size).sum());
+    }
+
     public Result export(int year, Connection connection) throws Exception {
-        if (year < 2000 || year > 2100) throw new IllegalArgumentException("Année invalide.");
-        List<Period> periods = new ArrayList<>();
-        String sql = "SELECT p.id_periode_paie, p.code, s.code AS statut FROM periode_paie p " +
-                "JOIN ref_statut_periode_paie s ON s.id_statut_periode=p.id_statut_periode " +
-                "WHERE p.code LIKE ? ORDER BY p.code";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, year + "-%");
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String code = rs.getString("code");
-                    if (!code.matches(year + "-(0[1-9]|1[0-2])")) continue;
-                    String status = rs.getString("statut");
-                    if ("PAIE_VALIDEE".equals(status) || "CLOTUREE".equals(status)) {
-                        if (periods.stream().anyMatch(p -> p.code().equals(code)))
-                            throw new IllegalStateException("Plusieurs campagnes portent le code " + code + ".");
-                        periods.add(new Period(rs.getInt("id_periode_paie"), code));
-                    }
-                }
-            }
-        }
-        if (periods.isEmpty()) throw new IllegalStateException("Aucune période de paie validée pour " + year + ".");
+        Source source = source(year, connection);
+        List<Period> periods = source.periods();
+        Map<Integer, List<BulletinPaie>> bulletinsParPeriode = source.bulletins();
         List<Integer> periodIds = periods.stream().map(Period::id).toList();
-        Map<Integer, String> periodCodes = new LinkedHashMap<>();
-        Map<Integer, List<BulletinPaie>> bulletinsParPeriode = new LinkedHashMap<>();
-        for (Period period : periods) {
-            periodCodes.put(period.id(), period.code());
-            bulletinsParPeriode.put(period.id(), new ArrayList<>());
-        }
-        for (BulletinPaie bulletin : BulletinPaie.listerParPeriodes(periodIds, connection)) {
-            bulletinsParPeriode.computeIfAbsent(bulletin.getIdPeriodePaie(), ignored -> new ArrayList<>()).add(bulletin);
-            String periodCode = periodCodes.get(bulletin.getIdPeriodePaie());
-            if (!"VALIDE".equals(bulletin.getStatut()) && !"CLOTURE".equals(bulletin.getStatut()))
-                throw new IllegalStateException("Bulletin non validé dans la période " + periodCode + ".");
-        }
         Map<Integer, String> filiales = PayrollExportContextResolver.namesByBulletins(periodIds, connection);
         List<Integer> allBulletinIds = bulletinsParPeriode.values().stream().flatMap(List::stream)
                 .map(BulletinPaie::getIdBulletin).toList();
@@ -96,6 +74,48 @@ public class AnnualPayrollExportService {
         }
         if (monthly.isEmpty()) throw new IllegalStateException("Aucun bulletin validé pour " + year + ".");
         return render(year, periods.stream().map(Period::code).toList(), new ArrayList<>(monthly.values()), auditedLines);
+    }
+
+    private Source source(int year, Connection connection) throws Exception {
+        List<Period> periods = validatedPeriods(year, connection);
+        Map<Integer, String> codes = new LinkedHashMap<>();
+        Map<Integer, List<BulletinPaie>> byPeriod = new LinkedHashMap<>();
+        for (Period period : periods) {
+            codes.put(period.id(), period.code());
+            byPeriod.put(period.id(), new ArrayList<>());
+        }
+        for (BulletinPaie bulletin : BulletinPaie.listerParPeriodes(periods.stream().map(Period::id).toList(), connection)) {
+            PayrollExportEligibility.requireFinalBulletin(bulletin.getStatut(), codes.get(bulletin.getIdPeriodePaie()));
+            byPeriod.get(bulletin.getIdPeriodePaie()).add(bulletin);
+        }
+        if (byPeriod.values().stream().allMatch(List::isEmpty))
+            throw new IllegalStateException("Aucun bulletin validé pour " + year + ".");
+        return new Source(periods, byPeriod);
+    }
+
+    private List<Period> validatedPeriods(int year, Connection connection) throws Exception {
+        if (year < 2000 || year > 2100) throw new IllegalArgumentException("Année invalide.");
+        List<Period> periods = new ArrayList<>();
+        String sql = "SELECT p.id_periode_paie, p.code, s.code AS statut FROM periode_paie p " +
+                "JOIN ref_statut_periode_paie s ON s.id_statut_periode=p.id_statut_periode " +
+                "WHERE p.code LIKE ? ORDER BY p.code";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, year + "-%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code");
+                    if (!code.matches(year + "-(0[1-9]|1[0-2])")) continue;
+                    String status = rs.getString("statut");
+                    if (PayrollExportEligibility.isFinalPeriod(status)) {
+                        if (periods.stream().anyMatch(p -> p.code().equals(code)))
+                            throw new IllegalStateException("Plusieurs campagnes portent le code " + code + ".");
+                        periods.add(new Period(rs.getInt("id_periode_paie"), code));
+                    }
+                }
+            }
+        }
+        if (periods.isEmpty()) throw new IllegalStateException("Aucune période de paie validée pour " + year + ".");
+        return periods;
     }
 
     Result render(int year, List<String> periodCodes, List<PayRow> monthlyRows) throws Exception {

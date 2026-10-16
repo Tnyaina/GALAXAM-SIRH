@@ -19,7 +19,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import { Table, Thead, Th, Tbody, Tr, Td, Tfoot } from '@/components/ui/data-display/Table';
 import { formatMoneyAr } from '@/utils/moneyUtils';
-import { fmtDate } from '@/utils/dateUtils';
+import { fmtDate, getTodayDateString } from '@/utils/dateUtils';
 import stcService from '@/features/payroll/api/stcService';
 import { getErrorMessage } from '@/api/apiClient';
 import StcRecuModal from './StcRecuModal';
@@ -39,7 +39,10 @@ const fmtDateInput = (val) => {
     try {
         const d = new Date(val);
         if (isNaN(d.getTime())) return '';
-        return d.toISOString().split('T')[0];
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     } catch {
         return '';
     }
@@ -116,7 +119,7 @@ export default function StcPreparationModal({
         setLoadingPrep(true);
         setErrorMsg(null);
         try {
-            const dateRef = fmtDateInput(dateDepartInitiale) || new Date().toISOString().split('T')[0];
+            const dateRef = fmtDateInput(dateDepartInitiale) || getTodayDateString();
             const data = await stcService.preparerStc(idEmploye, dateRef, motifInitial);
             setPrepData(data);
 
@@ -290,7 +293,7 @@ export default function StcPreparationModal({
         : step === 'SIMULATION'
         ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
         : `Préparation Solde de Tout Compte — ${prepData?.nomComplet || nomEmploye || ''}`;
-    const dateDepartFuture = Boolean(form.dateDepart && form.dateDepart > fmtDateInput(new Date()));
+    const dateDepartFuture = Boolean(form.dateDepart && form.dateDepart > getTodayDateString());
     const parcours = simulationOnly ? 'SIMULATION' : 'APPLICATION';
 
     // Rendu

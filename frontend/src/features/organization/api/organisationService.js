@@ -1,4 +1,18 @@
-import apiClient from '@/api/apiClient';
+import apiClient, { getAccessToken } from '@/api/apiClient';
+import { createReadCache, dispatchCacheEvent, sessionCacheKey } from '@/utils/readCache';
+
+const siteReads = createReadCache(30_000);
+
+function invalidateSites() {
+    siteReads.invalidate();
+    dispatchCacheEvent('pointage-reference-updated');
+}
+
+async function writeSite(request) {
+    const response = await request;
+    invalidateSites();
+    return response.data;
+}
 
 const organisationService = {
     getReferentielsFormulaireEmploye: async () => {
@@ -36,29 +50,14 @@ const organisationService = {
     // ----------------------------------------------------
     getSites: async (params) => {
         const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
-        const response = await apiClient.get('/referentiel/sites', { params: queryParams });
-        return response.data;
+        const key = sessionCacheKey(JSON.stringify(queryParams || {}), getAccessToken());
+        return siteReads.get(key, async () => (await apiClient.get('/referentiel/sites', { params: queryParams })).data);
     },
-    createSite: async (data) => {
-        const response = await apiClient.post('/referentiel/sites', data);
-        return response.data;
-    },
-    updateSite: async (id, data) => {
-        const response = await apiClient.put(`/referentiel/sites/${id}`, data);
-        return response.data;
-    },
-    deactivateSite: async (id) => {
-        const response = await apiClient.put(`/referentiel/sites/${id}/desactiver`);
-        return response.data;
-    },
-    activateSite: async (id) => {
-        const response = await apiClient.put(`/referentiel/sites/${id}/activer`);
-        return response.data;
-    },
-    toggleSitePlancher: async (id, data) => {
-        const response = await apiClient.put(`/referentiel/sites/${id}/plancher`, data);
-        return response.data;
-    },
+    createSite: async (data) => writeSite(apiClient.post('/referentiel/sites', data)),
+    updateSite: async (id, data) => writeSite(apiClient.put(`/referentiel/sites/${id}`, data)),
+    deactivateSite: async (id) => writeSite(apiClient.put(`/referentiel/sites/${id}/desactiver`)),
+    activateSite: async (id) => writeSite(apiClient.put(`/referentiel/sites/${id}/activer`)),
+    toggleSitePlancher: async (id, data) => writeSite(apiClient.put(`/referentiel/sites/${id}/plancher`, data)),
 
     // ----------------------------------------------------
     // DÉPARTEMENTS

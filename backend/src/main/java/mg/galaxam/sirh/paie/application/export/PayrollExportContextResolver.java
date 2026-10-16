@@ -39,17 +39,28 @@ final class PayrollExportContextResolver {
         List<Integer> ids = periodIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
         if (ids.isEmpty()) return result;
         String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT s.id_bulletin,s.raison_sociale,s.nif,s.adresse_siege "
+                        + "FROM bulletin_paie_employeur_snapshot s JOIN bulletin_paie b "
+                        + "ON b.id_bulletin=s.id_bulletin WHERE b.id_periode_paie IN (" + placeholders + ")")) {
+            for (int index = 0; index < ids.size(); index++) ps.setInt(index + 1, ids.get(index));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) result.put(rs.getInt(1), new Company(rs.getString(2), rs.getString(3), rs.getString(4)));
+            }
+        }
         String sql = "SELECT b.id_bulletin,b.id_employe,p.date_debut AS period_start,p.date_fin AS period_end, "
                 + "candidate.date_debut AS contract_start,candidate.date_fin AS contract_end, "
                 + "candidate.id_filiale,candidate.raison_sociale,candidate.nif,candidate.stat, "
                 + "candidate.adresse_siege,candidate.telephone,candidate.email "
                 + "FROM bulletin_paie b JOIN periode_paie p ON p.id_periode_paie=b.id_periode_paie "
+                + "LEFT JOIN bulletin_paie_employeur_snapshot snap ON snap.id_bulletin=b.id_bulletin "
                 + "LEFT JOIN LATERAL (SELECT ct.date_debut,ct.date_fin,f.id_filiale,f.raison_sociale,f.nif,f.stat, "
                 + "f.adresse_siege,f.telephone,f.email FROM contrat_travail ct "
                 + "JOIN ref_filiale f ON f.id_filiale=ct.id_filiale WHERE ct.id_employe=b.id_employe "
                 + "AND ct.date_debut<=p.date_fin AND (ct.date_fin IS NULL OR ct.date_fin>=p.date_debut) "
                 + "ORDER BY LEAST(COALESCE(ct.date_fin,p.date_fin),p.date_fin) DESC,ct.date_debut DESC,ct.id_contrat DESC LIMIT 2) candidate ON TRUE "
-                + "WHERE b.id_periode_paie IN (" + placeholders + ") ORDER BY b.id_periode_paie,b.id_bulletin";
+                + "WHERE b.id_periode_paie IN (" + placeholders + ") AND snap.id_bulletin IS NULL "
+                + "ORDER BY b.id_periode_paie,b.id_bulletin";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             for (int index = 0; index < ids.size(); index++) ps.setInt(index + 1, ids.get(index));
             try (ResultSet rs = ps.executeQuery()) {

@@ -127,15 +127,15 @@ describe('Organisation UX & Accessibilité (WCAG AA & EmptyState focal)', () => 
         });
 
         // L'input en erreur doit avoir aria-invalid="true"
-        const codeInput = container.querySelector('#dept-form input[placeholder="Ex: LOG, DAF, TRANSIT"]');
+        const codeInput = document.body.querySelector('#dept-form input[placeholder="Ex: LOG, DAF, TRANSIT"]');
         expect(codeInput).not.toBeNull();
         expect(codeInput.getAttribute('aria-invalid')).toBe('true');
 
         // Le message d'erreur est affiché sous l'input
-        expect(container.textContent).toContain('Le code département est obligatoire.');
+        expect(document.body.textContent).toContain('Le code département est obligatoire.');
 
         // Et pas de FormError global (div) au sommet quand seule une erreur de champ existe
-        expect(container.querySelector('div[role="alert"]')).toBeNull();
+        expect(document.body.querySelector('div[role="alert"]')).toBeNull();
     });
 
     it('DepartementFormModal : affiche FormError au sommet pour les conflits globaux de formulaire', async () => {
@@ -154,11 +154,11 @@ describe('Organisation UX & Accessibilité (WCAG AA & EmptyState focal)', () => 
         });
 
         // FormError global présent
-        expect(container.querySelector('[role="alert"]')).not.toBeNull();
-        expect(container.textContent).toContain('Ce code département est déjà attribué à une autre entité.');
+        expect(document.body.querySelector('[role="alert"]')).not.toBeNull();
+        expect(document.body.textContent).toContain('Ce code département est déjà attribué à une autre entité.');
 
         // Mais les inputs sont valides (pas d'aria-invalid)
-        const inputs = Array.from(container.querySelectorAll('#dept-form input'));
+        const inputs = Array.from(document.body.querySelectorAll('#dept-form input'));
         inputs.forEach(input => {
             expect(input.getAttribute('aria-invalid')).not.toBe('true');
         });
@@ -180,10 +180,10 @@ describe('Organisation UX & Accessibilité (WCAG AA & EmptyState focal)', () => 
         });
 
         // Vérification de la présence des variables CSS index.css dans les composants rendus
-        const alertBox = container.querySelector('[role="alert"]');
+        const alertBox = document.body.querySelector('[role="alert"]');
         expect(alertBox).not.toBeNull();
         // Vérifie qu'on n'utilise pas de styles bruts non tokenisés
-        expect(container.innerHTML).toContain('var(--color-danger-500)');
+        expect(document.body.innerHTML).toContain('var(--color-danger-500)');
     });
 
     it('SiteFormModal : utilise SearchSelect avec recherche pour la Filiale de Rattachement Juridique', async () => {
@@ -214,7 +214,7 @@ describe('Organisation UX & Accessibilité (WCAG AA & EmptyState focal)', () => 
         });
 
         // Vérification de la présence du SearchSelect pour la Filiale
-        const selectBtn = Array.from(container.querySelectorAll('button')).find(
+        const selectBtn = Array.from(document.body.querySelectorAll('button')).find(
             b => b.textContent.includes('-- Sélectionner une filiale --')
         );
         expect(selectBtn).toBeTruthy();

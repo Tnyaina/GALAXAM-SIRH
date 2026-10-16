@@ -24,6 +24,8 @@ public final class PayrollWorkflowStatusResolver {
                     status("EN_ATTENTE_POINTAGE", "En attente du pointage", "neutral");
             case "PAIE_VALIDEE" -> recalculationRequired
                     ? status("A_RECALCULER", "À recalculer", "warning")
+                    : !populationComplete
+                    ? status("A_COMPLETER", "Calcul incomplet", "warning")
                     : status("VALIDEE", "Paie validée", "success");
             case "CLOTUREE" -> status("CLOTUREE", "Paie clôturée", "success");
             case "VALIDEE" -> {

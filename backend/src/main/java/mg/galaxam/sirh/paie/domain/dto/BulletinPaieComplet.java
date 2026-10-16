@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.paie.domain.dto;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
@@ -20,6 +21,10 @@ public class BulletinPaieComplet {
     private List<MouvementImputation> imputationsMouvements = new ArrayList<>();
     private ExplicationPaieDTO explication;
     private ExplicationFiscaliteDTO explicationFiscalite;
+    private CompositionBrutDTO compositionBrut;
+
+    public static record CompositionBrutDTO(List<BulletinPaieLigne> lignes, BigDecimal totalLignes,
+            BigDecimal gainsExoneresIrsa, BigDecimal ecartAvecTotalEnregistre, BigDecimal ecartArrondiNet) {}
 
     public static record ImpactPret(
             Integer idEcheance,
@@ -81,6 +86,30 @@ public class BulletinPaieComplet {
     public BulletinPaieComplet(BulletinPaie bulletin, List<BulletinPaieLigne> lignes) {
         this.bulletin = bulletin;
         this.lignes = lignes != null ? lignes : new ArrayList<>();
+        this.compositionBrut = composeBrut(this.bulletin, this.lignes);
+    }
+
+    private static CompositionBrutDTO composeBrut(BulletinPaie bulletin, List<BulletinPaieLigne> lignes) {
+        List<BulletinPaieLigne> gross = new ArrayList<>();
+        BigDecimal total = BigDecimal.ZERO, exempt = BigDecimal.ZERO;
+        for (BulletinPaieLigne line : lignes) {
+            boolean gainBrut = "GAIN".equals(line.getSens()) && (line.getEtapeCalcul() != null
+                    ? "BRUT".equals(line.getEtapeCalcul())
+                    : line.isImposable() && !"NET".equals(line.getCategorie())
+                            && !"INDEMNITE_NON_IMPOSABLE".equals(line.getCategorie()));
+            boolean retenueBrut = "RETENUE".equals(line.getSens()) && "SALAIRE_BASE".equals(line.getCategorie());
+            if (gainBrut || retenueBrut) {
+                gross.add(line);
+                BigDecimal amount = line.getMontantSalarial() == null ? BigDecimal.ZERO : line.getMontantSalarial();
+                total = total.add(gainBrut ? amount : amount.negate());
+            }
+            if ("GAIN".equals(line.getSens()) && "BRUT".equals(line.getEtapeCalcul()) && !line.isImposable()
+                    && line.getMontantSalarial() != null) exempt = exempt.add(line.getMontantSalarial());
+        }
+        BigDecimal storedGross = bulletin == null || bulletin.getTotalGainsBruts() == null ? BigDecimal.ZERO : bulletin.getTotalGainsBruts();
+        BigDecimal rounding = bulletin == null || bulletin.getNetAvantArrondi() == null || bulletin.getNetAPayer() == null
+                ? null : bulletin.getNetAPayer().subtract(bulletin.getNetAvantArrondi()).setScale(2, RoundingMode.HALF_UP);
+        return new CompositionBrutDTO(List.copyOf(gross), total, exempt, total.subtract(storedGross), rounding);
     }
 
     /**
@@ -114,10 +143,10 @@ public class BulletinPaieComplet {
 
     // Getters & Setters
     public BulletinPaie getBulletin() { return bulletin; }
-    public void setBulletin(BulletinPaie bulletin) { this.bulletin = bulletin; }
+    public void setBulletin(BulletinPaie bulletin) { this.bulletin = bulletin; this.compositionBrut = composeBrut(this.bulletin, this.lignes); }
 
     public List<BulletinPaieLigne> getLignes() { return lignes; }
-    public void setLignes(List<BulletinPaieLigne> lignes) { this.lignes = lignes; }
+    public void setLignes(List<BulletinPaieLigne> lignes) { this.lignes = lignes == null ? new ArrayList<>() : lignes; this.compositionBrut = composeBrut(this.bulletin, this.lignes); }
 
     public ImpactPret getImpactPret() { return impactPret; }
     public void setImpactPret(ImpactPret impactPret) { this.impactPret = impactPret; }
@@ -132,4 +161,6 @@ public class BulletinPaieComplet {
 
     public ExplicationFiscaliteDTO getExplicationFiscalite() { return explicationFiscalite; }
     public void setExplicationFiscalite(ExplicationFiscaliteDTO explicationFiscalite) { this.explicationFiscalite = explicationFiscalite; }
+    public CompositionBrutDTO getCompositionBrut() { return compositionBrut; }
+    public void setCompositionBrut(CompositionBrutDTO compositionBrut) { this.compositionBrut = compositionBrut; }
 }

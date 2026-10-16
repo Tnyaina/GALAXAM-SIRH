@@ -10,6 +10,7 @@ import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
+import mg.galaxam.sirh.paie.application.PayrollPeriodCalendarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,12 +38,39 @@ public class PointagePeriodeController {
     private PayrollPeriodWorkflowService payrollPeriodWorkflowService;
 
     @Autowired
+    private PayrollPeriodCalendarService payrollPeriodCalendarService;
+
+    @GetMapping("/suggestion")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public PayrollPeriodCalendarService.Suggestion suggererPeriode(
+            @RequestParam(required = false) String targetDate,
+            @RequestParam(required = false) String code,
+            @RequestParam(defaultValue = "false") boolean civil) throws Exception {
+        try {
+            if (targetDate != null && !targetDate.isBlank())
+                return payrollPeriodCalendarService.forDate(java.time.LocalDate.parse(targetDate));
+            if (code != null && !code.isBlank()) return payrollPeriodCalendarService.forCode(code, civil);
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT date_fin,libelle FROM periode_paie ORDER BY date_fin DESC LIMIT 1");
+                 ResultSet rows = statement.executeQuery()) {
+                return rows.next()
+                        ? payrollPeriodCalendarService.next(rows.getDate(1).toLocalDate(), rows.getString(2))
+                        : payrollPeriodCalendarService.next(null, null);
+            }
+        } catch (java.time.format.DateTimeParseException | IllegalArgumentException error) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, error.getMessage());
+        }
+    }
+
+    @Autowired
     private mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine calendrierEngine;
 
     @GetMapping
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes(Authentication authentication,
-            @RequestParam(defaultValue = "false") boolean lightweight) throws SQLException {
+            @RequestParam(defaultValue = "false") boolean lightweight,
+            @RequestParam(defaultValue = "false") boolean includePayrollStatus) throws SQLException {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
                      "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
@@ -68,6 +96,10 @@ public class PointagePeriodeController {
                 dto.setStatutLibelle(rs.getString("statut_libelle"));
                 dto.setMotifRejet(rs.getString("motif_rejet"));
                 dto.setVersion(rs.getInt("version"));
+                if (lightweight && includePayrollStatus) {
+                    dto.setWorkflowStatuses(payrollPeriodWorkflowService.describeWorkflowStatuses(
+                            dto.getIdPeriodePaie(), dto.getStatutCode(), c));
+                }
                 if (!lightweight) {
                     dto.setAvailableActions(payrollPeriodWorkflowService.describeActions(
                             dto.getIdPeriodePaie(), dto.getStatutCode(),

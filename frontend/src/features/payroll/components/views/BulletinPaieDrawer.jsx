@@ -112,19 +112,14 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const retenueIsi = Number(bulletin?.retenueIsi5 || 0);
     const indemniteNet = Number(bulletin?.totalIndemnitesNonImposables || 0);
     const retenuesTresorerie = Number(bulletin?.totalRetenuesAcomptePret || 0);
-    const ajustementArrondi = bulletin?.netAvantArrondi != null && bulletin?.netAPayer != null
-        ? Math.round((Number(bulletin.netAPayer) - Number(bulletin.netAvantArrondi)) * 100) / 100
-        : null;
+    const compositionBrut = data?.compositionBrut;
+    const ajustementArrondi = compositionBrut?.ecartArrondiNet ?? null;
     const estIrsa = !retenueIsi && lignes.some(l => l.codeRubrique === 'IMPOT_IRSA_NET' || l.codeRubrique === 'IMPOT_IRSA_BRUT');
-    const gainsBruts = lignes.filter(l => l.sens === 'GAIN' && (l.etapeCalcul
-        ? l.etapeCalcul === 'BRUT'
-        : l.imposable !== false && l.categorie !== 'NET' && l.categorie !== 'INDEMNITE_NON_IMPOSABLE'));
-    const retenuesBrut = lignes.filter(l => l.sens === 'RETENUE' && l.categorie === 'SALAIRE_BASE');
+    const compositionLignes = compositionBrut?.lignes || [];
+    const gainsBruts = compositionLignes.filter(l => l.sens === 'GAIN');
+    const retenuesBrut = compositionLignes.filter(l => l.sens === 'RETENUE');
     const hsExonereeIrsa = Number(fiscalite?.remunerationHsExonereeIrsa ?? lignes.find(l => l.codeRubrique === 'HS_EXONEREE_IRSA')?.montantSalarial ?? 0);
-    const gainsBrutsExoneres = lignes.filter(l => l.sens === 'GAIN' && l.etapeCalcul === 'BRUT' && l.imposable === false)
-        .reduce((total, l) => total + Number(l.montantSalarial || 0), 0);
-    const totalLignesBrut = gainsBruts.reduce((total, l) => total + Number(l.montantSalarial || 0), 0)
-        - retenuesBrut.reduce((total, l) => total + Number(l.montantSalarial || 0), 0);
+    const gainsBrutsExoneres = compositionBrut?.gainsExoneresIrsa ?? 0;
 
     return (
         <>
@@ -246,7 +241,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                         <span className="font-sans">Total brut</span>
                                                         <span>{formatAr(bulletin.totalGainsBruts)}</span>
                                                     </div>
-                                                    {Math.abs(Math.round((totalLignesBrut - Number(bulletin.totalGainsBruts || 0)) * 100)) > 0 && (
+                                                    {Math.abs(Number(compositionBrut?.ecartAvecTotalEnregistre || 0)) >= 0.01 && (
                                                         <p className="font-sans text-[var(--color-warning-700)]">Les rubriques ne correspondent pas au total brut enregistré.</p>
                                                     )}
                                                 </>

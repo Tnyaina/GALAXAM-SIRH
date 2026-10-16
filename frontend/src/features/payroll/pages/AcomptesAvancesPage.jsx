@@ -137,14 +137,9 @@ export default function AcomptesAvancesPage() {
         return matchesSearch && (filter === 'TOUS' || item.etatDossier === filter);
     }), [dossiers, search, filter]);
 
-    const datePlancherVersement = versement?.dateAccord || versement?.dateDemande;
     const validerVersement = () => {
         const errors = {};
         if (!dateVersement) errors.dateVersement = 'La date du versement est obligatoire.';
-        else if (dateVersement > getTodayDateString()) errors.dateVersement = 'La date du versement ne peut pas être future.';
-        else if (datePlancherVersement && dateVersement < String(datePlancherVersement).slice(0, 10)) {
-            errors.dateVersement = `La date du versement ne peut pas précéder l’approbation (${fmtDate(datePlancherVersement)}).`;
-        }
         if (!modeReglement) errors.modeReglement = 'Sélectionnez un mode de règlement.';
         if (!referenceVersement.trim()) errors.referenceVersement = 'La référence du versement est obligatoire.';
         setVersementErrors(errors);
@@ -162,14 +157,6 @@ export default function AcomptesAvancesPage() {
         if (decision.command === 'APPROVE') {
             if (!dateAccord) {
                 setDateAccordError("La date d'approbation est obligatoire.");
-                return;
-            }
-            if (dateAccord > getTodayDateString()) {
-                setDateAccordError("La date d'approbation ne peut pas être future.");
-                return;
-            }
-            if (decision.dateDemande && dateAccord < String(decision.dateDemande).slice(0, 10)) {
-                setDateAccordError("La date d'approbation ne peut pas précéder la demande.");
                 return;
             }
         }
@@ -332,7 +319,7 @@ export default function AcomptesAvancesPage() {
                 <p className="text-xs">{decision.typeLibelle} de {formatMoneyAr(decision.montantInitial)} pour {decision.nomComplet}.</p>
                 {decision.command === 'APPROVE' ? <>
                     <Alert type="info" message="L’approbation n’atteste pas le versement. Confirmez celui-ci séparément après paiement réel." />
-                    <Input label="Date d’approbation" type="date" required max={getTodayDateString()} min={decision.dateDemande ? String(decision.dateDemande).slice(0, 10) : undefined} value={dateAccord} error={dateAccordError} onChange={event => { setDateAccord(event.target.value); setDateAccordError(null); setDecisionFormError(null); }} />
+                    <Input label="Date d’approbation" type="date" required value={dateAccord} error={dateAccordError} onChange={event => { setDateAccord(event.target.value); setDateAccordError(null); setDecisionFormError(null); }} />
                 </>
                     : <Input label="Motif du rejet" required value={reason} error={decisionReasonError} onChange={event => { setReason(event.target.value); if (event.target.value.trim()) setDecisionReasonError(null); }} placeholder="Expliquer la décision…" />}
                 <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDecision(null)}>Annuler</Button><Button type="submit" disabled={submitting}>{decision.command === 'APPROVE' ? 'Approuver' : 'Rejeter'}</Button></div>
@@ -342,7 +329,7 @@ export default function AcomptesAvancesPage() {
             <form className="space-y-3" onSubmit={confirmerVersement}>
                 <Alert type="warning" message="Confirmez cette opération uniquement après mise à disposition réelle des fonds. La date et la référence seront conservées pour l’audit." />
                 <FormError title="Confirmation impossible" message={versementFormError} onClose={() => setVersementFormError(null)} />
-                <Input label="Date du versement" type="date" required max={getTodayDateString()} value={dateVersement} error={versementErrors.dateVersement} onChange={event => { setDateVersement(event.target.value); setVersementErrors(current => ({ ...current, dateVersement: undefined })); setVersementFormError(null); }} />
+                <Input label="Date du versement" type="date" required value={dateVersement} error={versementErrors.dateVersement} onChange={event => { setDateVersement(event.target.value); setVersementErrors(current => ({ ...current, dateVersement: undefined })); setVersementFormError(null); }} />
                 <SearchSelect label="Mode de règlement" required value={modeReglement} error={versementErrors.modeReglement} onChange={value => { setModeReglement(value); setVersementErrors(current => ({ ...current, modeReglement: undefined })); setVersementFormError(null); }} placeholder="Choisir un mode…" options={modes.map(mode => ({ value: mode.code, label: mode.libelle }))} />
                 <Input label="Référence du versement" required placeholder="Ex. virement, chèque ou pièce de caisse" value={referenceVersement} error={versementErrors.referenceVersement} onChange={event => { setReferenceVersement(event.target.value); if (event.target.value.trim()) setVersementErrors(current => ({ ...current, referenceVersement: undefined })); setVersementFormError(null); }} />
                 <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setVersement(null)}>Annuler</Button><Button type="submit" disabled={submitting || !modeReglement || !referenceVersement.trim()}>Confirmer</Button></div>

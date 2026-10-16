@@ -27,6 +27,7 @@ class PaieCockpitProjectionTest {
                 mock(GrandLivrePaieExportService.class), mock(IrsaExcelExportService.class),
                 mock(EtatSocialMensuelExportService.class), mock(QuarterlySocialDataService.class),
                 mock(AnnualPayrollExportService.class),
+                mock(mg.galaxam.sirh.paie.application.export.PayrollDocumentCatalogService.class),
                 workflow);
 
         Map<?, ?> body = (Map<?, ?>) controller.obtenirCockpitPeriode(

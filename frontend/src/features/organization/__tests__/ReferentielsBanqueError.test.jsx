@@ -49,7 +49,7 @@ describe('Référentiel banques', () => {
         const newBank = [...container.querySelectorAll('button')]
             .find((button) => button.textContent.includes('Nouvelle Banque'));
         await act(async () => newBank.click());
-        const inputs = container.querySelectorAll('#banque-form input');
+        const inputs = document.querySelectorAll('#banque-form input');
         const setInput = (input, value) => {
             Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
             input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -58,10 +58,10 @@ describe('Référentiel banques', () => {
             setInput(inputs[0], '00004');
         });
         await act(async () => setInput(inputs[1], 'Banque test'));
-        await act(async () => container.querySelector('#banque-form').dispatchEvent(
+        await act(async () => document.querySelector('#banque-form').dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true })
         ));
-        expect(container.textContent).toContain('Ce code banque est déjà utilisé.');
-        expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+        expect(document.body.textContent).toContain('Ce code banque est déjà utilisé.');
+        expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     });
 });

@@ -69,4 +69,35 @@ describe('partage des fiches de pointage', () => {
         await periodePaieService.getPeriodOptions();
         expect(get).toHaveBeenCalledTimes(2);
     });
+
+    it('met aussi en cache la liste complète des périodes et la recharge après une transition', async () => {
+        get.mockResolvedValue({ data: [{ idPeriodePaie: 908, availableActions: {} }] });
+        post.mockResolvedValue({ data: { success: true } });
+        await Promise.all([periodePaieService.getAllPeriodes(), periodePaieService.getAllPeriodes()]);
+        await periodePaieService.getAllPeriodes();
+        expect(get).toHaveBeenCalledTimes(1);
+        await periodePaieService.executeCommand(908, 'REOPEN', { version: 1 });
+        await periodePaieService.getAllPeriodes();
+        expect(get).toHaveBeenCalledTimes(2);
+    });
+
+    it('invalide la fiche sur un événement générique de mise à jour Pointage', async () => {
+        get.mockResolvedValue({ data: { idPeriode: 909 } });
+        await attendanceService.getFicheEmploye(909, { idPeriode: 909 });
+        window.dispatchEvent(new Event('pointage-data-updated'));
+        await attendanceService.getFicheEmploye(909, { idPeriode: 909 });
+        expect(get).toHaveBeenCalledTimes(2);
+    });
+
+    it('sépare les statuts Paie du sélecteur Pointage et recharge après validation', async () => {
+        get.mockResolvedValue({ data: [{ idPeriodePaie: 907, workflowStatuses: { paie: { code: 'VALIDEE' } } }] });
+        await periodePaieService.getPeriodOptions({ includePayrollStatus: true, force: true });
+        await periodePaieService.getPeriodOptions({ includePayrollStatus: true });
+        expect(get).toHaveBeenCalledTimes(1);
+        expect(get).toHaveBeenCalledWith('/periodes', { params: { lightweight: true, includePayrollStatus: true } });
+
+        window.dispatchEvent(new Event('sirh:period-updated'));
+        await periodePaieService.getPeriodOptions({ includePayrollStatus: true });
+        expect(get).toHaveBeenCalledTimes(2);
+    });
 });

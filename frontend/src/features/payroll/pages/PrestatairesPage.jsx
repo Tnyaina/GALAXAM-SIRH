@@ -105,8 +105,7 @@ export default function PrestatairesPage() {
         const query = rechercheFacture.trim().toLocaleLowerCase('fr');
         const textMatch = [f.prestataire, f.reference, f.contrat_reference].some(value => String(value || '').toLocaleLowerCase('fr').includes(query));
         const statutMatch = filtreFactureStatut === 'tous' || f.statut === filtreFactureStatut;
-        const contratLie = contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire);
-        const manquePiece = !f.chemin_piece || !contratLie?.chemin_piece;
+        const manquePiece = (f.missing_requirements || []).some(key => key === 'PDF_FACTURE' || key === 'PDF_CONTRAT');
         const pieceMatch = filtreFacturePieces === 'toutes' || (filtreFacturePieces === 'incompletes' ? manquePiece : !manquePiece);
         return textMatch && statutMatch && pieceMatch;
     });
@@ -445,23 +444,24 @@ export default function PrestatairesPage() {
                 {factures.length > 0 && facturesFiltrees.length === 0 && <EmptyState compact bordered={false} icon={Search} title="Aucune facture trouvée" description="Modifiez les critères de recherche, de statut ou de pièces." />}
                 {facturesFiltrees.map(f => {
                     const id = f.id_facture_prestataire;
-                    const contratLie = contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire);
-                    const piecesManquantes = [!contratLie?.chemin_piece && 'contrat', !f.chemin_piece && 'facture'].filter(Boolean);
+                    const actions = f.available_actions || [];
+                    const prerequisManquants = f.missing_requirements || [];
+                    const piecesManquantes = prerequisManquants.filter(key => key === 'PDF_CONTRAT' || key === 'PDF_FACTURE');
                     return <Card key={id} shadow="none" padding className="space-y-3.5 border-l-4 border-l-[var(--color-brand-500)]">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{f.prestataire}</strong><StatusBadge status={f.statut} /></div><p className="mt-1 text-xs text-[var(--color-fg-muted)]">Facture {f.reference} <span className="px-1">·</span> Contrat {f.contrat_reference}</p><p className="mt-1 text-xs text-[var(--color-fg-subtle)]">Émise le {fmtDate(f.date_facture)}</p></div>
                             <div className="sm:text-right"><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Montant de la facture</p><strong className="text-lg font-bold">{formatMoneyAr(f.montant)}</strong></div>
                         </div>
-                        {f.statut === 'BROUILLON' && <div className={`flex flex-wrap items-center gap-2 border px-3 py-2 text-xs ${piecesManquantes.length ? 'border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/5 text-[var(--color-warning-700)]' : 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5 text-[var(--color-success-700)]'}`}><FileCheck2 size={14} aria-hidden="true" />{piecesManquantes.length ? `À compléter : PDF ${piecesManquantes.join(' et ')} manquant${piecesManquantes.length > 1 ? 's' : ''}.` : 'Pièces justificatives prêtes pour validation.'}</div>}
+                        {f.statut === 'BROUILLON' && <div className={`flex flex-wrap items-center gap-2 border px-3 py-2 text-xs ${prerequisManquants.length ? 'border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/5 text-[var(--color-warning-700)]' : 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5 text-[var(--color-success-700)]'}`}><FileCheck2 size={14} aria-hidden="true" />{prerequisManquants.length ? `À compléter : ${[piecesManquantes.includes('PDF_CONTRAT') && 'PDF contrat', piecesManquantes.includes('PDF_FACTURE') && 'PDF facture', prerequisManquants.includes('NIF') && 'NIF prestataire', prerequisManquants.includes('PRESTATAIRE_INACTIF') && 'prestataire inactif'].filter(Boolean).join(', ')}.` : 'Dossier complet, prêt pour validation.'}</div>}
                         <div className="flex flex-wrap items-center gap-2 border-t border-[var(--color-border-subtle)] pt-3">
                             {f.chemin_piece && <Button variant="outline" size="sm" onClick={() => telechargerPiece('factures', id)}>Voir le PDF</Button>}
                             {canWrite && f.statut === 'BROUILLON' && !f.chemin_piece && <PdfAttach label="Choisir le PDF de facture" busy={busy}
                                 filename={nomPiecePrestataire('facture-prestataire', f.reference, f.date_facture)}
                                 onUpload={file => joindrePiece(id, file)} />}
-                            {canValidate && f.statut === 'BROUILLON' && <Button size="sm" disabled={busy || !f.chemin_piece || !contratLie?.chemin_piece}
+                            {canValidate && actions.includes('VALIDATE') && <Button size="sm" disabled={busy}
                                 onClick={() => agir(() => apiClient.post(`v1/prestataires/factures/${id}/valider`), 'Facture validée.')}>Valider</Button>}
-                            {canWrite && f.statut === 'BROUILLON' && <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFacture(f); setModal('annuler'); }}>Annuler le brouillon</Button>}
-                            {canValidate && f.statut === 'VALIDEE' && <Button type="button" size="sm" onClick={() => { setSelectedFacture(f); setModal('payer'); }}>Marquer payée</Button>}
+                            {canWrite && actions.includes('CANCEL') && <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFacture(f); setModal('annuler'); }}>Annuler le brouillon</Button>}
+                            {canValidate && actions.includes('MARK_PAID') && <Button type="button" size="sm" onClick={() => { setSelectedFacture(f); setModal('payer'); }}>Marquer payée</Button>}
                             {f.statut === 'PAYEE' && <span className="text-xs">Payée le {fmtDate(f.date_paiement)} · {f.reference_paiement}</span>}
                             {f.statut === 'ANNULEE' && <span className="text-xs">Annulée : {f.motif_annulation}</span>}
                         </div>

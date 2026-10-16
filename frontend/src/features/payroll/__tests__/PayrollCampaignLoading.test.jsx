@@ -38,7 +38,10 @@ it('charge les options légères puis actualise seulement le contexte', async ()
     await act(async () => root.render(<Probe />));
     expect(host.textContent).toBe('P41');
     expect(periodePaieService.getPeriodOptions).toHaveBeenCalledTimes(1);
+    expect(periodePaieService.getPeriodOptions).toHaveBeenCalledWith({ includePayrollStatus: true, force: false });
     await act(async () => { await latest.refreshSilent(); });
     expect(periodePaieService.getContext).toHaveBeenCalledTimes(2);
     expect(periodePaieService.getPeriodOptions).toHaveBeenCalledTimes(1);
+    await act(async () => { await latest.refreshSilent(41, { reloadPeriods: true }); });
+    expect(periodePaieService.getPeriodOptions).toHaveBeenCalledWith({ includePayrollStatus: true, force: true });
 });

@@ -120,7 +120,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         <Button type="button" variant="outline" size="sm" onClick={onClose}>
                             Fermer
                         </Button>
-                        {recu && (
+                        {recu && recu.identiteHistoriqueDisponible !== false && recu.employeurHistoriqueDisponible !== false && (
                             <Button
                                 type="button"
                                 variant="primary"
@@ -175,6 +175,18 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
             {error && (
                 <div className="p-4 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)] border border-[var(--color-danger-500)]/20 text-xs">
                     {error}
+                </div>
+            )}
+
+            {recu?.identiteHistoriqueDisponible === false && (
+                <div className="p-4 border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 text-xs">
+                    L’identité historique de ce STC n’a pas été conservée. Le décompte reste consultable,
+                    mais son impression est indisponible afin de ne pas produire un reçu avec des données actuelles.
+                </div>
+            )}
+            {recu?.employeurHistoriqueDisponible === false && (
+                <div className="p-4 border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 text-xs">
+                    L’identité de l’employeur n’a pas été conservée lors de ce STC. Son impression est indisponible.
                 </div>
             )}
 

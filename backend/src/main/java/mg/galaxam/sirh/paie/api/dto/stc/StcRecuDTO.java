@@ -12,6 +12,8 @@ public class StcRecuDTO {
     private String numeroRecu;
     private Timestamp dateEmission;
     private String statut;
+    private boolean identiteHistoriqueDisponible;
+    private boolean employeurHistoriqueDisponible;
     private Date dateReglement;
     private String referenceReglement;
 
@@ -84,6 +86,10 @@ public class StcRecuDTO {
 
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
+    public boolean isIdentiteHistoriqueDisponible() { return identiteHistoriqueDisponible; }
+    public void setIdentiteHistoriqueDisponible(boolean disponible) { this.identiteHistoriqueDisponible = disponible; }
+    public boolean isEmployeurHistoriqueDisponible() { return employeurHistoriqueDisponible; }
+    public void setEmployeurHistoriqueDisponible(boolean disponible) { this.employeurHistoriqueDisponible = disponible; }
     public Date getDateReglement() { return dateReglement; }
     public void setDateReglement(Date dateReglement) { this.dateReglement = dateReglement; }
     public String getReferenceReglement() { return referenceReglement; }

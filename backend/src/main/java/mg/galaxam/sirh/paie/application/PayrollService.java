@@ -31,6 +31,7 @@ import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.paie.api.dto.PayrollPopulationMember;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
+import mg.galaxam.sirh.paie.application.export.PayrollEmployerSnapshotService;
 
 /**
  * Service d'orchestration de paie.
@@ -72,6 +73,7 @@ public class PayrollService {
 
     // Cache local des id_rubrique par code (thread-safe)
     private final Map<String, Integer> cacheRubriques = new ConcurrentHashMap<>();
+    private final PayrollEmployerSnapshotService employerSnapshotService = new PayrollEmployerSnapshotService();
 
     /**
      * Invalide le cache local des rubriques pour forcer un rechargement depuis la base.
@@ -265,12 +267,14 @@ public class PayrollService {
     }
 
     private void restaurerImputationsMouvements(int bulletinId, int employeId, int periodeId, Connection c) throws Exception {
+        String annule = mg.galaxam.sirh.paie.domain.PayrollStatuses.cancelledAdjustmentSql("a.statut");
+        String annuleUnqual = mg.galaxam.sirh.paie.domain.PayrollStatuses.cancelledAdjustmentSql("statut");
         // La ligne de journal permet de retirer exactement la retenue de CE bulletin.
         // Les dossiers historiques sans ligne gardent le comportement de reprise initial.
         try (PreparedStatement ps = c.prepareStatement(
                 "UPDATE paie_avance_acompte a SET montant_impute = GREATEST(a.montant_impute - i.montant, 0), " +
                 "solde_restant = LEAST(a.solde_restant + i.montant, a.montant_initial), " +
-                "statut = CASE WHEN a.statut = 'ANNULE' THEN 'ANNULE' ELSE 'APPROUVE' END, " +
+                "statut = CASE WHEN " + annule + " THEN 'ANNULE' ELSE 'APPROUVE' END, " +
                 "id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
                 "FROM paie_mouvement_imputation i WHERE i.id_avance = a.id_avance " +
                 "AND i.id_bulletin = ? AND a.id_employe = ?")) {
@@ -294,10 +298,10 @@ public class PayrollService {
         }
         try (PreparedStatement ps = c.prepareStatement(
                 "UPDATE paie_avance_acompte SET montant_impute = 0, solde_restant = montant_initial, " +
-                "statut = CASE WHEN statut = 'ANNULE' THEN 'ANNULE' ELSE 'APPROUVE' END, " +
+                "statut = CASE WHEN " + annuleUnqual + " THEN 'ANNULE' ELSE 'APPROUVE' END, " +
                 "id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_bulletin = ? AND id_employe = ? AND id_periode_paie = ? " +
-                "AND statut IN ('APPROUVE','IMPUTE_PAIE','ANNULE') " +
+                "AND (statut IN ('APPROUVE','IMPUTE_PAIE') OR " + annuleUnqual + ") " +
                 "AND NOT EXISTS (SELECT 1 FROM paie_mouvement_imputation i WHERE i.id_avance = paie_avance_acompte.id_avance)")) {
             ps.setInt(1, bulletinId);
             ps.setInt(2, employeId);
@@ -505,6 +509,7 @@ public class PayrollService {
                         throw new IllegalStateException("Le bulletin " + b.getIdBulletin() + " a changé pendant sa validation.");
                     }
                 }
+                employerSnapshotService.capture(b.getIdBulletin(), c);
                 marquerSnapshotConsomme(b.getIdBulletin(), c);
                 batch.ajouterBulletin(obtenirBulletinComplet(b.getIdBulletin(), c));
             }

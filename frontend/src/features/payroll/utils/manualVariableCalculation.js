@@ -23,10 +23,3 @@ export function manualValuePayload(type, form) {
     if (!quantity) throw new Error('Saisissez une quantité positive, avec six décimales maximum.');
     return { quantiteSaisie: quantity, tauxSaisi: rate };
 }
-export function manualValueEstimate(type, form, salary) {
-    const method = manualMethod(type);
-    if (method === 'MONTANT') return Number(positiveDecimal(form.montant, 2) || 0);
-    const rate = Number(positiveDecimal(form.tauxSaisi) || 0);
-    return method === 'QUANTITE_TAUX'
-        ? Number(positiveDecimal(form.quantiteSaisie) || 0) * rate : Number(salary || 0) * rate / 100;
-}

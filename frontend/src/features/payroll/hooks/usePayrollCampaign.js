@@ -46,7 +46,7 @@ export function usePayrollCampaign(requestedPeriodId = null, enabled = true) {
             const [allPeriodes, ctx] = await Promise.all([
                 !reloadPeriods && periodsRef.current.length > 0
                     ? Promise.resolve(periodsRef.current)
-                    : periodePaieService.getPeriodOptions(),
+                    : periodePaieService.getPeriodOptions({ includePayrollStatus: true, force: reloadPeriods }),
                 periodePaieService.getContext(periodeId),
             ]);
 

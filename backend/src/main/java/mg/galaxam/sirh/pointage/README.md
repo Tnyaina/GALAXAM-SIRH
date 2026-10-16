@@ -30,7 +30,7 @@ Les paliers HS à 30 % et 50 % sont attribués dans chaque tronçon hebdomadaire
 Le solde de période additionne ces tranches, retire les déficits et applique les
 ajustements validés sans nouveau palier global. Un retrait consomme les HS à
 30 % avant celles à 50 % ; un ajout non typé alimente les HS à 30 %.
-Voir `docs/pointage-source-de-verite.md` pour les exemples chiffrés.
+Voir `backend/docs/boky/module-pointage-presence.md` pour les règles détaillées et exemples chiffrés.
 
 Si une affectation change l'éligibilité aux heures supplémentaires au milieu
 d'un tronçon hebdomadaire de paie, le précontrôle signale l'employé, les bornes

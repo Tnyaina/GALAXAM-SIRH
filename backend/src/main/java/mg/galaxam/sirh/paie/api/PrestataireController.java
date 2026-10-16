@@ -10,7 +10,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.text.Normalizer;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,12 +38,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping({"/api/v1/prestataires", "/v1/prestataires", "/prestataires"})
 public class PrestataireController {
     private final DataSource dataSource;
+    private final mg.galaxam.sirh.paie.application.PrestataireFactureService factureService;
 
     @Value("${app.upload.prestataire-dir:uploads/prestataires}")
     private String documentDirectory;
 
-    public PrestataireController(DataSource dataSource) {
+    public PrestataireController(DataSource dataSource, mg.galaxam.sirh.paie.application.PrestataireFactureService factureService) {
         this.dataSource = dataSource;
+        this.factureService = factureService;
     }
 
     public record PrestataireRequest(String nom, String nif, String stat, String adresse, String email) {}
@@ -175,7 +176,7 @@ public class PrestataireController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public List<Map<String, Object>> listerFactures() throws Exception {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "SELECT pf.id_facture_prestataire,pf.id_contrat_prestataire,pi.nom AS prestataire,pc.reference AS contrat_reference,"
+                "SELECT pf.id_facture_prestataire,pf.id_contrat_prestataire,pi.nom AS prestataire,pi.nif AS prestataire_nif,pi.est_actif AS prestataire_actif,pc.reference AS contrat_reference,pc.chemin_piece AS contrat_chemin_piece,"
                 + "pf.reference,pf.date_facture,pf.montant,pf.statut,pf.chemin_piece,pf.date_validation,pf.date_paiement,pf.reference_paiement,pf.motif_annulation,pf.date_annulation "
                 + "FROM prestataire_facture pf JOIN prestataire_contrat pc ON pc.id_contrat_prestataire=pf.id_contrat_prestataire "
                 + "JOIN prestataire_independant pi ON pi.id_prestataire=pc.id_prestataire ORDER BY pf.id_facture_prestataire DESC");
@@ -185,6 +186,13 @@ public class PrestataireController {
                 Map<String, Object> row = new LinkedHashMap<>();
                 for (String key : List.of("id_facture_prestataire", "id_contrat_prestataire", "prestataire", "contrat_reference", "reference", "date_facture", "montant", "statut", "chemin_piece", "date_validation", "date_paiement", "reference_paiement", "motif_annulation", "date_annulation"))
                     row.put(key, rs.getObject(key));
+                var eligibility = factureService.eligibility(
+                        rs.getString("statut"), rs.getString("chemin_piece") != null,
+                        rs.getString("contrat_chemin_piece") != null,
+                        rs.getString("prestataire_nif") != null && !rs.getString("prestataire_nif").isBlank(),
+                        rs.getBoolean("prestataire_actif"));
+                row.put("available_actions", eligibility.actions());
+                row.put("missing_requirements", eligibility.missingRequirements());
                 result.add(row);
             }
             return result;
@@ -194,35 +202,15 @@ public class PrestataireController {
     @PostMapping("/factures")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public Map<String, Integer> creerFacture(@RequestBody FactureRequest req) throws Exception {
-        if (req == null || req.idContratPrestataire() == null || blank(req.reference())
-                || req.dateFacture() == null || req.montant() == null || req.montant().signum() <= 0)
-            throw new IllegalArgumentException("Contrat, référence, date et montant positif sont requis.");
-        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "INSERT INTO prestataire_facture (id_contrat_prestataire,reference,date_facture,montant) "
-                + "SELECT pc.id_contrat_prestataire,?,?,? FROM prestataire_contrat pc "
-                + "JOIN prestataire_independant pi ON pi.id_prestataire=pc.id_prestataire "
-                + "WHERE pc.id_contrat_prestataire=? AND pi.est_actif=TRUE", Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, req.reference().trim()); ps.setDate(2, Date.valueOf(req.dateFacture()));
-            ps.setBigDecimal(3, req.montant()); ps.setInt(4, req.idContratPrestataire());
-            if (ps.executeUpdate() != 1) throw new IllegalArgumentException("Contrat absent ou prestataire inactif.");
-            return Map.of("idFacturePrestataire", generatedId(ps));
-        }
+        return factureService.create(req == null ? null : req.idContratPrestataire(), req == null ? null : req.reference(),
+                req == null ? null : req.dateFacture(), req == null ? null : req.montant());
     }
 
     @PostMapping("/factures/{id}/annuler")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> annulerBrouillon(@PathVariable int id, @RequestBody AnnulationRequest req,
             Authentication auth) throws Exception {
-        if (req == null || blank(req.motif()))
-            throw new IllegalArgumentException("Le motif d'annulation est obligatoire.");
-        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "UPDATE prestataire_facture SET statut='ANNULEE', motif_annulation=?, "
-                + "annule_par=?, date_annulation=CURRENT_TIMESTAMP "
-                + "WHERE id_facture_prestataire=? AND statut='BROUILLON'")) {
-            ps.setString(1, req.motif().trim()); ps.setInt(2, userId(auth)); ps.setInt(3, id);
-            if (ps.executeUpdate() != 1)
-                throw new IllegalStateException("Seul un brouillon de facture peut être annulé.");
-        }
+        factureService.cancelDraft(id, req == null ? null : req.motif(), userId(auth));
         return ResponseEntity.noContent().build();
     }
 
@@ -278,31 +266,14 @@ public class PrestataireController {
     @PostMapping("/factures/{id}/valider")
     @PreAuthorize("hasAuthority('PAIE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> validerFacture(@PathVariable int id, Authentication auth) throws Exception {
-        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "UPDATE prestataire_facture SET statut='VALIDEE', valide_par=?, date_validation=CURRENT_TIMESTAMP "
-                + "WHERE id_facture_prestataire=? AND statut='BROUILLON' AND chemin_piece IS NOT NULL "
-                + "AND EXISTS (SELECT 1 FROM prestataire_contrat pc JOIN prestataire_independant pi "
-                + "ON pi.id_prestataire=pc.id_prestataire WHERE pc.id_contrat_prestataire=prestataire_facture.id_contrat_prestataire "
-                + "AND pc.chemin_piece IS NOT NULL AND pi.est_actif=TRUE AND pi.nif IS NOT NULL AND pi.nif<>'')")) {
-            ps.setInt(1, userId(auth)); ps.setInt(2, id);
-            if (ps.executeUpdate() != 1) throw new IllegalStateException("Validation impossible : contrôlez le NIF, le contrat PDF et la facture PDF.");
-        }
+        factureService.validate(id, userId(auth));
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/factures/{id}/payer")
     @PreAuthorize("hasAuthority('PAIE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> payerFacture(@PathVariable int id, @RequestBody PaiementRequest req, Authentication auth) throws Exception {
-        if (req == null || req.datePaiement() == null || blank(req.referencePaiement())
-                || req.datePaiement().isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo"))))
-            throw new IllegalArgumentException("Date réelle et référence du paiement obligatoires.");
-        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "UPDATE prestataire_facture SET statut='PAYEE', date_paiement=?, reference_paiement=?, paye_par=? "
-                + "WHERE id_facture_prestataire=? AND statut='VALIDEE' AND date_facture<=?")) {
-            ps.setDate(1, Date.valueOf(req.datePaiement())); ps.setString(2, req.referencePaiement().trim());
-            ps.setInt(3, userId(auth)); ps.setInt(4, id); ps.setDate(5, Date.valueOf(req.datePaiement()));
-            if (ps.executeUpdate() != 1) throw new IllegalStateException("Facture absente, non validée ou paiement antérieur à la facture.");
-        }
+        factureService.pay(id, req == null ? null : req.datePaiement(), req == null ? null : req.referencePaiement(), userId(auth));
         return ResponseEntity.noContent().build();
     }
 
@@ -326,7 +297,7 @@ public class PrestataireController {
                 .replaceAll("^_|_$", "");
         if (normalizedReference.isBlank()) normalizedReference = "SANS_REFERENCE";
         if (normalizedReference.length() > 60) normalizedReference = normalizedReference.substring(0, 60).replaceAll("_$", "");
-        String datePart = (date == null ? LocalDate.now(ZoneId.of("Indian/Antananarivo")) : date)
+        String datePart = (date == null ? mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today() : date)
                 .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         String shortId = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         return type + "_" + normalizedReference + "_" + datePart + "_" + shortId + ".pdf";

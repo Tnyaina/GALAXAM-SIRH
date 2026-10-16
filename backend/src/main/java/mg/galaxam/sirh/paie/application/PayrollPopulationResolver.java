@@ -126,11 +126,20 @@ public class PayrollPopulationResolver {
     public record PayrollPopulation(
             int periodId, String periodCode, LocalDate startDate, LocalDate endDate,
             List<PayrollPopulationMember> members) {
+        public PopulationSummary summary() {
+            int included = (int) members.stream().filter(member -> "INCLUDED".equals(member.decision())).count();
+            int excluded = (int) members.stream().filter(member -> "EXCLUDED".equals(member.decision())).count();
+            int blocked = (int) members.stream().filter(member -> "BLOCKED".equals(member.decision())).count();
+            return new PopulationSummary(members.size(), included, excluded, blocked);
+        }
+
         public List<Integer> includedEmployeeIds() {
             return members.stream().filter(member -> "INCLUDED".equals(member.decision()))
                     .map(PayrollPopulationMember::employeeId).toList();
         }
     }
+
+    public record PopulationSummary(int evaluated, int included, int excluded, int blocked) {}
 
     private record Period(int id, String code, LocalDate startDate, LocalDate endDate) {}
     private record Row(int employeeId, String matricule, String employeeName, Integer assignmentId,

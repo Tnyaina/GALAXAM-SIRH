@@ -31,7 +31,10 @@ afterEach(() => {
 describe('accès aux sorties de paie', () => {
     it('redirige une URL directe si seul le pointage est validé', async () => {
         usePayrollCampaign.mockReturnValue({
-            context: { selectedPeriod: { id: 1, state: 'VALIDEE', workflowStatuses: { paie: { code: 'A_PREPARER' } } } },
+            context: {
+                selectedPeriod: { id: 1, state: 'VALIDEE', workflowStatuses: { paie: { code: 'A_PREPARER' } } },
+                campaignSteps: [{ code: 'OUTPUTS', state: 'BLOCKED', accessible: false }],
+            },
             periodes: [], loading: false, refreshSilent: vi.fn(),
         });
         await act(async () => root.render(
@@ -44,6 +47,26 @@ describe('accès aux sorties de paie', () => {
         ));
         expect(host.textContent).toContain('Centre de paie');
         expect(host.textContent).not.toContain('Sorties et clôture');
+        expect(paieService.getCockpitPeriode).not.toHaveBeenCalled();
+    });
+
+    it('suit le blocage backend même lorsque le statut affiché est validé', async () => {
+        usePayrollCampaign.mockReturnValue({
+            context: {
+                selectedPeriod: { id: 1, state: 'PAIE_VALIDEE', workflowStatuses: { paie: { code: 'VALIDEE' } } },
+                campaignSteps: [{ code: 'OUTPUTS', state: 'BLOCKED', accessible: false }],
+            },
+            periodes: [], loading: false, refreshSilent: vi.fn(),
+        });
+        await act(async () => root.render(
+            <MemoryRouter initialEntries={['/paie/periodes/1/sorties']}>
+                <Routes>
+                    <Route path="/paie/periodes/:periodId/sorties" element={<SortiesStepPage />} />
+                    <Route path="/paie" element={<p>Centre de paie</p>} />
+                </Routes>
+            </MemoryRouter>
+        ));
+        expect(host.textContent).toContain('Centre de paie');
         expect(paieService.getCockpitPeriode).not.toHaveBeenCalled();
     });
 });

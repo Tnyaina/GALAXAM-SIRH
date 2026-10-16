@@ -93,8 +93,9 @@ export const paieService = {
         };
     },
 
-    getQuarterlyExportStatus: async (year, quarter) =>
-        (await apiClient.get(`paie/trimestre/${year}/${quarter}/exports/status`)).data,
+
+    getDocumentCatalog: async (scope, params = {}) =>
+        (await apiClient.get('paie/exports/catalog', { params: { scope, ...params } })).data,
 
     getQuarterlyExport: async (year, quarter, type) => {
         const response = await apiClient.get(`paie/trimestre/${year}/${quarter}/export/${type}`, { responseType: 'blob' });
@@ -149,6 +150,9 @@ export const paieService = {
         const response = await apiClient.get('paie/ajustements', { params });
         return response.data;
     },
+    resumeAjustements: async (idPeriode = null) => (await apiClient.get('paie/ajustements/summary', {
+        params: idPeriode ? { idPeriode } : {},
+    })).data,
 
     listerTypesMouvements: async (idPeriode = null) => {
         const response = await apiClient.get('paie/ajustements/types-mouvements', {
@@ -158,6 +162,9 @@ export const paieService = {
     },
 
     getConfigurationCatalogue: async (params, signal) => (await apiClient.get('referentiel/types-mouvement-paie/configuration', { params, signal })).data,
+    getRubriqueCyclePreview: async (start, end, signal) => (await apiClient.get('paie/rubriques/cycle-preview', {
+        params: { debut: start, fin: end }, signal,
+    })).data,
     getParcoursConfiguration: async (signal) => (await apiClient.get('referentiel/types-mouvement-paie/configuration/parcours', { signal })).data,
     getCatalogueVariables: async () => (await apiClient.get('referentiel/types-mouvement-paie/catalogue')).data,
     creerVersionRubrique: async (id, payload) => (await apiClient.post(`paie/rubriques/${id}/versions`, payload)).data,
@@ -170,6 +177,8 @@ export const paieService = {
         const response = await apiClient.post('paie/ajustements', payload);
         return response.data;
     },
+    simulerMontantVariable: async (payload) =>
+        (await apiClient.post('paie/ajustements/variables/preview', payload)).data,
     deposerJustificatifFrais: async (id, file) => {
         const data = new FormData();
         data.append('file', file);
@@ -248,9 +257,9 @@ export const paieService = {
                 endpoint = `paie/periode/${idPeriode}/export/safi`;
                 defaultFilename = `etat_301_safi_periode_${idPeriode}.csv`;
                 break;
-            case 'safi-ods':
-                endpoint = `paie/periode/${idPeriode}/export/safi-ods`;
-                defaultFilename = `modele_declaration_irsa_safi_periode_${idPeriode}.ods`;
+            case 'safi-xls':
+                endpoint = `paie/periode/${idPeriode}/export/safi-xls`;
+                defaultFilename = `etat_301_safi_periode_${idPeriode}.xls`;
                 break;
             case 'dnts-csv':
                 endpoint = `paie/periode/${idPeriode}/export/dnts`;

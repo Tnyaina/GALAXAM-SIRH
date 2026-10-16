@@ -56,7 +56,6 @@ export default function GestionPaiePage() {
     const campaignSteps = context?.campaignSteps || [];
     const currentStepCode = context?.currentStep;
     const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
-    const periodStateLabel = activePeriod?.statutCode || activePeriod?.statut || activePeriod?.state;
     const recalcRequired = context?.recalculationRequired === true;
     // Les issues comme 'PAYROLL_NOT_CALCULATED' concernent la validation finale des bulletins.
     // À l'étape Préparation / Population / Variables, ce n'est pas un blocage actif de la campagne
@@ -143,17 +142,10 @@ export default function GestionPaiePage() {
             setVariableSummary({ count: 0, gains: 0, retenues: 0 });
             return undefined;
         }
-        paieService.listerAjustements(activePeriod.id)
-            .then((response) => {
+        paieService.resumeAjustements(activePeriod.id)
+            .then((summary) => {
                 if (!active) return;
-                const rows = Array.isArray(response) ? response : (response?.content || response?.items || []);
-                setVariableSummary(rows.reduce((summary, row) => {
-                    const amount = Number(row.montant) || 0;
-                    summary.count += 1;
-                    if (row.sens === 'GAIN') summary.gains += amount;
-                    if (row.sens === 'RETENUE') summary.retenues += amount;
-                    return summary;
-                }, { count: 0, gains: 0, retenues: 0 }));
+                setVariableSummary({ count: summary.count, gains: summary.gains, retenues: summary.retenues });
             })
             .catch(() => active && setVariableSummary({ count: 0, gains: 0, retenues: 0 }));
         return () => { active = false; };
@@ -286,11 +278,6 @@ export default function GestionPaiePage() {
                                 <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-fg)] tracking-tight">
                                     {activePeriod?.code || activePeriod?.label || 'Aucune campagne active'}
                                 </h2>
-                                {periodStateLabel && (
-                                    <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
-                                        {String(periodStateLabel).replaceAll('_', ' ')}
-                                    </span>
-                                )}
                                 <PayrollWorkflowStatusBadges statuses={activePeriod?.workflowStatuses} size="md" />
                                 {activeBlockers.length > 0 && (
                                     <PayrollIssueBadge severity="BLOCKER" count={activeBlockers.length}

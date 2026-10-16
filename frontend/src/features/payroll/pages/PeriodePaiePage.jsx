@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { usePeriodePaie } from '@/features/attendance/hooks/usePeriodePaie';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
+import { getErrorMessage } from '@/api/apiClient';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import Button from '@/components/ui/forms/Button';
@@ -77,128 +78,7 @@ const WORKFLOW_ACTIONS = {
     CLOSE: { targetState: 'CLOTUREE', label: 'Clôturer', title: 'Clôture définitive de la période', variant: 'danger', Icon: Archive }
 };
 
-const MOIS_FR = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-];
-
 const normalizeSearch = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-const computeNextPeriodeSuggestion = (periodesList) => {
-    // Cycle de paie standard : du 26 du mois M-1 au 25 du mois M
-    if (!periodesList || periodesList.length === 0) {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = now.getMonth(); // 0 à 11
-        const d = now.getDate();
-
-        let targetY = y;
-        let targetM = d >= 26 ? m + 1 : m;
-        if (targetM > 11) {
-            targetM = 0;
-            targetY += 1;
-        }
-
-        const prevM = targetM === 0 ? 11 : targetM - 1;
-        const prevY = targetM === 0 ? targetY - 1 : targetY;
-
-        const startPad = String(prevM + 1).padStart(2, '0');
-        const endPad = String(targetM + 1).padStart(2, '0');
-
-        return {
-            code: `${targetY}-${endPad}`,
-            libelle: `${MOIS_FR[targetM]} ${targetY}`,
-            dateDebut: `${prevY}-${startPad}-26`,
-            dateFin: `${targetY}-${endPad}-25`,
-            baseLibelle: null
-        };
-    }
-
-    // Trouver la période la plus récente par dateFin ou dateDebut
-    const sorted = [...periodesList].sort((a, b) => {
-        const dFinA = a.dateFin || a.date_fin || '';
-        const dFinB = b.dateFin || b.date_fin || '';
-        return dFinB.localeCompare(dFinA);
-    });
-
-    const latest = sorted[0];
-    let nextYear, nextMonth;
-
-    if (latest.dateFin) {
-        const parts = latest.dateFin.split('-');
-        if (parts.length === 3) {
-            let y = parseInt(parts[0], 10);
-            let m = parseInt(parts[1], 10) - 1; // 0 à 11
-            m += 1;
-            if (m > 11) {
-                m = 0;
-                y += 1;
-            }
-            nextYear = y;
-            nextMonth = m;
-        }
-    }
-
-    if (!nextYear) {
-        const now = new Date();
-        nextYear = now.getFullYear();
-        nextMonth = now.getMonth();
-    }
-
-    // Cycle 26 au 25 pour le mois nextMonth
-    const prevMonth = nextMonth === 0 ? 11 : nextMonth - 1;
-    const prevYear = nextMonth === 0 ? nextYear - 1 : nextYear;
-
-    const startPad = String(prevMonth + 1).padStart(2, '0');
-    const endPad = String(nextMonth + 1).padStart(2, '0');
-
-    return {
-        code: `${nextYear}-${endPad}`,
-        libelle: `${MOIS_FR[nextMonth]} ${nextYear}`,
-        dateDebut: `${prevYear}-${startPad}-26`,
-        dateFin: `${nextYear}-${endPad}-25`,
-        baseLibelle: latest.libelle || latest.code
-    };
-};
-
-const computePeriodeForDate = (dateStr) => {
-    if (!dateStr) return null;
-    try {
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            const y = parseInt(parts[0], 10);
-            const m = parseInt(parts[1], 10) - 1; // 0 à 11
-            const d = parseInt(parts[2], 10);
-
-            // Règle du cycle 26 -> 25 :
-            // Si le jour >= 26, la date appartient à la paie du mois suivant (M+1)
-            // Si le jour <= 25, la date appartient à la paie du mois en cours (M)
-            let targetYear = y;
-            let targetMonth = d >= 26 ? m + 1 : m;
-            if (targetMonth > 11) {
-                targetMonth = 0;
-                targetYear += 1;
-            }
-
-            const startMonth = targetMonth === 0 ? 11 : targetMonth - 1;
-            const startYear = targetMonth === 0 ? targetYear - 1 : targetYear;
-
-            const startMonthPad = String(startMonth + 1).padStart(2, '0');
-            const targetMonthPad = String(targetMonth + 1).padStart(2, '0');
-
-            return {
-                code: `${targetYear}-${targetMonthPad}`,
-                libelle: `${MOIS_FR[targetMonth]} ${targetYear}`,
-                dateDebut: `${startYear}-${startMonthPad}-26`,
-                dateFin: `${targetYear}-${targetMonthPad}-25`,
-                baseLibelle: null
-            };
-        }
-    } catch {
-        // Ignorer les erreurs de parsing de date
-    }
-    return null;
-};
 
 export default function PeriodePaiePage() {
     // Contexte, navigation et hook métier
@@ -248,7 +128,14 @@ export default function PeriodePaiePage() {
     }, [periodes]);
 
     // Données dérivées
-    const nextSuggestion = useMemo(() => computeNextPeriodeSuggestion(periodes), [periodes]);
+    const [nextSuggestion, setNextSuggestion] = useState(null);
+    useEffect(() => {
+        let active = true;
+        periodePaieService.suggererPeriode()
+            .then(suggestion => { if (active) setNextSuggestion(suggestion); })
+            .catch(() => { if (active) setNextSuggestion(null); });
+        return () => { active = false; };
+    }, [periodes]);
     const filteredPeriodes = useMemo(() => {
         const query = normalizeSearch(campaignSearch);
         return periodes.filter((period) => {
@@ -274,93 +161,57 @@ export default function PeriodePaiePage() {
         dateFin: ''
     });
 
-    // Effets de synchronisation URL
+    // La suggestion de période et celle d'une date cible viennent du même service.
     useEffect(() => {
         const action = searchParams.get('action');
-        if (action === 'create') {
-            const targetDate = searchParams.get('targetDate');
-            const customForDate = targetDate ? computePeriodeForDate(targetDate) : null;
-            const initial = customForDate || nextSuggestion;
-            setNewPeriode({
-                code: initial.code,
-                libelle: initial.libelle,
-                dateDebut: initial.dateDebut,
-                dateFin: initial.dateFin
-            });
-            setIsCustomCreate(Boolean(customForDate));
+        if (action !== 'create' || !nextSuggestion) return;
+        let active = true;
+        const targetDate = searchParams.get('targetDate');
+        const request = targetDate
+            ? periodePaieService.suggererPeriode({ targetDate })
+            : Promise.resolve(nextSuggestion);
+        request.then(initial => {
+            if (!active) return;
+            setNewPeriode({ code: initial.code, libelle: initial.libelle,
+                dateDebut: initial.dateDebut, dateFin: initial.dateFin });
+            setIsCustomCreate(Boolean(targetDate));
             setIsCreateModalOpen(true);
-
-            // Nettoyer les paramètres d'URL pour ne pas ré-ouvrir au refresh/close
             setSearchParams(prev => {
                 const next = new URLSearchParams(prev);
-                next.delete('action');
-                next.delete('targetDate');
+                next.delete('action'); next.delete('targetDate');
                 return next;
             }, { replace: true });
-        }
+        }).catch(() => {});
+        return () => { active = false; };
     }, [searchParams, nextSuggestion, setSearchParams]);
 
     // Actions
     const handleOpenCreateWithSuggestion = () => {
+        if (!nextSuggestion) return;
         setIsCustomCreate(false);
         setNewPeriode({
-            code: nextSuggestion.code,
-            libelle: nextSuggestion.libelle,
-            dateDebut: nextSuggestion.dateDebut,
-            dateFin: nextSuggestion.dateFin
+            code: nextSuggestion?.code,
+            libelle: nextSuggestion?.libelle,
+            dateDebut: nextSuggestion?.dateDebut,
+            dateFin: nextSuggestion?.dateFin
         });
         setIsCreateModalOpen(true);
     };
 
-    const handleApplyCycle2625 = () => {
-        let y, m;
-        if (newPeriode.code && newPeriode.code.includes('-')) {
-            const parts = newPeriode.code.split('-');
-            y = parseInt(parts[0], 10);
-            m = parseInt(parts[1], 10) - 1;
-        } else if (newPeriode.dateFin) {
-            const parts = newPeriode.dateFin.split('-');
-            y = parseInt(parts[0], 10);
-            m = parseInt(parts[1], 10) - 1;
-        } else {
-            const now = new Date();
-            y = now.getFullYear();
-            m = now.getMonth();
+    const applyCycle = async (civil) => {
+        const code = /^\d{4}-(0[1-9]|1[0-2])$/.test(newPeriode.code)
+            ? newPeriode.code : newPeriode.dateFin?.slice(0, 7) || nextSuggestion?.code;
+        if (!code) return;
+        try {
+            const suggestion = await periodePaieService.suggererPeriode({ code, civil });
+            setNewPeriode(prev => ({ ...prev, dateDebut: suggestion.dateDebut,
+                dateFin: suggestion.dateFin }));
+        } catch (error) {
+            toast({ title: 'Période invalide', message: getErrorMessage(error), type: 'error' });
         }
-        const prevM = m === 0 ? 11 : m - 1;
-        const prevY = m === 0 ? y - 1 : y;
-        const startPad = String(prevM + 1).padStart(2, '0');
-        const endPad = String(m + 1).padStart(2, '0');
-        setNewPeriode(prev => ({
-            ...prev,
-            dateDebut: `${prevY}-${startPad}-26`,
-            dateFin: `${y}-${endPad}-25`
-        }));
     };
-
-    const handleApplyCycleCivil = () => {
-        let y, m;
-        if (newPeriode.code && newPeriode.code.includes('-')) {
-            const parts = newPeriode.code.split('-');
-            y = parseInt(parts[0], 10);
-            m = parseInt(parts[1], 10) - 1;
-        } else if (newPeriode.dateFin) {
-            const parts = newPeriode.dateFin.split('-');
-            y = parseInt(parts[0], 10);
-            m = parseInt(parts[1], 10) - 1;
-        } else {
-            const now = new Date();
-            y = now.getFullYear();
-            m = now.getMonth();
-        }
-        const mPad = String(m + 1).padStart(2, '0');
-        const lastDay = new Date(y, m + 1, 0).getDate();
-        setNewPeriode(prev => ({
-            ...prev,
-            dateDebut: `${y}-${mPad}-01`,
-            dateFin: `${y}-${mPad}-${String(lastDay).padStart(2, '0')}`
-        }));
-    };
+    const handleApplyCycle2625 = () => applyCycle(false);
+    const handleApplyCycleCivil = () => applyCycle(true);
 
     const handleOpenCreateBlank = () => {
         setIsCustomCreate(true);
@@ -487,13 +338,13 @@ export default function PeriodePaiePage() {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Prochaine campagne suggérée</p>
-                        <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{nextSuggestion.libelle} <span className="font-data text-sm font-medium text-[var(--color-fg-muted)]">· {nextSuggestion.code}</span></h2>
-                        <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Du {nextSuggestion.dateDebut} au {nextSuggestion.dateFin} · Cycle du 26 au 25</p>
+                        <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{nextSuggestion?.libelle} <span className="font-data text-sm font-medium text-[var(--color-fg-muted)]">· {nextSuggestion?.code}</span></h2>
+                        <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Du {nextSuggestion?.dateDebut} au {nextSuggestion?.dateFin} · Cycle du 26 au 25</p>
                         <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Créée en brouillon ; la saisie du pointage s’ouvre ensuite.</p>
                     </div>
                     <HasPermission authority={['PAIE_WRITE', 'PAIE_VALIDATE', 'POINTAGE_VALIDATE']}>
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button onClick={handleOpenCreateWithSuggestion} variant="primary" size="sm" iconLeft={<Plus size={14} />}>Créer la campagne</Button>
+                            <Button onClick={handleOpenCreateWithSuggestion} disabled={!nextSuggestion} variant="primary" size="sm" iconLeft={<Plus size={14} />}>Créer la campagne</Button>
                             <Button onClick={handleOpenCreateBlank} variant="outline" size="sm">Choisir d’autres dates</Button>
                         </div>
                     </HasPermission>
@@ -704,7 +555,7 @@ export default function PeriodePaiePage() {
                             <div className="flex items-center gap-2">
                                 <Sparkles size={16} className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] shrink-0" />
                                 <span className="text-[var(--color-warning-950)] dark:text-[var(--color-warning-200)]">
-                                    Suite suggérée : <strong>{nextSuggestion.libelle}</strong> ({nextSuggestion.dateDebut} au {nextSuggestion.dateFin})
+                                    Suite suggérée : <strong>{nextSuggestion?.libelle}</strong> ({nextSuggestion?.dateDebut} au {nextSuggestion?.dateFin})
                                 </span>
                             </div>
                             <Button
@@ -712,10 +563,10 @@ export default function PeriodePaiePage() {
                                 size="xs"
                                 type="button"
                                 onClick={() => setNewPeriode({
-                                    code: nextSuggestion.code,
-                                    libelle: nextSuggestion.libelle,
-                                    dateDebut: nextSuggestion.dateDebut,
-                                    dateFin: nextSuggestion.dateFin
+                                    code: nextSuggestion?.code,
+                                    libelle: nextSuggestion?.libelle,
+                                    dateDebut: nextSuggestion?.dateDebut,
+                                    dateFin: nextSuggestion?.dateFin
                                 })}
                             >
                                 Appliquer la suggestion

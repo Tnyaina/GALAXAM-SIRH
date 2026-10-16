@@ -39,11 +39,10 @@ public class IrsaExcelExportService {
 
     public Result export(Integer periodId, Connection connection) throws Exception {
         Header header = loadHeader(periodId, connection);
+        PayrollExportEligibility.requireFinalPeriod(periodId, connection);
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(periodId, connection);
         if (bulletins.isEmpty()) throw new IllegalStateException("Aucun bulletin pour cette période.");
-        if (bulletins.stream().anyMatch(b -> !"VALIDE".equals(b.getStatut()) && !"CLOTURE".equals(b.getStatut()))) {
-            throw new IllegalStateException("Tous les bulletins doivent être validés avant l'export IRSA.");
-        }
+        PayrollExportEligibility.requireFinalBulletins(bulletins, header.code());
         List<SafiRowDto> data = safiExportService.genererDonneesSafi(periodId, connection);
         if (data.isEmpty()) throw new IllegalStateException("Aucun salarié concerné par l'IRSA pour cette période.");
         if (FIRST_DATA_ROW + data.size() >= 65535) throw new IllegalStateException("Trop de lignes pour le format XLS.");

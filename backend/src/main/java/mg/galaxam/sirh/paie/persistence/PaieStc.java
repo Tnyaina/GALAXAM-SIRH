@@ -296,7 +296,7 @@ public class PaieStc extends ClassMere {
     }
 
     public static String genererNumeroRecu(LocalDate dateReference, Connection c) throws Exception {
-        int annee = dateReference != null ? dateReference.getYear() : LocalDate.now().getYear();
+        int annee = dateReference != null ? dateReference.getYear() : mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today().getYear();
         String sqlSeq = "SELECT nextval('seq_numero_recu_stc')";
         long nextId = 1;
         try (PreparedStatement ps = c.prepareStatement(sqlSeq);

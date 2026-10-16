@@ -54,12 +54,21 @@ public class BulletinDocumentService {
                 if (!rs.next()) throw new IllegalStateException("Période de paie introuvable");
                 var start = rs.getDate("date_debut").toLocalDate();
                 var end = rs.getDate("date_fin").toLocalDate();
-                var employer = new mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver()
-                        .resolve(complet.getBulletin().getIdEmploye(), start, end, connection);
+                Integer bulletinId = complet.getBulletin().getIdBulletin();
+                var snapshot = bulletinId != null
+                        ? new PayrollEmployerSnapshotService().find(bulletinId, connection)
+                        : null;
+                var employer = snapshot == null
+                        ? new mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver()
+                                .resolve(complet.getBulletin().getIdEmploye(), start, end, connection)
+                        : null;
                 DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
                 String dates = start.format(dateFormat) + " au " + end.format(dateFormat);
-                return new Context(n(rs.getString("code")), dates, n(employer.name()),
-                        n(employer.address()), n(employer.nif()), n(employer.stat()));
+                return new Context(n(rs.getString("code")), dates,
+                        n(snapshot != null ? snapshot.name() : employer.name()),
+                        n(snapshot != null ? snapshot.address() : employer.address()),
+                        n(snapshot != null ? snapshot.nif() : employer.nif()),
+                        n(snapshot != null ? snapshot.stat() : employer.stat()));
             }
         }
     }

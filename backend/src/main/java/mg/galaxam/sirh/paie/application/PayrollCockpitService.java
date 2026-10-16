@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.paie.api.dto.PayrollPopulationMember;
+import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import org.springframework.stereotype.Service;
 
 /** Lecture de campagne pour le cockpit DAF ; aucune mutation de paie. */
@@ -41,6 +42,7 @@ public class PayrollCockpitService {
         List<PayrollPopulationMember> members = population.members();
         return Map.of(
                 "population", members,
+                "populationSummary", population.summary(),
                 "populationPage", pageMetadata(members.size(), 1, Math.max(1, members.size())));
     }
 
@@ -81,17 +83,12 @@ public class PayrollCockpitService {
         cockpit.put("periode", perMap);
 
         PayrollPopulationResolver.PayrollPopulation population = populationResolver.resolve(idPeriodePaie, c);
+        cockpit.put("populationSummary", population.summary());
 
         // 2. Préparation amont (Readiness)
         Map<String, Object> readiness = new HashMap<>();
-        int nbPointagesScelles = 0;
-        String sqlPtg = "SELECT COUNT(DISTINCT id_employe) FROM pointage_cumul_periode WHERE id_periode_paie = ?";
-        try (PreparedStatement ps = c.prepareStatement(sqlPtg)) {
-            ps.setInt(1, idPeriodePaie);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) nbPointagesScelles = rs.getInt(1);
-            }
-        }
+        int nbPointagesScelles = PayrollPointageCoverage.frozenCount(
+                idPeriodePaie, population.includedEmployeeIds(), c);
         int effectifAttendu = population.includedEmployeeIds().size();
         readiness.put("effectifAttendu", effectifAttendu);
         readiness.put("nbEmployesPointes", nbPointagesScelles);
@@ -258,7 +255,7 @@ public class PayrollCockpitService {
         int populationTo = Math.min(populationFrom + size, populationMembers.size());
         List<PayrollPopulationMember> populationPage = populationMembers.subList(populationFrom, populationTo);
         readiness.put("nbAnomalies", nbAnomalies);
-        readiness.put("checks", List.of(
+        List<Map<String, Object>> checks = new ArrayList<>(List.of(
                 Map.of(
                         "code", "POINTAGE_FROZEN",
                         "status", Boolean.TRUE.equals(readiness.get("pointageScelle")) ? "PASS" : "BLOCK",
@@ -285,6 +282,32 @@ public class PayrollCockpitService {
                         "message", nbAnomalies > 0
                                 ? nbAnomalies + " résultat(s) exigent un contrôle."
                                 : "Aucune variation bloquante détectée dans les résultats.")));
+        if (dateFin != null) {
+            PaieConfigLegale legal = PaieConfigLegale.findActiveAt(c, dateFin.toLocalDate());
+            boolean configured = legal != null && legal.getPlafondCotisationMensuel() != null;
+            checks.add(Map.of("code", "FISCAL_SOCIAL", "status", configured ? "PASS" : "BLOCK",
+                    "message", configured ? "Barème légal et plafond social présents à la fin de la campagne ; les taux par site seront vérifiés au calcul."
+                            : "Barème légal ou plafond social absent à la fin de la campagne."));
+        }
+        int pendingAdjustments = 0;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM paie_avance_acompte a JOIN ref_type_mouvement_paie t "
+                        + "ON t.id_type_mouvement=a.id_type_mouvement "
+                        + "WHERE a.id_periode_paie=? AND t.categorie IN ('ACOMPTE','AVANCE') "
+                        + "AND (a.statut='EN_ATTENTE' OR (a.versement_confirme_at IS NULL "
+                        + "AND (a.statut='IMPUTE_PAIE' OR a.montant_impute>0)))")) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) { if (rs.next()) pendingAdjustments = rs.getInt(1); }
+        }
+        checks.add(Map.of("code", "ACOMPTES", "status", pendingAdjustments > 0 ? "WARNING" : "PASS",
+                "message", pendingAdjustments > 0
+                        ? pendingAdjustments + " dossier(s) d'acompte ou d'avance à traiter."
+                        : "Aucun acompte ou avance en attente de traitement."));
+        for (String code : List.of("CALENDRIERS", "CONGES", "PRETS", "INDEMNITES")) {
+            checks.add(Map.of("code", code, "status", "WARNING",
+                    "message", "Aucun contrôle autonome n'est encore disponible à cette étape ; vérifiez le paramétrage avant le calcul."));
+        }
+        readiness.put("checks", checks);
         cockpit.put("readiness", readiness);
         cockpit.put("population", populationPage);
         cockpit.put("populationPage", pageMetadata(populationMembers.size(), page, size));

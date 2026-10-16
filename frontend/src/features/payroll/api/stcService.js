@@ -20,7 +20,7 @@ export const stcService = {
             if (typeof dateDepart === 'string') {
                 formattedDate = dateDepart.includes('T') ? dateDepart.split('T')[0] : dateDepart.substring(0, 10);
             } else if (dateDepart instanceof Date && !isNaN(dateDepart.getTime())) {
-                formattedDate = dateDepart.toISOString().split('T')[0];
+                formattedDate = `${dateDepart.getFullYear()}-${String(dateDepart.getMonth() + 1).padStart(2, '0')}-${String(dateDepart.getDate()).padStart(2, '0')}`;
             }
             params.dateDepart = formattedDate;
         }

@@ -10,7 +10,6 @@ import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.Period;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +22,7 @@ import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paie.persistence.PaiePret;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
+import mg.galaxam.sirh.paie.application.export.PayrollEmployerSnapshotService;
 import mg.galaxam.sirh.paie.domain.engine.SocialContributionCalculator;
 import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
@@ -401,6 +401,10 @@ public class StcService {
     public StcCalculResultDTO simulerStc(StcCalculRequest req, Connection c) throws Exception {
         verifierMontantsNonNegatifs(req);
         StcPreparationDTO prep = preparerStc(req.getIdEmploye(), req.getDateDepart(), req.getMotifRupture(), c);
+        return simulerStc(req, prep, c);
+    }
+
+    private StcCalculResultDTO simulerStc(StcCalculRequest req, StcPreparationDTO prep, Connection c) throws Exception {
 
         StcCalculResultDTO res = new StcCalculResultDTO();
         res.setIdEmploye(prep.getIdEmploye());
@@ -441,7 +445,7 @@ public class StcService {
             throw new IllegalArgumentException("La date et la référence du paiement réel du bulletin sont obligatoires.");
         }
         if (montantDejaPaye.signum() > 0 && req.getDatePaiementBulletin().toLocalDate()
-                .isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo")))) {
+                .isAfter(mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today())) {
             throw new IllegalArgumentException("Un paiement futur ne peut pas être déclaré comme déjà effectué.");
         }
         res.setIdBulletinMensuel(bulletinMensuelValide ? prep.getIdBulletinMensuel() : null);
@@ -707,15 +711,16 @@ public class StcService {
     // =========================================================================
 
     public StcCalculResultDTO validerStc(StcCalculRequest req, Integer userId, Connection c) throws Exception {
-        verifierValidationJuridique(req, c);
+        StcPreparationDTO preparation = preparerStc(req.getIdEmploye(), req.getDateDepart(), req.getMotifRupture(), c);
+        verifierValidationJuridique(req, preparation, c);
         if (req.getDateDepart() != null
-                && req.getDateDepart().toLocalDate().isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo")))) {
+                && req.getDateDepart().toLocalDate().isAfter(mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today())) {
             throw new IllegalArgumentException(
                     "La validation officielle du STC est possible à partir de la date de départ effective. " +
                     "La simulation reste disponible avant cette date.");
         }
         req.setSimulation(false);
-        StcCalculResultDTO simulation = simulerStc(req, c);
+        StcCalculResultDTO simulation = simulerStc(req, preparation, c);
 
         // 1. Génération du numéro de reçu officiel
         LocalDate dDepRecu = req.getDateDepart() != null ? req.getDateDepart().toLocalDate() : null;
@@ -742,7 +747,6 @@ public class StcService {
             }
         }
         if (idPeriode == null) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE au " + req.getDateDepart());
-        StcPreparationDTO preparation = preparerStc(req.getIdEmploye(), req.getDateDepart(), req.getMotifRupture(), c);
         if ("POINTAGE_REEL".equals(preparation.getSourcePointage()) && !preparation.isPointageGele()) {
             throw new IllegalStateException(
                     "Le pointage final existe mais n'est pas gelé. Clôturez et contrôlez le pointage "
@@ -967,7 +971,7 @@ public class StcService {
         bpStc.setReferenceBulletin("STC-" + entity.getNumeroRecu());
         bpStc.setMatricule(simulation.getMatricule() != null ? simulation.getMatricule() : "STC-" + req.getIdEmploye());
         bpStc.setNomPrenom(simulation.getNomComplet() != null ? simulation.getNomComplet() : "Salarié Sortant");
-        StcPreparationDTO identiteValidee = preparerStc(req.getIdEmploye(), req.getDateDepart(), req.getMotifRupture(), c);
+        StcPreparationDTO identiteValidee = preparation;
         bpStc.setCinNumero(identiteValidee.getCinNumero());
         bpStc.setCinDateDelivrance(identiteValidee.getCinDateDelivrance());
         bpStc.setCinLieuDelivrance(identiteValidee.getCinLieuDelivrance());
@@ -1006,6 +1010,7 @@ public class StcService {
         bpStc.setCommentaire("Solde de Tout Compte : " + entity.getMotifRupture());
 
         bpStc.save(c);
+        new PayrollEmployerSnapshotService().capture(bpStc.getIdBulletin(), c);
         entity.setIdBulletin(bpStc.getIdBulletin());
         simulation.setIdBulletin(bpStc.getIdBulletin());
 
@@ -1196,7 +1201,7 @@ public class StcService {
         }
     }
 
-    private void verifierValidationJuridique(StcCalculRequest req, Connection c) throws Exception {
+    private void verifierValidationJuridique(StcCalculRequest req, StcPreparationDTO prep, Connection c) throws Exception {
         verifierMontantsNonNegatifs(req);
         String motif = req.getMotifRupture() == null ? "" : req.getMotifRupture().trim().toUpperCase();
         if (!List.of("DEMISSION", "LICENCIEMENT", "LICENCIEMENT_ECONOMIQUE", "CESSATION_ACTIVITE",
@@ -1246,7 +1251,6 @@ public class StcService {
             if (reference == null || reference.signum() <= 0) {
                 throw new IllegalArgumentException("La dernière rémunération avec accessoires, hors frais, est obligatoire pour le licenciement économique ou la cessation d'activité.");
             }
-            StcPreparationDTO prep = preparerStc(req.getIdEmploye(), req.getDateDepart(), motif, c);
             if (reference.compareTo(prep.getSalaireBase()) < 0) {
                 throw new IllegalArgumentException("La rémunération de référence ne peut être inférieure au salaire de base du contrat.");
             }
@@ -1270,7 +1274,7 @@ public class StcService {
                 || req.referenceReglement().isBlank()) {
             throw new IllegalArgumentException("La date et la référence du paiement sont obligatoires.");
         }
-        if (req.dateReglement().toLocalDate().isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo")))) {
+        if (req.dateReglement().toLocalDate().isAfter(mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today())) {
             throw new IllegalArgumentException("Le règlement ne peut pas être daté dans le futur.");
         }
         try (PreparedStatement ps = c.prepareStatement(
@@ -1296,11 +1300,8 @@ public class StcService {
 
         // Un reçu validé doit rester lisible même si le contrat, les congés ou
         // la configuration légale ont changé depuis son émission.
-        StcPreparationDTO prep = s.getIdBulletin() == null
-                ? preparerStc(s.getIdEmploye(), s.getDateDepart(), s.getMotifRupture(), c)
-                : null;
-
         StcRecuDTO r = new StcRecuDTO();
+        r.setIdentiteHistoriqueDisponible(s.getIdBulletin() != null);
         r.setNumeroRecu(s.getNumeroRecu());
         r.setDateEmission(s.getDateValidation() != null ? s.getDateValidation() : new Timestamp(System.currentTimeMillis()));
         r.setStatut(s.getStatut());
@@ -1315,16 +1316,17 @@ public class StcService {
             }
         }
 
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT raison_sociale, nif, stat FROM ref_filiale WHERE est_actif = TRUE ORDER BY id_filiale ASC LIMIT 1")) {
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    if (rs.getString("raison_sociale") != null) r.setEntrepriseNom(rs.getString("raison_sociale"));
-                    if (rs.getString("nif") != null) r.setEntrepriseNif(rs.getString("nif"));
-                    if (rs.getString("stat") != null) r.setEntrepriseStat(rs.getString("stat"));
-                }
-            }
-        } catch (Exception ignored) {}
+        var employeurHistorique = s.getIdBulletin() == null ? null
+                : new PayrollEmployerSnapshotService().find(s.getIdBulletin(), c);
+        r.setEmployeurHistoriqueDisponible(employeurHistorique != null);
+        if (employeurHistorique != null) {
+            r.setEntrepriseNom(employeurHistorique.name());
+            r.setEntrepriseNif(employeurHistorique.nif());
+            r.setEntrepriseStat(employeurHistorique.stat());
+            r.setEntrepriseAdresse(employeurHistorique.address());
+        } else {
+            r.setEntrepriseNom("Employeur historique non disponible");
+        }
 
         r.setIdEmploye(s.getIdEmploye());
         try (PreparedStatement psSnapshot = c.prepareStatement(
@@ -1335,9 +1337,9 @@ public class StcService {
             try (ResultSet snapshot = psSnapshot.executeQuery()) {
                 if (snapshot.next()) {
                     Integer contratFige = (Integer) snapshot.getObject("id_contrat");
-                    r.setIdContrat(contratFige != null ? contratFige : prep != null ? prep.getIdContrat() : null);
+                    r.setIdContrat(contratFige);
                     String sourceFigee = snapshot.getString("source_pointage");
-                    r.setSourcePointage(sourceFigee != null ? sourceFigee : prep != null ? prep.getSourcePointage() : null);
+                    r.setSourcePointage(sourceFigee);
                     r.setIdBulletinMensuel((Integer) snapshot.getObject("id_bulletin_mensuel"));
                     r.setNetBulletinMensuel(snapshot.getBigDecimal("net_bulletin_mensuel"));
                     r.setMontantBulletinDejaPaye(snapshot.getBigDecimal("montant_bulletin_deja_paye"));
@@ -1346,19 +1348,6 @@ public class StcService {
                     r.setReferencePaiementBulletin(snapshot.getString("reference_paiement_bulletin"));
                 }
             }
-        }
-        if (prep != null) {
-            r.setMatricule(prep.getMatricule());
-            r.setNomComplet(prep.getNomComplet());
-            r.setCinNumero(prep.getCinNumero());
-            r.setCinDateDelivrance(prep.getCinDateDelivrance());
-            r.setCinLieuDelivrance(prep.getCinLieuDelivrance());
-            r.setNumeroCnaps(prep.getNumeroCnaps());
-            r.setIntitulePoste(prep.getIntitulePoste());
-            r.setDepartement(prep.getDepartement());
-            r.setSite(prep.getSite());
-            r.setDateEmbauche(prep.getDateEmbauche());
-            r.setAncienneteTexte(prep.getAncienneteAnnees() + " an(s) et " + (prep.getAncienneteMois() % 12) + " mois");
         }
         r.setDateDepart(s.getDateDepart());
         r.setMotifRupture(s.getMotifRupture());
@@ -1486,7 +1475,7 @@ public class StcService {
     }
 
     public static BigDecimal getTauxJournalierDernier(int idEmploye, BigDecimal salaireBaseFallback, Connection c) {
-        return getTauxJournalierApplicable(idEmploye, LocalDate.now(), salaireBaseFallback, c);
+        return getTauxJournalierApplicable(idEmploye, mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today(), salaireBaseFallback, c);
     }
 
     private AncienneteEngine.AncienneteBilan calculerAncienneteEmploye(int idEmploye, Date dateDepart, Connection c) {

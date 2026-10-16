@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.paie.domain.ManualRubriquePolicy;
 import mg.galaxam.sirh.paie.persistence.PaieRubrique;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,7 @@ class PaieRubriqueLegalValidationTest {
         var rubrique = rubrique();
         rubrique.setSoumisCnaps(false);
         assertThrows(SirhBusinessException.class,
-                () -> PaieRubriqueController.validateManualRubrique(rubrique, false));
+                () -> ManualRubriquePolicy.validate(rubrique, false));
     }
 
     @Test
@@ -39,20 +40,20 @@ class PaieRubriqueLegalValidationTest {
         var rubrique = rubrique();
         rubrique.setSoumisFmfp(false);
         assertThrows(SirhBusinessException.class,
-                () -> PaieRubriqueController.validateManualRubrique(rubrique, false));
+                () -> ManualRubriquePolicy.validate(rubrique, false));
     }
 
     @Test
     void accepteFmfpHeriteDeLaCnaps() {
         var rubrique = rubrique();
         rubrique.setSoumisFmfp(null);
-        assertDoesNotThrow(() -> PaieRubriqueController.validateManualRubrique(rubrique, false));
+        assertDoesNotThrow(() -> ManualRubriquePolicy.validate(rubrique, false));
     }
 
     @Test
     void accepteAssiettesCnapsEtFmfpIdentiques() {
         var rubrique = rubrique();
-        assertDoesNotThrow(() -> PaieRubriqueController.validateManualRubrique(rubrique, false));
+        assertDoesNotThrow(() -> ManualRubriquePolicy.validate(rubrique, false));
     }
 
     @Test
@@ -63,6 +64,6 @@ class PaieRubriqueLegalValidationTest {
         rubrique.setSoumisSante(false);
         rubrique.setSoumisFmfp(false);
         assertThrows(SirhBusinessException.class,
-                () -> PaieRubriqueController.validateManualRubrique(rubrique, false));
+                () -> ManualRubriquePolicy.validate(rubrique, false));
     }
 }

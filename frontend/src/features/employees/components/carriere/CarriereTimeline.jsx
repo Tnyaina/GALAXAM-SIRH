@@ -62,15 +62,15 @@ export default function CarriereTimeline({
 
             {(brouillonWf || workflowPlanifieFutur) && <section aria-label="Changements en cours" className="space-y-3">
                 <h3 className="text-sm font-semibold">Changements en cours</h3>
-            <TimelineBanners
-                brouillonWf={brouillonWf}
-                workflowPlanifieFutur={workflowPlanifieFutur}
-                canWrite={canWrite}
-                onOpenEditModal={onOpenEditModal}
-                onSelectWorkflowRecap={onSelectWorkflowRecap}
-                onOpenContrat={onOpenContrat}
-                contratBrouillon={displayContrats.find(c => Number(c.idContrat) === Number(brouillonWf?.idContratCible))}
-            />
+                <TimelineBanners
+                    brouillonWf={brouillonWf}
+                    workflowPlanifieFutur={workflowPlanifieFutur}
+                    canWrite={canWrite}
+                    onOpenEditModal={onOpenEditModal}
+                    onSelectWorkflowRecap={onSelectWorkflowRecap}
+                    onOpenContrat={onOpenContrat}
+                    contratBrouillon={displayContrats.find(c => Number(c.idContrat) === Number(brouillonWf?.idContratCible))}
+                />
 
             </section>}
 

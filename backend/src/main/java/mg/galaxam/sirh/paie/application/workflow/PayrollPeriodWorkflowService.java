@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +41,6 @@ import org.springframework.security.access.AccessDeniedException;
 @Service
 public class PayrollPeriodWorkflowService {
 
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Indian/Antananarivo");
 
     private final DataSource dataSource;
     private final PointageSyntheseService pointageSyntheseService;
@@ -114,7 +112,7 @@ public class PayrollPeriodWorkflowService {
 
     public PayrollPeriodContextView describeContext(
             Integer selectedPeriodId, LocalDate businessDate, PayrollPeriodUserContext user) throws Exception {
-        LocalDate targetDate = businessDate != null ? businessDate : LocalDate.now(BUSINESS_ZONE);
+        LocalDate targetDate = businessDate != null ? businessDate : mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today();
         try (Connection connection = dataSource.getConnection()) {
             PeriodState current = loadAtDate(targetDate, connection);
             PeriodState selected = selectedPeriodId != null
@@ -276,9 +274,6 @@ public class PayrollPeriodWorkflowService {
             return new PayrollPeriodContextView.NextStep("CALCULATION", "/paie/periodes/" + periodId + "/calcul");
         }
         if ("VALIDEE".equals(state)) {
-            // CLOSE porte sur la clôture administrative, pas sur la prochaine
-            // étape consultable du cycle. Il peut être autorisé dès VALIDEE,
-            // alors que les bulletins ne sont pas encore calculés.
             if (actions.getOrDefault("GENERATE_OUTPUT", ActionCapability.denied("NA")).allowed()) {
                 return new PayrollPeriodContextView.NextStep("SORTIES", "/paie/periodes/" + periodId + "/sorties");
             }
@@ -292,11 +287,14 @@ public class PayrollPeriodWorkflowService {
             };
             return new PayrollPeriodContextView.NextStep(step, destination);
         }
-        return new PayrollPeriodContextView.NextStep(
-                "CLOTUREE".equals(state) || "PAIE_VALIDEE".equals(state) ? "SORTIES" : "POINTAGE",
-                "CLOTUREE".equals(state) || "PAIE_VALIDEE".equals(state)
-                        ? "/paie/periodes/" + periodId + "/sorties"
-                        : "/pointages?tab=saisie");
+        if ("CLOTUREE".equals(state)
+                || actions.getOrDefault("GENERATE_OUTPUT", ActionCapability.denied("NA")).allowed()) {
+            return new PayrollPeriodContextView.NextStep("SORTIES", "/paie/periodes/" + periodId + "/sorties");
+        }
+        if ("PAIE_VALIDEE".equals(state)) {
+            return new PayrollPeriodContextView.NextStep("CALCULATION", "/paie/periodes/" + periodId + "/calcul");
+        }
+        return new PayrollPeriodContextView.NextStep("POINTAGE", "/pointages?tab=saisie");
     }
 
     /**
@@ -320,7 +318,7 @@ public class PayrollPeriodWorkflowService {
 
         int valide = count(connection,
                 "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')", period.id());
-        if (valide == total) return "VALIDATION";
+        if (valide == total) return "PAIE_VALIDEE".equals(state) ? "OUTPUTS" : "VALIDATION";
 
         int calcule = count(connection,
                 "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", period.id());
@@ -435,7 +433,7 @@ public class PayrollPeriodWorkflowService {
         String validState;
         if (!paieOk || !hasBulletins || recalcNeeded || !populationComplete) validState = "BLOCKED";
         else if (cloturee) validState = "LOCKED";
-        else if (allValidated) validState = "CURRENT";
+        else if (allValidated) validState = "PAIE_VALIDEE".equals(state) ? "COMPLETED" : "CURRENT";
         else if (someCalcOrValid) validState = "AVAILABLE";
         else validState = "BLOCKED";
         steps.add(new PayrollCampaignStep("VALIDATION", "Validation", validState, base + "/validation",
@@ -445,17 +443,29 @@ public class PayrollPeriodWorkflowService {
                 noIssues));
 
         // 7. OUTPUTS — bulletins de paie et exports réglementaires
-        boolean outputAllowed = actions.getOrDefault("GENERATE_OUTPUT",
-                ActionCapability.denied("NA")).allowed();
+        ActionCapability outputCapability = actions.getOrDefault("GENERATE_OUTPUT",
+                ActionCapability.denied("NA"));
+        boolean outputAllowed = outputCapability.allowed();
         String outState;
-        if (!paieOk) outState = "BLOCKED";
-        else if (cloturee) outState = "CURRENT";
-        else if (outputAllowed) outState = "AVAILABLE";
-        else outState = "BLOCKED";
+        if (!paieOk || !outputAllowed) outState = "BLOCKED";
+        else outState = cloturee ? "CURRENT" : "AVAILABLE";
         steps.add(new PayrollCampaignStep("OUTPUTS", "Bulletins & Exports", outState, base + "/sorties",
-                !outputAllowed && !cloturee ? List.of("Bulletins non encore validés.") : noIssues, noIssues));
+                outputAllowed ? noIssues : List.of(outputIssue(outputCapability)), noIssues));
 
         return List.copyOf(steps);
+    }
+
+    private String outputIssue(ActionCapability capability) {
+        if (capability.reasonCodes().contains("PAYROLL_CALCULATION_STALE")) {
+            return "Le calcul est obsolète. Recalculez la paie avant les sorties.";
+        }
+        if (capability.reasonCodes().contains("PAYROLL_POPULATION_INCOMPLETE")) {
+            return "Chaque salarié inclus doit avoir un bulletin validé.";
+        }
+        if (capability.reasonCodes().contains("FORBIDDEN")) {
+            return "Vous ne disposez pas de l'accès aux documents de paie.";
+        }
+        return "Validez la paie avant d'accéder aux sorties.";
     }
 
     /**
@@ -471,11 +481,12 @@ public class PayrollPeriodWorkflowService {
                 + "AND statut IN ('CALCULE','VALIDE','CLOTURE')", periodId);
         if (bulletinCount == 0) return 0;
 
+        String cancelledAdjustment = mg.galaxam.sirh.paie.domain.PayrollStatuses.cancelledAdjustmentSql("a.statut");
         String sql = "SELECT COUNT(*) FROM paie_avance_acompte a "
                 + "JOIN bulletin_paie b ON b.id_periode_paie = a.id_periode_paie "
                 + "AND b.id_employe = a.id_employe "
                 + "WHERE a.id_periode_paie = ? AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
-                + "AND (a.statut NOT IN ('ANNULE','REJETE') OR a.id_bulletin IS NOT NULL) "
+                + "AND ((NOT (" + cancelledAdjustment + ") AND a.statut <> 'REJETE') OR a.id_bulletin IS NOT NULL) "
                 + "AND a.updated_at > COALESCE(b.updated_at, b.date_calcul, '1970-01-01'::timestamptz)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, periodId);
@@ -566,12 +577,12 @@ public class PayrollPeriodWorkflowService {
             }
             case REJECT -> requireReason(request.getMotif(), 1, "Le motif de rejet est obligatoire.");
             case CLOSE -> {
-                if (period.endDate().isAfter(LocalDate.now(BUSINESS_ZONE))) {
+                ActionCapability capability = closeCapability(period.id(), period.state(), period.endDate(), connection);
+                if (!capability.allowed()) {
                     throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
-                            "Clôture impossible avant la fin de la période (" + period.endDate() + ").",
-                            Map.of("periodEndDate", period.endDate()));
+                            "Clôture impossible : les prérequis de la campagne ne sont pas satisfaits.",
+                            Map.of("periodId", period.id(), "reasonCodes", capability.reasonCodes()));
                 }
-                requireValidatedPayroll(period.id(), connection);
                 payrollService.cloturerDonneesPaie(period.id(), user.userId(), connection);
             }
             case REOPEN -> {
@@ -622,26 +633,43 @@ public class PayrollPeriodWorkflowService {
 
     }
 
-    private void requireValidatedPayroll(int periodId, Connection connection) throws SQLException {
-        if (!payrollPopulationHasBulletins(periodId, java.util.Set.of("VALIDE"), connection)) {
-            throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
-                    "Clôture impossible : chaque collaborateur inclus doit avoir un bulletin validé.",
-                    Map.of("periodId", periodId, "reasonCode", "PAYROLL_POPULATION_INCOMPLETE"));
+    private ActionCapability closeCapability(int periodId, String state, LocalDate endDate,
+            Connection connection) throws SQLException {
+        ActionCapability stateCapability = closeStateCapability(state, endDate, mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today());
+        if (!stateCapability.allowed()) {
+            return stateCapability;
         }
-        String sql = "SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE statut = 'VALIDE') AS valides "
-                + "FROM bulletin_paie WHERE id_periode_paie = ?";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+        if (computeRecalculationCount(periodId, state, connection) > 0) {
+            return ActionCapability.denied("PAYROLL_CALCULATION_STALE");
+        }
+        return payrollPopulationHasBulletins(periodId, java.util.Set.of("VALIDE", "CLOTURE"), connection)
+                ? ActionCapability.permit()
+                : ActionCapability.denied("PAYROLL_POPULATION_INCOMPLETE");
+    }
+
+    static ActionCapability closeStateCapability(String state, LocalDate endDate, LocalDate businessDate) {
+        if (!List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) {
+            return ActionCapability.denied("INVALID_STATE");
+        }
+        if (endDate.isAfter(businessDate)) {
+            return ActionCapability.denied("PERIOD_NOT_ENDED");
+        }
+        if (!"PAIE_VALIDEE".equals(state)) {
+            return ActionCapability.denied("PAYROLL_NOT_VALIDATED");
+        }
+        return ActionCapability.permit();
+    }
+
+    private LocalDate periodEndDate(int periodId, Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
             statement.setInt(1, periodId);
             try (ResultSet result = statement.executeQuery()) {
-                result.next();
-                int total = result.getInt("total");
-                int validated = result.getInt("valides");
-                if (total == 0 || validated != total) {
-                    throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
-                            "Clôture impossible : tous les bulletins de la période doivent être calculés et validés.",
-                            Map.of("periodId", periodId, "totalBulletins", total,
-                                    "validatedBulletins", validated));
+                if (!result.next()) {
+                    throw failure(SirhErrorCode.PAYROLL_PERIOD_NOT_FOUND,
+                            "Période de paie introuvable : " + periodId + ".", Map.of("periodId", periodId));
                 }
+                return result.getDate(1).toLocalDate();
             }
         }
     }
@@ -762,6 +790,9 @@ public class PayrollPeriodWorkflowService {
             if (command == PayrollPeriodCommand.APPROVE && capability.allowed()) {
                 capability = approvalCapability(periodId, connection);
             }
+            if (command == PayrollPeriodCommand.CLOSE && capability.allowed()) {
+                capability = closeCapability(periodId, state, periodEndDate(periodId, connection), connection);
+            }
             actions.put(command.name(), capability);
         }
         for (PayrollAction action : PayrollAction.values()) {
@@ -790,6 +821,11 @@ public class PayrollPeriodWorkflowService {
         if (!authorized) return ActionCapability.denied("FORBIDDEN");
         if (action == PayrollAction.SIMULATE) return ActionCapability.permit();
         if (action == PayrollAction.GENERATE_OUTPUT) {
+            ActionCapability stateCapability = outputStateCapability(state);
+            if (!stateCapability.allowed()) return stateCapability;
+            if (computeRecalculationCount(periodId, state, connection) > 0) {
+                return ActionCapability.denied("PAYROLL_CALCULATION_STALE");
+            }
             return payrollPopulationHasBulletins(periodId, java.util.Set.of("VALIDE", "CLOTURE"), connection)
                     ? ActionCapability.permit()
                     : ActionCapability.denied("PAYROLL_POPULATION_INCOMPLETE");
@@ -817,10 +853,8 @@ public class PayrollPeriodWorkflowService {
                     .anyMatch(member -> "BLOCKED".equals(member.decision()));
             if (populationBlocked) return ActionCapability.denied("PAYROLL_POPULATION_BLOCKED");
             if (population.includedEmployeeIds().isEmpty()) return ActionCapability.denied("PAYROLL_POPULATION_EMPTY");
-            return count(connection,
-                    "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
-                            + "AND statut_snapshot IN ('GELE','CONSOMME')",
-                    periodId) > 0
+            return mg.galaxam.sirh.paie.application.PayrollPointageCoverage.allFrozen(
+                    periodId, population.includedEmployeeIds(), connection)
                     ? ActionCapability.permit()
                     : ActionCapability.denied("POINTAGE_NOT_FROZEN");
         }
@@ -838,6 +872,12 @@ public class PayrollPeriodWorkflowService {
         return calculated > 0
                 ? ActionCapability.permit()
                 : ActionCapability.denied("PAYROLL_NOT_CALCULATED");
+    }
+
+    static ActionCapability outputStateCapability(String state) {
+        return List.of("PAIE_VALIDEE", "CLOTUREE").contains(state)
+                ? ActionCapability.permit()
+                : ActionCapability.denied("PAYROLL_NOT_VALIDATED");
     }
 
     private boolean payrollPopulationHasBulletins(int periodId, java.util.Set<String> acceptedStatuses,
@@ -871,7 +911,7 @@ public class PayrollPeriodWorkflowService {
             statement.setInt(1, periodId);
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
-                if (result.getDate(1).toLocalDate().isAfter(LocalDate.now(BUSINESS_ZONE))) {
+                if (result.getDate(1).toLocalDate().isAfter(mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today())) {
                     return ActionCapability.denied("PERIOD_NOT_ENDED");
                 }
             }
@@ -916,11 +956,10 @@ public class PayrollPeriodWorkflowService {
         if (!List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state)) {
             issues.add(new BusinessIssue("POINTAGE_NOT_FROZEN",
                     "Le pointage doit être validé et figé avant le calcul réel.", Map.of("periodId", periodId)));
-        } else if (count(connection,
-                "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
-                        + "AND statut_snapshot IN ('GELE','CONSOMME')", periodId) == 0) {
+        } else if (!mg.galaxam.sirh.paie.application.PayrollPointageCoverage.allFrozen(
+                periodId, payrollPopulationResolver.resolve(periodId, connection).includedEmployeeIds(), connection)) {
             issues.add(new BusinessIssue("POINTAGE_NOT_FROZEN",
-                    "Aucun snapshot de pointage figé n'est disponible.", Map.of("periodId", periodId)));
+                    "Le pointage figé ne couvre pas tous les salariés inclus dans la campagne.", Map.of("periodId", periodId)));
         }
         if (List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) {
             int total = count(connection,
@@ -991,9 +1030,12 @@ public class PayrollPeriodWorkflowService {
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
                 int total = result.getInt("total");
-                boolean populationComplete = total > 0 && "VALIDEE".equals(state)
+                boolean populationComplete = total > 0
+                        && List.of("VALIDEE", "PAIE_VALIDEE").contains(state)
                         && payrollPopulationHasBulletins(periodId,
-                                java.util.Set.of("CALCULE", "VALIDE", "CLOTURE"), connection);
+                                "PAIE_VALIDEE".equals(state)
+                                        ? java.util.Set.of("VALIDE", "CLOTURE")
+                                        : java.util.Set.of("CALCULE", "VALIDE", "CLOTURE"), connection);
                 return PayrollWorkflowStatusResolver.resolve(state,
                         total, result.getInt("calculated"), result.getInt("validated"),
                         computeRecalculationCount(periodId, state, connection) > 0,

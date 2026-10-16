@@ -248,21 +248,14 @@ public class RefTypeMouvementPaieController {
         return options;
     }
     private static List<Map<String,Object>> categories() {
-        var options=choix("PRIME","Prime","INDEMNITE_IMPOSABLE","Indemnité","INDEMNITE_NON_IMPOSABLE","Indemnité hors assiettes","RETENUE_DIVERSE","Retenue sur le net");
-        return options.stream().map(o -> {
-            var r=new LinkedHashMap<String,Object>(o);
-            boolean retenue="RETENUE_DIVERSE".equals(o.get("value"));
-            boolean hors=retenue || "INDEMNITE_NON_IMPOSABLE".equals(o.get("value"));
-            r.put("defauts",Map.of("sens",retenue?"RETENUE":"GAIN","etapeCalcul",retenue?"RETENUE_NET":hors?"GAIN_NET":"BRUT","soumisIrsa",!hors,"soumisCnaps",!hors,"soumisSante",!hors,"soumisFmfp",!hors));
-            return (Map<String,Object>)r;
-        }).toList();
+        return mg.galaxam.sirh.paie.domain.ManualRubriqueCatalog.choices("categories");
     }
     private static List<Map<String,Object>> etapes() {
-        return List.of(Map.of("value","BRUT","label","Dans le brut","sens","GAIN","assiettesModifiables",true),Map.of("value","GAIN_NET","label","Ajout au net après impôt","sens","GAIN","assiettesModifiables",false),Map.of("value","RETENUE_NET","label","Retenue sur le net après impôt","sens","RETENUE","assiettesModifiables",false));
+        return mg.galaxam.sirh.paie.domain.ManualRubriqueCatalog.choices("etapes");
     }
-    private static List<Map<String,Object>> methodes(){return choix("MONTANT","Montant saisi","QUANTITE_TAUX","Quantité × taux unitaire","POURCENTAGE_SALAIRE_BASE","Pourcentage du salaire de base");}
-    private static List<Map<String,Object>> arrondis(){return choix("CENTIME","Au centime","ARIARY","À l’ariary","DIZAINE","À la dizaine d’ariary");}
-    private static List<Map<String,Object>> conditions(){return choix("TOUS","Tous les salariés","ASSUJETTI_IRSA","Assujettis à l’IRSA","ASSUJETTI_CNAPS","Assujettis à la CNaPS","ASSUJETTI_SANTE","Assujettis à la santé");}
+    private static List<Map<String,Object>> methodes(){return mg.galaxam.sirh.paie.domain.ManualRubriqueCatalog.choices("methodes");}
+    private static List<Map<String,Object>> arrondis(){return mg.galaxam.sirh.paie.domain.ManualRubriqueCatalog.choices("arrondis");}
+    private static List<Map<String,Object>> conditions(){return mg.galaxam.sirh.paie.domain.ManualRubriqueCatalog.choices("conditions");}
     private static List<Map<String,Object>> niveaux(){return choix("CONFIGURABLE","Configurable","SEMI_CONFIGURABLE","Partiellement configurable","SYSTEM","Système");}
     private static Map<Object, String> labelIndex(List<Map<String,Object>> options) {
         Map<Object, String> labels = new java.util.HashMap<>();

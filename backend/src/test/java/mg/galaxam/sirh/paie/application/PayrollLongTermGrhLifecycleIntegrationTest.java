@@ -53,6 +53,7 @@ class PayrollLongTermGrhLifecycleIntegrationTest {
     @Autowired private StcService stcService;
     @Autowired private VirementBancaireExportService virementBancaireExportService;
     @Autowired private SafiExportService safiExportService;
+    @Autowired private mg.galaxam.sirh.paie.application.export.SafiXlsExportService safiXlsExportService;
     @Autowired private DntsExportService dntsExportService;
     @Autowired private GrandLivrePaieExportService grandLivrePaieExportService;
     @Autowired private EtatSocialMensuelExportService etatSocialMensuelExportService;
@@ -171,13 +172,13 @@ class PayrollLongTermGrhLifecycleIntegrationTest {
                 assertTrue(virementCsvP1.contains("CADRE-01"));
                 assertTrue(virementCsvP1.contains("TECH-02"));
 
-                // 2. Bordereau SAFI IRSA (CSV et ODS officiel 25 colonnes)
+                // 2. Bordereau SAFI IRSA (CSV et XLS 25 colonnes)
                 String safiCsvP1 = safiExportService.exporterSafiCsv(p1Id, c);
                 assertNotNull(safiCsvP1);
                 assertTrue(safiCsvP1.contains("CADRE-01"));
-                byte[] safiOdsP1 = safiExportService.genererSafiOds(p1Id, c);
-                assertNotNull(safiOdsP1);
-                assertTrue(safiOdsP1.length > 500, "Le fichier SAFI ODS doit être généré");
+                byte[] safiXlsP1 = safiXlsExportService.export(p1Id, c);
+                assertNotNull(safiXlsP1);
+                assertTrue(safiXlsP1.length > 500, "Le fichier SAFI XLS doit être généré");
 
                 // 3. Grand Livre de Paie Mensuel Excel
                 var grandLivreP1 = grandLivrePaieExportService.export(p1Id, c);

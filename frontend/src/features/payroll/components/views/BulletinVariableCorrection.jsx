@@ -189,8 +189,10 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
                 <div className="divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)]">
                     {visibleVariables.map(variable => {
                         const [label, variant] = statuses[variable.statut] || [variable.statut, 'neutral'];
-                        const canCancel = canAdd && ['EN_ATTENTE', 'APPROUVE', 'IMPUTE_PAIE'].includes(variable.statut)
-                            && !variable.versementConfirmeAt;
+                        const actions = variable.workflowActions || {
+                            APPROVE: canAdd && variable.statut === 'EN_ATTENTE',
+                            CANCEL: canAdd && ['EN_ATTENTE', 'APPROUVE', 'IMPUTE_PAIE'].includes(variable.statut) && !variable.versementConfirmeAt,
+                        };
                         return <div key={variable.idAvance} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 py-2">
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -203,9 +205,9 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
                                 <strong className={`whitespace-nowrap font-data text-xs ${variable.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-700)]'}`}>
                                     {variable.sens === 'RETENUE' ? '−' : '+'}{money(variable.montant)}
                                 </strong>
-                                {canAdd && variable.statut === 'EN_ATTENTE' && <Button type="button" variant="outline" size="xs" disabled={busy}
+                                {actions.APPROVE && <Button type="button" variant="outline" size="xs" disabled={busy}
                                     onClick={() => action(() => paieService.executerCommandeAjustement(variable.idAvance, 'APPROVE', null, variable.version), 'Variable approuvée. Vous pouvez simuler le bulletin.')}>Approuver</Button>}
-                                {canCancel && <Button type="button" variant="ghost" size="xs" disabled={busy} onClick={() => { setCancelId(variable.idAvance); setCancelReason(''); }}>Annuler</Button>}
+                                {actions.CANCEL && <Button type="button" variant="ghost" size="xs" disabled={busy} onClick={() => { setCancelId(variable.idAvance); setCancelReason(''); }}>Annuler</Button>}
                             </div>
                             {cancelId === variable.idAvance && <div className="w-full space-y-2 bg-[var(--color-bg-subtle)] p-2">
                                 <Input label="Motif d’annulation" value={cancelReason} onChange={event => setCancelReason(event.target.value)} placeholder="Motif de la correction" />

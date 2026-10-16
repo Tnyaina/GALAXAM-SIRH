@@ -24,3 +24,13 @@ taux CNaPS, FMFP et Santé par site. Il prend une date métier explicite : fin d
 pour le bulletin mensuel, date de départ pour le STC. Une version manquante ou
 chevauchante bloque le calcul. Le résolveur ne calcule ni assiette ni montant ; ces
 opérations appartiennent aux moteurs des domaines consommateurs.
+
+# Propriété des règles de paie
+
+`paieconfig` possède les barèmes, versions et dates d'effet. Les montants et
+assiettes sont calculés dans `paie/domain/engine`, et les opérations de campagne
+dans `paie/application`. L'interface lit les capacités du workflow et le
+catalogue documentaire ; elle ne décide pas qu'une configuration ou une période
+autorise un calcul ou un export. Pour une nouvelle règle, modifier son propriétaire
+backend puis étendre le contrat API et son test, sans copier la condition dans
+un autre contrôleur ou dans le frontend.

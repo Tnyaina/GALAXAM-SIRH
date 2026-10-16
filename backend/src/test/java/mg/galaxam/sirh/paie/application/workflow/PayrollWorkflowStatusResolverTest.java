@@ -17,6 +17,7 @@ class PayrollWorkflowStatusResolverTest {
         assertStatuses("VALIDEE", 4, 4, 0, true, true, "FIGE", "A_RECALCULER");
         assertStatuses("VALIDEE", 4, 0, 4, false, true, "FIGE", "A_FINALISER");
         assertStatuses("PAIE_VALIDEE", 4, 0, 4, false, "FIGE", "VALIDEE");
+        assertStatuses("PAIE_VALIDEE", 4, 0, 4, false, false, "FIGE", "A_COMPLETER");
         assertStatuses("PAIE_VALIDEE", 4, 0, 4, true, "FIGE", "A_RECALCULER");
         assertStatuses("CLOTUREE", 4, 0, 4, false, "FIGE", "CLOTUREE");
     }

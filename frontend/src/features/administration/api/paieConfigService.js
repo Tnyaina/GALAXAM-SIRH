@@ -1,4 +1,22 @@
-import apiClient from '@/api/apiClient';
+import apiClient, { getAccessToken } from '@/api/apiClient';
+import { createReadCache, dispatchCacheEvent, sessionCacheKey } from '@/utils/readCache';
+
+const pointageReferenceReads = createReadCache(60_000);
+
+function invalidatePointageReferences() {
+    pointageReferenceReads.invalidate();
+    dispatchCacheEvent('pointage-reference-updated');
+}
+
+async function cachedPointageRead(key, request) {
+    return pointageReferenceReads.get(sessionCacheKey(key, getAccessToken()), async () => (await request()).data);
+}
+
+async function writePointageReference(request) {
+    const response = await request;
+    invalidatePointageReferences();
+    return response.data;
+}
 
 const paieConfigService = {
     // ----------------------------------------------------
@@ -157,45 +175,19 @@ const paieConfigService = {
     // INDEMNITES & CONFIGURATION SITE
     // ----------------------------------------------------
     getIndemnites: async () => {
-        const response = await apiClient.get('/referentiel/indemnites');
-        return response.data;
+        return cachedPointageRead('indemnites', () => apiClient.get('/referentiel/indemnites'));
     },
-    createIndemnite: async (data) => {
-        const response = await apiClient.post('/referentiel/indemnites', data);
-        return response.data;
-    },
-    updateIndemnite: async (id, data) => {
-        const response = await apiClient.put(`/referentiel/indemnites/${id}`, data);
-        return response.data;
-    },
-    deactivateIndemnite: async (id) => {
-        const response = await apiClient.put(`/referentiel/indemnites/${id}/desactiver`);
-        return response.data;
-    },
-    activateIndemnite: async (id) => {
-        const response = await apiClient.put(`/referentiel/indemnites/${id}/activer`);
-        return response.data;
-    },
+    createIndemnite: async (data) => writePointageReference(apiClient.post('/referentiel/indemnites', data)),
+    updateIndemnite: async (id, data) => writePointageReference(apiClient.put(`/referentiel/indemnites/${id}`, data)),
+    deactivateIndemnite: async (id) => writePointageReference(apiClient.put(`/referentiel/indemnites/${id}/desactiver`)),
+    activateIndemnite: async (id) => writePointageReference(apiClient.put(`/referentiel/indemnites/${id}/activer`)),
     getSiteIndemnites: async () => {
-        const response = await apiClient.get('/referentiel/indemnites/site-config');
-        return response.data;
+        return cachedPointageRead('indemnites-sites', () => apiClient.get('/referentiel/indemnites/site-config'));
     },
-    createSiteIndemnite: async (data) => {
-        const response = await apiClient.post('/referentiel/indemnites/site-config', data);
-        return response.data;
-    },
-    updateSiteIndemnite: async (id, data) => {
-        const response = await apiClient.put(`/referentiel/indemnites/site-config/${id}`, data);
-        return response.data;
-    },
-    deactivateSiteIndemnite: async (id) => {
-        const response = await apiClient.put(`/referentiel/indemnites/site-config/${id}/desactiver`);
-        return response.data;
-    },
-    activateSiteIndemnite: async (id) => {
-        const response = await apiClient.put(`/referentiel/indemnites/site-config/${id}/activer`);
-        return response.data;
-    },
+    createSiteIndemnite: async (data) => writePointageReference(apiClient.post('/referentiel/indemnites/site-config', data)),
+    updateSiteIndemnite: async (id, data) => writePointageReference(apiClient.put(`/referentiel/indemnites/site-config/${id}`, data)),
+    deactivateSiteIndemnite: async (id) => writePointageReference(apiClient.put(`/referentiel/indemnites/site-config/${id}/desactiver`)),
+    activateSiteIndemnite: async (id) => writePointageReference(apiClient.put(`/referentiel/indemnites/site-config/${id}/activer`)),
 
     // ----------------------------------------------------
     // PARAMETRES GLOBAUX DE PAIE
@@ -231,57 +223,24 @@ const paieConfigService = {
     // CALENDRIER DES JOURS FERIES & CHOMES
     // ----------------------------------------------------
     getCalendrierFerie: async () => {
-        const response = await apiClient.get('/referentiel/calendrier-ferie');
-        return response.data;
+        return cachedPointageRead('calendrier-feries', () => apiClient.get('/referentiel/calendrier-ferie'));
     },
-    createCalendrierFerie: async (data) => {
-        const response = await apiClient.post('/referentiel/calendrier-ferie', data);
-        return response.data;
-    },
-    updateCalendrierFerie: async (id, data) => {
-        const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}`, data);
-        return response.data;
-    },
-    deleteCalendrierFerie: async (id) => {
-        const response = await apiClient.delete(`/referentiel/calendrier-ferie/${id}`);
-        return response.data;
-    },
-    deactivateCalendrierFerie: async (id) => {
-        const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}/desactiver`);
-        return response.data;
-    },
-    activateCalendrierFerie: async (id) => {
-        const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}/activer`);
-        return response.data;
-    },
+    createCalendrierFerie: async (data) => writePointageReference(apiClient.post('/referentiel/calendrier-ferie', data)),
+    updateCalendrierFerie: async (id, data) => writePointageReference(apiClient.put(`/referentiel/calendrier-ferie/${id}`, data)),
+    deleteCalendrierFerie: async (id) => writePointageReference(apiClient.delete(`/referentiel/calendrier-ferie/${id}`)),
+    deactivateCalendrierFerie: async (id) => writePointageReference(apiClient.put(`/referentiel/calendrier-ferie/${id}/desactiver`)),
+    activateCalendrierFerie: async (id) => writePointageReference(apiClient.put(`/referentiel/calendrier-ferie/${id}/activer`)),
     getSiteFeries: async () => {
-        const response = await apiClient.get('/referentiel/calendrier-ferie/site-config');
-        return response.data;
+        return cachedPointageRead('calendrier-feries-sites', () => apiClient.get('/referentiel/calendrier-ferie/site-config'));
     },
-    createSiteFerie: async (data) => {
-        const response = await apiClient.post('/referentiel/calendrier-ferie/site-config', data);
-        return response.data;
-    },
-    deleteSiteFerie: async (id) => {
-        const response = await apiClient.delete(`/referentiel/calendrier-ferie/site-config/${id}`);
-        return response.data;
-    },
+    createSiteFerie: async (data) => writePointageReference(apiClient.post('/referentiel/calendrier-ferie/site-config', data)),
+    deleteSiteFerie: async (id) => writePointageReference(apiClient.delete(`/referentiel/calendrier-ferie/site-config/${id}`)),
     getPeriodesChomees: async () => {
-        const response = await apiClient.get('/referentiel/calendrier-ferie/periodes');
-        return response.data;
+        return cachedPointageRead('periodes-chomees', () => apiClient.get('/referentiel/calendrier-ferie/periodes'));
     },
-    createPeriodeChomee: async (data) => {
-        const response = await apiClient.post('/referentiel/calendrier-ferie/periodes', data);
-        return response.data;
-    },
-    updatePeriodeChomee: async (id, data) => {
-        const response = await apiClient.put(`/referentiel/calendrier-ferie/periodes/${id}`, data);
-        return response.data;
-    },
-    deletePeriodeChomee: async (id) => {
-        const response = await apiClient.delete(`/referentiel/calendrier-ferie/periodes/${id}`);
-        return response.data;
-    }
+    createPeriodeChomee: async (data) => writePointageReference(apiClient.post('/referentiel/calendrier-ferie/periodes', data)),
+    updatePeriodeChomee: async (id, data) => writePointageReference(apiClient.put(`/referentiel/calendrier-ferie/periodes/${id}`, data)),
+    deletePeriodeChomee: async (id) => writePointageReference(apiClient.delete(`/referentiel/calendrier-ferie/periodes/${id}`))
 };
 
 export default paieConfigService;

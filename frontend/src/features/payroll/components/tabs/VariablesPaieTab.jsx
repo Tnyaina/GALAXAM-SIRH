@@ -1,7 +1,7 @@
 import SharedButton from '@/components/ui/forms/Button';
 import { default as SharedInput, Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import ManualVariableValueFields from '../ManualVariableValueFields';
-import { manualMethod, manualValuePayload, manualValueEstimate } from '../../utils/manualVariableCalculation';
+import { manualMethod, manualValuePayload } from '../../utils/manualVariableCalculation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     SlidersHorizontal, 
@@ -57,6 +57,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         : mutationDisabledReason;
     // État local : variables, filtres, formulaire et retours d'action.
     const [variables, setVariables] = useState([]);
+    const [variableSummary, setVariableSummary] = useState({ count: 0, activeCount: 0, cancelledCount: 0, pendingCount: 0, gains: 0, retenues: 0 });
     const [loading, setLoading] = useState(true);
     const [refreshError, setRefreshError] = useState(false);
     const requestIdRef = useRef(0);
@@ -87,6 +88,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const [previewLoading, setPreviewLoading] = useState(false);
     const [previewError, setPreviewError] = useState('');
     const [previewRevision, setPreviewRevision] = useState(0);
+    const [amountPreview, setAmountPreview] = useState(null);
+    const [amountPreviewLoading, setAmountPreviewLoading] = useState(false);
+    const [amountPreviewError, setAmountPreviewError] = useState('');
     const [form, setForm] = useState({
         idEmploye: '',
         typeMouvement: '',
@@ -99,12 +103,14 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         const requestId = ++requestIdRef.current;
         if (!silent) setLoading(true);
         try {
-            const [ajustementsRes, typesRes] = await Promise.all([
+            const [ajustementsRes, typesRes, summaryRes] = await Promise.all([
                 paieService.listerAjustements(idPeriodeActive || null),
-                paieService.listerTypesMouvements(idPeriodeActive)
+                paieService.listerTypesMouvements(idPeriodeActive),
+                paieService.resumeAjustements(idPeriodeActive || null),
             ]);
             if (requestIdRef.current !== requestId) return;
             setVariables(Array.isArray(ajustementsRes) ? ajustementsRes : (ajustementsRes?.content || ajustementsRes?.items || []));
+            setVariableSummary(summaryRes);
             setRefreshError(false);
             const loadedTypes = Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []);
             setTypesMouvements(loadedTypes);
@@ -378,8 +384,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     // Filtrage
     const listVariables = Array.isArray(variables) ? variables : [];
-    const cancelledCount = listVariables.filter(v => v.statut === 'ANNULE').length;
-    const activeVariables = listVariables.filter(v => v.statut !== 'ANNULE');
+    const cancelledCount = variableSummary.cancelledCount;
     // Un même type peut être saisi plusieurs fois (ex. deux primes exceptionnelles).
     // Le système ne le bloque donc pas : il force une vérification consciente.
     const possibleDuplicate = Boolean(form.idEmploye && form.typeMouvement && listVariables.some((variable) => {
@@ -406,14 +411,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     }).sort((a, b) => Number(b.statut === 'EN_ATTENTE') - Number(a.statut === 'EN_ATTENTE'));
     const pagedVariables = filteredVariables.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-    const totalGains = activeVariables
-        .filter(v => v.sens === 'GAIN')
-        .reduce((sum, v) => sum + (Number(v.montant) || 0), 0);
-
-    const totalRetenues = activeVariables
-        .filter(v => v.sens === 'RETENUE')
-        .reduce((sum, v) => sum + (Number(v.montant) || 0), 0);
-    const pendingCount = listVariables.filter(v => v.statut === 'EN_ATTENTE').length;
+    const totalGains = variableSummary.gains;
+    const totalRetenues = variableSummary.retenues;
+    const pendingCount = variableSummary.pendingCount;
 
     useEffect(() => {
         if (!loading && !refreshError) onPendingCountChange?.(pendingCount);
@@ -473,9 +473,48 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         && !['REJETE', 'ANNULE', 'CANCELLED'].includes(variable.statut)
     );
     const previewEmployee = eligibleEmployees.find(emp => Number(emp.idEmploye ?? emp.id_employe) === Number(form.idEmploye));
-    const montantNum = manualValueEstimate(selectedType, form, previewBulletin?.salaireBase);
     let hasValidMontant = false;
     try { manualValuePayload(selectedType, form); hasValidMontant = true; } catch { /* Saisie incomplète. */ }
+    const amountEmployeeId = form.idEmploye;
+    const amountInput = form.montant;
+    const amountQuantity = form.quantiteSaisie;
+    const amountRate = form.tauxSaisi;
+
+    useEffect(() => {
+        let cancelled = false;
+        let value;
+        try {
+            value = manualValuePayload(selectedType, {
+                montant: amountInput, quantiteSaisie: amountQuantity, tauxSaisi: amountRate,
+            });
+        } catch { /* La saisie est encore incomplète. */ }
+        if (!isModalOpen || !idPeriodeActive || !amountEmployeeId || !selectedType || !value) {
+            setAmountPreview(null);
+            setAmountPreviewLoading(false);
+            setAmountPreviewError('');
+            return undefined;
+        }
+        setAmountPreview(null);
+        setAmountPreviewLoading(true);
+        setAmountPreviewError('');
+        const timer = window.setTimeout(async () => {
+            try {
+                const result = await paieService.simulerMontantVariable({
+                    idEmploye: Number(amountEmployeeId),
+                    idPeriodePaie: idPeriodeActive,
+                    typeMouvement: selectedType.code,
+                    ...value,
+                });
+                if (!cancelled) setAmountPreview(result);
+            } catch (error) {
+                if (!cancelled) setAmountPreviewError(getErrorMessage(error, 'Montant indisponible.'));
+            } finally {
+                if (!cancelled) setAmountPreviewLoading(false);
+            }
+        }, 300);
+        return () => { cancelled = true; window.clearTimeout(timer); };
+    }, [isModalOpen, idPeriodeActive, amountEmployeeId, amountInput,
+        amountQuantity, amountRate, selectedType]);
 
     // Rendu
     return (
@@ -628,7 +667,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                     </Td>
                                     <Td className="text-right whitespace-nowrap">
                                         <div className="inline-flex items-center justify-end gap-1.5">
-                                            {canMutate && v.statut === 'EN_ATTENTE' && idAvance && (
+                                            {v.workflowActions?.APPROVE && idAvance && (
                                                 <Button
                                                     variant="outline"
                                                     size="xs"
@@ -642,7 +681,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                             )}
                                             {v.typeMouvement === 'NOTE_DE_FRAIS' && v.justificatifPresent && idAvance && <Button variant="outline" size="xs" onClick={() => handleVoirJustificatifFrais(v)}>Voir la pièce</Button>}
                                             {canMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label className="cursor-pointer text-xs font-semibold text-[var(--color-brand-600)]">{v.justificatifPresent ? 'Remplacer la pièce' : 'Joindre une pièce'}<SharedInput plain type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="sr-only" onChange={event => { handleJustificatifFrais(v, event.target.files?.[0]); event.target.value = ''; }} /></label>}
-                                            {canMutate && v.statut === 'EN_ATTENTE' && isManualPayrollVariable(v) && idAvance && (
+                                            {v.workflowActions?.DELETE && isManualPayrollVariable(v) && idAvance && (
                                                 <Button
                                                     variant="ghost"
                                                     size="xs"
@@ -653,7 +692,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                                     Supprimer
                                                 </Button>
                                             )}
-                                            {canMutate && ['APPROUVE', 'IMPUTE_PAIE'].includes(v.statut) && isManualPayrollVariable(v) && idAvance && (
+                                            {v.workflowActions?.CANCEL && isManualPayrollVariable(v) && idAvance && (
                                                 <Button variant="ghost" size="xs" iconLeft={<Trash2 size={13} />}
                                                     onClick={() => { setCancelingVariable(v); setCancelReason(''); setCancelError(''); }}
                                                     className="text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)]">
@@ -913,7 +952,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 </div>
 
                                 {/* Simulation d'impact dynamique de la variable saisie */}
-                                {hasValidMontant && (
+                                {hasValidMontant && (amountPreview || amountPreviewLoading || amountPreviewError) && (
                                     <div className={`p-3 border text-xs flex items-center justify-between ${
                                         form.sens === 'RETENUE'
                                             ? 'border-[var(--color-danger-500)]/30 bg-[var(--color-danger-500)]/5 text-[var(--color-danger-800)] dark:text-[var(--color-danger-200)]'
@@ -927,7 +966,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                             )}
                                             <div>
                                                 <strong className="block text-xs font-bold uppercase tracking-wider">
-                                                    {form.sens === 'RETENUE' ? 'Impact retenue directe' : 'Impact gain estimé'}
+                                                    {form.sens === 'RETENUE' ? 'Montant de la retenue' : 'Montant du gain'}
                                                 </strong>
                                                 <span className="text-[11px] opacity-80">
                                                     {form.sens === 'RETENUE'
@@ -940,9 +979,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                         </div>
                                         <div className="text-right shrink-0">
                                             <span className="block font-data text-sm font-bold">
-                                                {form.sens === 'RETENUE' ? '−' : '+'}{formatAr(montantNum)}
+                                                {amountPreviewLoading ? 'Calcul…' : amountPreviewError || `${form.sens === 'RETENUE' ? '−' : '+'}${formatAr(amountPreview.montant)}`}
                                             </span>
-                                            <span className="text-[10px] opacity-90 block">Effet réel visible après simulation du bulletin.</span>
+                                            <span className="text-[10px] opacity-90 block">{amountPreview?.explication || 'Effet sur le net visible après simulation du bulletin.'}</span>
                                         </div>
                                     </div>
                                 )}

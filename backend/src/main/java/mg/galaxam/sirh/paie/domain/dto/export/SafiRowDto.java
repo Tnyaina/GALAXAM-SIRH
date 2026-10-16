@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * DTO représentant une ligne de l'État 301 SAFI IRSA (25 colonnes réglementaires DGI Madagascar).
- * Conforme au document officiel DGI 'modele declaration iRSA SAFI.ods'.
+ * Données réglementaires communes aux exports SAFI CSV et XLS.
  */
 public class SafiRowDto {
     private int numeroOrdre;                // Col A (1) : N° d'ordre

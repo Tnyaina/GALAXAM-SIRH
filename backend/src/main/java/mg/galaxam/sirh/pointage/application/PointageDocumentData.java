@@ -62,11 +62,6 @@ public record PointageDocumentData(FichePointageEmployeDTO fiche, String edition
         return ajustements == null ? List.of() : ajustements.stream()
                 .filter(a -> "VALIDE".equalsIgnoreCase(a.statut())).toList();
     }
-    public static String signedDuration(Integer minutes) {
-        if (minutes == null) return "-";
-        int absolute = Math.abs(minutes);
-        return (minutes >= 0 ? "+" : "−") + String.format(Locale.FRANCE, "%02dh%02d", absolute / 60, absolute % 60);
-    }
     public static String dualHours(Number hours) {
         if (hours == null) return "-";
         return dualHours(new BigDecimal(hours.toString()));
@@ -84,14 +79,6 @@ public record PointageDocumentData(FichePointageEmployeDTO fiche, String edition
     }
     public static String signedDualMinutes(Integer minutes) {
         return minutes == null ? "-" : signedDualHours(hours(minutes));
-    }
-    public static String weekResult(PointageTronconSemaineDTO week) {
-        double overtime = week.getHeuresHsNettes();
-        if (overtime <= 0) overtime = week.getHeuresHs30() + week.getHeuresHs50();
-        if (overtime > 0) return "+" + dualHours(overtime) + " HS (30 % : " + dualHours(week.getHeuresHs30())
-                + ", 50 % : " + dualHours(week.getHeuresHs50()) + ")";
-        if (week.getHeuresDeficit() > 0) return "−" + dualHours(week.getHeuresDeficit()) + " de déficit";
-        return "Aucun impact";
     }
     public static BigDecimal hours(Integer minutes) { return minutes == null ? null : BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 8, RoundingMode.HALF_UP); }
     public static String number(BigDecimal value) { return value == null ? "-" : value.setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ','); }

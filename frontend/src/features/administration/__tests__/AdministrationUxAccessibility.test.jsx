@@ -178,7 +178,7 @@ describe('Administration UX & Accessibilité (WCAG AA & Hiérarchie Erreurs)', (
         });
 
         // Vérifier la présence du SearchSelect pour Rôle et Habilitations
-        const searchSelectBtn = container.querySelector('button[aria-required="true"]');
+        const searchSelectBtn = document.body.querySelector('button[aria-required="true"]');
         expect(searchSelectBtn).toBeTruthy();
         expect(searchSelectBtn.textContent).toContain('-- Sélectionner un rôle --');
 

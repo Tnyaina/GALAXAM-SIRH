@@ -12,31 +12,14 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/data-disp
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
-import { periodState } from '@/features/payroll/utils/documentPeriodState';
+import { periodState, isPayrollValidated } from '@/features/payroll/utils/documentPeriodState';
 
-const MONTHLY = [
-    { id: 'bulletins', name: 'Bulletins individuels', detail: 'Un bulletin par salarié, consultable depuis la campagne.', format: 'PDF · Excel', ready: true },
-    { id: 'grand-livre', name: 'Grand livre de paie', detail: 'État nominatif, détail des rubriques et contrôles réunis dans un classeur.', format: 'Excel', ready: true },
-    { id: 'irsa', name: 'État IRSA', detail: 'Modèle fiscal renseigné avec les bulletins validés, à vérifier par la DAF.', format: 'Excel (.xls)', ready: true },
-    { id: 'social', name: 'État social mensuel', detail: 'Totaux par organisme et cotisations par salarié pour le contrôle DAF.', format: 'Excel (.xlsx)', ready: true },
-];
-const QUARTERLY = [
-    { id: 'consolidation', name: 'Consolidation sociale', detail: 'Synthèse et détail par salarié et par mois pour le contrôle DAF.', format: 'Excel (.xlsx)' },
-    { id: 'cnaps', name: 'CNaPS · DNWEB', detail: 'Modèle nominatif sur trois mois, à compléter et vérifier avant dépôt.', format: 'Excel (.xlsx)' },
-    { id: 'fmfp', name: 'CNaPS / FMFP', detail: 'Modèle combiné avec récapitulatif et trois feuilles mensuelles.', format: 'Excel (.xls)' },
-    { id: 'ostie', name: 'OSTIE', detail: 'Modèle nominatif et récapitulatif trimestriel à vérifier.', format: 'Excel (.xlsx)' },
-    { id: 'omsi', name: 'OMSI', detail: 'Modèle nominatif et récapitulatif trimestriel à vérifier.', format: 'Excel (.xlsx)' },
-];
-const YEARLY = [
-    { id: 'recap-paie', name: 'Récapitulatif annuel de paie', detail: 'Cumuls par salarié, synthèse des 12 mois et détail mensuel des bulletins validés.', format: 'Excel (.xlsx)' },
-];
 const TABS = [
     { id: 'mensuel', label: 'Mensuel' },
     { id: 'trimestriel', label: 'Trimestriel' },
     { id: 'annuel', label: 'Annuel' },
 ];
 const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-const VALIDATED_STATES = new Set(['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE']);
 
 const monthKey = (period) => {
     const code = period?.code?.match(/^(\d{4})-(0[1-9]|1[0-2])$/)?.[0];
@@ -45,7 +28,7 @@ const monthKey = (period) => {
 const quarterKey = (month) => month ? `${month.slice(0, 4)}-T${Math.ceil(Number(month.slice(5, 7)) / 3)}` : null;
 const monthStatus = (period) => !period
     ? { label: 'Période absente', variant: 'secondary' }
-    : VALIDATED_STATES.has(periodState(period))
+    : isPayrollValidated(period)
         ? { label: periodState(period) === 'CLOTUREE' ? 'Clôturée' : 'Paie validée', variant: 'success' }
         : { label: period.workflowStatuses?.paie?.label || 'Paie non validée', variant: 'warning' };
 
@@ -54,8 +37,8 @@ export default function DeclarationsSortiesPage() {
     const navigate = useNavigate();
     const [downloading, setDownloading] = useState(null);
     const [downloadError, setDownloadError] = useState('');
-    const [quarterStatus, setQuarterStatus] = useState(null);
-    const [quarterStatusError, setQuarterStatusError] = useState('');
+    const [catalog, setCatalog] = useState(null);
+    const [catalogError, setCatalogError] = useState('');
     const [params, setParams] = useSearchParams();
     const requestedPeriodId = Number(params.get('periodId')) || null;
     const { periodes, context, selectedPeriodeId } = usePayrollCampaign(requestedPeriodId);
@@ -83,41 +66,26 @@ export default function DeclarationsSortiesPage() {
             ? Array.from({ length: 12 }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
             : [];
     const periodsByMonth = new Map(periodes.map(p => [monthKey(p), p]).filter(([key]) => key));
-    const validatedMonthCount = coveredMonths.filter(key => VALIDATED_STATES.has(periodState(periodsByMonth.get(key)))).length;
     useEffect(() => {
-        if (activeTab !== 'trimestriel' || validatedMonthCount !== 3) { setQuarterStatus(null); setQuarterStatusError(''); return; }
         let cancelled = false;
-        setQuarterStatus(null); setQuarterStatusError('');
-        paieService.getQuarterlyExportStatus(Number(selectedQuarter.slice(0, 4)), Number(selectedQuarter.slice(-1)))
-            .then(result => { if (!cancelled) setQuarterStatus(result); })
-            .catch(error => { if (!cancelled) setQuarterStatusError(getErrorMessage(error, 'Impossible de vérifier les exports trimestriels.')); });
+        setCatalog(null);
+        setCatalogError('');
+        const options = activeTab === 'mensuel' ? { periodId }
+            : activeTab === 'trimestriel' ? { year: Number(selectedQuarter.slice(0, 4)), quarter: Number(selectedQuarter.slice(-1)) }
+                : { year: Number(selectedYear) };
+        paieService.getDocumentCatalog(activeTab, options)
+            .then(result => { if (!cancelled) setCatalog(result); })
+            .catch(error => { if (!cancelled) setCatalogError(getErrorMessage(error, 'Catalogue indisponible.')); });
         return () => { cancelled = true; };
-    }, [activeTab, selectedQuarter, validatedMonthCount]);
+    }, [activeTab, periodId, selectedQuarter, selectedYear]);
     const changeParam = (key, value) => {
         const next = new URLSearchParams(params);
         if (value) next.set(key, value); else next.delete(key);
         setParams(next);
     };
-    const list = activeTab === 'mensuel' ? MONTHLY : activeTab === 'trimestriel' ? QUARTERLY : YEARLY;
-    const canExport = context?.availableActions?.GENERATE_OUTPUT?.allowed === true
-        && VALIDATED_STATES.has(periodState(period));
-    const documentState = (item) => {
-        if (activeTab === 'trimestriel') {
-            if (validatedMonthCount !== 3) return { available: false, label: `${3 - validatedMonthCount} mois à valider` };
-            if (quarterStatusError) return { available: false, label: 'Statut indisponible' };
-            if (quarterStatus == null) return { available: false, label: 'Vérification en cours' };
-            return Number(quarterStatus[item.id]) > 0
-                ? { available: true, label: 'À contrôler par la DAF' }
-                : { available: false, label: 'Aucune cotisation à déclarer' };
-        }
-        if (activeTab === 'annuel') return validatedMonthCount > 0
-            ? { available: true, label: validatedMonthCount === 12 ? 'Année complète' : `Partiel · ${validatedMonthCount}/12 mois` }
-            : { available: false, label: 'Aucune paie validée' };
-        if (!periodId) return { available: false, label: 'Choisir une période' };
-        return canExport ? { available: true, label: item.id === 'bulletins' ? 'Consultables' : 'Disponible' }
-            : { available: false, label: 'Après validation de la paie' };
-    };
-    const availableCount = list.filter(item => documentState(item).available).length;
+    const list = catalog?.documents || [];
+    const canExport = activeTab === 'mensuel' && list.some(item => item.available);
+    const availableCount = list.filter(item => item.available).length;
     const downloadExcel = async (type) => {
         if (!periodId || !canExport) return;
         setDownloading(type);
@@ -140,8 +108,26 @@ export default function DeclarationsSortiesPage() {
             setDownloading(null);
         }
     };
+    const downloadFile = async (type) => {
+        if (!periodId || !list.find(item => item.id === type)?.available) return;
+        setDownloading(type);
+        setDownloadError('');
+        try {
+            const { blob, filename } = await paieService.telechargerFichierExport(periodId, type);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+            setDownloadError(getErrorMessage(error, 'Impossible de générer ce fichier.'));
+        } finally {
+            setDownloading(null);
+        }
+    };
     const downloadQuarterly = async (type) => {
-        if (validatedMonthCount !== 3 || !quarterStatus?.[type]) return;
+        if (!list.find(item => item.id === type)?.available) return;
         setDownloading(type); setDownloadError('');
         try {
             const { blob, filename } = await paieService.getQuarterlyExport(Number(selectedQuarter.slice(0, 4)), Number(selectedQuarter.slice(-1)), type);
@@ -154,7 +140,7 @@ export default function DeclarationsSortiesPage() {
         } finally { setDownloading(null); }
     };
     const downloadAnnual = async () => {
-        if (validatedMonthCount === 0) return;
+        if (!list.find(item => item.id === 'recap-paie')?.available) return;
         setDownloading('recap-paie'); setDownloadError('');
         try {
             const { blob, filename } = await paieService.getAnnualPayrollRecap(Number(selectedYear));
@@ -173,7 +159,7 @@ export default function DeclarationsSortiesPage() {
             <PageHeader title="Documents et exports de paie" subtitle="Consultez les bulletins et téléchargez les états disponibles pour la période choisie."
                 icon={FolderOpen} backLink="/paie" backLabel="Centre de paie" />
             {downloadError && <Alert type="error" message={downloadError} onClose={() => setDownloadError('')} />}
-            {quarterStatusError && <Alert type="error" message={quarterStatusError} />}
+            {catalogError && <Alert type="error" message={catalogError} />}
 
             <Card shadow="none">
                 <CardBody className="space-y-4">
@@ -189,14 +175,14 @@ export default function DeclarationsSortiesPage() {
                                 return {
                                     value: String(id),
                                     label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(id),
-                                    sublabel: p.statutCode || p.statut || p.state || undefined,
+                                    sublabel: p.workflowStatuses?.paie?.label || 'Statut de paie indisponible',
                                 };
                             }) : activeTab === 'trimestriel' ? quarterOptions : yearOptions}
                         />
                     </div>
                     <Tabs tabs={TABS} activeTab={activeTab} onChange={(id) => changeParam('vue', id)} />
                     <div className="flex flex-wrap items-center gap-2 border-t border-[var(--color-border-subtle)] pt-3 text-xs text-[var(--color-fg-muted)]" aria-live="polite">
-                        {activeTab === 'mensuel' && <Badge variant={VALIDATED_STATES.has(periodState(period)) ? 'success' : 'warning'} size="sm">{monthStatus(period).label}</Badge>}
+                        {activeTab === 'mensuel' && <Badge variant={isPayrollValidated(period) ? 'success' : 'warning'} size="sm">{monthStatus(period).label}</Badge>}
                         <strong className="text-[var(--color-fg)]">{availableCount} document{availableCount > 1 ? 's' : ''} disponible{availableCount > 1 ? 's' : ''}</strong>
                         <span>· {list.length - availableCount} à débloquer ou vérifier</span>
                     </div>
@@ -204,7 +190,7 @@ export default function DeclarationsSortiesPage() {
             </Card>
 
             {activeTab !== 'mensuel' && <Card shadow="none">
-                <CardHeader><CardTitle size="sm">{activeTab === 'trimestriel' ? `Couverture de ${selectedQuarter.slice(5)} ${selectedQuarter.slice(0, 4)}` : `Couverture de ${selectedYear}`} · {validatedMonthCount}/{coveredMonths.length} périodes validées</CardTitle></CardHeader>
+                <CardHeader><CardTitle size="sm">{activeTab === 'trimestriel' ? `Couverture de ${selectedQuarter.slice(5)} ${selectedQuarter.slice(0, 4)}` : `Couverture de ${selectedYear}`} · {catalog?.coveredMonths ?? 0}/{catalog?.totalMonths ?? coveredMonths.length} périodes validées</CardTitle></CardHeader>
                 <CardBody>
                     <div className={`grid gap-1 ${activeTab === 'trimestriel' ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-6 lg:grid-cols-12'}`}>
                         {coveredMonths.map(key => {
@@ -224,9 +210,10 @@ export default function DeclarationsSortiesPage() {
             <Card shadow="none">
                 <CardHeader><CardTitle size="sm">{activeTab === 'mensuel' ? `Documents mensuels · ${periodCode}` : activeTab === 'trimestriel' ? `Documents trimestriels · ${selectedQuarter.slice(5)} ${selectedQuarter.slice(0, 4)}` : `Documents annuels · ${selectedYear}`}</CardTitle></CardHeader>
                 <div className="divide-y divide-[var(--color-border-subtle)]">
+                    {!catalog && !catalogError && <p className="px-5 py-4 text-xs text-[var(--color-fg-muted)]">Vérification des documents disponibles…</p>}
                     {list.map(item => {
                         const needsValidation = item.id === 'grand-livre' || item.id === 'irsa' || item.id === 'social';
-                        const { available, label: status } = documentState(item);
+                        const { available, label: status } = item;
                         const Icon = activeTab === 'mensuel' ? item.id === 'bulletins' ? FileText : FileSpreadsheet : activeTab === 'trimestriel' ? CalendarDays : Archive;
                         return <div key={item.id || item.name}>
                             {activeTab === 'mensuel' && (item.id === 'bulletins' || item.id === 'grand-livre') && <div className="px-4 sm:px-5 py-2 bg-[var(--color-bg-subtle)] text-[11px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">{item.id === 'bulletins' ? 'Bulletins' : 'États de paie'}</div>}
@@ -242,6 +229,7 @@ export default function DeclarationsSortiesPage() {
                                 <div className="sm:justify-self-end">
                                     {available && item.id === 'bulletins' && <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/controle`)}>Choisir un salarié</Button>}
                                     {available && needsValidation && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadExcel(item.id)}>Télécharger Excel</Button>}
+                                    {activeTab === 'mensuel' && available && ['safi-csv', 'safi-xls', 'dnts-csv', 'virement-csv'].includes(item.id) && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadFile(item.id)}>Télécharger {item.format}</Button>}
                                     {activeTab === 'trimestriel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadQuarterly(item.id)}>Télécharger le modèle</Button>}
                                     {activeTab === 'annuel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={downloadAnnual}>Télécharger Excel</Button>}
                                 </div>
@@ -250,7 +238,7 @@ export default function DeclarationsSortiesPage() {
                     })}
                 </div>
             </Card>
-            {activeTab === 'mensuel' && periodId && VALIDATED_STATES.has(periodState(period)) && <div className="flex justify-end border-t border-[var(--color-border-subtle)] pt-4">
+            {activeTab === 'mensuel' && periodId && canExport && <div className="flex justify-end border-t border-[var(--color-border-subtle)] pt-4">
                 <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/sorties`)}>Voir l’étape de clôture</Button>
             </div>}
             {activeTab === 'trimestriel' && <p className="text-xs text-[var(--color-fg-muted)]">Ces modèles sont des brouillons à revoir par la DAF. Les identifiants préremplis du modèle sont conservés ; les champs d’adhésion vides restent à compléter. L’acceptation sur les portails officiels n’a pas été vérifiée.</p>}

@@ -8,7 +8,6 @@ import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIss
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 import { fmtDate } from '@/utils/dateUtils';
-import { periodState } from '@/features/payroll/utils/documentPeriodState';
 
 /**
  * PayrollCampaignShell — Shell visuel invariant pour les 7 étapes de campagne de paie.
@@ -36,12 +35,8 @@ export default function PayrollCampaignShell({
 }) {
     const navigate = useNavigate();
 
-    const activePeriod = context?.selectedPeriod || context?.currentPeriod;
     const campaignSteps = context?.campaignSteps || [];
-    const outputsReady = ['VALIDEE', 'CLOTUREE'].includes(periodState(activePeriod));
-    const navigableSteps = campaignSteps.map(step => step.code === 'OUTPUTS' && !outputsReady
-        ? { ...step, state: 'BLOCKED', accessible: false, issues: ['Validez la paie pour accéder aux sorties et à la clôture.'] }
-        : step);
+    const activePeriod = context?.selectedPeriod || context?.currentPeriod;
     const currentStepCode = context?.currentStep;
     const recalcRequired = context?.recalculationRequired === true;
     const recalcReason = context?.recalculationReason;
@@ -133,7 +128,7 @@ export default function PayrollCampaignShell({
                                     return {
                                         value: String(pId),
                                         label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(pId),
-                                        sublabel: p.statutCode || p.statut || p.state || 'EN_COURS',
+                                        sublabel: p.workflowStatuses?.paie?.label || 'Statut de paie indisponible',
                                     };
                                 })}
                             />
@@ -166,7 +161,7 @@ export default function PayrollCampaignShell({
                 {campaignSteps.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-[var(--color-border-subtle)]">
                         <PayrollPeriodStepper
-                            steps={navigableSteps}
+                            steps={campaignSteps}
                             currentStep={currentStepCode}
                             activeCode={activeStep}
                             loading={loading}

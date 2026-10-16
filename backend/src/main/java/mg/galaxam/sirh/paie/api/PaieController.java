@@ -21,6 +21,7 @@ import mg.galaxam.sirh.paie.application.export.IrsaExcelExportService;
 import mg.galaxam.sirh.paie.application.export.EtatSocialMensuelExportService;
 import mg.galaxam.sirh.paie.application.export.QuarterlySocialDataService;
 import mg.galaxam.sirh.paie.application.export.AnnualPayrollExportService;
+import mg.galaxam.sirh.paie.application.export.PayrollDocumentCatalogService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -55,6 +56,7 @@ public class PaieController {
     private final EtatSocialMensuelExportService etatSocialMensuelExportService;
     private final QuarterlySocialDataService quarterlySocialDataService;
     private final AnnualPayrollExportService annualPayrollExportService;
+    private final PayrollDocumentCatalogService documentCatalogService;
     private final PayrollPeriodWorkflowService payrollPeriodWorkflowService;
 
     public PaieController(DataSource dataSource,
@@ -66,6 +68,7 @@ public class PaieController {
                           EtatSocialMensuelExportService etatSocialMensuelExportService,
                           QuarterlySocialDataService quarterlySocialDataService,
                           AnnualPayrollExportService annualPayrollExportService,
+                          PayrollDocumentCatalogService documentCatalogService,
                           PayrollPeriodWorkflowService payrollPeriodWorkflowService) {
         this.dataSource = dataSource;
         this.payrollService = payrollService;
@@ -76,6 +79,7 @@ public class PaieController {
         this.etatSocialMensuelExportService = etatSocialMensuelExportService;
         this.quarterlySocialDataService = quarterlySocialDataService;
         this.annualPayrollExportService = annualPayrollExportService;
+        this.documentCatalogService = documentCatalogService;
         this.payrollPeriodWorkflowService = payrollPeriodWorkflowService;
     }
 
@@ -169,12 +173,13 @@ public class PaieController {
     @GetMapping("/bulletin/{id}/correction-status")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> obtenirStatutCorrectionBulletin(@PathVariable("id") Integer idBulletin) throws Exception {
+        String cancelledAdjustment = mg.galaxam.sirh.paie.domain.PayrollStatuses.cancelledAdjustmentSql("a.statut");
         String sql = "SELECT b.id_bulletin, "
                 + "(SELECT COUNT(*) FROM paie_avance_acompte a WHERE a.id_periode_paie = b.id_periode_paie "
                 + "AND a.id_employe = b.id_employe AND a.statut = 'EN_ATTENTE') AS pending_count, "
                 + "EXISTS (SELECT 1 FROM paie_avance_acompte a WHERE a.id_periode_paie = b.id_periode_paie "
                 + "AND a.id_employe = b.id_employe "
-                + "AND (a.statut NOT IN ('ANNULE','REJETE') OR a.id_bulletin = b.id_bulletin) "
+                + "AND ((NOT (" + cancelledAdjustment + ") AND a.statut <> 'REJETE') OR a.id_bulletin = b.id_bulletin) "
                 + "AND a.updated_at > COALESCE(b.updated_at, b.date_calcul, '1970-01-01'::timestamptz)) "
                 + "AS recalculation_required "
                 + "FROM bulletin_paie b WHERE b.id_bulletin = ?";
@@ -257,6 +262,28 @@ public class PaieController {
     // =========================================================================
     // RESTITUTIONS & EXPORTS OFFICIELS (SAFI 25 COL, EDI ISI XML, DNTS, VIREMENT)
     // =========================================================================
+
+    @GetMapping("/exports/catalog")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> catalogueDocuments(@RequestParam String scope,
+            @RequestParam(required = false) Integer periodId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer quarter,
+            Authentication authentication) throws Exception {
+        return switch (scope) {
+            case "mensuel" -> ResponseEntity.ok(documentCatalogService.monthly(periodId,
+                    PayrollPeriodUserContext.from(authentication)));
+            case "trimestriel" -> {
+                if (year == null || quarter == null) yield ResponseEntity.badRequest().body("Année et trimestre requis.");
+                yield ResponseEntity.ok(documentCatalogService.quarterly(year, quarter));
+            }
+            case "annuel" -> {
+                if (year == null) yield ResponseEntity.badRequest().body("Année requise.");
+                yield ResponseEntity.ok(documentCatalogService.annual(year));
+            }
+            default -> ResponseEntity.badRequest().body("Portée de document inconnue.");
+        };
+    }
 
     @GetMapping("/periode/{idPeriode}/export/grand-livre")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
@@ -348,24 +375,6 @@ public class PaieController {
         }
     }
 
-    @GetMapping("/trimestre/{annee}/{trimestre}/exports/status")
-    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> etatExportsTrimestriels(@PathVariable int annee,
-                                                      @PathVariable int trimestre) throws Exception {
-        try (Connection connection = dataSource.getConnection()) {
-            var data = quarterlySocialDataService.load(annee, trimestre, connection);
-            return ResponseEntity.ok(Map.of(
-                    "consolidation", data.people().size(),
-                    "cnaps", data.cnaps().size(),
-                    "fmfp", data.people().stream().filter(p -> p.hasCnaps() || p.hasFmfp()).count(),
-                    "ostie", data.ostie().size(),
-                    "omsi", data.omsi().size()));
-        } catch (IllegalStateException error) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.CONFLICT, error.getMessage(), error);
-        }
-    }
-
     @GetMapping("/periode/{idPeriode}/export/safi")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> telechargerSafiCsv(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
@@ -378,15 +387,15 @@ public class PaieController {
                 .body(bytes);
     }
 
-    @GetMapping("/periode/{idPeriode}/export/safi-ods")
+    @GetMapping("/periode/{idPeriode}/export/safi-xls")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> telechargerSafiOds(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+    public ResponseEntity<?> telechargerSafiXls(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
         requireOutput(idPeriode, authentication);
-        byte[] odsBytes = paieExportService.exporterSafiOds(idPeriode);
+        byte[] xlsBytes = paieExportService.exporterSafiXls(idPeriode);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"modele_declaration_irsa_safi_periode_" + idPeriode + ".ods\"")
-                .contentType(MediaType.parseMediaType("application/vnd.oasis.opendocument.spreadsheet"))
-                .body(odsBytes);
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"etat_301_safi_periode_" + idPeriode + ".xls\"")
+                .contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
+                .body(xlsBytes);
     }
 
     @GetMapping("/periode/{idPeriode}/export/safi-data")

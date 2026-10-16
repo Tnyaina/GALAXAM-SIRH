@@ -65,12 +65,43 @@ class PointagePeriodOptionsTest {
         ReflectionTestUtils.setField(controller, "dataSource", source);
         ReflectionTestUtils.setField(controller, "payrollPeriodWorkflowService", workflow);
         ReflectionTestUtils.setField(controller, "calendrierEngine", calendar);
-        var result = controller.getAllPeriodes(null, true).getBody();
+        var result = controller.getAllPeriodes(null, true, false).getBody();
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals("2026-08-26", result.get(0).getDateDebut());
         assertTrue(result.get(0).getAvailableActions().isEmpty());
         verifyNoInteractions(workflow, calendar);
         verify(connection, times(1)).prepareStatement(anyString());
+    }
+
+    @Test void payrollSelectorReceivesDerivedStatusWithoutLoadingFullContext() throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet rows = mock(ResultSet.class);
+        when(source.getConnection()).thenReturn(connection);
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(rows);
+        when(rows.next()).thenReturn(true, false);
+        when(rows.getInt("id_periode_paie")).thenReturn(7);
+        when(rows.getString("statut_code")).thenReturn("VALIDEE");
+        when(rows.getDate("date_debut")).thenReturn(Date.valueOf("2026-07-26"));
+        when(rows.getDate("date_fin")).thenReturn(Date.valueOf("2026-08-25"));
+        var workflow = mock(PayrollPeriodWorkflowService.class);
+        var statuses = mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowStatusResolver.resolve(
+                "VALIDEE", 0, 0, 0, false, false);
+        when(workflow.describeWorkflowStatuses(7, "VALIDEE", connection)).thenReturn(statuses);
+        var controller = new PointagePeriodeController();
+        ReflectionTestUtils.setField(controller, "dataSource", source);
+        ReflectionTestUtils.setField(controller, "payrollPeriodWorkflowService", workflow);
+        ReflectionTestUtils.setField(controller, "calendrierEngine", mock(CalendrierOuvrableEngine.class));
+
+        var result = controller.getAllPeriodes(null, true, true).getBody();
+
+        assertNotNull(result);
+        assertEquals("A_PREPARER", result.get(0).getWorkflowStatuses().paie().code());
+        assertTrue(result.get(0).getAvailableActions().isEmpty());
+        verify(workflow).describeWorkflowStatuses(7, "VALIDEE", connection);
+        verifyNoMoreInteractions(workflow);
     }
 }

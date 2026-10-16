@@ -42,11 +42,10 @@ public class GrandLivrePaieExportService {
 
     public Result export(Integer periodId, Connection connection) throws Exception {
         Period period = loadPeriod(periodId, connection);
+        PayrollExportEligibility.requireFinalPeriod(periodId, connection);
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(periodId, connection);
         if (bulletins.isEmpty()) throw new IllegalStateException("Aucun bulletin pour cette période.");
-        if (bulletins.stream().anyMatch(b -> !"VALIDE".equals(b.getStatut()) && !"CLOTURE".equals(b.getStatut()))) {
-            throw new IllegalStateException("Tous les bulletins doivent être validés avant l'export du grand livre.");
-        }
+        PayrollExportEligibility.requireFinalBulletins(bulletins, period.code());
         Map<Integer, String> filialByBulletin = loadFiliales(periodId, connection);
         Map<Integer, List<BulletinPaieLigne>> lignesParBulletin = BulletinPaieLigne.listerParBulletins(
                 bulletins.stream().map(BulletinPaie::getIdBulletin).toList(), connection);

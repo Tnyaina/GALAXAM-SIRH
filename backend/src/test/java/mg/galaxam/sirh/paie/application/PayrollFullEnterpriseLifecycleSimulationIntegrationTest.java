@@ -75,6 +75,7 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
     @Autowired private PointagePdfExportService pointagePdfExportService;
     @Autowired private VirementBancaireExportService virementBancaireExportService;
     @Autowired private SafiExportService safiExportService;
+    @Autowired private mg.galaxam.sirh.paie.application.export.SafiXlsExportService safiXlsExportService;
     @Autowired private IrsaExcelExportService irsaExcelExportService;
     @Autowired private GrandLivrePaieExportService grandLivrePaieExportService;
     @Autowired private BulletinDocumentService bulletinDocumentService;
@@ -264,13 +265,18 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
                 assertTrue(virementP1.contains("BNI Madagascar"));
                 assertTrue(virementP1.contains("Bank of Africa Madagascar"));
 
-                // 2. Déclaration Fiscale SAFI IRSA (CSV 25 colonnes et ODS officiel DGI)
+                // 2. Déclaration Fiscale SAFI IRSA (CSV 25 colonnes et XLS DGI)
                 String safiCsvP1 = safiExportService.exporterSafiCsv(p1Id, c);
                 assertNotNull(safiCsvP1);
                 assertTrue(safiCsvP1.contains("TOTAL;"));
-                byte[] safiOdsP1 = safiExportService.genererSafiOds(p1Id, c);
-                assertNotNull(safiOdsP1);
-                assertTrue(safiOdsP1.length > 1000);
+                byte[] safiXlsP1 = safiXlsExportService.export(p1Id, c);
+                assertNotNull(safiXlsP1);
+                assertTrue(safiXlsP1.length > 1000);
+                try (var workbook = new org.apache.poi.hssf.usermodel.HSSFWorkbook(
+                        new java.io.ByteArrayInputStream(safiXlsP1))) {
+                    assertEquals("État 301 SAFI", workbook.getSheetAt(0).getSheetName());
+                    assertEquals("N° Ordre", workbook.getSheetAt(0).getRow(5).getCell(0).getStringCellValue());
+                }
 
                 // 3. Déclaration IRSA officielle XLS
                 var irsaXlsResult = irsaExcelExportService.export(p1Id, c);

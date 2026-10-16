@@ -131,6 +131,16 @@ class StcLegalWorkflowIntegrationTest {
                 assertEquals(0, new BigDecimal("100000").compareTo(valide.getSoldeBulletinARegler()));
                 assertEquals(0, new BigDecimal("10").compareTo(valide.getCotisationCnaps()));
                 StcRecuDTO recu = stcService.obtenirRecuStc(valide.getIdStc(), c);
+                assertTrue(recu.isEmployeurHistoriqueDisponible());
+                String employeurValide = recu.getEntrepriseNom();
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE ref_filiale SET raison_sociale = ? WHERE id_filiale = "
+                                + "(SELECT id_filiale FROM bulletin_paie_employeur_snapshot WHERE id_bulletin = ?)")) {
+                    ps.setString(1, "Nom modifié après STC");
+                    ps.setInt(2, valide.getIdBulletin());
+                    ps.executeUpdate();
+                }
+                assertEquals(employeurValide, stcService.obtenirRecuStc(valide.getIdStc(), c).getEntrepriseNom());
                 assertEquals(bulletinId, recu.getIdBulletinMensuel());
                 assertEquals(0, new BigDecimal("200000").compareTo(recu.getMontantBulletinDejaPaye()));
                 assertEquals("VIR-PAIE-RAPP-200000", recu.getReferencePaiementBulletin());

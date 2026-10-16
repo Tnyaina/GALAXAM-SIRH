@@ -3,7 +3,6 @@ package mg.galaxam.sirh.paie.api;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
@@ -13,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.BusinessDecision;
 import mg.galaxam.sirh.paie.api.dto.PaieAjustementRequest;
@@ -21,6 +19,8 @@ import mg.galaxam.sirh.paie.api.dto.ConfirmationVersementRequest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
+import mg.galaxam.sirh.paie.application.ManualVariableAmountService;
+import mg.galaxam.sirh.paie.application.PayrollAdjustmentPaymentService;
 import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAdjustmentCommand;
 import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommandRequest;
 import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentWorkflowService;
@@ -54,19 +54,54 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping({ "/api/v1/paie/ajustements", "/v1/paie/ajustements", "/paie/ajustements" })
 public class PaieAjustementController {
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private mg.galaxam.sirh.paie.application.PayrollService payrollService;
     private final DataSource dataSource;
     private final PayrollAdjustmentWorkflowService adjustmentWorkflowService;
     private final PayrollPeriodWorkflowService periodWorkflowService;
+    private final ManualVariableAmountService manualVariableAmountService;
+    private final PayrollAdjustmentPaymentService paymentService;
+    private final mg.galaxam.sirh.paie.application.PayrollAdjustmentCreationService adjustmentCreationService;
+    private final mg.galaxam.sirh.paie.application.PayrollAdjustmentSummaryService adjustmentSummaryService;
 
     public PaieAjustementController(
             DataSource dataSource,
             PayrollAdjustmentWorkflowService adjustmentWorkflowService,
-            PayrollPeriodWorkflowService periodWorkflowService) {
+            PayrollPeriodWorkflowService periodWorkflowService,
+            ManualVariableAmountService manualVariableAmountService,
+            PayrollAdjustmentPaymentService paymentService,
+            mg.galaxam.sirh.paie.application.PayrollAdjustmentCreationService adjustmentCreationService,
+            mg.galaxam.sirh.paie.application.PayrollAdjustmentSummaryService adjustmentSummaryService) {
         this.dataSource = dataSource;
         this.adjustmentWorkflowService = adjustmentWorkflowService;
         this.periodWorkflowService = periodWorkflowService;
+        this.manualVariableAmountService = manualVariableAmountService;
+        this.paymentService = paymentService;
+        this.adjustmentCreationService = adjustmentCreationService;
+        this.adjustmentSummaryService = adjustmentSummaryService;
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> resumeAjustements(@RequestParam(name = "idPeriode", required = false) Integer idPeriode)
+            throws Exception {
+        return ResponseEntity.ok(adjustmentSummaryService.summarize(idPeriode));
+    }
+
+    @PostMapping("/variables/preview")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> previewVariable(@Valid @RequestBody PaieAjustementRequest request,
+            Authentication authentication) throws Exception {
+        if (request.getIdPeriodePaie() == null) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "La période de paie est obligatoire pour simuler une variable.");
+        }
+        periodWorkflowService.requirePayrollAction(request.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
+                PayrollPeriodUserContext.from(authentication));
+        try (Connection connection = dataSource.getConnection()) {
+            RefTypeMouvementPaie type = request.getIdTypeMouvement() != null
+                    ? RefTypeMouvementPaie.trouverParId(request.getIdTypeMouvement(), connection)
+                    : RefTypeMouvementPaie.trouverParCode(request.getTypeMouvement(), connection);
+            return ResponseEntity.ok(manualVariableAmountService.calculate(request, type, connection));
+        }
     }
 
     /**
@@ -157,6 +192,23 @@ public class PaieAjustementController {
                         map.put("justificatifNom", justificatifNom);
                         map.put("justificatifPresent", justificatifNom != null);
                         map.put("statut", rs.getString("statut"));
+                        String movementCode = rs.getString("type_code");
+                        String movementStatus = rs.getString("statut");
+                        boolean paymentConfirmed = rs.getTimestamp("versement_confirme_at") != null;
+                        BigDecimal amountApplied = rs.getBigDecimal("montant_impute");
+                        boolean imputed = "IMPUTE_PAIE".equals(movementStatus)
+                                || amountApplied != null && amountApplied.signum() > 0;
+                        boolean manualDafVariable = "VARIABLE_DAF".equals(rs.getString("provenance"));
+                        boolean canCancelImputed = imputed && manualDafVariable && rs.getObject("id_type_mouvement") != null
+                                && rs.getObject("id_bulletin") != null
+                                && rs.getObject("id_periode_paie") != null
+                                && adjustmentWorkflowService.canCancelImputedVariable(c, rs.getInt("id_avance"),
+                                        rs.getInt("id_periode_paie"), rs.getInt("id_bulletin"), false);
+                        boolean hasProof = justificatifNom != null;
+                        map.put("workflowActions", adjustmentWorkflowService.describeActions(movementStatus,
+                                PayrollPeriodUserContext.from(authentication).hasAny("PAIE_WRITE", "ROLE_ADMIN"),
+                                paymentConfirmed, imputed, canCancelImputed,
+                                "NOTE_DE_FRAIS".equals(movementCode), hasProof));
                         Timestamp uAt = rs.getTimestamp("updated_at");
                         map.put("updatedAt", uAt);
                         map.put("version", uAt != null ? (int) (uAt.getTime() % Integer.MAX_VALUE) : 1);
@@ -167,28 +219,12 @@ public class PaieAjustementController {
                         // Toutes les lignes, dont les variables manuelles, doivent rester dans la liste.
                         if ("ACOMPTE".equals(categorie) || "AVANCE".equals(categorie)) {
                             String statut = rs.getString("statut");
-                            boolean verse = rs.getTimestamp("versement_confirme_at") != null;
-                            BigDecimal solde = rs.getBigDecimal("solde_restant");
-                            String etat = "EN_ATTENTE".equals(statut) ? "A_APPROUVER"
-                                    : "REJETE".equals(statut) ? "REJETE"
-                                            : "ANNULE".equals(statut) ? "ANNULE"
-                                                    : !verse && ("IMPUTE_PAIE".equals(statut)
-                                                            || rs.getBigDecimal("montant_impute").signum() > 0)
-                                                                    ? "VERSEMENT_A_VERIFIER"
-                                                                    : !verse ? "A_VERSER"
-                                                                            : solde != null && solde.signum() == 0
-                                                                                    ? "SOLDE"
-                                                                                    : rs.getBigDecimal("montant_impute")
-                                                                                            .signum() > 0
-                                                                                                    ? "REMBOURSEMENT_EN_COURS"
-                                                                                                    : "VERSE_A_IMPUTER";
-                            map.put("etatDossier", etat);
                             boolean canWrite = PayrollPeriodUserContext.from(authentication).hasAny("PAIE_WRITE");
-                            map.put("actions", Map.of(
-                                    "APPROVE", canWrite && "EN_ATTENTE".equals(statut),
-                                    "REJECT", canWrite && "EN_ATTENTE".equals(statut),
-                                    "CONFIRM_VERSEMENT", canWrite && !verse
-                                            && ("APPROUVE".equals(statut) || "IMPUTE_PAIE".equals(statut))));
+                            var dossier = paymentService.describe(categorie, statut,
+                                    rs.getTimestamp("versement_confirme_at"), rs.getBigDecimal("montant_impute"),
+                                    rs.getBigDecimal("solde_restant"), canWrite);
+                            map.put("etatDossier", dossier.etat());
+                            map.put("actions", dossier.actions());
                             boolean isGain = "GAIN".equalsIgnoreCase(rs.getString("type_sens"));
                             map.put("isGain", isGain);
                             map.put("isRetenue", !isGain);
@@ -400,80 +436,8 @@ public class PaieAjustementController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> confirmerVersement(@PathVariable("id") int id,
             @Valid @RequestBody ConfirmationVersementRequest request) throws Exception {
-        if (request.dateVersement().isAfter(LocalDate.now())) {
-            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                    "La date de versement ne peut pas être future.");
-        }
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                String sql = "SELECT a.statut, a.date_demande, a.date_accord, a.versement_confirme_at, a.updated_at, " +
-                        "t.categorie FROM paie_avance_acompte a LEFT JOIN ref_type_mouvement_paie t " +
-                        "ON t.id_type_mouvement = a.id_type_mouvement WHERE a.id_avance = ? FOR UPDATE OF a";
-                String categorie;
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, id);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next())
-                            throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
-                                    "Demande introuvable.");
-                        categorie = rs.getString("categorie");
-                        if (!("ACOMPTE".equals(categorie) || "AVANCE".equals(categorie))
-                                || !("APPROUVE".equals(rs.getString("statut"))
-                                        || "IMPUTE_PAIE".equals(rs.getString("statut")))
-                                || rs.getTimestamp("versement_confirme_at") != null) {
-                            throw new SirhBusinessException(SirhErrorCode.STATE_CONFLICT,
-                                    "Seul un acompte ou une avance approuvé, ou un dossier historique imputé, peut être rapproché d'un versement.");
-                        }
-                        Timestamp updated = rs.getTimestamp("updated_at");
-                        int version = updated == null ? 1 : (int) (updated.getTime() % Integer.MAX_VALUE);
-                        if (request.expectedVersion() < 1 || request.expectedVersion() != version) {
-                            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ADJUSTMENT_VERSION_CONFLICT,
-                                    "La demande a changé. Rechargez-la avant de confirmer le versement.");
-                        }
-                        Date accord = rs.getDate("date_accord");
-                        Date demande = rs.getDate("date_demande");
-                        Date plancher = accord != null ? accord : demande;
-                        if (plancher != null && request.dateVersement().isBefore(plancher.toLocalDate())) {
-                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                                    "Le versement ne peut pas précéder l'approbation.");
-                        }
-                    }
-                }
-                try (PreparedStatement ps = c.prepareStatement(
-                        "SELECT 1 FROM ref_mode_paiement WHERE code = ? AND actif = TRUE")) {
-                    ps.setString(1, request.modeReglement());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next())
-                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                                    "Mode de règlement inconnu ou inactif.");
-                    }
-                }
-                try (PreparedStatement ps = c.prepareStatement(
-                        "UPDATE paie_avance_acompte SET date_paiement = ?, mode_reglement = ?, " +
-                                "reference_versement = ?, versement_confirme_at = CURRENT_TIMESTAMP, " +
-                                "versement_confirme_par = ?, " +
-                                "statut = CASE WHEN solde_restant > 0 THEN 'APPROUVE' ELSE 'IMPUTE_PAIE' END, " +
-                                "updated_at = CURRENT_TIMESTAMP WHERE id_avance = ?")) {
-                    ps.setDate(1, Date.valueOf(request.dateVersement()));
-                    ps.setString(2, request.modeReglement());
-                    ps.setString(3, request.referenceVersement().trim());
-                    Integer userId = getCurrentUserId();
-                    if (userId != null)
-                        ps.setInt(4, userId);
-                    else
-                        ps.setNull(4, java.sql.Types.INTEGER);
-                    ps.setInt(5, id);
-                    ps.executeUpdate();
-                }
-                AuditLog.audit(c, "CONFIRM_VERSEMENT", "paie_avance_acompte", String.valueOf(id), null, request);
-                c.commit();
-                return ResponseEntity.ok(Map.of("idAvance", id, "versementConfirme", true));
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        }
+        paymentService.confirm(id, request, getCurrentUserId());
+        return ResponseEntity.ok(Map.of("idAvance", id, "versementConfirme", true));
     }
 
     /**
@@ -484,164 +448,8 @@ public class PaieAjustementController {
     public ResponseEntity<?> creerAjustement(
             @Valid @RequestBody PaieAjustementRequest req,
             Authentication authentication) throws Exception {
-        Integer userId = getCurrentUserId();
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                // 1. Résolution du type de mouvement
-                RefTypeMouvementPaie typeMvt = null;
-                if (req.getIdTypeMouvement() != null) {
-                    typeMvt = RefTypeMouvementPaie.trouverParId(req.getIdTypeMouvement(), c);
-                } else if (req.getTypeMouvement() != null && !req.getTypeMouvement().isBlank()) {
-                    typeMvt = RefTypeMouvementPaie.trouverParCode(req.getTypeMouvement().trim(), c);
-                }
-
-                if (typeMvt == null || !typeMvt.isEstActif()) {
-                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "Le type de mouvement doit être actif et configuré dans le référentiel de paie.");
-                }
-                if (!typeMvt.isSaisieManuelleAutorisee()) {
-                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "Ce type appartient à un owner automatique ou à un domaine non saisissable en Paie.");
-                }
-                if (typeMvt.isPeriodeObligatoire() && req.getIdPeriodePaie() == null) {
-                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "La période de paie est obligatoire pour ce type de mouvement.");
-                }
-                if (typeMvt.isMotifObligatoire() && (req.getMotif() == null || req.getMotif().isBlank())) {
-                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "Le motif ou la source est obligatoire pour ce type de mouvement.");
-                }
-                if (req.getIdPeriodePaie() != null) {
-                    periodWorkflowService.requirePayrollAction(req.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
-                            PayrollPeriodUserContext.from(authentication));
-                }
-
-                if (req.getIdPeriodePaie() != null && req.getIdEmploye() != null) {
-                    String sqlCouv = "SELECT 1 FROM employe_affectation_carriere eac " +
-                            "JOIN contrat_travail ct ON ct.id_contrat = eac.id_contrat " +
-                            "JOIN periode_paie p ON p.id_periode_paie = ? " +
-                            "WHERE eac.id_employe = ? " +
-                            "AND eac.date_debut <= p.date_fin AND (eac.date_fin IS NULL OR eac.date_fin >= p.date_debut) "
-                            +
-                            "AND ct.date_debut <= p.date_fin AND (ct.date_fin IS NULL OR ct.date_fin >= p.date_debut) "
-                            +
-                            "LIMIT 1";
-                    try (PreparedStatement psCouv = c.prepareStatement(sqlCouv)) {
-                        psCouv.setInt(1, req.getIdPeriodePaie());
-                        psCouv.setInt(2, req.getIdEmploye());
-                        try (ResultSet rsCouv = psCouv.executeQuery()) {
-                            if (!rsCouv.next()) {
-                                throw new SirhBusinessException(SirhErrorCode.PAYROLL_EMPLOYEE_INACTIVE,
-                                        "L'employé ne dispose d'aucun contrat ou affectation active sur la période de paie sélectionnée.");
-                            }
-                        }
-                    }
-                }
-
-                String codeType = typeMvt.getCode();
-                if ("REGULARISATION_CONGE".equals(codeType)) {
-                    if (req.getIdEmploye() == null) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "Le salarié est obligatoire pour une régularisation Congés.");
-                    String motif = req.getMotif() != null ? req.getMotif() : "";
-                    var reference = java.util.regex.Pattern.compile("(?:^|\\s)JOURNAL_CONGE#(\\d+)(?:\\s|$)")
-                            .matcher(motif);
-                    if (!reference.find()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "Régularisation Congés : indiquez JOURNAL_CONGE#<id> dans le motif et justifiez le calcul DAF.");
-                    int idJournal = Integer.parseInt(reference.group(1));
-                    try (PreparedStatement preuve = c.prepareStatement(
-                            "SELECT 1 FROM conge_journal_droit WHERE id_journal=? AND id_employe=?")) {
-                        preuve.setInt(1, idJournal);
-                        preuve.setInt(2, req.getIdEmploye());
-                        try (ResultSet rs = preuve.executeQuery()) {
-                            if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                                    "Le journal Congés cité n'appartient pas au salarié de la régularisation.");
-                        }
-                    }
-                }
-                String sens = typeMvt.getSens();
-                Integer idType = typeMvt.getIdTypeMouvement();
-
-                BigDecimal resolvedAmount=req.getMontant();
-                if ("VARIABLE_DAF".equals(typeMvt.getNature())) {
-                    if(typeMvt.getIdRubrique()==null || req.getIdPeriodePaie()==null)
-                        throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,"Rubrique et période obligatoires pour une variable manuelle.");
-                    java.time.LocalDate start,end;
-                    try(var ps=c.prepareStatement("SELECT date_debut,date_fin FROM periode_paie WHERE id_periode_paie=?")) {
-                        ps.setInt(1,req.getIdPeriodePaie()); try(var rs=ps.executeQuery()) {
-                            if(!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Période inconnue.");
-                            start=rs.getDate(1).toLocalDate();end=rs.getDate(2).toLocalDate();
-                        }
-                    }
-                    var rule=mg.galaxam.sirh.paie.application.ManualRubriqueResolver.resolve(c,typeMvt.getIdRubrique(),start,end);
-                    if(!rule.isEstActif()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Cette version est désactivée pour la nouvelle saisie.");
-                    BigDecimal salary=null;
-                    if("POURCENTAGE_SALAIRE_BASE".equals(rule.getMethodeCalcul()))
-                        salary=payrollService.preparerInput(req.getIdEmploye(),req.getIdPeriodePaie(),true,c).getSalaireBaseCampagne();
-                    try {
-                        resolvedAmount=mg.galaxam.sirh.paie.domain.engine.ManualPayrollRules.calculateAmount(rule.getMethodeCalcul(),rule.getPolitiqueArrondi(),
-                                req.getMontant(),req.getQuantiteSaisie(),req.getTauxSaisi(),salary).montant();
-                    } catch(IllegalArgumentException e) { throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,e.getMessage()); }
-                }
-                if(resolvedAmount==null || resolvedAmount.signum()<=0)
-                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Le montant doit être positif.");
-                PaieAvanceAcompte entity = new PaieAvanceAcompte();
-                entity.setIdEmploye(req.getIdEmploye());
-                entity.setIdPeriodePaie(req.getIdPeriodePaie());
-                entity.setIdTypeMouvement(idType);
-                entity.setTypeMouvement(codeType);
-                entity.setSens(sens);
-                entity.setMontant(resolvedAmount);
-                entity.setQuantiteSaisie(req.getQuantiteSaisie()); entity.setTauxSaisi(req.getTauxSaisi());
-                entity.setMontantInitial(resolvedAmount);
-                entity.setMontantImpute(java.math.BigDecimal.ZERO);
-                entity.setSoldeRestant(resolvedAmount);
-                entity.setProvenance(typeMvt.getProvenanceDefaut());
-                entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande()
-                        : new java.sql.Date(System.currentTimeMillis()));
-                entity.setMotif(req.getMotif());
-                entity.setModeReglement(req.getModeReglement() != null ? req.getModeReglement() : "VIREMENT");
-                // P1-01 : Le statut initial est toujours EN_ATTENTE — le client ne décide pas.
-                // L'approbation passe par POST /{id}/commands avec commande APPROVE.
-                entity.setStatut("EN_ATTENTE");
-                entity.setCreePar(userId);
-
-                entity.save(c);
-                AuditLog.audit(c, "CREATION", "paie_avance_acompte", String.valueOf(entity.getIdAvance()), null,
-                        entity);
-
-                int version = 1;
-                try (PreparedStatement psVer = c
-                        .prepareStatement("SELECT updated_at FROM paie_avance_acompte WHERE id_avance = ?")) {
-                    psVer.setInt(1, entity.getIdAvance());
-                    try (ResultSet rsVer = psVer.executeQuery()) {
-                        if (rsVer.next()) {
-                            Timestamp ts = rsVer.getTimestamp("updated_at");
-                            if (ts != null) {
-                                version = (int) (ts.getTime() % Integer.MAX_VALUE);
-                            }
-                        }
-                    }
-                }
-
-                c.commit();
-
-                Map<String, Object> resp = new HashMap<>();
-                resp.put("success", true);
-                resp.put("message", "Ajustement créé avec succès.");
-                resp.put("idAvance", entity.getIdAvance());
-                resp.put("typeMouvement", codeType);
-                resp.put("sens", sens);
-                resp.put("montant", entity.getMontant());
-                resp.put("statut", entity.getStatut());
-                resp.put("version", version);
-
-                return ResponseEntity.status(HttpStatus.CREATED).body(resp);
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                adjustmentCreationService.create(req, authentication, getCurrentUserId()));
     }
 
     @PostMapping(value = "/{id}/justificatif-frais", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -665,7 +473,7 @@ public class PaieAjustementController {
                     "Utilisez un justificatif PDF, PNG ou JPEG.");
         }
         String extension = "application/pdf".equals(mime) ? "pdf" : "image/png".equals(mime) ? "png" : "jpg";
-        String uploadDate = LocalDate.now(ZoneId.of("Indian/Antananarivo"))
+        String uploadDate = mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today()
                 .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         String shortId = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String name = "JUSTIFICATIF_FRAIS_" + uploadDate + "_" + shortId + "." + extension;
@@ -813,7 +621,7 @@ public class PaieAjustementController {
             return storedName;
         }
         String extension = "application/pdf".equals(mime) ? "pdf" : "image/png".equals(mime) ? "png" : "jpg";
-        LocalDate uploadedDate = uploadedAt == null ? LocalDate.now(ZoneId.of("Indian/Antananarivo"))
+        LocalDate uploadedDate = uploadedAt == null ? mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today()
                 : uploadedAt.toLocalDateTime().toLocalDate();
         String shortHash = Integer.toUnsignedString(storedName == null ? 0 : storedName.hashCode(), 16);
         if (shortHash.length() > 8) shortHash = shortHash.substring(shortHash.length() - 8);

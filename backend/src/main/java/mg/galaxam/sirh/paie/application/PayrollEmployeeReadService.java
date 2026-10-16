@@ -5,7 +5,6 @@ import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -150,7 +149,7 @@ public class PayrollEmployeeReadService {
         // 2. Taux horaire légal backend-driven (diviseur conventionnel légal)
         BigDecimal diviseur = new BigDecimal("173.3333");
         try {
-            var conf = PaieConfigLegale.findActiveAt(c, LocalDate.now());
+            var conf = PaieConfigLegale.findActiveAt(c, mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today());
             if (conf != null && conf.getDiviseurMensuelHeures() != null && conf.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
                 diviseur = conf.getDiviseurMensuelHeures();
             }
@@ -165,7 +164,7 @@ public class PayrollEmployeeReadService {
         BigDecimal tauxConge = null;
         try {
             if (congeTauxApplicableService != null && salaireBase.compareTo(BigDecimal.ZERO) > 0) {
-                var res = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, LocalDate.now(), salaireBase, c);
+                var res = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today(), salaireBase, c);
                 if (res != null && res.getTauxJournalier() != null) {
                     tauxConge = res.getTauxJournalier();
                 }
