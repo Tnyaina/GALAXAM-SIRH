@@ -123,6 +123,8 @@ CREATE TABLE role_menu (
 );
 
 -- 10. Paramètres Globaux
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 CREATE TABLE parametre_global (
     id_parametre SERIAL PRIMARY KEY,
     code_parametre VARCHAR(50) NOT NULL,
@@ -134,6 +136,11 @@ CREATE TABLE parametre_global (
     est_actif BOOLEAN NOT NULL DEFAULT TRUE,
     est_desactivable BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut),
+    CONSTRAINT ck_parametre_global_dates CHECK (date_fin IS NULL OR date_fin >= date_debut),
+    CONSTRAINT ex_parametre_global_validite EXCLUDE USING gist (
+        UPPER(code_parametre) WITH =,
+        daterange(date_debut, date_fin, '[]') WITH &&
+    ),
     CONSTRAINT ck_conge_decompte_feries_valeur CHECK (code_parametre <> 'CONGE_DECOMPTE_FERIES'
         OR (valeur IN ('INCLUS', 'EXCLUS') AND est_desactivable = TRUE))
 );

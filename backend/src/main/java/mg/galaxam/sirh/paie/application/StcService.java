@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.Period;
@@ -34,8 +35,19 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcPreparationDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcRecuDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcReglementRequest;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
+import mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator;
+import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
+import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
+import mg.galaxam.sirh.paie.api.dto.stc.AnnulationReglementRequest;
+import mg.galaxam.sirh.paie.api.dto.stc.StcReglementDTO;
+import mg.galaxam.sirh.paie.api.dto.stc.StcSituationReglementDTO;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.stereotype.Service;
+import java.util.ArrayList;
 
 /**
  * Service Métier pour le traitement, la simulation, la validation et l'émission
@@ -106,6 +118,11 @@ public class StcService {
     private final AncienneteEngine ancienneteEngine;
     private final mg.galaxam.sirh.conge.application.CongeLotValorisationService lotsConges =
             new mg.galaxam.sirh.conge.application.CongeLotValorisationService();
+    private final mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator overtimePayCalculator =
+            new mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator();
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private mg.galaxam.sirh.pointage.application.PointageSyntheseService pointageSyntheseService;
 
     public StcService(DataSource dataSource, Object ignoredLegacyCalculator, AncienneteEngine ancienneteEngine) {
         this.ancienneteEngine = ancienneteEngine != null ? ancienneteEngine : new AncienneteEngine();
@@ -118,6 +135,10 @@ public class StcService {
 
     public StcService() {
         this(null, null, new AncienneteEngine());
+    }
+
+    public void setPointageSyntheseService(PointageSyntheseService pointageSyntheseService) {
+        this.pointageSyntheseService = pointageSyntheseService;
     }
 
 
@@ -216,14 +237,20 @@ public class StcService {
         }
 
         // 3. Période de paie correspondante
-        String sqlPer = "SELECT id_periode_paie, code FROM periode_paie " +
+        String sqlPer = "SELECT id_periode_paie, code, date_debut, date_fin FROM periode_paie " +
                 "WHERE ? BETWEEN date_debut AND date_fin ORDER BY date_debut DESC, id_periode_paie DESC LIMIT 2";
+        LocalDate dDebutPeriode = null;
+        LocalDate dFinPeriode = null;
         try (PreparedStatement psPer = c.prepareStatement(sqlPer)) {
             psPer.setDate(1, dateDepartEffective);
             try (ResultSet rsPer = psPer.executeQuery()) {
                 if (rsPer.next()) {
                     prep.setIdPeriodePaie(rsPer.getInt("id_periode_paie"));
                     prep.setCodePeriodePaie(rsPer.getString("code"));
+                    Date dd = rsPer.getDate("date_debut");
+                    Date df = rsPer.getDate("date_fin");
+                    if (dd != null) dDebutPeriode = dd.toLocalDate();
+                    if (df != null) dFinPeriode = df.toLocalDate();
                     if (rsPer.next()) {
                         throw new IllegalStateException("Plusieurs périodes de paie couvrent la date de départ " + dateDepartEffective + ".");
                     }
@@ -238,19 +265,16 @@ public class StcService {
 
         // 4. Estimation du salaire au prorata du dernier mois (avec intégration du pointage réel si disponible)
         LocalDate dDep = dateDepartEffective.toLocalDate();
-        LocalDate dDebutMois = dDep.withDayOfMonth(1);
-        LocalDate dDebutPlage = dDebutMois;
-        if (prep.getIdPeriodePaie() != null) {
-            String sqlPerDates = "SELECT date_debut FROM periode_paie WHERE id_periode_paie = ?";
-            try (PreparedStatement psPD = c.prepareStatement(sqlPerDates)) {
-                psPD.setInt(1, prep.getIdPeriodePaie());
-                try (ResultSet rsPD = psPD.executeQuery()) {
-                    if (rsPD.next() && rsPD.getDate("date_debut") != null) {
-                        dDebutPlage = rsPD.getDate("date_debut").toLocalDate();
-                    }
-                }
-            }
-        }
+        LocalDate startPeriode = dDebutPeriode != null ? dDebutPeriode : dDep.withDayOfMonth(1);
+        LocalDate endPeriode = dFinPeriode != null ? dFinPeriode : dDep;
+
+        var empResolver = new mg.galaxam.sirh.contrat.application.EmploymentContextResolver();
+        mg.galaxam.sirh.contrat.application.EmploymentContextResolver.Coverage coverage = null;
+        try {
+            coverage = empResolver.resolveCoverage(idEmploye, startPeriode, dDep, c);
+        } catch (Exception ignored) {}
+        LocalDate debutCouverture = coverage != null ? coverage.firstDay() : startPeriode;
+        LocalDate finCouverture = coverage != null ? coverage.lastDay() : dDep;
 
         String sqlPointageReel = "SELECT COUNT(*) AS lignes_pointage, " +
                 "COUNT(*) FILTER (WHERE r.decompte_absence = FALSE AND (pj.total_heures > 0 OR pj.heures_matin > 0 OR pj.heures_am > 0)) AS jours_travailles_reels, " +
@@ -264,8 +288,8 @@ public class StcService {
         boolean pointageTrouve = false;
         try (PreparedStatement psPtg = c.prepareStatement(sqlPointageReel)) {
             psPtg.setInt(1, idEmploye);
-            psPtg.setDate(2, Date.valueOf(dDebutPlage));
-            psPtg.setDate(3, dateDepartEffective);
+            psPtg.setDate(2, Date.valueOf(debutCouverture));
+            psPtg.setDate(3, Date.valueOf(finCouverture));
             try (ResultSet rsPtg = psPtg.executeQuery()) {
                 if (rsPtg.next()) {
                     int countJours = rsPtg.getInt("jours_travailles_reels");
@@ -281,17 +305,33 @@ public class StcService {
 
         // Le pointage ne représente pas à lui seul les jours rémunérés (congés,
         // fériés, repos, dispense). Le salaire mensuel suit les jours sous contrat.
-        BigDecimal joursTravaillesEstimes;
         if (pointageTrouve) {
             prep.setSourcePointage("POINTAGE_REEL");
             prep.setJoursPointageReels(joursPointage);
             prep.setTotalHeuresPointage(heuresPointage);
         }
-        int joursSousContrat = Math.min((int) java.time.temporal.ChronoUnit.DAYS.between(dDebutPlage, dDep) + 1, 30);
-        joursTravaillesEstimes = new BigDecimal(Math.max(0, joursSousContrat));
+
+        // Détermination canonique des jours sous contrat et du prorata
+        boolean isPeriodeComplete = (dFinPeriode != null)
+                && !debutCouverture.isAfter(startPeriode)
+                && !dDep.isBefore(dFinPeriode);
+
+        BigDecimal joursTravaillesEstimes;
+        if (isPeriodeComplete) {
+            joursTravaillesEstimes = new BigDecimal("30");
+        } else if (coverage != null) {
+            int coveredDays = Math.min(coverage.days(), 30);
+            joursTravaillesEstimes = new BigDecimal(Math.max(0, coveredDays));
+        } else {
+            int coveredDays = Math.min((int) java.time.temporal.ChronoUnit.DAYS.between(startPeriode, dDep) + 1, 30);
+            joursTravaillesEstimes = new BigDecimal(Math.max(0, coveredDays));
+        }
         prep.setJoursTravaillesEstimes(joursTravaillesEstimes);
-        BigDecimal prorataEstime = salaireBase.multiply(joursTravaillesEstimes)
-                .divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+        BigDecimal prorataEstime = isPeriodeComplete
+                ? salaireBase
+                : MoneyRoundingPolicy.amount(
+                    salaireBase.multiply(joursTravaillesEstimes)
+                        .divide(new BigDecimal("30"), 4, RoundingMode.HALF_UP));
         prep.setSalaireProrataEstime(prorataEstime);
 
         // 5. Congés restants & Taux valorisé dynamique (conge_journal_droit)
@@ -457,11 +497,16 @@ public class StcService {
         BigDecimal joursTravailles = req.getJoursTravaillesDernierMois() != null
                 ? req.getJoursTravaillesDernierMois()
                 : prep.getJoursTravaillesEstimes();
-        res.setJoursTravaillesDernierMois(joursTravailles);
-
-        BigDecimal salaireProrata = prep.getSalaireBase().multiply(joursTravailles)
-                .divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+        BigDecimal salaireProrata;
+        if (joursTravailles.compareTo(new BigDecimal("30")) == 0) {
+            salaireProrata = prep.getSalaireBase();
+        } else {
+            salaireProrata = MoneyRoundingPolicy.amount(
+                    prep.getSalaireBase().multiply(joursTravailles)
+                            .divide(new BigDecimal("30"), 4, RoundingMode.HALF_UP));
+        }
         if (bulletinMensuelValide) salaireProrata = BigDecimal.ZERO;
+        res.setJoursTravaillesDernierMois(joursTravailles);
         res.setSalaireProrata(salaireProrata);
         if (bulletinMensuelValide) {
             res.ajouterLigne("BULLETIN_MENSUEL_RAPPROCHE", "Bulletin mensuel final déjà calculé : net restant à régler",
@@ -469,6 +514,81 @@ public class StcService {
         } else {
             res.ajouterLigne("SALAIRE_BASE_PRORATA", "Salaire au prorata du dernier mois (" + joursTravailles + "j/30)",
                     "GAIN", prep.getSalaireBase(), null, salaireProrata);
+        }
+
+        // Phase 2.1 : Variables et absences du pointage pour départ en cours de mois (si pas de bulletin mensuel scellé)
+        StcPointageVariables ptgVars = StcPointageVariables.zero();
+        if (!bulletinMensuelValide && req.getDateDepart() != null) {
+            LocalDate dDep = req.getDateDepart().toLocalDate();
+            LocalDate dDebutPlage;
+            LocalDate dFinPlage = dDep;
+
+            if (prep.getIdPeriodePaie() != null) {
+                String sqlPerDates = "SELECT date_debut FROM periode_paie WHERE id_periode_paie = ?";
+                LocalDate startPer = null;
+                try (PreparedStatement psPD = c.prepareStatement(sqlPerDates)) {
+                    psPD.setInt(1, prep.getIdPeriodePaie());
+                    try (ResultSet rsPD = psPD.executeQuery()) {
+                        if (rsPD.next() && rsPD.getDate("date_debut") != null) {
+                            startPer = rsPD.getDate("date_debut").toLocalDate();
+                        }
+                    }
+                }
+                if (startPer != null) {
+                    var empResolver = new mg.galaxam.sirh.contrat.application.EmploymentContextResolver();
+                    mg.galaxam.sirh.contrat.application.EmploymentContextResolver.Coverage coverage = null;
+                    try {
+                        coverage = empResolver.resolveCoverage(req.getIdEmploye(), startPer, dDep, c);
+                    } catch (Exception ignored) {}
+                    dDebutPlage = coverage != null ? coverage.firstDay() : startPer;
+                } else {
+                    dDebutPlage = dDep.withDayOfMonth(1);
+                }
+            } else {
+                dDebutPlage = dDep.withDayOfMonth(1);
+            }
+
+            ptgVars = calculerPointageVariables(req.getIdEmploye(), dDebutPlage, dFinPlage, prep.getTauxHoraire(), c);
+            if (ptgVars.montantRetenueAbsence().signum() > 0) {
+                res.setMontantRetenueAbsence(ptgVars.montantRetenueAbsence());
+                res.ajouterLigne("RETENUE_ABSENCE", "Retenue pour Absences Décomptées (" + ptgVars.heuresAbsence() + " h)",
+                        "RETENUE", prep.getTauxHoraire(), null, ptgVars.montantRetenueAbsence());
+            }
+            if (ptgVars.montantHs30().signum() > 0) {
+                res.setMontantHeuresSup(res.getMontantHeuresSup().add(ptgVars.montantHs30()));
+                res.ajouterLigne("HEURES_SUP_30", "Heures Supplémentaires (+30%) (" + ptgVars.heuresHs30() + " h)",
+                        "GAIN", prep.getTauxHoraire(), new BigDecimal("130"), ptgVars.montantHs30());
+            }
+            if (ptgVars.montantHs50().signum() > 0) {
+                res.setMontantHeuresSup(res.getMontantHeuresSup().add(ptgVars.montantHs50()));
+                res.ajouterLigne("HEURES_SUP_50", "Heures Supplémentaires (+50%) (" + ptgVars.heuresHs50() + " h)",
+                        "GAIN", prep.getTauxHoraire(), new BigDecimal("150"), ptgVars.montantHs50());
+            }
+            if (ptgVars.montantNuit().signum() > 0) {
+                res.setMontantMajorationNuit(ptgVars.montantNuit());
+                res.ajouterLigne("MAJORATION_NUIT", "Majoration Travail de Nuit (" + ptgVars.heuresNuit() + " h)",
+                        "GAIN", prep.getTauxHoraire(), new BigDecimal("30"), ptgVars.montantNuit());
+            }
+            if (ptgVars.montantDimanche().signum() > 0) {
+                res.setMontantMajorationDimanche(ptgVars.montantDimanche());
+                res.ajouterLigne("HEURES_DIMANCHE", "Majoration Travail Dimanche (" + ptgVars.heuresDimanche() + " h)",
+                        "GAIN", prep.getTauxHoraire(), new BigDecimal("140"), ptgVars.montantDimanche());
+            }
+            if (ptgVars.montantFerie().signum() > 0) {
+                res.setMontantMajorationFerie(ptgVars.montantFerie());
+                res.ajouterLigne("MAJORATION_FERIE", "Majoration Travail Jour Férié (" + ptgVars.heuresFerie() + " h)",
+                        "GAIN", prep.getTauxHoraire(), new BigDecimal("200"), ptgVars.montantFerie());
+            }
+            if (ptgVars.montantRepas().signum() > 0) {
+                res.setMontantIndemnitesPointage(res.getMontantIndemnitesPointage().add(ptgVars.montantRepas()));
+                res.ajouterLigne("INDEMNITE_REPAS", "Indemnité de Panier / Repas",
+                        "GAIN", null, null, ptgVars.montantRepas());
+            }
+            if (ptgVars.montantDeplacement().signum() > 0) {
+                res.setMontantIndemnitesPointage(res.getMontantIndemnitesPointage().add(ptgVars.montantDeplacement()));
+                res.ajouterLigne("INDEMNITE_DEPLACEMENT", "Indemnité de Déplacement",
+                        "GAIN", null, null, ptgVars.montantDeplacement());
+            }
         }
 
         // 2. ICCP (Indemnité Compensatrice de Congés Payés) ou Retenue pour congés par anticipation
@@ -527,14 +647,14 @@ public class StcService {
         }
 
         // Total Brut STC (Somme des gains bruts)
-        BigDecimal totalBrut = salaireProrata.add(gainConge).add(indemnitePreavis).add(indemniteLicenciement).add(autresIndemnites);
+        BigDecimal totalGainsVariables = ptgVars.totalGainsVariables();
+        BigDecimal salaireNetPresence = salaireProrata.subtract(ptgVars.montantRetenueAbsence()).max(BigDecimal.ZERO);
+        BigDecimal totalBrut = salaireNetPresence.add(totalGainsVariables).add(gainConge)
+                .add(indemnitePreavis).add(indemniteLicenciement).add(autresIndemnites);
         res.setTotalBrutStc(totalBrut);
 
-        // 4. Cotisations sociales et assiette fiscale. Aucune exonération IRSA
-        // générale de l'indemnité de licenciement n'est prévue par le CGI :
-        // elle entre donc dans l'assiette fiscale. Son assiette sociale reste
-        // distincte de celle des salaires et indemnités compensatrices.
-        BigDecimal assietteBruteSoumise = salaireProrata.add(gainConge).add(autresIndemnites).max(BigDecimal.ZERO);
+        // 4. Cotisations sociales et assiette fiscale.
+        BigDecimal assietteBruteSoumise = salaireNetPresence.add(totalGainsVariables).add(gainConge).add(autresIndemnites).max(BigDecimal.ZERO);
         BigDecimal assietteSociale = assietteBruteSoumise.add(indemnitePreavis);
         BigDecimal assietteFiscaleBrute = assietteSociale.add(indemniteLicenciement);
         BulletinFiscalSnapshot bulletinFiscal = bulletinMensuelValide
@@ -747,10 +867,11 @@ public class StcService {
             }
         }
         if (idPeriode == null) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE au " + req.getDateDepart());
-        if ("POINTAGE_REEL".equals(preparation.getSourcePointage()) && !preparation.isPointageGele()) {
+        if ("POINTAGE_REEL".equals(preparation.getSourcePointage()) && !preparation.isPointageGele()
+                && (req.getJustificationSalaireDernierMois() == null || req.getJustificationSalaireDernierMois().isBlank())) {
             throw new IllegalStateException(
                     "Le pointage final existe mais n'est pas gelé. Clôturez et contrôlez le pointage "
-                    + "avant de valider le STC.");
+                    + "avant de valider le STC, ou fournissez une justification RH explicite.");
         }
         if (simulation.getIdBulletinMensuel() == null
                 && !"POINTAGE_REEL".equals(preparation.getSourcePointage())
@@ -807,49 +928,50 @@ public class StcService {
                 }
             }
         }
+        // Contrôle des variables de pointage non intégrées ou non arbitrées
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT 1 FROM pointage_jour WHERE id_employe = ? AND id_periode_paie = ? "
-                + "AND date_pointage <= ? AND (COALESCE(heures_nuit, 0) > 0 "
-                + "OR COALESCE(montant_total_indemnites, 0) > 0) LIMIT 1")) {
+                + "AND date_pointage <= ? AND (COALESCE(heures_nuit, 0) > 0 OR COALESCE(montant_total_indemnites, 0) > 0) LIMIT 1")) {
             ps.setInt(1, req.getIdEmploye());
             ps.setInt(2, idPeriode);
             ps.setDate(3, req.getDateDepart());
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && simulation.getIdBulletinMensuel() == null) throw new IllegalStateException(
-                        "Le pointage contient des heures de nuit ou des indemnités variables que ce calcul STC ne valorise pas encore. La validation est suspendue pour éviter de les omettre.");
+                if (rs.next() && simulation.getIdBulletinMensuel() == null
+                        && (req.getJustificationSalaireDernierMois() == null || req.getJustificationSalaireDernierMois().isBlank())) {
+                    throw new IllegalStateException(
+                            "Le pointage contient des heures de nuit ou des indemnités variables non intégrées. La validation est suspendue pour éviter de les omettre.");
+                }
             }
         }
-        // Les heures supplémentaires et les compléments calculés à la clôture
-        // hebdomadaire vivent dans le snapshot, pas dans pointage_jour.
+        // Contrôle des anomalies bloquantes non arbitrées sur la période
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT 1 FROM (SELECT * FROM pointage_cumul_periode "
-                + "WHERE id_employe = ? AND id_periode_paie = ? "
-                + "AND statut_snapshot IN ('GELE', 'CONSOMME') "
-                + "ORDER BY version_snapshot DESC LIMIT 1) dernier WHERE ("
-                + "COALESCE(heures_hs_30, 0) > 0 OR COALESCE(heures_hs_50, 0) > 0 "
-                + "OR COALESCE(heures_nuit_total, 0) > 0 "
-                + "OR COALESCE(heures_dimanche_total, 0) > 0 "
-                + "OR COALESCE(heures_ferie_total, 0) > 0) LIMIT 1")) {
+                "SELECT 1 FROM pointage_jour pj JOIN ref_statut_pointage_jour s "
+                + "ON s.id_statut_jour = pj.id_statut_jour "
+                + "WHERE pj.id_employe = ? AND pj.id_periode_paie = ? AND pj.date_pointage <= ? "
+                + "AND (s.code = 'ANOMALIE_SAISIE' OR pj.motif_ajustement = 'ANOMALIE_NON_RESOLUE') LIMIT 1")) {
             ps.setInt(1, req.getIdEmploye());
             ps.setInt(2, idPeriode);
+            ps.setDate(3, req.getDateDepart());
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && simulation.getIdBulletinMensuel() == null) throw new IllegalStateException(
-                        "Le pointage clôturé comporte des heures supplémentaires, de nuit, de dimanche ou de jour férié. "
-                        + "Ces gains doivent être valorisés dans la paie finale avant validation du STC.");
+                if (rs.next() && simulation.getIdBulletinMensuel() == null
+                        && (req.getJustificationSalaireDernierMois() == null || req.getJustificationSalaireDernierMois().isBlank())) {
+                    throw new IllegalStateException(
+                            "Le pointage contient des anomalies non arbitrées sur la période. Le scellement est bloqué tant que ces éléments ne sont pas justifiés.");
+                }
             }
         }
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT 1 FROM paie_avance_acompte a "
-                + "LEFT JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement "
                 + "WHERE a.id_employe = ? AND a.id_periode_paie = ? "
-                + "AND a.statut IN ('EN_ATTENTE', 'APPROUVE') "
-                + "AND COALESCE(t.categorie, '') NOT IN ('ACOMPTE', 'AVANCE') LIMIT 1")) {
+                + "AND a.statut = 'EN_ATTENTE' LIMIT 1")) {
             ps.setInt(1, req.getIdEmploye());
             ps.setInt(2, idPeriode);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) throw new IllegalStateException(
-                        "Des variables de paie ou primes restent en attente sur cette période. "
-                        + "Validez et intégrez-les dans la paie finale avant le STC.");
+                if (rs.next()) {
+                    throw new IllegalStateException(
+                            "Des éléments financiers (acomptes, avances ou variables de paie) sont en attente d'arbitrage sur cette période. "
+                            + "Arbitrez-les (validation ou rejet) avant de sceller le STC.");
+                }
             }
         }
         if (simulation.getIdBulletinMensuel() == null && req.getJoursTravaillesDernierMois() != null
@@ -1269,29 +1391,394 @@ public class StcService {
     // 4. RÈGLEMENT ET DÉCOMPTE DE FIN DE CONTRAT
     // =========================================================================
 
-    public void enregistrerReglement(Integer idStc, StcReglementRequest req, Integer userId, Connection c) throws Exception {
+    public StcSituationReglementDTO enregistrerReglement(Integer idStc, StcReglementRequest req, Integer userId, Connection c) throws Exception {
+        if (idStc == null) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "L'identifiant du STC est obligatoire.");
+        }
         if (req == null || req.dateReglement() == null || req.referenceReglement() == null
                 || req.referenceReglement().isBlank()) {
-            throw new IllegalArgumentException("La date et la référence du paiement sont obligatoires.");
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "La date et la référence du paiement sont obligatoires.");
         }
         if (req.dateReglement().toLocalDate().isAfter(mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today())) {
-            throw new IllegalArgumentException("Le règlement ne peut pas être daté dans le futur.");
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Le règlement ne peut pas être daté dans le futur.");
         }
-        try (PreparedStatement ps = c.prepareStatement(
-                "UPDATE paie_stc SET statut = 'REGLE', date_reglement = ?, reference_reglement = ?, "
-                + "regle_par = ?, updated_at = CURRENT_TIMESTAMP WHERE id_stc = ? AND statut = 'VALIDE' "
-                + "AND date_depart <= ?")) {
-            ps.setDate(1, req.dateReglement());
-            ps.setString(2, req.referenceReglement().trim());
-            ps.setInt(3, userId);
-            ps.setInt(4, idStc);
-            ps.setDate(5, req.dateReglement());
-            if (ps.executeUpdate() != 1) {
-                throw new IllegalStateException("STC absent, déjà réglé, annulé ou date de règlement antérieure au départ.");
+
+        // 1. Verrouillage transactionnel pessimiste strict pour empêcher tout sur-règlement concurrent
+        String sqlLock = "SELECT s.id_stc, s.id_employe, s.statut, s.net_a_payer_stc, s.date_depart, d.id_dossier_sortie "
+                + "FROM paie_stc s "
+                + "LEFT JOIN paie_dossier_sortie d ON d.id_stc = s.id_stc "
+                + "WHERE s.id_stc = ? FOR UPDATE OF s";
+
+        Integer idEmploye;
+        String statutStc;
+        BigDecimal netAPayerStc;
+        Date dateDepart;
+        Integer idDossierSortie = null;
+
+        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+            psLock.setInt(1, idStc);
+            try (ResultSet rs = psLock.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "STC introuvable : " + idStc);
+                }
+                idEmploye = rs.getInt("id_employe");
+                statutStc = rs.getString("statut");
+                netAPayerStc = rs.getBigDecimal("net_a_payer_stc") != null ? rs.getBigDecimal("net_a_payer_stc") : BigDecimal.ZERO;
+                dateDepart = rs.getDate("date_depart");
+                if (rs.getObject("id_dossier_sortie") != null) {
+                    idDossierSortie = rs.getInt("id_dossier_sortie");
+                }
             }
         }
-        AuditLog.audit(c, "REGLEMENT_STC", "paie_stc", String.valueOf(idStc), null,
-                req.referenceReglement().trim());
+
+        if (dateDepart != null && req.dateReglement().before(dateDepart)) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "La date de règlement (" + req.dateReglement() + ") ne peut pas être antérieure à la date de départ effective (" + dateDepart + ").");
+        }
+
+        if (!List.of("VALIDE", "REGLE").contains(statutStc)) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Le STC doit être scellé et validé avant de pouvoir enregistrer un règlement (statut actuel : " + statutStc + ").");
+        }
+
+        // 2. Calcul du cumul déjà réglé actif depuis le journal paie_stc_reglement (source de vérité)
+        BigDecimal totalDejaRegle = BigDecimal.ZERO;
+        String sqlSum = "SELECT COALESCE(SUM(montant_regle), 0) FROM paie_stc_reglement WHERE id_stc = ? AND est_annule = FALSE";
+        try (PreparedStatement psSum = c.prepareStatement(sqlSum)) {
+            psSum.setInt(1, idStc);
+            try (ResultSet rsSum = psSum.executeQuery()) {
+                if (rsSum.next()) {
+                    totalDejaRegle = rsSum.getBigDecimal(1);
+                }
+            }
+        }
+
+        BigDecimal resteAPayer = netAPayerStc.subtract(totalDejaRegle);
+        if (resteAPayer.compareTo(BigDecimal.ZERO) < 0) {
+            resteAPayer = BigDecimal.ZERO;
+        }
+
+        // Si déjà intégralement réglé et que rien ne reste à payer
+        if ("REGLE".equals(statutStc) && resteAPayer.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Ce STC est déjà intégralement réglé (solde restant à payer : 0.00 Ar).");
+        }
+
+        // 3. Détermination du montant effectif du versement
+        BigDecimal montantEffectif;
+        if (netAPayerStc.compareTo(BigDecimal.ZERO) == 0) {
+            // Gestion explicite du cas net nul (0 Ar)
+            if (req.montantRegle() != null && req.montantRegle().compareTo(BigDecimal.ZERO) != 0) {
+                throw new SirhBusinessException(SirhErrorCode.DATA_INTEGRITY_VIOLATION,
+                        "Le montant net de ce STC est nul (0.00 Ar). Le règlement d'acquittement doit avoir un montant de 0.00 Ar.");
+            }
+            montantEffectif = BigDecimal.ZERO;
+        } else {
+            // Net positif
+            if (req.montantRegle() == null) {
+                montantEffectif = resteAPayer; // par défaut : solde l'intégralité
+            } else {
+                montantEffectif = req.montantRegle();
+            }
+
+            if (montantEffectif.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Le montant du versement doit être strictement supérieur à 0 Ar pour un STC à net positif.");
+            }
+
+            if (montantEffectif.compareTo(resteAPayer) > 0) {
+                throw new SirhBusinessException(SirhErrorCode.DATA_INTEGRITY_VIOLATION,
+                        "Le montant du versement (" + montantEffectif + " Ar) dépasse le solde restant à payer ("
+                                + resteAPayer + " Ar). Règlement refusé pour éviter tout sur-règlement.");
+            }
+        }
+
+        // 4. Protection contre les doubles soumissions (référence active déjà enregistrée sur ce STC)
+        String refClean = req.referenceReglement().trim();
+        String sqlCheckRef = "SELECT 1 FROM paie_stc_reglement WHERE id_stc = ? AND reference_reglement = ? AND est_annule = FALSE";
+        try (PreparedStatement psRef = c.prepareStatement(sqlCheckRef)) {
+            psRef.setInt(1, idStc);
+            psRef.setString(2, refClean);
+            try (ResultSet rsRef = psRef.executeQuery()) {
+                if (rsRef.next()) {
+                    throw new SirhBusinessException(SirhErrorCode.DATA_INTEGRITY_VIOLATION,
+                            "Un règlement actif porte déjà la référence '" + refClean + "' sur ce STC. Double soumission refusée.");
+                }
+            }
+        }
+
+        // 5. Insertion dans le journal officiel paie_stc_reglement
+        String modeReg = req.modeReglement() != null && !req.modeReglement().isBlank()
+                ? req.modeReglement().trim().toUpperCase() : "VIREMENT";
+        int idReglementGenere = 0;
+        String sqlInsert = "INSERT INTO paie_stc_reglement (id_stc, date_reglement, montant_regle, mode_reglement, reference_reglement, commentaire, enregistre_par, created_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id_reglement";
+        try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
+            psIns.setInt(1, idStc);
+            psIns.setDate(2, req.dateReglement());
+            psIns.setBigDecimal(3, montantEffectif);
+            psIns.setString(4, modeReg);
+            psIns.setString(5, refClean);
+            psIns.setString(6, req.commentaire());
+            if (userId != null) {
+                psIns.setInt(7, userId);
+            } else {
+                psIns.setNull(7, java.sql.Types.INTEGER);
+            }
+            try (ResultSet rsIns = psIns.executeQuery()) {
+                if (rsIns.next()) {
+                    idReglementGenere = rsIns.getInt(1);
+                }
+            }
+        }
+
+        // 6. Synchronisation atomique des statuts selon le nouveau reste à payer
+        BigDecimal nouveauReste = resteAPayer.subtract(montantEffectif);
+        boolean estSolde = nouveauReste.compareTo(BigDecimal.ZERO) == 0;
+
+        if (estSolde) {
+            // STC et Dossier basculent à 'REGLE'
+            String sqlUpStc = "UPDATE paie_stc SET statut = 'REGLE', date_reglement = ?, reference_reglement = ?, "
+                    + "mode_reglement = ?, regle_par = ?, updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            try (PreparedStatement psUpStc = c.prepareStatement(sqlUpStc)) {
+                psUpStc.setDate(1, req.dateReglement());
+                psUpStc.setString(2, refClean);
+                psUpStc.setString(3, modeReg);
+                if (userId != null) psUpStc.setInt(4, userId); else psUpStc.setNull(4, java.sql.Types.INTEGER);
+                psUpStc.setInt(5, idStc);
+                psUpStc.executeUpdate();
+            }
+
+            String sqlUpDos = "UPDATE paie_dossier_sortie SET statut_dossier = 'REGLE', updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            try (PreparedStatement psUpDos = c.prepareStatement(sqlUpDos)) {
+                psUpDos.setInt(1, idStc);
+                psUpDos.executeUpdate();
+            }
+        } else {
+            // Règlement partiel : paie_stc et dossier restent en 'VALIDE', mais trace de la dernière référence/date
+            String sqlUpStc = "UPDATE paie_stc SET date_reglement = ?, reference_reglement = ?, "
+                    + "mode_reglement = ?, regle_par = ?, updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            try (PreparedStatement psUpStc = c.prepareStatement(sqlUpStc)) {
+                psUpStc.setDate(1, req.dateReglement());
+                psUpStc.setString(2, refClean);
+                psUpStc.setString(3, modeReg);
+                if (userId != null) psUpStc.setInt(4, userId); else psUpStc.setNull(4, java.sql.Types.INTEGER);
+                psUpStc.setInt(5, idStc);
+                psUpStc.executeUpdate();
+            }
+
+            String sqlUpDos = "UPDATE paie_dossier_sortie SET updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            try (PreparedStatement psUpDos = c.prepareStatement(sqlUpDos)) {
+                psUpDos.setInt(1, idStc);
+                psUpDos.executeUpdate();
+            }
+        }
+
+        // 7. Audit Log
+        AuditLog.audit(c, "REGLEMENT_STC", "paie_stc_reglement", String.valueOf(idReglementGenere), null,
+                "Versement de " + montantEffectif + " Ar (Réf: " + refClean + ") sur STC #" + idStc + " - Nouveau reste: " + nouveauReste + " Ar");
+
+        return obtenirSituationReglements(idStc, c);
+    }
+
+    public StcSituationReglementDTO obtenirSituationReglements(Integer idStc, Connection c) throws Exception {
+        if (idStc == null) return null;
+        String sql = "SELECT s.id_stc, s.id_employe, s.numero_recu, s.statut AS statut_stc, s.net_a_payer_stc, "
+                + "e.matricule, CONCAT(e.nom, ' ', COALESCE(e.prenom, '')) AS nom_complet, "
+                + "d.id_dossier_sortie, d.statut_dossier "
+                + "FROM paie_stc s "
+                + "JOIN employe e ON e.id_employe = s.id_employe "
+                + "LEFT JOIN paie_dossier_sortie d ON d.id_stc = s.id_stc "
+                + "WHERE s.id_stc = ?";
+
+        StcSituationReglementDTO situation = new StcSituationReglementDTO();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idStc);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                situation.setIdStc(rs.getInt("id_stc"));
+                situation.setIdEmploye(rs.getInt("id_employe"));
+                situation.setNumeroRecu(rs.getString("numero_recu"));
+                situation.setStatutStc(rs.getString("statut_stc"));
+                situation.setNetAPayerStc(rs.getBigDecimal("net_a_payer_stc") != null ? rs.getBigDecimal("net_a_payer_stc") : BigDecimal.ZERO);
+                situation.setMatricule(rs.getString("matricule"));
+                situation.setNomComplet(rs.getString("nom_complet"));
+                if (rs.getObject("id_dossier_sortie") != null) {
+                    situation.setIdDossierSortie(rs.getInt("id_dossier_sortie"));
+                    situation.setStatutDossier(rs.getString("statut_dossier"));
+                }
+            }
+        }
+
+        // Lecture de toutes les tranches de règlement (actives et annulées)
+        String sqlRegs = "SELECT r.id_reglement, r.id_stc, r.date_reglement, r.montant_regle, r.mode_reglement, "
+                + "r.reference_reglement, r.commentaire, r.enregistre_par, r.created_at, "
+                + "r.est_annule, r.annule_par, r.date_annulation, r.motif_annulation, "
+                + "ue.identifiant AS nom_enregistre_par, "
+                + "ua.identifiant AS nom_annule_par "
+                + "FROM paie_stc_reglement r "
+                + "LEFT JOIN utilisateur ue ON ue.id_utilisateur = r.enregistre_par "
+                + "LEFT JOIN utilisateur ua ON ua.id_utilisateur = r.annule_par "
+                + "WHERE r.id_stc = ? ORDER BY r.created_at ASC, r.id_reglement ASC";
+
+        BigDecimal totalRegleActif = BigDecimal.ZERO;
+        List<StcReglementDTO> list = new ArrayList<>();
+        try (PreparedStatement psReg = c.prepareStatement(sqlRegs)) {
+            psReg.setInt(1, idStc);
+            try (ResultSet rsReg = psReg.executeQuery()) {
+                while (rsReg.next()) {
+                    StcReglementDTO rDto = new StcReglementDTO();
+                    rDto.setIdReglement(rsReg.getInt("id_reglement"));
+                    rDto.setIdStc(rsReg.getInt("id_stc"));
+                    rDto.setDateReglement(rsReg.getDate("date_reglement"));
+                    rDto.setMontantRegle(rsReg.getBigDecimal("montant_regle"));
+                    rDto.setModeReglement(rsReg.getString("mode_reglement"));
+                    rDto.setReferenceReglement(rsReg.getString("reference_reglement"));
+                    rDto.setCommentaire(rsReg.getString("commentaire"));
+                    if (rsReg.getObject("enregistre_par") != null) {
+                        rDto.setEnregistrePar(rsReg.getInt("enregistre_par"));
+                        rDto.setNomEnregistrePar(rsReg.getString("nom_enregistre_par"));
+                    }
+                    rDto.setCreatedAt(rsReg.getTimestamp("created_at"));
+                    rDto.setEstAnnule(rsReg.getBoolean("est_annule"));
+                    if (rsReg.getObject("annule_par") != null) {
+                        rDto.setAnnulePar(rsReg.getInt("annule_par"));
+                        rDto.setNomAnnulePar(rsReg.getString("nom_annule_par"));
+                    }
+                    rDto.setDateAnnulation(rsReg.getTimestamp("date_annulation"));
+                    rDto.setMotifAnnulation(rsReg.getString("motif_annulation"));
+
+                    if (!rDto.isEstAnnule() && rDto.getMontantRegle() != null) {
+                        totalRegleActif = totalRegleActif.add(rDto.getMontantRegle());
+                    }
+                    list.add(rDto);
+                }
+            }
+        }
+
+        BigDecimal reste = situation.getNetAPayerStc().subtract(totalRegleActif);
+        if (reste.compareTo(BigDecimal.ZERO) < 0) reste = BigDecimal.ZERO;
+
+        situation.setTotalRegle(totalRegleActif);
+        situation.setResteAPayer(reste);
+        situation.setEstIntegralementRegle(reste.compareTo(BigDecimal.ZERO) == 0 && "REGLE".equals(situation.getStatutStc()));
+        situation.setReglements(list);
+
+        return situation;
+    }
+
+    public StcSituationReglementDTO annulerReglement(Integer idStc, Integer idReglement, AnnulationReglementRequest req, Integer userId, Connection c) throws Exception {
+        if (idStc == null || idReglement == null) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "L'identifiant du STC et du règlement sont obligatoires.");
+        }
+        if (req == null || req.motifAnnulation() == null || req.motifAnnulation().isBlank()) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Le motif de l'annulation est obligatoire pour traçabilité comptable.");
+        }
+
+        // 1. Verrou pessimiste sur le STC
+        String sqlLock = "SELECT s.id_stc, s.statut, s.net_a_payer_stc FROM paie_stc s WHERE s.id_stc = ? FOR UPDATE";
+        String statutStc;
+        BigDecimal netAPayerStc;
+        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+            psLock.setInt(1, idStc);
+            try (ResultSet rs = psLock.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "STC introuvable : " + idStc);
+                }
+                statutStc = rs.getString("statut");
+                netAPayerStc = rs.getBigDecimal("net_a_payer_stc") != null ? rs.getBigDecimal("net_a_payer_stc") : BigDecimal.ZERO;
+            }
+        }
+
+        // 2. Verrou sur la ligne de règlement
+        String sqlLockReg = "SELECT id_reglement, montant_regle, reference_reglement, est_annule "
+                + "FROM paie_stc_reglement WHERE id_reglement = ? AND id_stc = ? FOR UPDATE";
+        BigDecimal montantAnnule;
+        String refAnnulee;
+        try (PreparedStatement psReg = c.prepareStatement(sqlLockReg)) {
+            psReg.setInt(1, idReglement);
+            psReg.setInt(2, idStc);
+            try (ResultSet rsReg = psReg.executeQuery()) {
+                if (!rsReg.next()) {
+                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                            "Règlement #" + idReglement + " introuvable pour le STC #" + idStc);
+                }
+                if (rsReg.getBoolean("est_annule")) {
+                    throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                            "Ce versement a déjà été annulé précédemment.");
+                }
+                montantAnnule = rsReg.getBigDecimal("montant_regle");
+                refAnnulee = rsReg.getString("reference_reglement");
+            }
+        }
+
+        // 3. Marquage de l'annulation
+        String sqlCancel = "UPDATE paie_stc_reglement SET est_annule = TRUE, annule_par = ?, "
+                + "date_annulation = CURRENT_TIMESTAMP, motif_annulation = ? WHERE id_reglement = ?";
+        try (PreparedStatement psCancel = c.prepareStatement(sqlCancel)) {
+            if (userId != null) psCancel.setInt(1, userId); else psCancel.setNull(1, java.sql.Types.INTEGER);
+            psCancel.setString(2, req.motifAnnulation().trim());
+            psCancel.setInt(3, idReglement);
+            psCancel.executeUpdate();
+        }
+
+        // 4. Recalcul de la somme active après annulation
+        BigDecimal nouvelleSomme = BigDecimal.ZERO;
+        Date dernierDate = null;
+        String dernierRef = null;
+        String sqlActive = "SELECT date_reglement, reference_reglement, montant_regle FROM paie_stc_reglement "
+                + "WHERE id_stc = ? AND est_annule = FALSE ORDER BY created_at DESC, id_reglement DESC";
+        try (PreparedStatement psAct = c.prepareStatement(sqlActive)) {
+            psAct.setInt(1, idStc);
+            try (ResultSet rsAct = psAct.executeQuery()) {
+                while (rsAct.next()) {
+                    nouvelleSomme = nouvelleSomme.add(rsAct.getBigDecimal("montant_regle"));
+                    if (dernierDate == null) {
+                        dernierDate = rsAct.getDate("date_reglement");
+                        dernierRef = rsAct.getString("reference_reglement");
+                    }
+                }
+            }
+        }
+
+        BigDecimal resteApresAnnulation = netAPayerStc.subtract(nouvelleSomme);
+        if (resteApresAnnulation.compareTo(BigDecimal.ZERO) < 0) resteApresAnnulation = BigDecimal.ZERO;
+
+        // 5. Si le STC était marqué 'REGLE' et que le reste est redevenu > 0, réouverture atomique en 'VALIDE'
+        if ("REGLE".equals(statutStc) && resteApresAnnulation.compareTo(BigDecimal.ZERO) > 0) {
+            String sqlReopenStc = "UPDATE paie_stc SET statut = 'VALIDE', date_reglement = ?, reference_reglement = ?, "
+                    + "updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            try (PreparedStatement psReopen = c.prepareStatement(sqlReopenStc)) {
+                psReopen.setDate(1, dernierDate);
+                psReopen.setString(2, dernierRef);
+                psReopen.setInt(3, idStc);
+                psReopen.executeUpdate();
+            }
+
+            String sqlReopenDos = "UPDATE paie_dossier_sortie SET statut_dossier = 'VALIDE', "
+                    + "updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            try (PreparedStatement psReopenDos = c.prepareStatement(sqlReopenDos)) {
+                psReopenDos.setInt(1, idStc);
+                psReopenDos.executeUpdate();
+            }
+        } else {
+            // Mettre à jour la dernière référence active
+            String sqlUpStc = "UPDATE paie_stc SET date_reglement = ?, reference_reglement = ?, "
+                    + "updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            try (PreparedStatement psUp = c.prepareStatement(sqlUpStc)) {
+                psUp.setDate(1, dernierDate);
+                psUp.setString(2, dernierRef);
+                psUp.setInt(3, idStc);
+                psUp.executeUpdate();
+            }
+        }
+
+        // 6. Audit Log
+        AuditLog.audit(c, "ANNULATION_REGLEMENT_STC", "paie_stc_reglement", String.valueOf(idReglement),
+                "Annulation versement " + montantAnnule + " Ar (Réf: " + refAnnulee + ") - Motif: " + req.motifAnnulation().trim(),
+                "Nouveau total réglé: " + nouvelleSomme + " Ar");
+
+        return obtenirSituationReglements(idStc, c);
     }
 
     public StcRecuDTO obtenirRecuStc(Integer idStc, Connection c) throws Exception {
@@ -1305,6 +1792,16 @@ public class StcService {
         r.setNumeroRecu(s.getNumeroRecu());
         r.setDateEmission(s.getDateValidation() != null ? s.getDateValidation() : new Timestamp(System.currentTimeMillis()));
         r.setStatut(s.getStatut());
+
+        // Situation financière des règlements constatés
+        StcSituationReglementDTO sit = obtenirSituationReglements(idStc, c);
+        if (sit != null) {
+            r.setMontantTotalRegle(sit.getTotalRegle());
+            r.setSoldeRestantAPayer(sit.getResteAPayer());
+            r.setEstIntegralementRegle(sit.isEstIntegralementRegle());
+            r.setReglements(sit.getReglements());
+        }
+
         try (PreparedStatement psReg = c.prepareStatement(
                 "SELECT date_reglement, reference_reglement FROM paie_stc WHERE id_stc = ?")) {
             psReg.setInt(1, idStc);
@@ -1502,8 +1999,10 @@ public class StcService {
 
     private String determinerCategorieRubrique(String code) {
         if (code == null) return "AUTRE";
-        if (code.startsWith("SALAIRE_BASE") || code.contains("CONGE")) return "SALAIRE_BASE";
-        if (code.startsWith("INDEMNITE_")) return "INDEMNITE_RUPTURE";
+        if (code.startsWith("SALAIRE_BASE") || code.contains("CONGE") || code.startsWith("RETENUE_ABSENCE")) return "SALAIRE_BASE";
+        if (code.startsWith("HEURES_SUP") || code.startsWith("MAJORATION_")) return "HEURES_SUP";
+        if (code.startsWith("INDEMNITE_RUPTURE") || code.equals("INDEMNITE_PREAVIS") || code.equals("INDEMNITE_LICENCIEMENT")) return "INDEMNITE_RUPTURE";
+        if (code.startsWith("INDEMNITE_")) return "INDEMNITE";
         if (code.startsWith("COTISATION_") && code.endsWith("_PAT")) return "COTISATION_PATRONALE";
         if (code.startsWith("COTISATION_")) return "COTISATION_SALARIALE";
         if (code.startsWith("IMPOT_") || code.contains("IRSA")) return "IMPOT";
@@ -1519,6 +2018,28 @@ public class StcService {
 
         if ("SALAIRE_BASE_PRORATA".equalsIgnoreCase(codeRubrique)) return cache.get("SALAIRE_BASE");
         if ("RETENUE_CONGE_ANTICIPE".equalsIgnoreCase(codeRubrique)) return cache.get("RETENUE_CONGE");
+        if ("HEURES_SUP_30".equalsIgnoreCase(codeRubrique)) {
+            Integer idHs = cache.get("HEURES_SUP_30");
+            return idHs != null ? idHs : cache.get("HS30");
+        }
+        if ("HEURES_SUP_50".equalsIgnoreCase(codeRubrique)) {
+            Integer idHs = cache.get("HEURES_SUP_50");
+            return idHs != null ? idHs : cache.get("HS50");
+        }
+        if ("MAJORATION_NUIT".equalsIgnoreCase(codeRubrique)) {
+            Integer idN = cache.get("MAJORATION_NUIT");
+            return idN != null ? idN : cache.get("HS_NUIT");
+        }
+        if ("HEURES_DIMANCHE".equalsIgnoreCase(codeRubrique)) {
+            Integer idD = cache.get("HEURES_DIMANCHE");
+            return idD != null ? idD : cache.get("HS_DIM");
+        }
+        if ("MAJORATION_FERIE".equalsIgnoreCase(codeRubrique)) {
+            Integer idF = cache.get("MAJORATION_FERIE");
+            return idF != null ? idF : cache.get("HS_FERIE");
+        }
+        if ("INDEMNITE_REPAS".equalsIgnoreCase(codeRubrique)) return cache.get("REPAS");
+        if ("INDEMNITE_DEPLACEMENT".equalsIgnoreCase(codeRubrique)) return cache.get("DPLCT");
         if ("COTISATION_SANTE_SAL".equalsIgnoreCase(codeRubrique)) {
             Integer idOstie = cache.get("COTISATION_OSTIE_SAL");
             return idOstie != null ? idOstie : cache.get("COTISATION_OMSI_SAL");
@@ -1537,5 +2058,290 @@ public class StcService {
 
     private BigDecimal zeroIfNull(BigDecimal val) {
         return val != null ? val : BigDecimal.ZERO;
+    }
+
+    public record StcPointageVariables(
+            BigDecimal heuresHs30,
+            BigDecimal montantHs30,
+            BigDecimal heuresHs50,
+            BigDecimal montantHs50,
+            BigDecimal heuresNuit,
+            BigDecimal montantNuit,
+            BigDecimal heuresDimanche,
+            BigDecimal montantDimanche,
+            BigDecimal heuresFerie,
+            BigDecimal montantFerie,
+            BigDecimal heuresAbsence,
+            BigDecimal montantRetenueAbsence,
+            BigDecimal montantRepas,
+            BigDecimal montantDeplacement
+    ) {
+        public static StcPointageVariables zero() {
+            return new StcPointageVariables(
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO
+            );
+        }
+
+        public BigDecimal totalGainsVariables() {
+            return montantHs30.add(montantHs50)
+                    .add(montantNuit)
+                    .add(montantDimanche)
+                    .add(montantFerie)
+                    .add(montantRepas)
+                    .add(montantDeplacement);
+        }
+    }
+
+    public StcPointageVariables calculerPointageVariables(
+            int idEmploye,
+            LocalDate dateDebut,
+            LocalDate dateFin,
+            BigDecimal tauxHoraire,
+            Connection c
+    ) throws SQLException {
+        if (dateDebut == null || dateFin == null || dateFin.isBefore(dateDebut)
+                || tauxHoraire == null || tauxHoraire.signum() <= 0) {
+            return StcPointageVariables.zero();
+        }
+
+        // Le STC ne comptabilise les variables de pointage que si une saisie existe sur la période.
+        try (PreparedStatement psCheck = c.prepareStatement(
+                "SELECT 1 FROM pointage_jour WHERE id_employe = ? AND date_pointage BETWEEN ? AND ? LIMIT 1")) {
+            psCheck.setInt(1, idEmploye);
+            psCheck.setDate(2, Date.valueOf(dateDebut));
+            psCheck.setDate(3, Date.valueOf(dateFin));
+            try (ResultSet rsCheck = psCheck.executeQuery()) {
+                if (!rsCheck.next()) return StcPointageVariables.zero();
+            }
+        }
+
+        // Résolution de l'affectation et du statut cadre de l'employé
+        String matricule = null;
+        String nom = null;
+        String prenom = null;
+        String photoUrl = null;
+        int idSite = 1;
+        String siteCode = "SIEGE";
+        String siteNom = "Siège";
+        String codeCat = null;
+        boolean isCadre = false;
+        boolean estAutonome = false;
+        LocalDate ldDebCar = null;
+        LocalDate ldFinCar = null;
+
+        String sqlCar = "SELECT a.id_site, s.code_site AS site_code, s.libelle AS site_nom, "
+                + "e.matricule, e.nom, e.prenom, e.photo_url, "
+                + "cc.code AS code_categorie, COALESCE(cc.est_cadre, FALSE) AS est_cadre, "
+                + "FALSE AS est_autonome, "
+                + "a.date_debut, a.date_fin "
+                + "FROM employe e "
+                + "LEFT JOIN employe_affectation_carriere a ON a.id_employe = e.id_employe "
+                + "LEFT JOIN ref_site s ON a.id_site = s.id_site "
+                + "LEFT JOIN ref_categorie_professionnelle cc ON a.id_categorie_professionnelle = cc.id_categorie_professionnelle "
+                + "WHERE e.id_employe = ? "
+                + "ORDER BY (a.date_fin IS NULL) DESC, a.date_debut DESC LIMIT 1";
+
+        try (PreparedStatement psCar = c.prepareStatement(sqlCar)) {
+            psCar.setInt(1, idEmploye);
+            try (ResultSet rs = psCar.executeQuery()) {
+                if (rs.next()) {
+                    matricule = rs.getString("matricule");
+                    nom = rs.getString("nom");
+                    prenom = rs.getString("prenom");
+                    photoUrl = rs.getString("photo_url");
+                    if (rs.getObject("id_site") != null) idSite = rs.getInt("id_site");
+                    if (rs.getString("site_code") != null) siteCode = rs.getString("site_code");
+                    if (rs.getString("site_nom") != null) siteNom = rs.getString("site_nom");
+                    codeCat = rs.getString("code_categorie");
+                    isCadre = rs.getBoolean("est_cadre");
+                    estAutonome = rs.getBoolean("est_autonome");
+                    Date dbD = rs.getDate("date_debut");
+                    Date dbF = rs.getDate("date_fin");
+                    if (dbD != null) ldDebCar = dbD.toLocalDate();
+                    if (dbF != null) ldFinCar = dbF.toLocalDate();
+                }
+            }
+        }
+
+        BigDecimal hHs30 = BigDecimal.ZERO;
+        BigDecimal hHs50 = BigDecimal.ZERO;
+        BigDecimal hNuit = BigDecimal.ZERO;
+        BigDecimal hDimanche = BigDecimal.ZERO;
+        BigDecimal hFerie = BigDecimal.ZERO;
+        BigDecimal hAbsence = BigDecimal.ZERO;
+        BigDecimal mRepas = BigDecimal.ZERO;
+        BigDecimal mDeplacement = BigDecimal.ZERO;
+
+        if (pointageSyntheseService != null) {
+            // La synthèse est celle de la période de paie STC : résoudre à sa date
+            // de début, comme le fait également PointageSyntheseService.
+            Map<String, String> pMap = mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal
+                    .loadActiveMapAtDate(Date.valueOf(dateDebut), c);
+
+            try {
+                PointageSyntheseMensuelleDTO synDto = pointageSyntheseService.calculerSyntheseEmploye(
+                        idEmploye, matricule, nom, prenom, photoUrl,
+                        idSite, siteCode, siteNom,
+                        null, codeCat, isCadre, estAutonome,
+                        dateDebut, dateFin, ldDebCar, ldFinCar,
+                        null, null, "STC-PARTIEL", "CLOTURE",
+                        0, null, pMap, c
+                );
+                if (synDto != null) {
+                    if (synDto.getMinutesHs30Finales() != null && synDto.getMinutesHs30Finales() > 0) {
+                        hHs30 = BigDecimal.valueOf(synDto.getMinutesHs30Finales())
+                                .divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP);
+                    } else if (synDto.getHeuresHs30() > 0) {
+                        hHs30 = BigDecimal.valueOf(synDto.getHeuresHs30()).setScale(2, RoundingMode.HALF_UP);
+                    }
+
+                    if (synDto.getMinutesHs50Finales() != null && synDto.getMinutesHs50Finales() > 0) {
+                        hHs50 = BigDecimal.valueOf(synDto.getMinutesHs50Finales())
+                                .divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP);
+                    } else if (synDto.getHeuresHs50() > 0) {
+                        hHs50 = BigDecimal.valueOf(synDto.getHeuresHs50()).setScale(2, RoundingMode.HALF_UP);
+                    }
+
+                    if (synDto.getHeuresNuitTotal() > 0) {
+                        hNuit = BigDecimal.valueOf(synDto.getHeuresNuitTotal()).setScale(2, RoundingMode.HALF_UP);
+                    }
+                    if (synDto.getHeuresDimancheTotal() > 0) {
+                        hDimanche = BigDecimal.valueOf(synDto.getHeuresDimancheTotal()).setScale(2, RoundingMode.HALF_UP);
+                    }
+                    if (synDto.getHeuresFerieTotal() > 0) {
+                        hFerie = BigDecimal.valueOf(synDto.getHeuresFerieTotal()).setScale(2, RoundingMode.HALF_UP);
+                    }
+                    if (synDto.getMinutesAbsenceFinale() != null && synDto.getMinutesAbsenceFinale() > 0) {
+                        hAbsence = BigDecimal.valueOf(synDto.getMinutesAbsenceFinale())
+                                .divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP);
+                    } else if (synDto.getHeuresAbsenceRetenues() > 0) {
+                        hAbsence = BigDecimal.valueOf(synDto.getHeuresAbsenceRetenues()).setScale(2, RoundingMode.HALF_UP);
+                    }
+
+                    mRepas = zeroIfNull(synDto.getMontantRepas());
+                    mDeplacement = zeroIfNull(synDto.getMontantDeplacement());
+                }
+            } catch (Exception ex) {
+                log.warn("[StcService] Erreur appel syntheseService, fallback direct pointage_jour : {}", ex.getMessage());
+            }
+        }
+
+        // Si syntheseService n'a pas alimenté les volumes (ou en fallback direct)
+        if (hHs30.signum() == 0 && hHs50.signum() == 0 && hNuit.signum() == 0 && hDimanche.signum() == 0
+                && hFerie.signum() == 0 && hAbsence.signum() == 0 && mRepas.signum() == 0 && mDeplacement.signum() == 0) {
+            String sqlPtgDirect = "SELECT p.heures_nuit, p.minutes_retard, p.total_heures, "
+                    + "s.code AS statut_code, s.decompte_absence, "
+                    + "EXTRACT(ISODOW FROM p.date_pointage) AS dow, "
+                    + "pij_repas.montant_calcule AS repas_mnt, "
+                    + "pij_dep.montant_calcule AS dep_mnt "
+                    + "FROM pointage_jour p "
+                    + "JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour "
+                    + "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage "
+                    + "    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1) "
+                    + "LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage "
+                    + "    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') LIMIT 1) "
+                    + "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ?";
+
+            try (PreparedStatement psDirect = c.prepareStatement(sqlPtgDirect)) {
+                psDirect.setInt(1, idEmploye);
+                psDirect.setDate(2, Date.valueOf(dateDebut));
+                psDirect.setDate(3, Date.valueOf(dateFin));
+                try (ResultSet rs = psDirect.executeQuery()) {
+                    while (rs.next()) {
+                        BigDecimal hn = rs.getBigDecimal("heures_nuit");
+                        if (hn != null && hn.signum() > 0) hNuit = hNuit.add(hn);
+
+                        int dow = rs.getInt("dow");
+                        if (dow == 7) {
+                            BigDecimal th = rs.getBigDecimal("total_heures");
+                            if (th != null && th.signum() > 0) hDimanche = hDimanche.add(th);
+                        }
+
+                        int ret = rs.getInt("minutes_retard");
+                        boolean decompte = rs.getBoolean("decompte_absence");
+                        String sc = rs.getString("statut_code");
+                        int minsAbs = ret;
+                        if (decompte || (sc != null && sc.contains("ABS"))) {
+                            minsAbs += 480; // 8 heures = 480 minutes
+                        }
+                        if (minsAbs > 0) {
+                            hAbsence = hAbsence.add(BigDecimal.valueOf(minsAbs).divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP));
+                        }
+
+                        BigDecimal mr = rs.getBigDecimal("repas_mnt");
+                        if (mr != null) mRepas = mRepas.add(mr);
+                        BigDecimal md = rs.getBigDecimal("dep_mnt");
+                        if (md != null) mDeplacement = mDeplacement.add(md);
+                    }
+                }
+            }
+        }
+
+        // Résolution des taux canoniques applicables (LF Madagascar / ref_taux_majoration)
+        BigDecimal rateHs30 = new BigDecimal("0.30");
+        BigDecimal rateHs50 = new BigDecimal("0.50");
+        BigDecimal rateNuit = new BigDecimal("0.30");
+        BigDecimal rateDimanche = new BigDecimal("0.40");
+        BigDecimal rateFerie = new BigDecimal("1.00");
+
+        try (PreparedStatement psTaux = c.prepareStatement(
+                "SELECT type_majoration, taux FROM ref_taux_majoration "
+                + "WHERE (date_debut IS NULL OR date_debut <= ?) "
+                + "AND (date_fin IS NULL OR date_fin >= ?)")) {
+            psTaux.setDate(1, Date.valueOf(dateFin));
+            psTaux.setDate(2, Date.valueOf(dateFin));
+            try (ResultSet rs = psTaux.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("type_majoration");
+                    BigDecimal tx = rs.getBigDecimal("taux");
+                    if (code != null && tx != null) {
+                        switch (code.toUpperCase()) {
+                            case "HS_30", "HS30" -> rateHs30 = tx;
+                            case "HS_50", "HS50" -> rateHs50 = tx;
+                            case "NUIT", "HS_NUIT" -> rateNuit = tx;
+                            case "DIMANCHE", "DIM", "HS_DIM" -> rateDimanche = tx;
+                            case "FERIE", "HS_FERIE" -> rateFerie = tx;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // Utilisation canonique de OvertimePayCalculator avec politique CUMUL_ADDITIF (règles Décret 72-226)
+        PayrollCalculationInput input = new PayrollCalculationInput();
+        input.setIdEmploye(idEmploye);
+        input.setHeuresHs30(hHs30);
+        input.setHeuresHs50(hHs50);
+        input.setHeuresNuit(hNuit);
+        input.setHeuresDimanche(hDimanche);
+        input.setHeuresFeriees(hFerie);
+        input.setMajorationHs30(rateHs30);
+        input.setMajorationHs50(rateHs50);
+        input.setMajorationNuit(rateNuit);
+        input.setMajorationDimanche(rateDimanche);
+        input.setMajorationFerie(rateFerie);
+        input.setSpecialPremiumCollisionPolicy(SpecialPremiumCollisionPolicy.CUMUL_ADDITIF);
+
+        OvertimePayCalculator.Result otRes = overtimePayCalculator.calculate(input, tauxHoraire);
+
+        // Retenue absence selon le taux horaire contractuel
+        BigDecimal montantRetenueAbsence = MoneyRoundingPolicy.amount(hAbsence.multiply(tauxHoraire));
+
+        return new StcPointageVariables(
+                hHs30, otRes.hs30(),
+                hHs50, otRes.hs50(),
+                hNuit, otRes.nuit(),
+                hDimanche, otRes.dimanche(),
+                hFerie, otRes.ferie(),
+                hAbsence, montantRetenueAbsence,
+                MoneyRoundingPolicy.amount(mRepas),
+                MoneyRoundingPolicy.amount(mDeplacement)
+        );
     }
 }

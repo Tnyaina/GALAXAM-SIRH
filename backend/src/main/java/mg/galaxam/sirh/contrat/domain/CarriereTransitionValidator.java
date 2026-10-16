@@ -392,26 +392,12 @@ public final class CarriereTransitionValidator {
 
     public static int resolveParametreGlobalInt(String code, LocalDate dateRef, int defaultValue, Connection c) throws Exception {
         LocalDate target = dateRef != null ? dateRef : LocalDate.now();
-        String sql = "SELECT valeur FROM parametre_global WHERE code_parametre = ? AND est_actif = TRUE " +
-                "AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
-                "ORDER BY date_debut DESC";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, code);
-            ps.setDate(2, Date.valueOf(target));
-            ps.setDate(3, Date.valueOf(target));
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    String val = rs.getString(1);
-                    if (rs.next()) {
-                        throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: Plusieurs configurations actives pour " + code + " au " + target);
-                    }
-                    if (val != null && !val.isBlank()) {
-                        return Integer.parseInt(val.trim());
-                    }
-                }
-            }
+        var resolution = mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal
+                .resolveAtDate(code, Date.valueOf(target), c);
+        if (!resolution.isActive() || resolution.valeur() == null || resolution.valeur().isBlank()) {
+            return defaultValue;
         }
-        return defaultValue;
+        return Integer.parseInt(resolution.valeur().trim());
     }
 
     private static void exigerContrat(Integer idContrat, String message) {

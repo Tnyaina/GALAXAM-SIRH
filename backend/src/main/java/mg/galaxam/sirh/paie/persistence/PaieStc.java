@@ -70,6 +70,9 @@ public class PaieStc extends ClassMere {
     private Integer creePar;
     private Integer validePar;
     private Timestamp dateValidation;
+    private Date dateReglement;
+    private String referenceReglement;
+    private Integer reglePar;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
@@ -356,6 +359,9 @@ public class PaieStc extends ClassMere {
         s.creePar = (Integer) rs.getObject("cree_par");
         s.validePar = (Integer) rs.getObject("valide_par");
         s.dateValidation = rs.getTimestamp("date_validation");
+        s.dateReglement = rs.getDate("date_reglement");
+        s.referenceReglement = rs.getString("reference_reglement");
+        s.reglePar = (Integer) rs.getObject("regle_par");
         s.createdAt = rs.getTimestamp("created_at");
         s.updatedAt = rs.getTimestamp("updated_at");
 
@@ -479,4 +485,13 @@ public class PaieStc extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    public Date getDateReglement() { return dateReglement; }
+    public void setDateReglement(Date dateReglement) { this.dateReglement = dateReglement; }
+
+    public String getReferenceReglement() { return referenceReglement; }
+    public void setReferenceReglement(String referenceReglement) { this.referenceReglement = referenceReglement; }
+
+    public Integer getReglePar() { return reglePar; }
+    public void setReglePar(Integer reglePar) { this.reglePar = reglePar; }
 }

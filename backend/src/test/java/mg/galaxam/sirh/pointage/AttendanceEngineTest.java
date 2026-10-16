@@ -235,6 +235,73 @@ class AttendanceEngineTest {
         assertEquals(0, ineligiblePeriod.overtime30Minutes());
     }
 
+    @Test
+    void testArbitrageMetierGalaxamCompensationsEtDepassement() {
+        // Règle Métier GALAXAM : Objectif ajusté à 32h (ex: suite à 1 jour férié chômé ou congé payé)
+        long objectif32h = 4 * STANDARD_DAY_MINUTES; // 32h = 1920 minutes
+
+        // Situation 1 : Dépassement (34h effectuées -> 2h supplémentaires, 0 retenue)
+        // Lun 8h, Mar (férié/congé 0h), Mer 8h, Jeu 8h, Ven 10h (surplus 2h) = 34h
+        var sit1 = calculate(objectif32h, List.of(
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(0, AttendanceEngine.Result.Status.PUBLIC_HOLIDAY_OFF, false, true),
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(600, AttendanceEngine.Result.Status.PRESENT, false, false) // 10h (+2h)
+        ));
+        assertEquals(120, sit1.dailySurplusMinutes(), "Surplus journalier de 2h le vendredi");
+        assertEquals(0, sit1.compensatedMinutes(), "Aucun déficit à compenser");
+        assertEquals(120, sit1.grossOvertimeMinutes(), "2h supplémentaires qualifiées (34h - 32h)");
+        assertEquals(120, sit1.overtime30Minutes(), "Les 2h de dépassement vont au palier HS 30%");
+        assertEquals(0, sit1.absenceMinutes(), "Aucune retenue");
+
+        // Situation 2 : Compensation exacte (Mardi 6h, Vendredi 10h, autres à 8h -> 32h totales)
+        // Lun 8h, Mar 6h (-2h), Mer 8h, Jeu (férié 0h), Ven 10h (+2h) = 32h effectuées
+        var sit2 = calculate(objectif32h, List.of(
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(360, AttendanceEngine.Result.Status.PRESENT, false, false), // 6h (-2h)
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(0, AttendanceEngine.Result.Status.PUBLIC_HOLIDAY_OFF, false, true),
+                day(600, AttendanceEngine.Result.Status.PRESENT, false, false) // 10h (+2h)
+        ));
+        assertEquals(120, sit2.dailySurplusMinutes(), "Surplus journalier de 2h le vendredi");
+        assertEquals(120, sit2.compensatedMinutes(), "Les 2h du vendredi compensent exactement les 2h du mardi");
+        assertEquals(0, sit2.grossOvertimeMinutes(), "Aucune heure supplémentaire (compensation intégrale)");
+        assertEquals(0, sit2.absenceMinutes(), "Aucun manque / aucune retenue");
+
+        // Situation 3 : Déficit (30h effectuées sur objectif 32h -> 0 HS, 2h de manque)
+        // Lun 8h, Mar (férié 0h), Mer 8h, Jeu 8h, Ven 6h (déficit 2h) = 30h effectuées
+        var sit3 = calculate(objectif32h, List.of(
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(0, AttendanceEngine.Result.Status.PUBLIC_HOLIDAY_OFF, false, true),
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(480, AttendanceEngine.Result.Status.PRESENT, false, false),
+                day(360, AttendanceEngine.Result.Status.PRESENT, false, false) // 6h (-2h)
+        ));
+        assertEquals(0, sit3.dailySurplusMinutes(), "Aucun surplus");
+        assertEquals(0, sit3.compensatedMinutes(), "Rien à compenser");
+        assertEquals(0, sit3.grossOvertimeMinutes(), "Aucune heure supplémentaire");
+        assertEquals(120, sit3.absenceMinutes(), "2h de manque non justifié (32h - 30h) décomptées en absence");
+    }
+
+    @Test
+    void testSegmentationSemaineChevauchantDeuxPeriodesEtancheite() {
+        // Semaine du Lundi 21 Septembre au Dimanche 27 Septembre 2026
+        // Période 1 : clôture au 25 Septembre (Vendredi)
+        // Période 2 : cycle 26-25 débutant le 26 Septembre (Samedi)
+        var segments = AttendanceEngine.segmentWeeks(LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 25));
+        assertEquals(1, segments.size());
+        assertEquals(LocalDate.of(2026, 9, 21), segments.get(0).start());
+        assertEquals(LocalDate.of(2026, 9, 25), segments.get(0).end());
+
+        var segmentsP2 = AttendanceEngine.segmentWeeks(LocalDate.of(2026, 9, 26), LocalDate.of(2026, 10, 25));
+        // Le premier segment de P2 couvre du 26/09 (Samedi) au 27/09 (Dimanche)
+        assertEquals(LocalDate.of(2026, 9, 26), segmentsP2.get(0).start());
+        assertEquals(LocalDate.of(2026, 9, 27), segmentsP2.get(0).end());
+        // Étanchéité absolue : la somme des jours des deux tronçons (5j + 2j) fait exactement la semaine de 7 jours
+        // Aucune heure n'est perdue ni comptée deux fois.
+    }
+
     private AttendanceEngine.WeekResult calculate(long expectedMinutes,
             List<AttendanceEngine.Result> days) {
         return calculator.calculateWeek(context(LocalDate.of(2026, 9, 7), expectedMinutes), days);

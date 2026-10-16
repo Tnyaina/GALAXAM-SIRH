@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } fro
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     CalendarRange, FileText,
-    SlidersHorizontal, ChevronRight, Users, Clock3
+    SlidersHorizontal, ChevronRight, Users, Clock3, UserMinus
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import Button from '@/components/ui/forms/Button';
@@ -421,10 +421,11 @@ export default function GestionPaiePage() {
             {/* Navigation secondaire */}
             <nav aria-label="Autres espaces de paie" className="space-y-3 pt-2">
                 <h3 className="text-sm font-bold text-[var(--color-fg)]">Autres espaces de paie</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                     {[
                         { label: 'Campagnes et historique', path: '/paie?tab=periodes', icon: CalendarRange },
                         { label: 'Acomptes et avances', path: '/paie/acomptes-avances', icon: SlidersHorizontal },
+                        { label: 'Dossiers de sortie & STC', path: '/paie/dossiers-sortie', icon: UserMinus },
                         { label: 'Documents et exports', path: '/paie/declarations', icon: FileText },
                         { label: 'Prestataires', path: '/paie/prestataires', icon: Users },
                     ].map(({ label, path, icon: Icon }) => (

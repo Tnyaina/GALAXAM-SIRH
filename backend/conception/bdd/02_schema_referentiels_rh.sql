@@ -84,7 +84,8 @@ CREATE TABLE ref_service (
     libelle VARCHAR(100) NOT NULL,
     id_departement INT NOT NULL REFERENCES ref_departement(id_departement) ON DELETE CASCADE,
     est_actif BOOLEAN DEFAULT TRUE,
-    CONSTRAINT uk_service_departement UNIQUE (code_service, id_departement)
+    CONSTRAINT uk_service_departement UNIQUE (code_service, id_departement),
+    CONSTRAINT uq_ref_service_id_departement UNIQUE (id_service, id_departement)
 );
 
 CREATE INDEX idx_ref_service_departement ON ref_service(id_departement);

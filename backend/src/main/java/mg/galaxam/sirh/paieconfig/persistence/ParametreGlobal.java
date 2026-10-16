@@ -6,7 +6,9 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ParametreGlobal extends ClassMere {
 
@@ -89,6 +91,14 @@ public class ParametreGlobal extends ClassMere {
     @Override
     public String getAttributIDName() {
         return "id_parametre";
+    }
+
+    @Override
+    public void controler(Connection c) {
+        if (dateDebut == null) throw new IllegalArgumentException("La date de début du paramètre est obligatoire.");
+        if (dateFin != null && dateFin.before(dateDebut)) {
+            throw new IllegalArgumentException("La date de fin du paramètre ne peut pas précéder sa date de début.");
+        }
     }
 
     @Override
@@ -361,18 +371,32 @@ public class ParametreGlobal extends ClassMere {
 
     public static java.util.Map<String, String> loadActiveMapByCategorie(String categorie, Connection c) {
         java.util.Map<String, String> map = new java.util.HashMap<>();
-        String sql = "SELECT code_parametre, valeur FROM parametre_global " +
-                     "WHERE UPPER(categorie) = UPPER(?) AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
-                     "AND COALESCE(est_actif, TRUE) = TRUE " +
+        Date dateRef = Date.valueOf(java.time.LocalDate.now());
+        String sql = "SELECT code_parametre, categorie, valeur, COALESCE(est_actif, TRUE) AS est_actif FROM parametre_global " +
+                     "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
                      "ORDER BY date_debut ASC, id_parametre ASC";
+        Set<String> resolvedCodes = new HashSet<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, categorie.trim());
+            ps.setDate(1, dateRef);
+            ps.setDate(2, dateRef);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+                    String code = rs.getString("code_parametre").toUpperCase();
+                    if (!resolvedCodes.add(code)) {
+                        throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: paramètre " + code + " au " + java.time.LocalDate.now());
+                    }
+                    if (rs.getBoolean("est_actif")
+                            && categorie.equalsIgnoreCase(rs.getString("categorie"))) {
+                        map.put(code, rs.getString("valeur"));
+                    }
                 }
             }
         } catch (Exception e) {
+            if (e instanceof IllegalStateException ambiguous
+                    && ambiguous.getMessage() != null
+                    && ambiguous.getMessage().startsWith("AMBIGUOUS_CONFIGURATION:")) {
+                throw ambiguous;
+            }
             System.err.println("[PARAMETRE GLOBAL] Erreur de chargement catégorie " + categorie + ": " + e.getMessage());
         }
         return map;
@@ -507,19 +531,40 @@ public class ParametreGlobal extends ClassMere {
      * utiliser {@link #loadEtatMapAtDate(Date, Connection)} avec la date métier concernée.
      */
     public static String getActiveValue(String codeParametre, Connection c) {
+        return getActiveValueAtDate(codeParametre, Date.valueOf(java.time.LocalDate.now()), c);
+    }
+
+    /** Résout la version active à une date métier et échoue explicitement en cas d'ambiguïté. */
+    public static String getActiveValueAtDate(String codeParametre, Date dateRef, Connection c) {
         if (codeParametre == null || codeParametre.isBlank()) return null;
-        String sql = "SELECT valeur FROM parametre_global WHERE UPPER(code_parametre) = UPPER(?) " +
-                     "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
-                     "ORDER BY date_debut DESC LIMIT 1";
+        ParametreResolution resolution = resolveAtDate(codeParametre, dateRef, c);
+        return resolution.isActive() ? resolution.valeur() : null;
+    }
+
+    /** Résout une seule clé sans charger l'historique des autres paramètres. */
+    public static ParametreResolution resolveAtDate(String codeParametre, Date dateRef, Connection c) {
+        if (codeParametre == null || codeParametre.isBlank()) {
+            return new ParametreResolution(ResolutionStatus.MISSING, null);
+        }
+        if (dateRef == null) throw new IllegalArgumentException("La date métier des paramètres globaux est obligatoire.");
+        String sql = "SELECT valeur, COALESCE(est_actif, TRUE) AS est_actif FROM parametre_global "
+                + "WHERE UPPER(code_parametre) = UPPER(?) AND date_debut <= ? "
+                + "AND (date_fin IS NULL OR date_fin >= ?) ORDER BY date_debut ASC, id_parametre ASC LIMIT 2";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeParametre.trim());
+            ps.setDate(2, dateRef);
+            ps.setDate(3, dateRef);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getString(1);
+                if (!rs.next()) return new ParametreResolution(ResolutionStatus.MISSING, null);
+                String valeur = rs.getString("valeur");
+                boolean actif = rs.getBoolean("est_actif");
+                if (rs.next()) throw new IllegalStateException(
+                        "AMBIGUOUS_CONFIGURATION: paramètre " + codeParametre.trim().toUpperCase() + " au " + dateRef);
+                return new ParametreResolution(actif ? ResolutionStatus.ACTIVE : ResolutionStatus.DISABLED, valeur);
             }
-        } catch (Exception e) {
-            System.err.println("[PARAMETRE GLOBAL] Erreur getActiveValue: " + e.getMessage());
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException("Impossible de résoudre le paramètre " + codeParametre + " au " + dateRef, e);
         }
-        return null;
     }
 
     // Helper static getters typés

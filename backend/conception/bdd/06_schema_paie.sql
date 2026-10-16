@@ -651,7 +651,65 @@ CREATE INDEX idx_paie_stc_cree_par ON paie_stc(cree_par);
 CREATE INDEX idx_paie_stc_valide_par ON paie_stc(valide_par);
 CREATE INDEX idx_paie_stc_bulletin ON paie_stc(id_bulletin);
 
--- 11. Grand-Livre de Valorisation des Droits à Congés
+-- 11. Dossier administratif de sortie et journal des règlements STC
+CREATE TABLE paie_dossier_sortie (
+    id_dossier_sortie SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_contrat INT REFERENCES contrat_travail(id_contrat),
+    date_depart DATE NOT NULL,
+    motif_rupture VARCHAR(50) NOT NULL,
+    statut_dossier VARCHAR(30) NOT NULL DEFAULT 'EN_PREPARATION',
+    donnees_preparation JSONB,
+    decision_pret VARCHAR(40),
+    justification_decision_pret TEXT,
+    montant_pret_retenu NUMERIC(20,2) DEFAULT 0,
+    certificat_delivre BOOLEAN DEFAULT FALSE,
+    date_delivrance_certificat DATE,
+    mode_remise_certificat VARCHAR(30),
+    recu_stc_remis BOOLEAN DEFAULT FALSE,
+    date_remise_recu DATE,
+    checklist_offboarding JSONB,
+    id_stc INT UNIQUE REFERENCES paie_stc(id_stc) ON DELETE SET NULL,
+    cree_par INT REFERENCES utilisateur(id_utilisateur),
+    cloture_par INT REFERENCES utilisateur(id_utilisateur),
+    date_cloture TIMESTAMP WITH TIME ZONE,
+    version INT NOT NULL DEFAULT 1,
+    reference_simulation VARCHAR(100),
+    snapshot_simulation JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_dossier_sortie_statut CHECK (statut_dossier IN ('EN_PREPARATION', 'PRET_A_VALIDER', 'VALIDE', 'REGLE', 'CLOTURE', 'ANNULE')),
+    CONSTRAINT uk_dossier_sortie_employe_depart UNIQUE (id_employe, date_depart)
+);
+
+CREATE INDEX idx_dossier_sortie_employe ON paie_dossier_sortie(id_employe);
+CREATE INDEX idx_dossier_sortie_statut ON paie_dossier_sortie(statut_dossier);
+CREATE INDEX idx_dossier_sortie_contrat ON paie_dossier_sortie(id_contrat);
+CREATE INDEX idx_dossier_sortie_stc ON paie_dossier_sortie(id_stc);
+
+CREATE TABLE paie_stc_reglement (
+    id_reglement SERIAL PRIMARY KEY,
+    id_stc INT NOT NULL,
+    date_reglement DATE NOT NULL,
+    montant_regle NUMERIC(20,2) NOT NULL CHECK (montant_regle >= 0),
+    mode_reglement VARCHAR(30) NOT NULL DEFAULT 'VIREMENT',
+    reference_reglement VARCHAR(255) NOT NULL,
+    commentaire TEXT,
+    est_annule BOOLEAN NOT NULL DEFAULT FALSE,
+    annule_par INT REFERENCES utilisateur(id_utilisateur),
+    date_annulation TIMESTAMP WITH TIME ZONE,
+    motif_annulation TEXT,
+    enregistre_par INT REFERENCES utilisateur(id_utilisateur),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT paie_stc_reglement_id_stc_fkey
+        FOREIGN KEY (id_stc) REFERENCES paie_stc(id_stc) ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_stc_reglement_stc ON paie_stc_reglement(id_stc);
+CREATE INDEX idx_stc_reglement_date ON paie_stc_reglement(date_reglement);
+CREATE UNIQUE INDEX uk_stc_reglement_stc_ref_active ON paie_stc_reglement(id_stc, reference_reglement) WHERE est_annule = FALSE;
+
+-- 12. Grand-Livre de Valorisation des Droits à Congés
 CREATE TABLE conge_journal_droit (
     id_journal SERIAL PRIMARY KEY,
     id_employe INT NOT NULL REFERENCES employe(id_employe),

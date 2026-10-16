@@ -234,4 +234,21 @@ public class StcRecuDTO {
 
     public String getFormuleManuscriteObligatoire() { return formuleManuscriteObligatoire; }
     public void setFormuleManuscriteObligatoire(String formuleManuscriteObligatoire) { this.formuleManuscriteObligatoire = formuleManuscriteObligatoire; }
+
+    private BigDecimal montantTotalRegle = BigDecimal.ZERO;
+    private BigDecimal soldeRestantAPayer = BigDecimal.ZERO;
+    private boolean estIntegralementRegle = false;
+    private java.util.List<StcReglementDTO> reglements = new java.util.ArrayList<>();
+
+    public BigDecimal getMontantTotalRegle() { return montantTotalRegle; }
+    public void setMontantTotalRegle(BigDecimal montantTotalRegle) { this.montantTotalRegle = montantTotalRegle; }
+
+    public BigDecimal getSoldeRestantAPayer() { return soldeRestantAPayer; }
+    public void setSoldeRestantAPayer(BigDecimal soldeRestantAPayer) { this.soldeRestantAPayer = soldeRestantAPayer; }
+
+    public boolean isEstIntegralementRegle() { return estIntegralementRegle; }
+    public void setEstIntegralementRegle(boolean estIntegralementRegle) { this.estIntegralementRegle = estIntegralementRegle; }
+
+    public java.util.List<StcReglementDTO> getReglements() { return reglements; }
+    public void setReglements(java.util.List<StcReglementDTO> reglements) { this.reglements = reglements; }
 }

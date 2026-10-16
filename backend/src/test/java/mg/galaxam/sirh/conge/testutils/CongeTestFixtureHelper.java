@@ -16,14 +16,16 @@ public final class CongeTestFixtureHelper {
             }
         }
         try (Statement st = c.createStatement()) {
+            st.execute("DELETE FROM paie_stc_reglement");
+            st.execute("DELETE FROM paie_dossier_sortie");
+            st.execute("DELETE FROM paie_stc");
+            st.execute("DELETE FROM bulletin_paie_ligne");
+            st.execute("DELETE FROM bulletin_paie");
             st.execute("DELETE FROM pointage_snapshot_jour");
             st.execute("DELETE FROM pointage_snapshot_indemnite");
             st.execute("DELETE FROM pointage_snapshot_bucket");
             st.execute("DELETE FROM pointage_cumul_periode");
             st.execute("DELETE FROM pointage_jour");
-            st.execute("DELETE FROM bulletin_paie_ligne");
-            st.execute("DELETE FROM bulletin_paie");
-            st.execute("DELETE FROM paie_stc");
             st.execute("DELETE FROM conge_taux_applicable");
             st.execute("DELETE FROM conge_journal_droit");
             st.execute("DELETE FROM conge_periode_reference");

@@ -169,7 +169,8 @@ CREATE TABLE contrat_travail (
     description TEXT,
     commentaire TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_contrat_id_employe UNIQUE (id_contrat, id_employe)
 );
 
 CREATE INDEX idx_contrat_employe ON contrat_travail(id_employe);
@@ -222,7 +223,13 @@ CREATE TABLE employe_affectation_carriere (
     commentaire TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_salaire_base_positif CHECK (salaire_base > 0)
+    CONSTRAINT chk_salaire_base_positif CHECK (salaire_base > 0),
+    CONSTRAINT fk_affectation_contrat_employe
+        FOREIGN KEY (id_contrat, id_employe)
+        REFERENCES contrat_travail (id_contrat, id_employe),
+    CONSTRAINT fk_affectation_service_departement
+        FOREIGN KEY (id_service, id_departement)
+        REFERENCES ref_service (id_service, id_departement)
 );
 
 CREATE INDEX idx_affectation_employe ON employe_affectation_carriere(id_employe);

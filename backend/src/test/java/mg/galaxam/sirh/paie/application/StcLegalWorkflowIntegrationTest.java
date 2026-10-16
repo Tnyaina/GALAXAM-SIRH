@@ -70,11 +70,19 @@ class StcLegalWorkflowIntegrationTest {
                     ps.executeUpdate();
                 }
                 int periodeId;
-                try (PreparedStatement ps = c.prepareStatement(
-                        "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) "
-                        + "VALUES (?, 'Octobre STC rapprochement', '2026-10-01', '2026-10-31', 1) RETURNING id_periode_paie")) {
-                    ps.setString(1, "2026-10-STC-RAPP-" + empId);
-                    try (ResultSet rs = ps.executeQuery()) { rs.next(); periodeId = rs.getInt(1); }
+                try (PreparedStatement psSel = c.prepareStatement("SELECT id_periode_paie FROM periode_paie WHERE '2026-10-01' BETWEEN date_debut AND date_fin LIMIT 1")) {
+                    try (ResultSet rsSel = psSel.executeQuery()) {
+                        if (rsSel.next()) {
+                            periodeId = rsSel.getInt(1);
+                        } else {
+                            try (PreparedStatement ps = c.prepareStatement(
+                                    "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) "
+                                    + "VALUES (?, 'Octobre STC rapprochement', '2026-10-01', '2026-10-31', 1) RETURNING id_periode_paie")) {
+                                ps.setString(1, "P-" + empId + "-" + (System.currentTimeMillis() % 10000));
+                                try (ResultSet rs = ps.executeQuery()) { rs.next(); periodeId = rs.getInt(1); }
+                            }
+                        }
+                    }
                 }
                 int snapshotId;
                 try (PreparedStatement ps = c.prepareStatement(
@@ -192,12 +200,20 @@ class StcLegalWorkflowIntegrationTest {
                 // Période de paie active (Octobre 2026)
                 LocalDate dateDepart = LocalDate.of(2026, 10, 10); // Départ effectif au 10 octobre 2026 (<= today)
                 int periodeId;
-                try (PreparedStatement ps = c.prepareStatement(
-                        "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
-                        "VALUES ('2026-10-STC', 'Octobre 2026 STC Test', '2026-10-01', '2026-10-31', 1) RETURNING id_periode_paie")) {
-                    try (ResultSet rs = ps.executeQuery()) {
-                        rs.next();
-                        periodeId = rs.getInt(1);
+                try (PreparedStatement psSel = c.prepareStatement("SELECT id_periode_paie FROM periode_paie WHERE '2026-10-01' BETWEEN date_debut AND date_fin LIMIT 1")) {
+                    try (ResultSet rsSel = psSel.executeQuery()) {
+                        if (rsSel.next()) {
+                            periodeId = rsSel.getInt(1);
+                        } else {
+                            try (PreparedStatement ps = c.prepareStatement(
+                                    "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
+                                    "VALUES ('2026-10-STC', 'Octobre 2026 STC Test', '2026-10-01', '2026-10-31', 1) RETURNING id_periode_paie")) {
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    rs.next();
+                                    periodeId = rs.getInt(1);
+                                }
+                            }
+                        }
                     }
                 }
 

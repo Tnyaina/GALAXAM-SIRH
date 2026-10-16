@@ -78,6 +78,51 @@ public class EmployeAffectationCarriere extends ClassMere {
         if (dateFin != null && dateFin.before(dateDebut)) {
             throw new IllegalArgumentException("La date de fin ne peut pas être antérieure à la date de début.");
         }
+
+        validerContratEmploye(c);
+        validerServiceDepartement(c);
+    }
+
+    private void validerContratEmploye(Connection c) throws SQLException {
+        String sql = "SELECT ct.id_employe, e.id_employe IS NOT NULL AS employe_existe "
+                + "FROM contrat_travail ct LEFT JOIN employe e ON e.id_employe = ? "
+                + "WHERE ct.id_contrat = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.setInt(2, idContrat);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Le contrat sélectionné n'existe pas.");
+                }
+                if (!rs.getBoolean("employe_existe")) {
+                    throw new IllegalArgumentException("L'employé sélectionné n'existe pas.");
+                }
+                if (rs.getInt("id_employe") != idEmploye) {
+                    throw new IllegalArgumentException("Le contrat sélectionné n'appartient pas à cet employé.");
+                }
+            }
+        }
+    }
+
+    private void validerServiceDepartement(Connection c) throws SQLException {
+        String sql = "SELECT s.id_departement, d.id_departement IS NOT NULL AS departement_existe "
+                + "FROM ref_service s LEFT JOIN ref_departement d ON d.id_departement = ? "
+                + "WHERE s.id_service = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idDepartement);
+            ps.setInt(2, idService);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Le service sélectionné n'existe pas.");
+                }
+                if (!rs.getBoolean("departement_existe")) {
+                    throw new IllegalArgumentException("Le département sélectionné n'existe pas.");
+                }
+                if (rs.getInt("id_departement") != idDepartement) {
+                    throw new IllegalArgumentException("Le service sélectionné n'appartient pas à ce département.");
+                }
+            }
+        }
     }
 
     @Override

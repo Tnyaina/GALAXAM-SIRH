@@ -174,11 +174,8 @@ public class Utilisateur extends ClassMere {
 
     @Override
     protected void supprimer(Connection c) throws Exception {
-        String sql = "DELETE FROM utilisateur WHERE id_utilisateur=?";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idUtilisateur);
-            ps.executeUpdate();
-        }
+        throw new UnsupportedOperationException(
+                "La suppression physique des comptes est interdite. Désactivez le compte afin de conserver les historiques.");
     }
 
     @Override
@@ -238,6 +235,12 @@ public class Utilisateur extends ClassMere {
             ps.setInt(1, idUtilisateur);
             ps.executeUpdate();
         }
+    }
+
+    /** Efface aussi l'état en mémoire avant la persistance d'une transition de compte. */
+    public void effacerRefreshToken() {
+        this.refreshToken = null;
+        this.refreshTokenExpiration = null;
     }
 
     private static Utilisateur mapResultSet(ResultSet rs) throws Exception {

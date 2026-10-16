@@ -255,6 +255,7 @@ public class UtilisateurController {
             existing.setEstActif(false);
             existing.setDateDesactivation(new Timestamp(System.currentTimeMillis()));
             existing.setMotifDesactivation(motif);
+            existing.effacerRefreshToken();
 
             existing.update(c);
             AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
@@ -306,6 +307,7 @@ public class UtilisateurController {
             existing.setEstActif(true);
             existing.setDateDesactivation(null);
             existing.setMotifDesactivation(null);
+            existing.effacerRefreshToken();
 
             existing.update(c);
             AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);

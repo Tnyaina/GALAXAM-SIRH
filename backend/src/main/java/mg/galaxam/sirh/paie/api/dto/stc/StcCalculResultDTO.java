@@ -68,6 +68,14 @@ public class StcCalculResultDTO {
     private BigDecimal autresDeductions = BigDecimal.ZERO;
     private String motifAutresDeductions;
 
+    // Variables de pointage (Phase 2.1)
+    private BigDecimal montantHeuresSup = BigDecimal.ZERO;
+    private BigDecimal montantMajorationNuit = BigDecimal.ZERO;
+    private BigDecimal montantMajorationDimanche = BigDecimal.ZERO;
+    private BigDecimal montantMajorationFerie = BigDecimal.ZERO;
+    private BigDecimal montantRetenueAbsence = BigDecimal.ZERO;
+    private BigDecimal montantIndemnitesPointage = BigDecimal.ZERO;
+
     // 6. Net Final
     private BigDecimal netAPayerStc = BigDecimal.ZERO;
 
@@ -82,6 +90,19 @@ public class StcCalculResultDTO {
     public void ajouterLigne(String code, String libelle, String sens, BigDecimal base, BigDecimal taux, BigDecimal montant) {
         lignes.add(new StcLigneDTO(code, libelle, sens, base, taux, montant));
     }
+
+    public BigDecimal getMontantHeuresSup() { return montantHeuresSup; }
+    public void setMontantHeuresSup(BigDecimal montantHeuresSup) { this.montantHeuresSup = montantHeuresSup; }
+    public BigDecimal getMontantMajorationNuit() { return montantMajorationNuit; }
+    public void setMontantMajorationNuit(BigDecimal montantMajorationNuit) { this.montantMajorationNuit = montantMajorationNuit; }
+    public BigDecimal getMontantMajorationDimanche() { return montantMajorationDimanche; }
+    public void setMontantMajorationDimanche(BigDecimal montantMajorationDimanche) { this.montantMajorationDimanche = montantMajorationDimanche; }
+    public BigDecimal getMontantMajorationFerie() { return montantMajorationFerie; }
+    public void setMontantMajorationFerie(BigDecimal montantMajorationFerie) { this.montantMajorationFerie = montantMajorationFerie; }
+    public BigDecimal getMontantRetenueAbsence() { return montantRetenueAbsence; }
+    public void setMontantRetenueAbsence(BigDecimal montantRetenueAbsence) { this.montantRetenueAbsence = montantRetenueAbsence; }
+    public BigDecimal getMontantIndemnitesPointage() { return montantIndemnitesPointage; }
+    public void setMontantIndemnitesPointage(BigDecimal montantIndemnitesPointage) { this.montantIndemnitesPointage = montantIndemnitesPointage; }
 
     public static class StcLigneDTO {
         private String code;

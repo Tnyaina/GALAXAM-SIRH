@@ -29,7 +29,8 @@ public class PayrollPopulationResolver {
         Period period = loadPeriod(periodId, connection);
         String sql = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.est_actif, eac.id_affectation, "
                 + "ct.id_contrat, ct.numero_contrat, rtc.libelle AS type_contrat, rtc.code AS type_contrat_code, "
-                + "rs.libelle AS nom_site, tri.libelle AS regime, tri.code AS regime_code "
+                + "rs.libelle AS nom_site, tri.libelle AS regime, tri.code AS regime_code, "
+                + "EXISTS(SELECT 1 FROM paie_stc stc WHERE stc.id_employe = e.id_employe AND stc.id_periode_paie = ? AND stc.statut IN ('VALIDE', 'REGLE')) AS stc_scelle "
                 + "FROM employe e "
                 + "LEFT JOIN employe_affectation_carriere eac ON eac.id_employe = e.id_employe "
                 + "AND eac.date_debut <= ? AND (eac.date_fin IS NULL OR eac.date_fin >= ?) "
@@ -41,10 +42,11 @@ public class PayrollPopulationResolver {
                 + "WHERE e.est_actif = TRUE ORDER BY e.matricule, eac.date_debut";
         Map<Integer, List<Row>> rowsByEmployee = new LinkedHashMap<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setDate(1, Date.valueOf(period.endDate()));
-            statement.setDate(2, Date.valueOf(period.startDate()));
-            statement.setDate(3, Date.valueOf(period.endDate()));
-            statement.setDate(4, Date.valueOf(period.startDate()));
+            statement.setInt(1, period.id());
+            statement.setDate(2, Date.valueOf(period.endDate()));
+            statement.setDate(3, Date.valueOf(period.startDate()));
+            statement.setDate(4, Date.valueOf(period.endDate()));
+            statement.setDate(5, Date.valueOf(period.startDate()));
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
                     int employeeId = result.getInt("id_employe");
@@ -55,7 +57,8 @@ public class PayrollPopulationResolver {
                             result.getString("numero_contrat"), result.getString("type_contrat"),
                             result.getString("nom_site"), result.getBoolean("est_actif"),
                             result.getString("regime"), result.getString("type_contrat_code"),
-                            result.getString("regime_code")));
+                            result.getString("regime_code"),
+                            result.getBoolean("stc_scelle")));
                 }
             }
         }
@@ -90,6 +93,9 @@ public class PayrollPopulationResolver {
             return member(fallbackRow, "BLOCKED", "AMBIGUOUS_ASSIGNMENT");
         }
         Row applicableRow = applicableRows.get(0);
+        if (applicableRow.stcScelle()) {
+            return member(applicableRow, "EXCLUDED", "STC_ALREADY_SETTLED");
+        }
         if (applicableRow.contractId() == null || applicableRow.regime() == null) {
             return member(applicableRow, "BLOCKED", "NO_APPLICABLE_CONTRACT");
         }
@@ -144,5 +150,6 @@ public class PayrollPopulationResolver {
     private record Period(int id, String code, LocalDate startDate, LocalDate endDate) {}
     private record Row(int employeeId, String matricule, String employeeName, Integer assignmentId,
                        Integer contractId, String contractNumber, String typeContrat, String nomSite,
-                       boolean employeeActive, String regime, String contractTypeCode, String regimeCode) {}
+                       boolean employeeActive, String regime, String contractTypeCode, String regimeCode,
+                       boolean stcScelle) {}
 }

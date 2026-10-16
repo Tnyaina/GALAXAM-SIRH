@@ -11,6 +11,8 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcPreparationDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcRecuDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcReglementRequest;
+import mg.galaxam.sirh.paie.api.dto.stc.StcSituationReglementDTO;
+import mg.galaxam.sirh.paie.api.dto.stc.AnnulationReglementRequest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
@@ -142,17 +144,58 @@ public class StcController {
         }
     }
 
-    @PostMapping("/{idStc}/regler")
+    /**
+     * Enregistre un règlement (complet, partiel ou acquittement solde nul) sur le STC scellé.
+     */
+    @PostMapping({"/{idStc}/regler", "/{idStc}/reglement"})
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> enregistrerReglement(@PathVariable("idStc") Integer idStc,
+    public ResponseEntity<StcSituationReglementDTO> enregistrerReglement(@PathVariable("idStc") Integer idStc,
             @Valid @RequestBody StcReglementRequest req) throws Exception {
         Integer userId = getCurrentUserId();
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                stcService.enregistrerReglement(idStc, req, userId, c);
+                StcSituationReglementDTO sit = stcService.enregistrerReglement(idStc, req, userId, c);
                 c.commit();
-                return ResponseEntity.noContent().build();
+                return ResponseEntity.ok(sit);
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
+            }
+        }
+    }
+
+    /**
+     * Récupère la situation financière complète des règlements du STC (total réglé, reste à payer, historique).
+     */
+    @GetMapping("/{idStc}/reglements")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<StcSituationReglementDTO> obtenirSituationReglements(@PathVariable("idStc") Integer idStc) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            StcSituationReglementDTO sit = stcService.obtenirSituationReglements(idStc, c);
+            if (sit == null) {
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "STC introuvable : " + idStc);
+            }
+            return ResponseEntity.ok(sit);
+        }
+    }
+
+    /**
+     * Annule de manière motivée et traçable une ligne de versement de STC.
+     */
+    @PostMapping("/{idStc}/reglement/{idReglement}/annuler")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<StcSituationReglementDTO> annulerReglement(
+            @PathVariable("idStc") Integer idStc,
+            @PathVariable("idReglement") Integer idReglement,
+            @Valid @RequestBody AnnulationReglementRequest req) throws Exception {
+        Integer userId = getCurrentUserId();
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                StcSituationReglementDTO sit = stcService.annulerReglement(idStc, idReglement, req, userId, c);
+                c.commit();
+                return ResponseEntity.ok(sit);
             } catch (Exception ex) {
                 c.rollback();
                 throw ex;

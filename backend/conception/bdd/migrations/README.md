@@ -10,6 +10,20 @@ globaux historiques d'exonération HS, désormais pilotés uniquement par
 La valeur TCONGE reste la référence d'indemnité ; la retenue de base reste au
 1/30e du salaire.
 
+`26-10-16-sp74-affectation-integrity.sql` vérifie d'abord les incohérences entre
+salarié et contrat, puis entre service et département. La migration échoue avec
+les identifiants d'affectation concernés sans modifier les données, avant
+d'ajouter les clés uniques et étrangères composées. Le même DDL est intégré aux
+schémas canoniques 02 et 03 pour les nouvelles installations.
+
+`26-10-16-sp76-parametre-global-validite-temporelle.sql` diagnostique les dates
+inversées et les périodes qui se chevauchent pour un même code avant d'ajouter
+le contrôle de dates et l'exclusion temporelle, sans corriger de données. Le DDL
+est également intégré à `01_schema_core_securite.sql` pour les nouvelles
+installations. Sur une base existante, appliquer uniquement après vérification
+de l'état de la migration et des diagnostics ; le rôle doit pouvoir modifier
+`parametre_global` et, si nécessaire, installer `btree_gist`.
+
 `26-10-11-sp64-prestataires-menu.sql` ajoute « Prestataires indépendants »
 dans le menu Paie pour les rôles qui disposent de la lecture Paie. Appliquer
 après SP63 sur une base existante ; le schéma canonique contient ce menu.
@@ -154,5 +168,5 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-10-12-sp67-activation-par-regle-metier.sql` | Rend les paramètres membres des règles groupées basculables par action métier atomique | `01_schema_core_securite.sql` |
 
 ### Remarques Opérationnelles
-- Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 84 tables et 9 vues cohérentes.
+- Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 91 tables et 9 vues cohérentes.
 - Les scripts du dossier `migrations/` sont destinés uniquement à la mise à niveau de bases déjà déployées antérieurement ; vérifier l'état de chaque migration avant de la rejouer.
