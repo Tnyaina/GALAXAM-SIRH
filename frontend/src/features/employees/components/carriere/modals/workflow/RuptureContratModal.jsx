@@ -13,72 +13,8 @@ import Modal from '@/components/ui/overlays/Modal';
 import contratService from '@/features/employees/api/contratService';
 import { motifsPourEvenement, motifSortiePourEvenement, optionsMotifsSortie } from '@/features/employees/utils/motifsSortie';
 import { fmtDateFr, fmtDateInput } from '@/utils/dateUtils';
+import { DUREES_PREAVIS, MODES_PREAVIS, calculerDateEffet, getPreavisGuide, choisirDureePreavis, choisirTypeRupture } from '@/features/employees/utils/rupturePreavis';
 import { fmtMoneyMGA } from '@/utils/moneyUtils';
-
-// ── OPTIONS DE DURÉE DE PRÉAVIS ─────────────────────────────────────────────
-const DUREES_PREAVIS = [
-    { key: 'AUCUN', label: 'Aucun préavis (0 j)', jours: 0, moisEquiv: 0, desc: 'Sortie immédiate sans préavis.' },
-    { key: '15_JOURS', label: '15 jours', jours: 15, moisEquiv: 0.5, desc: 'À sélectionner après vérification du texte applicable.' },
-    { key: '1_MOIS', label: '1 mois (30 j)', jours: 30, moisEquiv: 1.0, desc: 'À sélectionner après vérification du texte applicable.' },
-    { key: '2_MOIS', label: '2 mois (60 j)', jours: 60, moisEquiv: 2.0, desc: 'À sélectionner après vérification du texte applicable.' },
-    { key: '3_MOIS', label: '3 mois (90 j)', jours: 90, moisEquiv: 3.0, desc: 'À sélectionner après vérification du texte applicable.' },
-    { key: 'CUSTOM', label: 'Personnalisé (en jours)...', jours: null, moisEquiv: null, desc: 'Durée spécifique en jours calendaires.' },
-];
-
-// ── MODALITÉS D'EXÉCUTION DU PRÉAVIS ────────────────────────────────────────
-const MODES_PREAVIS = [
-    {
-        key: 'EFFECTUE',
-        titre: 'Préavis effectué et travaillé',
-        badge: 'En poste jusqu\'au terme',
-        badgeClass: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/30',
-        impactTitre: 'Sortie différée au terme du préavis',
-        impactStc: '0 Ar (salaire versé normalement chaque mois)',
-        desc: 'Activité maintenue jusqu\'au terme du préavis. Rémunération standard sans indemnité compensatrice au STC.'
-    },
-    {
-        key: 'DISPENSE_PAYEE',
-        titre: 'Dispensé par l\'employeur (Payé)',
-        badge: 'Sortie immédiate indemnisée',
-        badgeClass: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] border-[var(--color-warning-500)]/30',
-        impactTitre: 'Sortie effective immédiate',
-        impactStc: 'Indemnité compensatrice versée au STC',
-        desc: 'Dispense de travail accordée par l\'employeur avec versement d\'une indemnité compensatrice au STC.'
-    },
-    {
-        key: 'DISPENSE_NON_PAYEE',
-        titre: 'Dispensé à la demande du salarié (Non payé)',
-        badge: 'Sortie immédiate sans indemnité',
-        badgeClass: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)]',
-        impactTitre: 'Sortie effective immédiate',
-        impactStc: '0 Ar (dispense demandée par le salarié)',
-        desc: 'Dispense de travail à la demande du salarié sans indemnité compensatrice de préavis.'
-    },
-];
-
-// Helper de calcul de date d'effet projetée
-function calculerDateEffet(dateNotifStr, dureeKey, modePreavis, customJours = 0) {
-    if (!dateNotifStr) return '';
-    if (modePreavis !== 'EFFECTUE' || dureeKey === 'AUCUN') {
-        return dateNotifStr;
-    }
-    const [y, m, d] = dateNotifStr.split('-').map(Number);
-    if (!y || !m || !d) return dateNotifStr;
-    const date = new Date(y, m - 1, d);
-
-    if (dureeKey === '15_JOURS') {
-        date.setDate(date.getDate() + 15);
-    } else if (dureeKey === '1_MOIS') {
-        date.setMonth(date.getMonth() + 1);
-    } else if (dureeKey === '2_MOIS') {
-        date.setMonth(date.getMonth() + 2);
-    } else if (dureeKey === '3_MOIS') {
-        date.setMonth(date.getMonth() + 3);
-    } else if (dureeKey === 'CUSTOM') {
-        date.setDate(date.getDate() + (Number(customJours) || 0));
-    }
-    return fmtDateInput(date);
-}
 
 // ── COMPOSANT PRINCIPAL MODAL ────────────────────────────────────────────────
 export default function RuptureContratModal({
@@ -177,6 +113,7 @@ export default function RuptureContratModal({
 
                 if (descContrat.includes('3 mois')) resolvedDuree = '3_MOIS';
                 else if (descContrat.includes('2 mois')) resolvedDuree = '2_MOIS';
+                else if (descContrat.includes('1 mois')) resolvedDuree = '1_MOIS';
                 else if (descContrat.includes('15 jours')) resolvedDuree = '15_JOURS';
                 else if (descContrat.includes('Aucun')) resolvedDuree = 'AUCUN';
 
@@ -210,31 +147,10 @@ export default function RuptureContratModal({
         }
     }, [isOpen, loadReferentiels, initialData, workflowActif, contratActif, affectationActive]);
 
-    // Détermination de la durée en mois pour le calcul STC
-    const { dureeInfo, moisIndemnite, libelleDuree } = useMemo(() => {
-        const d = DUREES_PREAVIS.find(item => item.key === formData.dureePreavisKey)
-            || { label: 'À déterminer', moisEquiv: 0, desc: 'Vérifiez le texte applicable et choisissez le délai.' };
-        let mois;
-        let libelle = d.label;
-
-        if (formData.dureePreavisKey === 'CUSTOM') {
-            const j = Number(formData.customJours) || 0;
-            mois = Number((j / 30).toFixed(2));
-            libelle = `${j} jour(s) calendaire(s)`;
-        } else {
-            mois = d.moisEquiv || 0;
-        }
-
-        return {
-            dureeInfo: d,
-            moisIndemnite: formData.modePreavis === 'DISPENSE_PAYEE' ? mois : 0,
-            libelleDuree: libelle,
-        };
-    }, [formData.dureePreavisKey, formData.customJours, formData.modePreavis]);
-
-    const modePreavisInfo = useMemo(() => {
-        return MODES_PREAVIS.find(m => m.key === formData.modePreavis) || MODES_PREAVIS[0];
-    }, [formData.modePreavis]);
+    const { dureeInfo, dureeValide, sansPreavis, modeInfo: modePreavisInfo,
+        moisIndemnite, libelleDuree, calendrierComplet } = useMemo(
+        () => getPreavisGuide(formData), [formData]
+    );
 
     // Estimation financière de l'indemnité compensatrice de préavis (si applicable)
     const salaireBase = Number(contratActif?.salaireBase || 0);
@@ -254,12 +170,7 @@ export default function RuptureContratModal({
     };
 
     const handleDureePreavisChange = (newDureeKey) => {
-        const newEffet = calculerDateEffet(formData.dateNotification, newDureeKey, formData.modePreavis, formData.customJours);
-        setFormData(prev => ({
-            ...prev,
-            dureePreavisKey: newDureeKey,
-            dateEffet: newEffet,
-        }));
+        setFormData(prev => choisirDureePreavis(prev, newDureeKey));
     };
 
     const handleCustomJoursChange = (newJours) => {
@@ -281,24 +192,7 @@ export default function RuptureContratModal({
     };
 
     const handleTypeEvenementChange = (newCode) => {
-        let suggestedDuree = formData.dureePreavisKey;
-        let suggestedMode = formData.modePreavis;
-
-        if (newCode === 'FIN_CONTRAT') {
-            suggestedDuree = 'AUCUN';
-            suggestedMode = 'DISPENSE_NON_PAYEE';
-        }
-
-        const newEffet = calculerDateEffet(formData.dateNotification, suggestedDuree, suggestedMode, formData.customJours);
-
-        setFormData(prev => ({
-            ...prev,
-            codeTypeEvenement: newCode,
-            motifSortieCode: motifSortiePourEvenement(newCode),
-            dureePreavisKey: suggestedDuree,
-            modePreavis: suggestedMode,
-            dateEffet: newEffet,
-        }));
+        setFormData(prev => choisirTypeRupture(prev, newCode, motifSortiePourEvenement(newCode)));
     };
 
     const typeEvenementActuel = typesEvenement.find(t => t.code === formData.codeTypeEvenement);
@@ -321,7 +215,7 @@ export default function RuptureContratModal({
         const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.isBrouillon ? workflowActif.idContratSource : null);
 
         if (!formData.dateEffet) return setErrorMsg('La date de prise d\'effet de la rupture est obligatoire.');
-        if (!formData.dureePreavisKey) return setErrorMsg('Choisissez le délai de préavis vérifié dans le texte applicable.');
+        if (!dureeValide) return setErrorMsg('Choisissez un délai de préavis valide.');
         if (!contratSourceId) return setErrorMsg('Impossible de rompre : aucun contrat source trouvé pour cet employé.');
         if (!motifsSortie.some(m => m.value === formData.motifSortieCode && motifsPourEvenement(formData.codeTypeEvenement).includes(m.value))) {
             return setErrorMsg('Choisissez un motif de sortie actif et cohérent avec le type de rupture.');
@@ -336,7 +230,7 @@ export default function RuptureContratModal({
                 dateEffet: formData.dateEffet,
                 motif: `[${formData.motifSortieCode}] ${formData.motif || ''}`.trim(),
                 commentaireAffectation: formData.commentaire || null,
-                descriptionContrat: `Préavis : ${libelleDuree} (${modePreavisInfo.titre})`,
+                descriptionContrat: sansPreavis ? 'Préavis : Aucun' : `Préavis : ${libelleDuree} (${modePreavisInfo.titre})`,
             };
 
             const wfId = initialData?.idWorkflow || (workflowActif?.isBrouillon ? workflowActif.idWorkflow : null);
@@ -434,7 +328,7 @@ export default function RuptureContratModal({
                         </div>
                         <div className="flex justify-between border-b border-[var(--color-border-subtle)] pb-2">
                             <span className="text-[var(--color-fg-muted)]">Régime de préavis</span>
-                            <span className="font-semibold text-[var(--color-fg)]">{libelleDuree} · {modePreavisInfo.titre}</span>
+                            <span className="font-semibold text-[var(--color-fg)]">{sansPreavis ? 'Aucun préavis' : `${libelleDuree} · ${modePreavisInfo.titre}`}</span>
                         </div>
                         <div className="flex justify-between items-center pt-1">
                             <span className="text-[var(--color-fg-muted)]">Impact préavis au STC</span>
@@ -471,6 +365,7 @@ export default function RuptureContratModal({
                                 onClick={handleLancerSimulationStc}
                                 variant="outline"
                                 size="md"
+                                disabled={!calendrierComplet}
                             >
                                 Simuler STC prévisionnel
                             </Button>
@@ -484,6 +379,7 @@ export default function RuptureContratModal({
                             variant="primary"
                             size="md"
                             loading={submitting}
+                            disabled={!calendrierComplet}
                             iconLeft={<UserMinus size={16} />}
                         >
                             Enregistrer le brouillon
@@ -580,11 +476,12 @@ export default function RuptureContratModal({
                                         onChange={(e) => handleCustomJoursChange(e.target.value)}
                                         placeholder="Ex. 45"
                                     />
+                                    {!dureeValide && <p className="mt-1 text-xs text-[var(--color-warning-700)]">Saisissez un nombre de jours supérieur à zéro.</p>}
                                 </div>
                             )}
 
                             {/* CHOIX DU RÉGIME D'EXÉCUTION DU PRÉAVIS */}
-                            <fieldset className="space-y-2 pt-1">
+                            {dureeValide && !sansPreavis && <fieldset className="space-y-2 pt-1">
                                 <legend className="text-xs font-bold text-[var(--color-fg)]">
                                     <Clock size={13} className="text-[var(--color-danger-500)]" />
                                     Modalité d'exécution du préavis *
@@ -630,10 +527,16 @@ export default function RuptureContratModal({
                                         );
                                     })}
                                 </div>
-                            </fieldset>
+                            </fieldset>}
+
+                            {sansPreavis && (
+                                <p className="border-l-2 border-[var(--color-brand-500)] bg-[var(--color-bg-subtle)] px-3 py-2 text-xs text-[var(--color-fg)]">
+                                    Aucun préavis : la sortie est proposée à la date de notification. Aucune indemnité de préavis n’est ajoutée.
+                                </p>
+                            )}
 
                             {/* Date de sortie effective */}
-                            <Input
+                            {dureeValide && <Input
                                 id="dateEffet"
                                 name="dateEffet"
                                 label="Date de sortie effective"
@@ -641,10 +544,15 @@ export default function RuptureContratModal({
                                 required
                                 value={formData.dateEffet}
                                 onChange={(e) => setFormData(prev => ({ ...prev, dateEffet: e.target.value }))}
-                            />
+                            />}
+                            {!formData.dureePreavisKey && (
+                                <p className="text-xs text-[var(--color-warning-700)]" role="status">
+                                    Choisissez le délai de préavis pour calculer la date de sortie et simuler le STC.
+                                </p>
+                            )}
 
                             {/* SYNTHÈSE OPÉRATIONNELLE ET FINANCIÈRE */}
-                            <div className="p-3.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-2 text-xs">
+                            {dureeValide && <div className="p-3.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-2 text-xs">
                                 <div className="flex items-center gap-2 font-bold text-[var(--color-fg)] text-[11.5px]">
                                     <CalendarDays size={14} className="text-[var(--color-danger-500)]" />
                                     <span>Synthèse de la sortie</span>
@@ -653,29 +561,33 @@ export default function RuptureContratModal({
                                     <div className="flex items-start justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-1.5">
                                         <span className="text-[var(--color-fg-muted)]">Sortie effective</span>
                                         <span className="font-semibold text-[var(--color-fg)]">
-                                            {fmtDateFr(formData.dateEffet)} ({isDateEffetFuture ? 'Planifiée' : 'Immédiate'})
+                                            {calendrierComplet
+                                                ? `${fmtDateFr(formData.dateEffet)} (${isDateEffetFuture ? 'À venir' : 'À ce jour'})`
+                                                : 'À déterminer après choix du délai'}
                                         </span>
                                     </div>
                                     <div className="flex items-start justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-1.5">
                                         <span className="text-[var(--color-fg-muted)]">Régime retenu</span>
                                         <span className="font-semibold text-[var(--color-fg)]">
-                                            {libelleDuree} · {modePreavisInfo.titre}
+                                            {sansPreavis ? 'Aucun préavis' : `${libelleDuree} · ${modePreavisInfo.titre}`}
                                         </span>
                                     </div>
                                     <div className="flex items-start justify-between gap-2 pt-0.5">
                                         <span className="text-[var(--color-fg-muted)]">Impact Solde de Tout Compte</span>
                                         <span className={formData.modePreavis === 'DISPENSE_PAYEE' && indemniteEstimee > 0 ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold' : 'font-semibold text-[var(--color-fg)]'}>
-                                            {formData.modePreavis === 'DISPENSE_PAYEE' && indemniteEstimee > 0
+                                            {!calendrierComplet
+                                                ? 'À estimer après choix du délai'
+                                                : formData.modePreavis === 'DISPENSE_PAYEE' && indemniteEstimee > 0
                                                 ? `${fmtMoneyMGA(indemniteEstimee)} d'indemnité compensatrice`
                                                 : '0 Ar (aucune indemnité compensatrice)'}
                                         </span>
                                     </div>
                                 </div>
-                            </div>
+                            </div>}
                         </div>
 
                         {/* SECTION 3 : MOTIF ET CONSIGNES RH */}
-                        <div className="space-y-3 pt-1">
+                        {calendrierComplet && <div className="space-y-3 pt-1">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-2">
                                 <FileSignature size={14} /> 3. Motif et consignes RH
                             </h3>
@@ -700,7 +612,7 @@ export default function RuptureContratModal({
                                 onChange={(e) => setFormData(prev => ({ ...prev, commentaire: e.target.value }))}
                                 placeholder="Restitution matériel, passation des dossiers, badge d'accès..."
                             />
-                        </div>
+                        </div>}
                     </>
                 )}
             </form>

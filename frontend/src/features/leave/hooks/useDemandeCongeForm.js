@@ -3,7 +3,8 @@ import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import { 
   formatDateForInput, 
-  isDateAnterieure
+  isDateAnterieure,
+  isValidIsoDate
 } from '@/utils/dateUtils';
 
 export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
@@ -137,11 +138,23 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   // Simulation canonique : durée fixe, décompte, solde, préavis et quota viennent du backend.
   useEffect(() => {
     let active = true;
-    if (!dateDebut || !idTypeConge || (!dateFin && !selectedType?.dureeFixeJours && !idMotifEvenementFamilial)) {
+    const isFixedDuration = Boolean(selectedType?.dureeFixeJours || idMotifEvenementFamilial || (extensionPathologiqueMaternite && isMaternite));
+    const effDateFin = estDemiJournee ? dateDebut : (dateFin || null);
+
+    // Ne pas simuler si type absent, ou dateDebut invalide
+    if (!idTypeConge || !isValidIsoDate(dateDebut)) {
       setSimulationReport(null);
       setSimulationError(null);
       return () => { active = false; };
     }
+
+    // Si durée libre, dateFin doit être valide et >= dateDebut
+    if (!isFixedDuration && (!isValidIsoDate(effDateFin) || effDateFin < dateDebut)) {
+      setSimulationReport(null);
+      setSimulationError(null);
+      return () => { active = false; };
+    }
+
     const timer = setTimeout(async () => {
       try {
         const report = await congeService.simulerDemande({
@@ -149,7 +162,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
           idTypeConge: Number(idTypeConge),
           idMotifEvenementFamilial: idMotifEvenementFamilial ? Number(idMotifEvenementFamilial) : null,
           dateDebut,
-          dateFin: estDemiJournee ? dateDebut : (dateFin || null),
+          dateFin: effDateFin,
           estDemiJournee,
           derogationSoldeNegatif: false,
           derogationDelaiPreavis,
@@ -159,78 +172,94 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setSimulationReport(report);
         setSimulationError(null);
         setNbJoursDecomptes(Number(report.nbJours || 0));
-        if (report.dateFin && formatDateForInput(report.dateFin) !== dateFin) {
+        // Seuls les types à durée fixe imposent la dateFin calculée par le backend
+        if (isFixedDuration && report.dateFin && formatDateForInput(report.dateFin) !== dateFin) {
           setDateFin(formatDateForInput(report.dateFin));
         }
       } catch (err) {
         if (!active) return;
         setSimulationReport(null);
-        // Propager l'erreur backend (ex: TCONGE_APPLICABLE_AMBIGUOUS) sans fallback silencieux.
+        // Propager l'erreur backend sans fallback silencieux.
         const msg = err?.userMessage || err?.response?.data?.message || err?.message || null;
         setSimulationError(msg);
       }
-    }, 180);
+    }, 500);
     return () => { active = false; clearTimeout(timer); };
   }, [dateDebut, dateFin, idTypeConge, idMotifEvenementFamilial, estDemiJournee,
-    extensionPathologiqueMaternite, derogationSoldeNegatif, derogationDelaiPreavis,
+    extensionPathologiqueMaternite, isMaternite, derogationSoldeNegatif, derogationDelaiPreavis,
     idEmployeProp, selectedEmployeId, selectedType?.dureeFixeJours]);
 
   // Analyse serveur de continuité de service & simulation des jours (backend-driven)
   useEffect(() => {
     let isMounted = true;
-    if (dateDebut && dateFin) {
-      const dDebut = new Date(dateDebut);
-      const dFin = new Date(dateFin);
-      if (dFin >= dDebut) {
-        setFieldErrors((prev) => ({ ...prev, dateFin: null }));
-        setCheckingConflits(true);
+    const effDateFin = estDemiJournee ? dateDebut : dateFin;
 
-        const timer = setTimeout(async () => {
-          try {
-            const report = await congeService.verifierConflitsDemande({
-              idEmploye: selectedEmployeId ? Number(selectedEmployeId) : null,
-              idTypeConge: idTypeConge ? Number(idTypeConge) : null,
-              dateDebut,
-              dateFin: estDemiJournee ? dateDebut : dateFin,
-              estDemiJournee,
-              momentDemiJournee: estDemiJournee ? momentDemiJournee : null,
-              idDemandeConge: initialDemande?.idDemandeConge || null
-            });
-            if (isMounted && report) {
-              setConflitReport(report);
-              setNbJoursDecomptes(Number(report.nbJoursDecomptes || 0));
-              setNbJoursOuvres(Number(report.nbJoursOuvres || 0));
-              setNbJoursWeekEnd(Number(report.nbJoursWeekEnd || 0));
-              setNbJoursFeries(Number(report.nbJoursFeries || 0));
-            }
-          } catch {
-            // Le formulaire n'invente pas de décompte si le backend est indisponible.
-          } finally {
-            if (isMounted) setCheckingConflits(false);
-          }
-        }, 180);
-
-        return () => {
-          isMounted = false;
-          clearTimeout(timer);
-        };
-      } else {
-        setNbJoursDecomptes(0);
-        setNbJoursWeekEnd(0);
-        setNbJoursOuvres(0);
-        setNbJoursFeries(0);
-        setConflitReport(null);
-        setCheckingConflits(false);
-        setFieldErrors((prev) => ({ ...prev, dateFin: 'La reprise doit être postérieure au premier jour de congé.' }));
-      }
-    } else {
+    // Si les dates ne sont pas encore complètes et valides (ex: saisie au clavier en cours), réinitialiser sans erreur prématurée
+    if (!isValidIsoDate(dateDebut) || !isValidIsoDate(effDateFin)) {
       setNbJoursDecomptes(0);
       setNbJoursWeekEnd(0);
       setNbJoursOuvres(0);
       setNbJoursFeries(0);
       setConflitReport(null);
       setCheckingConflits(false);
+      return () => { isMounted = false; };
     }
+
+    // Si la reprise est antérieure ou égale au début de congé
+    if (effDateFin < dateDebut) {
+      setNbJoursDecomptes(0);
+      setNbJoursWeekEnd(0);
+      setNbJoursOuvres(0);
+      setNbJoursFeries(0);
+      setConflitReport(null);
+      setCheckingConflits(false);
+
+      const errorTimer = setTimeout(() => {
+        if (isMounted) {
+          setFieldErrors((prev) => ({ ...prev, dateFin: 'La reprise doit être postérieure au premier jour de congé.' }));
+        }
+      }, 500);
+
+      return () => {
+        isMounted = false;
+        clearTimeout(errorTimer);
+      };
+    }
+
+    // Dates valides et cohérentes : effacer l'erreur de dateFin
+    setFieldErrors((prev) => ({ ...prev, dateFin: null }));
+
+    const timer = setTimeout(async () => {
+      if (!isMounted) return;
+      setCheckingConflits(true);
+      try {
+        const report = await congeService.verifierConflitsDemande({
+          idEmploye: selectedEmployeId ? Number(selectedEmployeId) : null,
+          idTypeConge: idTypeConge ? Number(idTypeConge) : null,
+          dateDebut,
+          dateFin: effDateFin,
+          estDemiJournee,
+          momentDemiJournee: estDemiJournee ? momentDemiJournee : null,
+          idDemandeConge: initialDemande?.idDemandeConge || null
+        });
+        if (isMounted && report) {
+          setConflitReport(report);
+          setNbJoursDecomptes(Number(report.nbJoursDecomptes || 0));
+          setNbJoursOuvres(Number(report.nbJoursOuvres || 0));
+          setNbJoursWeekEnd(Number(report.nbJoursWeekEnd || 0));
+          setNbJoursFeries(Number(report.nbJoursFeries || 0));
+        }
+      } catch {
+        // Le formulaire n'invente pas de décompte si le backend est indisponible.
+      } finally {
+        if (isMounted) setCheckingConflits(false);
+      }
+    }, 500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [dateDebut, dateFin, estDemiJournee, momentDemiJournee, selectedEmployeId, idTypeConge, initialDemande?.idDemandeConge]);
 
   const handleSubmit = async (e, showToast) => {

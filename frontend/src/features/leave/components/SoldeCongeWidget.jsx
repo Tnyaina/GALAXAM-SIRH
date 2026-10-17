@@ -98,11 +98,11 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
           </div>
           {(sourceTaux || cycle) && (
             <div className="grid sm:grid-cols-2 gap-2 text-xs text-[var(--color-fg-muted)]">
-              {sourceTaux && <p>Source du taux : <strong className="text-[var(--color-fg)]">{sourceTaux}</strong></p>}
+              {sourceTaux && <p>Taux actuel : <strong className="text-[var(--color-fg)]">{sourceTaux === 'REPRISE_CUTOVER' ? 'reprise historique' : sourceTaux === 'CALCUL_PERIODE_REFERENCE' ? 'cycle précédent' : sourceTaux}</strong></p>}
               {cycle && <p>Cycle : <strong className="text-[var(--color-fg)]">{cycle.statut || '-'}</strong>
                 {cycle.modeReprise ? ` · Reprise ${cycle.openingComplete ? 'complète' : 'partielle'}` : ''}</p>}
-              {cycle?.cumulDroitsTotal != null && <p>Droits du cycle : <strong className="text-[var(--color-fg)]">{formatJours(cycle.cumulDroitsTotal)} j</strong></p>}
-              {cycle?.tauxProjection != null && <p>Taux projeté : <strong className="text-[var(--color-fg)]">{formatMoneyAr(cycle.tauxProjection)} / jour</strong></p>}
+              {cycle?.cumulDroitsTotal != null && <p>Droits acquis dans le cycle : <strong className="text-[var(--color-fg)]">{formatJours(cycle.cumulDroitsTotal)} j</strong></p>}
+              {cycle?.tauxProjection != null && <p>Taux estimé du prochain cycle : <strong className="text-[var(--color-fg)]">{formatMoneyAr(cycle.tauxProjection)} / jour</strong><span className="block">Valeur acquise ÷ jours acquis à ce jour ; non applicable avant clôture et activation.</span></p>}
             </div>
           )}
         </div>

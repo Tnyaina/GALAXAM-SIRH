@@ -557,7 +557,7 @@ export default function PeriodeEmployeeTable({
                                                                 onClick: () => openRegularisation({ ...row, regularisationIntent: 'CONGE_PAYE' }) },
                                                             { label: 'Marquer absent',
                                                                 onClick: () => openRegularisation({ ...row, regularisationIntent: 'ABSENCE_DEDUITE' }) },
-                                                            { label: 'Appliquer l’horaire standard',
+                                                            { label: 'Appliquer les plages du site',
                                                                 onClick: () => handleApplyDayStandard(row.datePointage) },
                                                             { label: 'Vider la ligne', disabled: !hasPunches, danger: true,
                                                                 onClick: () => handleResetDay(row.datePointage) }

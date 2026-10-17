@@ -1,7 +1,8 @@
+import { useState, useEffect } from 'react';
 import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 import FieldError from '@/components/ui/forms/FieldError';
-import { shiftIsoDate } from '@/utils/dateUtils';
+import { shiftIsoDate, isValidIsoDate } from '@/utils/dateUtils';
 
 export default function DatesCongeSection({
   dateDebut, setDateDebut,
@@ -24,6 +25,28 @@ export default function DatesCongeSection({
   const soldeNum = Number(simulationReport?.soldeAvant || 0);
   const isSoldeInsuffisant = simulationReport?.violations?.includes('LEAVE_BALANCE_INSUFFICIENT')
     || simulationReport?.warnings?.includes('LEAVE_BALANCE_INSUFFICIENT');
+
+  const targetReprise = shiftIsoDate(estDemiJournee ? dateDebut : dateFin, 1);
+  const [repriseInput, setRepriseInput] = useState(targetReprise);
+
+  // Synchronisation lorsque dateFin ou dateDebut change depuis l'extérieur (ex: initialisation, bascule demi-journée, calcul durée fixe)
+  useEffect(() => {
+    if (targetReprise !== shiftIsoDate(repriseInput, -1)) {
+      setRepriseInput(targetReprise);
+    }
+  }, [targetReprise]);
+
+  const handleRepriseChange = (e) => {
+    const val = e.target.value;
+    setRepriseInput(val);
+    setFieldErrors((prev) => ({ ...prev, dateFin: null }));
+
+    if (!val) {
+      setDateFin('');
+    } else if (isValidIsoDate(val)) {
+      setDateFin(shiftIsoDate(val, -1));
+    }
+  };
 
   return (
     <>
@@ -132,13 +155,10 @@ export default function DatesCongeSection({
               id="leave-date-end"
               type="date"
               error={fieldErrors.dateFin}
-              value={shiftIsoDate(estDemiJournee ? dateDebut : dateFin, 1)}
+              value={estDemiJournee ? shiftIsoDate(dateDebut, 1) : repriseInput}
               disabled={estDemiJournee}
               min={shiftIsoDate(dateDebut, 1) || undefined}
-              onChange={(e) => {
-                setDateFin(shiftIsoDate(e.target.value, -1));
-                setFieldErrors((prev) => ({ ...prev, dateFin: null }));
-              }}
+              onChange={handleRepriseChange}
               required
             />
           </div>

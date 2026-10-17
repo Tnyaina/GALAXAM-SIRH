@@ -27,7 +27,8 @@ public final class CongeSoldeRequests {
             Integer idEmploye,
             BigDecimal nbJours,
             String commentaire,
-            BigDecimal valorisationSpecifique
+            BigDecimal valorisationSpecifique,
+            LocalDate dateMouvement
     ) {}
 
 }

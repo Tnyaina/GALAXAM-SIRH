@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component;
 public class EmployeValidationEngine {
 
     /**
-     * Âge minimum légal d'accès à l'emploi (Loi n° 2003-044, Art. 100 : 16 ans révolus).
-     * Modifiable rapidement si la politique RH évolue.
+     * Âge minimum légal d'accès à l'emploi : 16 ans révolus
+     * (Loi n° 2003-044, Art. 100 ; Décret n° 2007-563, Art. 2 à 5 ; Loi n° 2024-014).
      */
     public static final int AGE_MINIMUM_LEGAL = 16;
 

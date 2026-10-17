@@ -214,7 +214,7 @@ export default function PeriodeEmployeeHeader({
                             disabled: !canEditPeriod || importLoading },
                         { section: 'Fichiers Excel', icon: <Upload size={14} />, label: dirtyCount > 0 ? 'Importer Excel (enregistrer d’abord)' : 'Importer Excel',
                             onClick: onImportClick, disabled: !canEditPeriod || importLoading || dirtyCount > 0 },
-                        { section: 'Saisie des horaires', icon: <Clock3 size={14} />, label: 'Appliquer l’horaire standard aux jours vides', onClick: onApplyStandard,
+                        { section: 'Saisie des horaires', icon: <Clock3 size={14} />, label: 'Appliquer les plages du site aux jours vides', onClick: onApplyStandard,
                             disabled: !canEditPeriod },
                         { section: 'Saisie des horaires', icon: <Coffee size={14} />, label: 'Déduire les pauses', onClick: onDeducePauses,
                             disabled: !canEditPeriod }

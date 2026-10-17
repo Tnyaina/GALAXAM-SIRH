@@ -388,10 +388,10 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
 
                     {/* Portée du reçu */}
                     <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[11px] leading-relaxed text-[var(--color-fg-muted)]">
-                        <p className="font-semibold text-[var(--color-fg)] mb-1">Portée du décompte (Code du travail 2024, art. 95 et 96) :</p>
-                        <p>{recu.mentionLiberatoire}</p>
+                        <p className="font-semibold text-[var(--color-fg)] mb-1">Portée du décompte et délai de dénonciation (Code du travail 2024, art. 95 et 96) :</p>
+                        <p>{recu.mentionLiberatoire || "Ce document détaille les sommes calculées à la cessation du contrat. En application du droit du travail malgache, le reçu pour solde de tout compte ne peut être dénoncé ou contesté que dans un délai de deux (02) mois suivant sa délivrance."}</p>
                         <p className="mt-2 text-[10px] text-[var(--color-fg-subtle)]">
-                            Si une signature est recueillie, elle atteste seulement la remise du document. Aucune formule manuscrite obligatoire n’est imposée ici.
+                            Forclusion légale à deux (02) mois. Si une signature est recueillie, elle atteste seulement la remise matérielle du document.
                         </p>
                     </div>
 

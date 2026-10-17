@@ -22,6 +22,7 @@ it('ouvre uniquement une simulation STC depuis le brouillon de rupture', async (
     const onOpenStc = vi.fn();
     await act(async () => root.render(<RuptureContratModal isOpen idEmploye={7}
         contratActif={{ idContrat: 42 }} affectationActive={{ salaireBase: 300000 }}
+        initialData={{ codeTypeEvenement: 'DEMISSION', dateDemande: '2026-10-17', dateEffet: '2026-10-17', descriptionContrat: 'Préavis : Aucun' }}
         onOpenStc={onOpenStc} onClose={vi.fn()} />));
     const button = [...host.querySelectorAll('button')].find(item => item.textContent.includes('Simuler STC prévisionnel'));
     expect(button).toBeDefined();

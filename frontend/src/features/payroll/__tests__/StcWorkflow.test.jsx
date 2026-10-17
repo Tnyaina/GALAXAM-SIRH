@@ -39,12 +39,31 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.clearAllMocks(); });
 
 describe('Parcours STC', () => {
+    it('actualise la période et les bannières quand la date de départ change', async () => {
+        stcService.preparerStc.mockImplementation(async (_id, dateDepart) => dateDepart === '2026-08-25'
+            ? { ...prep, dateDepart, codePeriodePaie: '2026-08', sourcePointage: 'POINTAGE_REEL', idBulletinMensuel: 3 }
+            : { ...prep, codePeriodePaie: 'HORS_CALENDRIER' });
+        await act(async () => root.render(<StcPreparationModal isOpen idEmploye={7} simulationOnly
+            dateDepartInitiale="2026-10-10" onClose={vi.fn()} />));
+        expect(host.textContent).toContain('Aucune période de paie ne couvre cette date');
+
+        const dateField = host.querySelector('input[type="date"]');
+        await act(async () => {
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(dateField, '2026-08-25');
+            dateField.dispatchEvent(new Event('input', { bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 350));
+        });
+        expect(stcService.preparerStc).toHaveBeenCalledWith(7, '2026-08-25', 'DEMISSION');
+        expect(host.textContent).toContain('Période : 2026-08');
+        expect(host.textContent).not.toContain('Aucune période de paie ne couvre cette date');
+    });
+
     it('rapproche la dernière paie sans ressaisir les jours de salaire', async () => {
         stcService.preparerStc.mockResolvedValue({ ...prep, idBulletinMensuel: 12,
             statutBulletinMensuel: 'VALIDE', netBulletinMensuel: 300000 });
         await act(async () => root.render(<StcPreparationModal isOpen idEmploye={7}
             dateDepartInitiale="2026-10-10" onClose={vi.fn()} />));
-        expect(host.textContent).toContain('Rapprochement de la dernière paie');
+        expect(host.textContent).toContain('Dernière paie');
         expect(host.textContent).not.toContain('Jours sous contrat à payer');
         await click('Simuler le STC');
         expect(stcService.simulerStc).toHaveBeenCalledWith(expect.objectContaining({

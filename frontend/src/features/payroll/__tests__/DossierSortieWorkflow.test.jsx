@@ -209,11 +209,11 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
         expect(dossierSortieService.obtenirDossier).toHaveBeenCalledWith(101);
         expect(host.textContent).toContain('Rakoto Jean');
         expect(host.textContent).toContain('EMP-007');
-        await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent.includes('1. Situation')).click());
+        await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent.includes('Situation')).click());
         expect(host.textContent).toContain('Pointage du mois');
         expect(host.textContent).toContain('22 j');
         expect(host.textContent).toContain('5.5 j');
-        expect(host.textContent).toContain('1. Situation');
+        expect(host.textContent).toContain('Situation');
     });
 
     it('affiche la checklist dynamique avec distinction des règles légales et sévérité', async () => {
@@ -250,7 +250,7 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
             );
         });
 
-        const btnPret = [...host.querySelectorAll('button')].find(b => b.textContent.includes('3. Prêts'));
+        const btnPret = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Prêts'));
         expect(btnPret).toBeDefined();
         await act(async () => {
             btnPret.click();
@@ -291,23 +291,14 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
             );
         });
 
-        const btnOffboarding = [...host.querySelectorAll('button')].find(b => b.textContent.includes('5. Formalités'));
-        expect(btnOffboarding).toBeDefined();
+        const btnSuivi = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Suivi et documents'));
+        expect(btnSuivi).toBeDefined();
         await act(async () => {
-            btnOffboarding.click();
+            btnSuivi.click();
         });
 
-        expect(host.textContent).toContain('Certificat de travail');
-        const btnDelivrer = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Enregistrer la remise du certificat'));
-        expect(btnDelivrer).toBeDefined();
-
-        await act(async () => {
-            btnDelivrer.click();
-        });
-
-        expect(dossierSortieService.enregistrerDelivranceCertificat).toHaveBeenCalledWith(101, expect.objectContaining({
-            modeRemise: 'MAIN_PROPRE',
-        }));
+        expect(host.textContent).toContain('Documents disponibles');
+        expect(host.textContent).toContain('Certificat DOCX');
     });
 
     it('permet de simuler le STC, de vérifier le décompte chiffré et de sceller transactionnellement', async () => {

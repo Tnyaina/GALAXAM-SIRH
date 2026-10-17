@@ -9,6 +9,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import FormError from '@/components/ui/feedback/FormError';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import employeService from '@/features/employees/api/employeService';
 
 
 export default function InitialisationSoldeModal({
@@ -34,6 +35,26 @@ export default function InitialisationSoldeModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [employeDetail, setEmployeDetail] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const matricule = employe?.matricule || employe?.matriculeEmploye;
+    if (matricule || !(employe?.idEmploye || employe?.id)) {
+      setEmployeDetail(null);
+      return;
+    }
+    setEmployeDetail(null);
+    let active = true;
+    employeService.getEmployeFicheDetail(employe.idEmploye || employe.id)
+      .then((result) => {
+        if (active) setEmployeDetail(result?.employe || result || null);
+      })
+      .catch(() => {
+        if (active) setEmployeDetail(null);
+      });
+    return () => { active = false; };
+  }, [isOpen, employe?.idEmploye, employe?.id, employe?.matricule, employe?.matriculeEmploye]);
 
   // Données dérivées
   const dateDebutReference = dateCutover ? `${dateCutover.slice(0, 4)}-01-01` : '';
@@ -183,10 +204,12 @@ export default function InitialisationSoldeModal({
           <div>
               <span className="text-[var(--color-fg-muted)]">Salarié :</span>{' '}
             <strong className="text-[var(--color-fg)] text-sm">
-              {employe?.nom} {employe?.prenom}
+              {employe?.nom || employeDetail?.nom} {employe?.prenom || employeDetail?.prenom}
             </strong>{' '}
             <span className="font-mono text-[var(--color-brand-600)] font-semibold">
-              (Matricule #{employe?.matricule || employe?.idEmploye})
+              {employe?.matricule || employe?.matriculeEmploye || employeDetail?.matricule
+                ? `(${employe?.matricule || employe?.matriculeEmploye || employeDetail?.matricule})`
+                : '(Matricule indisponible)'}
             </span>
           </div>
         </div>

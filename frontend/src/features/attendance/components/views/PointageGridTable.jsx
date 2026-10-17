@@ -588,7 +588,7 @@ export default function PointageGridTable({
                             variant="outline"
                             onClick={handleApplyBulkStandard}
                             icon={<Clock size={13} className="text-[var(--color-success-500)]" />}
-                            title="Préremplir les horaires configurés du site pour les lignes sélectionnées"
+                            title="Préremplir les plages matin et après-midi du site pour les lignes sélectionnées"
                         >
                             Horaires du site
                         </Button>

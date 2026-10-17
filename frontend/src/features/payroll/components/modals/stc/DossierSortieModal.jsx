@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     AlertTriangle,
+    ArrowLeft,
     Award,
     BadgeCheck,
     Banknote,
+    Building2,
     Calculator,
     CalendarCheck,
     CheckCircle2,
     Clock,
+    Coins,
     ExternalLink,
     FileCheck,
     FileSpreadsheet,
@@ -15,20 +18,26 @@ import {
     Info,
     Key,
     Lock,
+    Receipt,
     RefreshCw,
     Save,
     ShieldAlert,
     ShieldCheck,
     User,
+    Wallet,
     XCircle
 } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import { Textarea } from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
+import { Card } from '@/components/ui/data-display/Card';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Alert from '@/components/ui/feedback/Alert';
+import { Tabs } from '@/components/ui/navigation/Tabs';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { formatStcAnciennete } from '@/features/payroll/utils/stcDisplay';
@@ -72,8 +81,6 @@ export default function DossierSortieModal({
     const canWrite = hasPermission('PAIE_WRITE');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [delivrantCertificat, setDelivrantCertificat] = useState(false);
-    const [savingFormalities, setSavingFormalities] = useState(false);
     const [simulating, setSimulating] = useState(false);
     const [sealing, setSealing] = useState(false);
     const [confirmScellement, setConfirmScellement] = useState(false);
@@ -84,7 +91,7 @@ export default function DossierSortieModal({
     const [errorMsg, setErrorMsg] = useState(null);
     const [dossier, setDossier] = useState(null);
     const [motifsSortie, setMotifsSortie] = useState([]);
-    const [activeTab, setActiveTab] = useState('synthese'); // 'synthese' | 'checklist' | 'pret' | 'decompte' | 'offboarding'
+    const [activeTab, setActiveTab] = useState('synthese'); // 'synthese' | 'checklist' | 'pret' | 'decompte' | 'suivi'
     const initialViewRef = useRef(false);
 
     // Formulaire de saisie éditable
@@ -93,19 +100,6 @@ export default function DossierSortieModal({
     const [decisionPret, setDecisionPret] = useState('MAINTIEN_ECHEANCIER');
     const [justificationDecisionPret, setJustificationDecisionPret] = useState('');
     const [montantPretRetenu, setMontantPretRetenu] = useState(0);
-
-    // Checklist offboarding
-    const [offboarding, setOffboarding] = useState({
-        restitutionBadge: false,
-        restitutionMateriel: false,
-        restitutionCles: false,
-        entretienDepart: false,
-        commentaires: '',
-    });
-
-    // Remise certificat
-    const [dateDelivranceCertificat, setDateDelivranceCertificat] = useState(getTodayDateString());
-    const [modeRemiseCertificat, setModeRemiseCertificat] = useState('MAIN_PROPRE');
 
     // Chargement des motifs de rupture légaux
     useEffect(() => {
@@ -144,12 +138,6 @@ export default function DossierSortieModal({
                 setDecisionPret(data.decisionPret || 'MAINTIEN_ECHEANCIER');
                 setJustificationDecisionPret(data.justificationDecisionPret || '');
                 setMontantPretRetenu(data.montantPretRetenu || 0);
-                if (data.checklistOffboarding) {
-                    setOffboarding(prev => ({
-                        ...prev,
-                        ...data.checklistOffboarding
-                    }));
-                }
                 setSimulationResult(data.snapshotSimulation ? {
                         referenceSimulation: data.referenceSimulation,
                         version: data.version,
@@ -192,11 +180,9 @@ export default function DossierSortieModal({
                 decisionPret: (dossier.capitalRestantPrets && Number(dossier.capitalRestantPrets) > 0) ? decisionPret : null,
                 justificationDecisionPret: justificationDecisionPret || null,
                 montantPretRetenu: montantPretRetenu ? Number(montantPretRetenu) : 0,
-                checklistOffboarding: offboarding,
                 donneesPreparation: {
                     dateDepart,
                     motifRupture,
-                    offboarding,
                 }
             };
             const updated = await dossierSortieService.sauvegarderDossier(payload);
@@ -213,18 +199,46 @@ export default function DossierSortieModal({
 
     // Calcul de la simulation STC
     const handleSimulerStc = async () => {
-        if (!dossier?.idDossierSortie) {
-            toast.warning('Veuillez d’abord sauvegarder le dossier avant de simuler le STC.');
-            return;
+        let currentDossier = dossier;
+        if (!currentDossier?.idEmploye) return;
+        if (!currentDossier?.idDossierSortie || hasUnsavedPreparation) {
+            setSaving(true);
+            setErrorMsg(null);
+            try {
+                const payload = {
+                    idDossierSortie: currentDossier?.idDossierSortie || idDossier || null,
+                    idEmploye: currentDossier.idEmploye,
+                    idContrat: currentDossier.idContrat || null,
+                    version: currentDossier.version || 1,
+                    dateDepart: dateDepart,
+                    motifRupture: motifRupture,
+                    statutDossier: currentDossier.statutDossier || 'EN_PREPARATION',
+                    decisionPret: (currentDossier.capitalRestantPrets && Number(currentDossier.capitalRestantPrets) > 0) ? decisionPret : null,
+                    justificationDecisionPret: justificationDecisionPret || null,
+                    montantPretRetenu: montantPretRetenu ? Number(montantPretRetenu) : 0,
+                    donneesPreparation: {
+                        dateDepart,
+                        motifRupture,
+                    }
+                };
+                currentDossier = await dossierSortieService.sauvegarderDossier(payload);
+                setDossier(currentDossier);
+                if (onSaved) onSaved(currentDossier);
+            } catch (err) {
+                setErrorMsg(getErrorMessage(err, 'Erreur lors de la sauvegarde préalable du dossier de sortie.'));
+                return;
+            } finally {
+                setSaving(false);
+            }
         }
-        if (hasUnsavedPreparation) {
-            setErrorMsg('Enregistrez les changements de préparation avant de recalculer le STC.');
+        if (!currentDossier?.idDossierSortie) {
+            toast.warning('Veuillez d’abord sauvegarder le dossier avant de simuler le STC.');
             return;
         }
         setSimulating(true);
         setErrorMsg(null);
         try {
-            const res = await dossierSortieService.simulerStc(dossier.idDossierSortie);
+            const res = await dossierSortieService.simulerStc(currentDossier.idDossierSortie);
             setSimulationResult(res);
             setSimulationNeedsRefresh(false);
             setDossier(prev => ({
@@ -277,44 +291,7 @@ export default function DossierSortieModal({
         }
     };
 
-    // Enregistrement de la délivrance du certificat
-    const handleDelivrerCertificat = async () => {
-        if (!dossier?.idDossierSortie) {
-            toast.warning('Veuillez d’abord sauvegarder le dossier avant de formaliser le certificat.');
-            return;
-        }
-        setDelivrantCertificat(true);
-        try {
-            const updated = await dossierSortieService.enregistrerDelivranceCertificat(dossier.idDossierSortie, {
-                dateDelivrance: dateDelivranceCertificat,
-                modeRemise: modeRemiseCertificat
-            });
-            setDossier(updated);
-            toast.success('Délivrance du certificat de travail enregistrée.');
-            if (onSaved) onSaved(updated);
-        } catch (err) {
-            setErrorMsg(getErrorMessage(err, 'Impossible d’enregistrer la remise du certificat de travail.'));
-        } finally {
-            setDelivrantCertificat(false);
-        }
-    };
 
-    const handleSauvegarderFormalites = async () => {
-        if (!dossier?.idDossierSortie || dossier?.statutDossier === 'CLOTURE') return;
-        setSavingFormalities(true);
-        setErrorMsg(null);
-        try {
-            await dossierSortieService.mettreAJourOffboarding(dossier.idDossierSortie, offboarding);
-            const updated = await dossierSortieService.obtenirDossier(dossier.idDossierSortie);
-            setDossier(updated);
-            onSaved?.(updated);
-            toast.success('Formalités enregistrées.');
-        } catch (err) {
-            setErrorMsg(getErrorMessage(err, 'Impossible d’enregistrer les formalités.'));
-        } finally {
-            setSavingFormalities(false);
-        }
-    };
 
     // Helpers d'affichage
     const getBadgeSeverity = (niveau) => {
@@ -336,10 +313,10 @@ export default function DossierSortieModal({
 
     const getBadgeSource = (source) => {
         switch (source) {
-            case 'LEGAL_MADAGASCAR_2024': return { label: 'Cadre légal malgache', color: 'bg-purple-100 text-purple-800 border-purple-200' };
-            case 'REGLE_INTERNE_GALAXAM': return { label: 'Procédure GALAXAM', color: 'bg-[var(--color-info-100)] text-[var(--color-info-800)] border-[var(--color-info-200)]' };
-            case 'TECHNIQUE_SI': return { label: 'Cohérence Système', color: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)]' };
-            default: return { label: source, color: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]' };
+            case 'LEGAL_MADAGASCAR_2024': return { label: 'Cadre légal malgache', variant: 'info' };
+            case 'REGLE_INTERNE_GALAXAM': return { label: 'Procédure GALAXAM', variant: 'primary' };
+            case 'TECHNIQUE_SI': return { label: 'Cohérence système', variant: 'neutral' };
+            default: return { label: source, variant: 'neutral' };
         }
     };
 
@@ -370,6 +347,13 @@ export default function DossierSortieModal({
                     ? 'Contrôlez le décompte simulé et ses rubriques avant de sceller le STC.'
                     : 'La préparation est enregistrée. Lancez la simulation, puis contrôlez le décompte.';
     const prochaineSection = !dossier?.idDossierSortie ? 'synthese' : dossier?.idStc ? 'suivi' : nbBloquants > 0 ? 'checklist' : 'decompte';
+    const dossierTabs = [
+        { id: 'synthese', label: 'Situation', icon: FileSpreadsheet },
+        { id: 'checklist', label: 'Points à traiter', icon: ShieldAlert, ...(nbBloquants > 0 ? { count: nbBloquants } : {}) },
+        { id: 'pret', label: 'Prêts', icon: Banknote },
+        { id: 'decompte', label: 'Calcul STC', icon: Calculator },
+        { id: 'suivi', label: 'Suivi et documents', icon: FileText },
+    ];
     const DossierShell = pageMode ? DossierSortieWorkspaceShell : Modal;
 
     return (
@@ -383,52 +367,95 @@ export default function DossierSortieModal({
             closeOnEscape={!confirmAbandon && !confirmScellement}
             closeOnBackdrop={!confirmAbandon && !confirmScellement}
             footer={
-                <div className="flex flex-wrap items-center justify-between gap-3 w-full">
-                    <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
-                        {dossier?.idStc ? (
-                            <span className="flex items-center gap-1.5 text-[var(--color-success-700)] font-semibold">
-                                <ShieldCheck size={16} /> STC Scellé & Verrouillé #{dossier.idStc || ''}
-                            </span>
-                        ) : dossier?.pretAValider ? (
-                            <span className="flex items-center gap-1.5 text-[var(--color-success-700)] font-semibold">
-                                <BadgeCheck size={16} /> Checklist conforme · Prêt pour calcul STC
-                            </span>
-                        ) : (
-                            <span className="flex items-center gap-1.5 text-[var(--color-warning-700)] font-medium">
-                                <AlertTriangle size={16} /> {nbBloquants} point(s) bloquant(s) à résoudre
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="ghost" onClick={() => hasUnsavedPreparation ? setConfirmAbandon(true) : onClose()} disabled={saving || simulating || sealing}>
-                            {pageMode ? 'Retour aux dossiers' : 'Fermer'}
-                        </Button>
-                        {dossier && !dossier.idStc && dossier.statutDossier !== 'ANNULE' && canWrite && (
-                            !dossier.idDossierSortie || hasUnsavedPreparation ? (
-                                <Button variant="primary" onClick={handleSauvegarder} loading={saving}
-                                    disabled={simulating || sealing} iconLeft={<Save size={15} />}>
-                                    Sauvegarder le dossier
+                <div className="w-full space-y-4">
+                    {/* 1. Bandeau de statut / prérequis inspiré du Centre de Paie */}
+                    <section className={`flex flex-wrap items-center justify-between gap-3 border px-3.5 py-2.5 ${
+                        dossier?.idStc
+                            ? 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'
+                            : (simulationResult?.referenceSimulation || dossier?.referenceSimulation)
+                                ? 'border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/5'
+                                : dossier?.pretAValider
+                                    ? 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'
+                                    : 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10'
+                    }`} aria-live="polite">
+                        <div>
+                            <h3 className="text-xs font-bold text-[var(--color-fg)]">
+                                {dossier?.idStc
+                                    ? 'STC scellé & archivé'
+                                    : (simulationResult?.referenceSimulation || dossier?.referenceSimulation)
+                                        ? 'Simulation STC calculée — Prête pour le scellement'
+                                        : dossier?.pretAValider
+                                            ? 'Avant le calcul STC'
+                                            : 'Préparation du dossier de sortie'}
+                            </h3>
+                            <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                                {dossier?.idStc
+                                    ? `Dossier de sortie scellé #${dossier.idStc}. Les montants et décomptes sont définitivement scellés.`
+                                    : (simulationResult?.referenceSimulation || dossier?.referenceSimulation)
+                                        ? `Décompte simulé vérifié (${simulationResult?.referenceSimulation || dossier?.referenceSimulation}). Contrôlez les rubriques ci-dessus avant de sceller.`
+                                        : dossier?.pretAValider
+                                            ? 'Checklist conforme. Vous pouvez enregistrer le dossier et lancer la simulation.'
+                                            : `${nbBloquants} point(s) bloquant(s) restent à résoudre avant de pouvoir calculer.`}
+                            </p>
+                        </div>
+                        <Badge variant={dossier?.idStc ? 'success' : (simulationResult?.referenceSimulation || dossier?.referenceSimulation) ? 'brand' : dossier?.pretAValider ? 'success' : 'warning'} size="sm">
+                            {dossier?.idStc ? 'Scellé' : (simulationResult?.referenceSimulation || dossier?.referenceSimulation) ? 'Simulé' : dossier?.pretAValider ? 'Prêt' : `${nbBloquants} à traiter`}
+                        </Badge>
+                    </section>
+
+                    {/* 2. Barre d'actions en bas de page, sur le modèle du Centre de Paie (PayrollCampaignShell) */}
+                    <nav aria-label="Actions du dossier" className={pageMode ? "border-t border-[var(--color-border-subtle)] pt-4 pb-1" : "pt-1"}>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    iconLeft={<ArrowLeft size={14} />}
+                                    onClick={() => hasUnsavedPreparation ? setConfirmAbandon(true) : onClose()}
+                                    disabled={saving || simulating || sealing}
+                                >
+                                    {pageMode ? 'Retour aux dossiers' : 'Fermer'}
                                 </Button>
-                            ) : bulletinEnAttente ? (
-                                <Button variant="primary" onClick={() => setActiveTab('synthese')}>Vérifier les données de paie</Button>
-                            ) : nbBloquants > 0 ? (
-                                <Button variant="primary" onClick={() => setActiveTab('checklist')}>Voir les points bloquants</Button>
-                            ) : simulationNeedsRefresh || !dossier.referenceSimulation ? (
-                                <Button variant="primary" onClick={handleSimulerStc} loading={simulating}
-                                    disabled={saving || sealing} iconLeft={<Calculator size={15} />}>
-                                    {simulationNeedsRefresh ? 'Actualiser la simulation' : 'Simuler le STC'}
-                                </Button>
-                            ) : activeTab !== 'decompte' ? (
-                                <Button variant="primary" onClick={() => setActiveTab('decompte')}>Examiner le décompte</Button>
-                            ) : (
-                                <Button variant="primary" onClick={() => setConfirmScellement(true)} loading={sealing}
-                                    iconLeft={<ShieldCheck size={15} />}>Valider et sceller</Button>
-                            )
-                        )}
-                        {dossier?.idStc && activeTab !== 'suivi' && (
-                            <Button variant="primary" onClick={() => setActiveTab('suivi')}>Suivre règlements et formalités</Button>
-                        )}
-                    </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                {dossier && !dossier.idStc && dossier.statutDossier !== 'ANNULE' && canWrite && (
+                                    !dossier.idDossierSortie || hasUnsavedPreparation ? (
+                                        <Button variant="primary" size="sm" onClick={handleSauvegarder} loading={saving}
+                                            disabled={simulating || sealing} iconLeft={<Save size={15} />}>
+                                            Sauvegarder le dossier
+                                        </Button>
+                                    ) : bulletinEnAttente ? (
+                                        <Button variant="primary" size="sm" onClick={() => setActiveTab('synthese')}>
+                                            Vérifier les données de paie
+                                        </Button>
+                                    ) : nbBloquants > 0 ? (
+                                        <Button variant="primary" size="sm" onClick={() => setActiveTab('checklist')}>
+                                            Voir les points bloquants
+                                        </Button>
+                                    ) : simulationNeedsRefresh || !dossier.referenceSimulation ? (
+                                        <Button variant="primary" size="sm" onClick={handleSimulerStc} loading={simulating}
+                                            disabled={saving || sealing} iconLeft={<Calculator size={15} />}>
+                                            {simulationNeedsRefresh ? 'Actualiser la simulation' : 'Simuler le STC'}
+                                        </Button>
+                                    ) : activeTab !== 'decompte' ? (
+                                        <Button variant="primary" size="sm" onClick={() => setActiveTab('decompte')}>
+                                            Examiner le décompte
+                                        </Button>
+                                    ) : (
+                                        <Button variant="primary" size="sm" onClick={() => setConfirmScellement(true)} loading={sealing}
+                                            iconLeft={<ShieldCheck size={15} />}>
+                                            Valider et sceller
+                                        </Button>
+                                    )
+                                )}
+                                {dossier?.idStc && activeTab !== 'suivi' && (
+                                    <Button variant="primary" size="sm" onClick={() => setActiveTab('suivi')}>
+                                        Suivre règlements et documents
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    </nav>
                 </div>
             }
         >
@@ -436,30 +463,19 @@ export default function DossierSortieModal({
                 {errorMsg && (
                     <Alert type="error" title="Erreur dossier de sortie" message={errorMsg} />
                 )}
-                {hasUnsavedPreparation && (
-                    <div role="status" className="flex flex-wrap items-center justify-between gap-2 border border-[var(--color-warning-200)] bg-[var(--color-warning-50)] px-4 py-3 text-sm text-[var(--color-warning-900)]">
-                        <p><strong>Modifications non enregistrées.</strong> Sauvegardez la préparation avant de simuler ou de sceller.</p>
-                        {canWrite && <Button variant="secondary" size="sm" onClick={handleSauvegarder} loading={saving}>Enregistrer maintenant</Button>}
-                    </div>
-                )}
+                {hasUnsavedPreparation && <Alert type="warning" title="Modifications non enregistrées"
+                    message="Sauvegardez la préparation avant la simulation."
+                    action={canWrite && <Button variant="outline" size="xs" onClick={handleSauvegarder} loading={saving}>Enregistrer maintenant</Button>} />}
                 {!loading && !dossier && (
                     <div role="alert" className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-5 text-sm text-[var(--color-fg)]">
                         Impossible d’afficher le dossier. Vérifiez les données du salarié ou revenez à la liste.
                     </div>
                 )}
-                {!loading && dossier && (
-                    <div role="status" className="flex flex-wrap items-start justify-between gap-3 border border-[var(--color-info-200)] bg-[var(--color-info-100)] p-3 text-sm text-[var(--color-info-800)]">
-                        <Info size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-                        <div className="min-w-0 flex-1">
-                            <p className="font-semibold">Prochaine étape</p>
-                            <p>{canWrite ? prochaineEtape : 'Consultation seule : parcourez la checklist, les données financières et le suivi. Les changements du dossier nécessitent PAIE_WRITE.'}</p>
-                        </div>
-                        {dossier.idDossierSortie && <button type="button" onClick={() => setActiveTab(prochaineSection)}
-                            className="min-h-9 border border-[var(--color-info-800)] bg-[var(--color-info-800)] px-3 text-xs font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-info-800)]">
-                            {prochaineSection === 'checklist' ? 'Voir les points' : prochaineSection === 'suivi' ? 'Voir le suivi' : 'Voir le calcul'}
-                        </button>}
-                    </div>
-                )}
+                {!loading && dossier && <Alert type="info" title="Prochaine étape"
+                    message={canWrite ? prochaineEtape : 'Consultation seule : vérifiez la situation, le calcul et le suivi.'}
+                    action={dossier.idDossierSortie && <Button type="button" variant="outline" size="xs" onClick={() => setActiveTab(prochaineSection)}>
+                        {prochaineSection === 'checklist' ? 'Voir les points' : prochaineSection === 'suivi' ? 'Voir le suivi' : 'Voir le calcul'}
+                    </Button>} />}
 
                 {!loading && dossier && (dossier.idStc || (!simulationNeedsRefresh && simulationResult?.decompte)) && (
                     <div role="status" aria-label="Récapitulatif financier" className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3">
@@ -512,7 +528,7 @@ export default function DossierSortieModal({
                 )}
 
                 {/* En-tête Salarié & Contrat */}
-                <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)]">
+                <Card shadow="none" className="bg-[var(--color-bg-subtle)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="flex min-w-0 items-center gap-3">
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-brand-600)] shadow-xs">
@@ -598,95 +614,15 @@ export default function DossierSortieModal({
                             </div>
                         </div>
                     </div>
-                </div>
+                </Card>
 
                 {/* Onglets du Dossier */}
-                <nav aria-label="Étapes du dossier de sortie" className="grid grid-cols-2 gap-1 border-b border-[var(--color-border-subtle)] sm:grid-cols-3 xl:grid-cols-6">
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('synthese')}
-                        aria-current={activeTab === 'synthese' ? 'step' : undefined}
-                        className={`min-h-11 px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 text-center ${
-                            activeTab === 'synthese'
-                                ? 'border-[var(--color-brand-600)] text-[var(--color-brand-600)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                        }`}
-                    >
-                        <FileSpreadsheet size={15} className="shrink-0" /> 1. Situation
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('checklist')}
-                        aria-current={activeTab === 'checklist' ? 'step' : undefined}
-                        className={`min-h-11 px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 text-center ${
-                            activeTab === 'checklist'
-                                ? 'border-[var(--color-brand-600)] text-[var(--color-brand-600)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                        }`}
-                    >
-                        <ShieldAlert size={15} className="shrink-0" /> 2. Points à traiter
-                        {nbBloquants > 0 && (
-                            <span className="ml-1 px-1.5 py-0.2 bg-[var(--color-danger-100)] text-[var(--color-danger-700)] text-[10px] font-bold">
-                                {nbBloquants}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('pret')}
-                        aria-current={activeTab === 'pret' ? 'step' : undefined}
-                        className={`min-h-11 px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 text-center ${
-                            activeTab === 'pret'
-                                ? 'border-[var(--color-brand-600)] text-[var(--color-brand-600)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                        }`}
-                    >
-                        <Banknote size={15} className="shrink-0" /> 3. Prêts
-                        {hasLoans && (
-                            <span className="ml-1 px-1.5 py-0.2 bg-[var(--color-warning-100)] text-[var(--color-warning-800)] text-[10px] font-bold">
-                                En cours
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('decompte')}
-                        aria-current={activeTab === 'decompte' ? 'step' : undefined}
-                        className={`min-h-11 px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 text-center ${
-                            activeTab === 'decompte'
-                                ? 'border-[var(--color-brand-600)] text-[var(--color-brand-600)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                        }`}
-                    >
-                        <Calculator size={15} className="shrink-0" /> 4. Calcul STC
-                        {(simulationResult || dossier?.referenceSimulation) && !simulationNeedsRefresh && (
-                            <span className="ml-1 px-1.5 py-0.2 bg-[var(--color-success-100)] text-[var(--color-success-800)] text-[10px] font-bold">
-                                Simulé
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('offboarding')}
-                        aria-current={activeTab === 'offboarding' ? 'step' : undefined}
-                        className={`min-h-11 px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5 text-center ${
-                            activeTab === 'offboarding'
-                                ? 'border-[var(--color-brand-600)] text-[var(--color-brand-600)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                        }`}
-                    >
-                        <Award size={15} className="shrink-0" /> 5. Formalités
-                    </button>
-                    <button type="button" onClick={() => setActiveTab('suivi')}
-                        aria-current={activeTab === 'suivi' ? 'step' : undefined}
-                        className={`min-h-11 px-3 py-2 text-xs font-semibold border-b-2 text-center ${activeTab === 'suivi' ? 'border-[var(--color-brand-600)] text-[var(--color-brand-600)]' : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}>
-                        6. Suivi & documents
-                    </button>
-                </nav>
+                <Tabs tabs={dossierTabs} activeTab={activeTab} onChange={setActiveTab}
+                    ariaLabel="Étapes du dossier de sortie" className="dossier-stc-tabs" />
 
                 {/* CONTENU ONGLET 1 : Données sources en lecture */}
                 {activeTab === 'synthese' && (
-                    <div className="space-y-4">
+                    <div id="panel-synthese" role="tabpanel" aria-labelledby="tab-synthese" className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {/* Pointage */}
                             <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-2">
@@ -699,16 +635,38 @@ export default function DossierSortieModal({
                                     </span>
                                 </div>
                                 <div className="pt-1">
-                                    <span className="text-xl font-bold font-data text-[var(--color-fg)]">
-                                        {dossier?.joursPointageReels ?? '0'} j
-                                    </span>
-                                    <span className="text-xs text-[var(--color-fg-muted)] ml-1">
-                                        / {dossier?.joursSousContrat ?? 30} j sous contrat
-                                    </span>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-xl font-bold font-data text-[var(--color-fg)]">
+                                            {dossier?.joursPointageReels ?? '0'} j
+                                        </span>
+                                        <span className="text-xs font-semibold text-[var(--color-fg-muted)]">
+                                            travaillés ({dossier?.totalHeuresPointage ?? 0} h)
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                        {dossier?.joursOuvresPeriode ? (
+                                            <span>
+                                                Sur <strong>{dossier.joursOuvresPeriode} j ouvrés</strong>
+                                                {Number(dossier?.joursCongesPeriode || 0) > 0 && ` (+${dossier.joursCongesPeriode} j congé)`}
+                                            </span>
+                                        ) : (
+                                            <span>Temps de présence période</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="text-xs text-[var(--color-fg-muted)] flex justify-between border-t border-[var(--color-border-subtle)] pt-2">
-                                    <span>Volume horaire :</span>
-                                    <strong className="font-data text-[var(--color-fg)]">{dossier?.totalHeuresPointage ?? 0} h</strong>
+                                <div className="text-xs text-[var(--color-fg-muted)] border-t border-[var(--color-border-subtle)] pt-2 space-y-1">
+                                    <div className="flex justify-between">
+                                        <span>Contrat sur période :</span>
+                                        <strong className="font-data text-[var(--color-fg)]">
+                                            {Number(dossier?.joursSousContrat || 30) >= 30 ? 'Mois complet (30 j)' : `${dossier?.joursSousContrat ?? 0} j calendaires`}
+                                        </strong>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Retenue absence :</span>
+                                        <strong className={`font-data ${Number(dossier?.heuresAbsenceRetenues || 0) > 0 ? 'text-[var(--color-danger-700)]' : 'text-[var(--color-fg)]'}`}>
+                                            {Number(dossier?.heuresAbsenceRetenues || 0) > 0 ? `${dossier.heuresAbsenceRetenues} h` : '00h00 (0 Ar)'}
+                                        </strong>
+                                    </div>
                                 </div>
                                 <p className="text-[11px] text-[var(--color-fg-muted)] italic">
                                     {dossier?.pointageGele ? 'Pointage gelé pour cette période.' : 'Pointage encore susceptible de changer.'}
@@ -799,9 +757,9 @@ export default function DossierSortieModal({
 
                 {/* CONTENU ONGLET 2 : Checklist dynamique */}
                 {activeTab === 'checklist' && (
-                    <div className="space-y-3">
+                    <div id="panel-checklist" role="tabpanel" aria-labelledby="tab-checklist" className="space-y-3">
                         <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)] px-1">
-                            <span>Évaluation automatique en temps réel des règles légales et internes GALAXAM.</span>
+                            <span>Évaluation automatique en temps réel des règles légales et internes.</span>
                             <span className="font-medium text-[var(--color-fg)]">
                                 {dossier?.checklist?.filter(c => c.statut === 'CONFORME').length || 0} / {dossier?.checklist?.length || 0} conformes
                             </span>
@@ -841,9 +799,7 @@ export default function DossierSortieModal({
                                                     <h4 className="text-xs font-bold text-[var(--color-fg)]">
                                                         {item.titre}
                                                     </h4>
-                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 border ${src.color}`}>
-                                                        {src.label}
-                                                    </span>
+                                                    <Badge variant={src.variant} size="xs">{src.label}</Badge>
                                                     <Badge variant={getBadgeSeverity(item.niveau)} size="xs">
                                                         {item.niveau}
                                                     </Badge>
@@ -864,9 +820,9 @@ export default function DossierSortieModal({
                                                 {st.label}
                                             </Badge>
                                             {item.lienModule === 'documents' && (
-                                                <button type="button" onClick={() => setActiveTab('offboarding')}
+                                                <button type="button" onClick={() => setActiveTab('suivi')}
                                                     className="text-[11px] font-semibold text-[var(--color-fg)] hover:underline">
-                                                    Voir les formalités
+                                                    Voir les documents
                                                 </button>
                                             )}
                                             {cibleModule && (
@@ -889,7 +845,7 @@ export default function DossierSortieModal({
 
                 {/* CONTENU ONGLET 3 : Prêts & Règlements */}
                 {activeTab === 'pret' && (
-                    <div className="space-y-4">
+                    <div id="panel-pret" role="tabpanel" aria-labelledby="tab-pret" className="space-y-4">
                         <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
                             <h4 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
                                 <Banknote size={16} className="text-[var(--color-brand-600)]" />
@@ -943,8 +899,8 @@ export default function DossierSortieModal({
                                             <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
                                                 Justification écrite & traçabilité de la décision *
                                             </label>
-                                            <textarea
-                                                className="w-full text-xs p-2.5 border border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)] outline-none min-h-[70px]"
+                                            <Textarea
+                                                rows={3}
                                                 placeholder="Indiquez les accords avec le collaborateur, les références de chèque de remboursement ou les termes de maintien..."
                                                 value={justificationDecisionPret}
                                                 onChange={(e) => setJustificationDecisionPret(e.target.value)}
@@ -965,7 +921,7 @@ export default function DossierSortieModal({
 
                 {/* CONTENU ONGLET 4 : Décompte & Scellement STC */}
                 {activeTab === 'decompte' && (
-                    <div className="space-y-4">
+                    <div id="panel-decompte" role="tabpanel" aria-labelledby="tab-decompte" className="space-y-4">
                         {simulationNeedsRefresh && <Alert type="warning" title="Simulation à actualiser" message="Le décompte détaillé n'est plus affichable après rechargement ou la préparation a changé. Relancez la simulation pour contrôler les rubriques avant le scellement." />}
                         {/* En-tête de la simulation & Référence d'intégrité */}
                         <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
@@ -991,11 +947,11 @@ export default function DossierSortieModal({
                                             variant="secondary"
                                             size="sm"
                                             onClick={handleSimulerStc}
-                                            loading={simulating}
-                                            disabled={!canWrite || sealing || !dossier?.idDossierSortie || hasUnsavedPreparation || bulletinEnAttente}
+                                            loading={simulating || saving}
+                                            disabled={!canWrite || sealing || bulletinEnAttente}
                                             iconLeft={<Calculator size={14} />}
                                         >
-                                            {simulationResult || dossier?.referenceSimulation ? 'Recalculer la simulation' : 'Calculer la simulation STC'}
+                                            {simulationResult || dossier?.referenceSimulation ? 'Recalculer la simulation' : (!dossier?.idDossierSortie ? 'Enregistrer et calculer la simulation STC' : 'Calculer la simulation STC')}
                                         </Button>
                                     )}
                                 </div>
@@ -1020,7 +976,11 @@ export default function DossierSortieModal({
                             ) : (
                                 <div className="p-4 bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] text-xs text-[var(--color-warning-900)] flex items-center gap-2">
                                     <Info size={16} className="text-[var(--color-warning-700)] shrink-0" />
-                                    <span>Aucune simulation active. Cliquez sur <strong>« Calculer la simulation STC »</strong> pour générer l'empreinte vérifiable et le décompte chiffré.</span>
+                                    <span>
+                                        {!dossier?.idDossierSortie
+                                            ? <>Dossier préparatoire non encore scellé. Cliquez sur <strong>« Enregistrer et calculer la simulation STC »</strong> pour persister le dossier et générer le décompte.</>
+                                            : <>Aucune simulation active. Cliquez sur <strong>« Calculer la simulation STC »</strong> pour générer l'empreinte vérifiable et le décompte chiffré.</>}
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -1030,64 +990,153 @@ export default function DossierSortieModal({
                             const decompte = simulationNeedsRefresh ? null : simulationResult?.decompte || dossier?.snapshotSimulation;
                             if (!decompte) return null;
 
+                            const soldeBulletin = Number(decompte.soldeBulletinARegler || 0);
+                            const netFinal = Number(decompte.netAPayerStc || 0);
+                            const totalDed = Number(decompte.soldeAvancesDeduit || 0) + Number(decompte.soldePretsDeduit || 0);
+                            const netIndemnites = Math.max(0, netFinal - soldeBulletin + totalDed);
+
+                            // Séparation des rubriques salariales et patronales (comme dans le Bulletin de Paie)
+                            const lignesSal = (decompte.lignes || []).filter(l => l.sens !== 'PATRONAL' && !l.code?.endsWith('_PAT'));
+                            const lignesPat = (decompte.lignes || []).filter(l => l.sens === 'PATRONAL' || l.code?.endsWith('_PAT'));
+
                             return (
                                 <div className="space-y-4">
-                                    {/* Grille des montants */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {/* Bandeau de synthèse : Provenance & Réconciliation du Net STC (inspiré du Bulletin de Paie) */}
+                                    <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-2.5">
+                                            <div className="flex items-center gap-2">
+                                                <Calculator size={16} className="text-[var(--color-brand-600)]" />
+                                                <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                                                    Provenance & Réconciliation du Net STC à Payer
+                                                </h5>
+                                            </div>
+                                            <span className="text-[11px] text-[var(--color-fg-muted)]">
+                                                Décomposition financière officielle conforme au bulletin
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                            {/* Pilier 1 : Bulletin du mois clôturé */}
+                                            <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-1">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
+                                                    1. Salaire net du dernier mois
+                                                </span>
+                                                <div className="font-data text-base font-bold text-[var(--color-fg)]">
+                                                    +{formatMoneyAr(soldeBulletin)}
+                                                </div>
+                                                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                                                    Net issu du bulletin mensuel déjà clôturé, rattaché pour versement groupé.
+                                                </p>
+                                            </div>
+
+                                            {/* Pilier 2 : Solde net des congés & indemnités */}
+                                            <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-1">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
+                                                    2. Solde net congés & départ
+                                                </span>
+                                                <div className="font-data text-base font-bold text-[var(--color-fg)]">
+                                                    +{formatMoneyAr(netIndemnites)}
+                                                </div>
+                                                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                                                    ICCP brut ({decompte.soldeCongesRestant ?? 0}j) moins déductions sociales & IRSA.
+                                                </p>
+                                            </div>
+
+                                            {/* Pilier 3 : Déductions / Prêts / Avances */}
+                                            <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-1">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
+                                                    3. Déductions (Prêts / Acomptes)
+                                                </span>
+                                                <div className="font-data text-base font-bold text-[var(--color-danger-600)]">
+                                                    -{formatMoneyAr(totalDed)}
+                                                </div>
+                                                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                                                    {totalDed > 0 ? 'Retenues appliquées sur le décompte de départ.' : 'Aucune déduction de prêt ou avance.'}
+                                                </p>
+                                            </div>
+
+                                            {/* Pilier 4 : Total Net Final */}
+                                            <div className="p-3 bg-[var(--color-success-50)] border-2 border-[var(--color-success-500)] space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-success-900)]">
+                                                        Net Final STC à Verser
+                                                    </span>
+                                                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 bg-[var(--color-success-600)] text-white">
+                                                        Total Net
+                                                    </span>
+                                                </div>
+                                                <div className="font-data text-lg font-black text-[var(--color-success-800)]">
+                                                    {formatMoneyAr(netFinal)}
+                                                </div>
+                                                <p className="text-[11px] text-[var(--color-success-800)] font-medium">
+                                                    Montant total exigible au départ du salarié.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Grille des montants détaillés */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                                         {/* Bloc 1: Droits bruts */}
-                                        <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-2">
-                                            <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-700)] border-b pb-1.5">
-                                                1. Droits Bruts
-                                            </h5>
-                                            <div className="space-y-1.5 text-xs">
-                                                <div className="flex justify-between">
+                                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
+                                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
+                                                <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-700)] flex items-center gap-1.5">
+                                                    <Coins size={14} /> 1. Droits Bruts
+                                                </h5>
+                                                <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase">STC</span>
+                                            </div>
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex justify-between items-center">
                                                     <span className="text-[var(--color-fg-muted)]">Salaire prorata :</span>
-                                                    <span className="font-data font-semibold">{formatMoneyAr(decompte.salaireProrata || 0)}</span>
+                                                    <span className="font-data font-semibold text-[var(--color-fg)]">{formatMoneyAr(decompte.salaireProrata || 0)}</span>
                                                 </div>
-                                                <div className="flex justify-between">
+                                                <div className="flex justify-between items-center">
                                                     <span className="text-[var(--color-fg-muted)]">ICCP ({decompte.soldeCongesRestant ?? 0} j) :</span>
-                                                    <span className="font-data font-semibold">{formatMoneyAr(decompte.indemniteCongesPayes || 0)}</span>
+                                                    <span className="font-data font-semibold text-[var(--color-fg)]">{formatMoneyAr(decompte.indemniteCongesPayes || 0)}</span>
                                                 </div>
-                                                <div className="flex justify-between">
+                                                <div className="flex justify-between items-center">
                                                     <span className="text-[var(--color-fg-muted)]">Préavis ({decompte.moisPreavis ?? 0} m) :</span>
-                                                    <span className="font-data font-semibold">{formatMoneyAr(decompte.indemnitePreavis || 0)}</span>
+                                                    <span className="font-data font-semibold text-[var(--color-fg)]">{formatMoneyAr(decompte.indemnitePreavis || 0)}</span>
                                                 </div>
-                                                <div className="flex justify-between">
+                                                <div className="flex justify-between items-center">
                                                     <span className="text-[var(--color-fg-muted)]">Indemnité rupture :</span>
-                                                    <span className="font-data font-semibold">{formatMoneyAr(decompte.indemniteLicenciement || 0)}</span>
+                                                    <span className="font-data font-semibold text-[var(--color-fg)]">{formatMoneyAr(decompte.indemniteLicenciement || 0)}</span>
                                                 </div>
-                                                <div className="pt-2 border-t flex justify-between font-bold text-[var(--color-fg)]">
-                                                    <span>Total Brut STC :</span>
-                                                    <span className="font-data text-[var(--color-success-700)]">{formatMoneyAr(decompte.totalBrutStc || 0)}</span>
+                                                <div className="pt-2.5 border-t border-[var(--color-border-subtle)] flex justify-between items-baseline font-bold">
+                                                    <span className="text-[var(--color-fg)]">Total Brut STC :</span>
+                                                    <span className="font-data text-sm text-[var(--color-brand-700)]">{formatMoneyAr(decompte.totalBrutStc || 0)}</span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Bloc 2: Cotisations & Fiscalité */}
-                                        <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-2">
-                                            <h5 className="text-xs font-bold uppercase tracking-wider text-purple-800 border-b pb-1.5">
-                                                2. Cotisations & Impôt
-                                            </h5>
-                                            <div className="space-y-1.5 text-xs">
-                                                <div className="flex justify-between">
-                                                    <span className="text-[var(--color-fg-muted)]">CNaPS (1%) :</span>
+                                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
+                                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
+                                                <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-700)] flex items-center gap-1.5">
+                                                    <Receipt size={14} /> 2. Cotisations & Impôt
+                                                </h5>
+                                                <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase">Légal</span>
+                                            </div>
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[var(--color-fg-muted)]">CNaPS Salariale (1%) :</span>
                                                     <span className="font-data font-semibold text-[var(--color-danger-600)]">-{formatMoneyAr(decompte.cotisationCnaps || 0)}</span>
                                                 </div>
-                                                <div className="flex justify-between">
+                                                <div className="flex justify-between items-center">
                                                     <span className="text-[var(--color-fg-muted)]">Santé / OSTIE (1%) :</span>
                                                     <span className="font-data font-semibold text-[var(--color-danger-600)]">-{formatMoneyAr(decompte.cotisationSante || 0)}</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-[var(--color-fg-muted)]">Net Imposable :</span>
-                                                    <span className="font-data font-semibold">{formatMoneyAr(decompte.netImposable || 0)}</span>
+                                                <div className="flex justify-between items-center bg-[var(--color-bg-subtle)] px-2 py-1 border border-[var(--color-border-subtle)]">
+                                                    <span className="text-[var(--color-fg-muted)] text-[11px]">Net Imposable :</span>
+                                                    <span className="font-data font-semibold text-xs text-[var(--color-fg)]">{formatMoneyAr(decompte.netImposable || 0)}</span>
                                                 </div>
-                                                <div className="flex justify-between">
+                                                <div className="flex justify-between items-center">
                                                     <span className="text-[var(--color-fg-muted)]">IRSA net :</span>
                                                     <span className="font-data font-semibold text-[var(--color-danger-600)]">-{formatMoneyAr(decompte.irsaNet || 0)}</span>
                                                 </div>
-                                                <div className="pt-2 border-t flex justify-between font-bold text-[var(--color-fg)]">
-                                                    <span>Total Déductions Légales :</span>
-                                                    <span className="font-data text-[var(--color-danger-700)]">
+                                                <div className="pt-2.5 border-t border-[var(--color-border-subtle)] flex justify-between items-baseline font-bold">
+                                                    <span className="text-[var(--color-fg)]">Déductions Légales :</span>
+                                                    <span className="font-data text-sm text-[var(--color-danger-700)]">
                                                         -{formatMoneyAr((decompte.totalCotisationsSociales || 0) + (decompte.irsaNet || 0))}
                                                     </span>
                                                 </div>
@@ -1095,77 +1144,195 @@ export default function DossierSortieModal({
                                         </div>
 
                                         {/* Bloc 3: Déductions & Net à payer */}
-                                        <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-2">
-                                            <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--color-warning-800)] border-b pb-1.5">
-                                                3. Déductions & Net
-                                            </h5>
-                                            <div className="space-y-1.5 text-xs">
-                                                <div className="flex justify-between">
-                                                    <span className="text-[var(--color-fg-muted)]">Avances déduites :</span>
-                                                    <span className="font-data font-semibold text-[var(--color-danger-600)]">
-                                                        {Number(decompte.soldeAvancesDeduit || 0) > 0 ? `-${formatMoneyAr(decompte.soldeAvancesDeduit)}` : '0 Ar'}
-                                                    </span>
+                                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
+                                                    <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--color-success-800)] flex items-center gap-1.5">
+                                                        <Wallet size={14} /> 3. Déductions & Net
+                                                    </h5>
+                                                    <span className="text-[10px] font-semibold text-[var(--color-success-700)] uppercase font-bold">À verser</span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-[var(--color-fg-muted)]">Prêts déduits (Phase 2) :</span>
-                                                    <span className="font-data font-semibold text-[var(--color-fg-subtle)]">
-                                                        0 Ar (Maintien séparé)
-                                                    </span>
+                                                <div className="space-y-2 text-xs pt-1">
+                                                    {soldeBulletin > 0 && (
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-[var(--color-fg-muted)]">Bulletin mois à régler :</span>
+                                                            <span className="font-data font-semibold text-[var(--color-fg)]">
+                                                                +{formatMoneyAr(soldeBulletin)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[var(--color-fg-muted)]">Solde net départ (ICCP) :</span>
+                                                        <span className="font-data font-semibold text-[var(--color-fg)]">
+                                                            +{formatMoneyAr(netIndemnites)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[var(--color-fg-muted)]">Avances déduites :</span>
+                                                        <span className="font-data font-semibold text-[var(--color-danger-600)]">
+                                                            {Number(decompte.soldeAvancesDeduit || 0) > 0 ? `-${formatMoneyAr(decompte.soldeAvancesDeduit)}` : '0 Ar'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[var(--color-fg-muted)]">Prêts déduits :</span>
+                                                        <span className="font-data text-[var(--color-fg-muted)]">
+                                                            {Number(decompte.soldePretsDeduit || 0) > 0 ? `-${formatMoneyAr(decompte.soldePretsDeduit)}` : '0 Ar (Maintien séparé)'}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="p-2.5 mt-3 bg-[var(--color-success-50)] border border-[var(--color-success-200)]">
-                                                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-success-900)] block">
+                                            </div>
+
+                                            <div className="p-3 bg-[var(--color-success-50)] border-2 border-[var(--color-success-500)]/40 mt-2">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-success-900)]">
                                                         Net STC à Payer
                                                     </span>
-                                                    <span className="font-data text-xl font-bold text-[var(--color-success-700)] block mt-0.5">
-                                                        {formatMoneyAr(decompte.netAPayerStc || 0)}
+                                                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 bg-[var(--color-success-600)] text-white">
+                                                        Net final
                                                     </span>
+                                                </div>
+                                                <div className="font-data text-2xl font-black text-[var(--color-success-800)] mt-1 tracking-tight">
+                                                    {formatMoneyAr(decompte.netAPayerStc || 0)}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Tableau complet des rubriques */}
+                                    {/* Lignes du décompte : inspiré de la clarté du Bulletin de Paie */}
                                     {decompte.lignes && decompte.lignes.length > 0 && (
-                                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] overflow-x-auto">
-                                            <table className="w-full text-xs text-left">
-                                                <thead className="bg-[var(--color-bg-subtle)] text-[11px] uppercase font-semibold text-[var(--color-fg-muted)] border-b border-[var(--color-border-subtle)]">
-                                                    <tr>
-                                                        <th className="px-3 py-2">Code</th>
-                                                        <th className="px-3 py-2">Rubrique</th>
-                                                        <th className="px-3 py-2 text-right">Base</th>
-                                                        <th className="px-3 py-2 text-right">Taux</th>
-                                                        <th className="px-3 py-2 text-right">Montant</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-[var(--color-border-subtle)]">
-                                                    {decompte.lignes.map((l, idx) => (
-                                                        <tr key={idx} className={l.sens === 'RETENUE' ? 'bg-[var(--color-danger-50)]/30' : ''}>
-                                                            <td className="px-3 py-2 font-mono text-[11px] text-[var(--color-fg-muted)]">{l.code}</td>
-                                                            <td className="px-3 py-2 font-medium">{l.libelle}</td>
-                                                            <td className="px-3 py-2 text-right font-data text-[var(--color-fg-muted)]">{l.base ? formatMoneyAr(l.base) : '–'}</td>
-                                                            <td className="px-3 py-2 text-right font-data text-[var(--color-fg-muted)]">{l.taux ? `${l.taux}%` : '–'}</td>
-                                                            <td className={`px-3 py-2 text-right font-data font-semibold ${l.sens === 'RETENUE' ? 'text-[var(--color-danger-700)]' : 'text-[var(--color-success-700)]'}`}>
-                                                                {l.sens === 'RETENUE' ? `-${formatMoneyAr(l.montant)}` : formatMoneyAr(l.montant)}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                        <div className="space-y-4 pt-1">
+                                            {/* 1. Tableau Résultats Salarié */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)] px-1">
+                                                    <span className="font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+                                                        <FileSpreadsheet size={15} className="text-[var(--color-brand-600)]" />
+                                                        Résultats salarié · {lignesSal.length} rubriques
+                                                    </span>
+                                                    <span>Montants en Ariary (MGA)</span>
+                                                </div>
+                                                <Table density="compact" bordered={true} rowHover={true} aria-label="Rubriques salarié du décompte STC">
+                                                    <Thead>
+                                                        <Tr>
+                                                            <Th className="w-28">Nature</Th>
+                                                            <Th>Désignation</Th>
+                                                            <Th className="text-right w-36">Base ou taux</Th>
+                                                            <Th className="text-right w-36">Gain</Th>
+                                                            <Th className="text-right w-36">Retenue</Th>
+                                                        </Tr>
+                                                    </Thead>
+                                                    <Tbody>
+                                                        {lignesSal.map((l, idx) => {
+                                                            const isRetenue = l.sens === 'RETENUE';
+                                                            const isGain = l.sens === 'GAIN';
+                                                            const isBulletinRapproche = l.code === 'BULLETIN_MENSUEL_RAPPROCHE';
+
+                                                            // Base ou taux formaté
+                                                            const baseOuTaux = l.base ? formatMoneyAr(l.base) : (l.taux ? `${l.taux}%` : '—');
+
+                                                            // Montants
+                                                            const gainVal = (isGain || isBulletinRapproche) ? l.montant : null;
+                                                            const retVal = isRetenue ? l.montant : null;
+
+                                                            return (
+                                                                <Tr
+                                                                    key={idx}
+                                                                    className={
+                                                                        isRetenue
+                                                                            ? 'bg-[var(--color-danger-50)]/20'
+                                                                            : isBulletinRapproche
+                                                                                ? 'bg-[var(--color-brand-50)]/40 font-medium'
+                                                                                : ''
+                                                                    }
+                                                                >
+                                                                    <Td>
+                                                                        {isBulletinRapproche ? (
+                                                                            <span className="text-xs font-semibold text-[var(--color-brand-700)]">
+                                                                                Mois en cours
+                                                                            </span>
+                                                                        ) : isGain ? (
+                                                                            <Badge variant="success" size="xs">Gain</Badge>
+                                                                        ) : isRetenue ? (
+                                                                            <Badge variant="danger" size="xs">Retenue</Badge>
+                                                                        ) : (
+                                                                            <Badge variant="secondary" size="xs">Info</Badge>
+                                                                        )}
+                                                                    </Td>
+                                                                    <Td className={`text-xs ${isBulletinRapproche ? 'font-semibold text-[var(--color-brand-900)]' : 'font-medium text-[var(--color-fg)]'}`}>
+                                                                        {l.libelle}
+                                                                    </Td>
+                                                                    <Td className="text-right font-data text-xs text-[var(--color-fg-muted)]">
+                                                                        {baseOuTaux}
+                                                                    </Td>
+                                                                    <Td className="text-right font-data font-semibold text-xs text-[var(--color-success-700)]">
+                                                                        {gainVal != null ? formatMoneyAr(gainVal) : <span className="text-[var(--color-fg-subtle)] font-normal">—</span>}
+                                                                    </Td>
+                                                                    <Td className="text-right font-data font-semibold text-xs text-[var(--color-danger-600)]">
+                                                                        {retVal != null ? `-${formatMoneyAr(retVal)}` : <span className="text-[var(--color-fg-subtle)] font-normal">—</span>}
+                                                                    </Td>
+                                                                </Tr>
+                                                            );
+                                                        })}
+                                                    </Tbody>
+                                                </Table>
+                                            </div>
+
+                                            {/* 2. Tableau Charges Patronales (Coût Employeur) */}
+                                            {lignesPat.length > 0 && (
+                                                <div className="space-y-2 pt-1">
+                                                    <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)] px-1">
+                                                        <span className="font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+                                                            <Building2 size={15} className="text-[var(--color-brand-600)]" />
+                                                            Charges patronales · {lignesPat.length} rubriques (Coût Employeur)
+                                                        </span>
+                                                        <span className="text-[11px] text-[var(--color-fg-muted)]">À la charge exclusive de l’employeur</span>
+                                                    </div>
+                                                    <Table density="compact" bordered={true} rowHover={true} aria-label="Charges patronales STC">
+                                                        <Thead>
+                                                            <Tr>
+                                                                <Th>Désignation</Th>
+                                                                <Th className="text-right w-36">Base</Th>
+                                                                <Th className="text-right w-24">Taux</Th>
+                                                                <Th className="text-right w-36">Cotisation patronale</Th>
+                                                            </Tr>
+                                                        </Thead>
+                                                        <Tbody>
+                                                            {lignesPat.map((l, idx) => (
+                                                                <Tr key={idx} className="bg-[var(--color-bg-subtle)]/50">
+                                                                    <Td className="font-medium text-xs text-[var(--color-fg)]">
+                                                                        {l.libelle}
+                                                                    </Td>
+                                                                    <Td className="text-right font-data text-xs text-[var(--color-fg-muted)]">
+                                                                        {l.base ? formatMoneyAr(l.base) : '—'}
+                                                                    </Td>
+                                                                    <Td className="text-right font-data text-xs text-[var(--color-fg-muted)]">
+                                                                        {l.taux ? `${l.taux}%` : '—'}
+                                                                    </Td>
+                                                                    <Td className="text-right font-data font-semibold text-xs text-[var(--color-fg)]">
+                                                                        {formatMoneyAr(l.montant)}
+                                                                    </Td>
+                                                                </Tr>
+                                                            ))}
+                                                        </Tbody>
+                                                    </Table>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
                                     {/* Zone de scellement transactionnel si non scellé */}
                                     {dossier?.statutDossier !== 'VALIDE' && dossier?.statutDossier !== 'CLOTURE' ? (
-                                        <div className="p-4 bg-[var(--color-success-50)]/70 border-2 border-[var(--color-success-300)] space-y-3">
+                                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-success-500)]/40 shadow-sm space-y-3">
                                             <div className="flex items-start gap-3">
-                                                <ShieldCheck size={22} className="text-[var(--color-success-700)] shrink-0 mt-0.5" />
+                                                <div className="p-2 bg-[var(--color-success-100)] text-[var(--color-success-700)] shrink-0">
+                                                    <ShieldCheck size={20} />
+                                                </div>
                                                 <div className="space-y-1">
-                                                    <h5 className="text-sm font-bold text-[var(--color-success-950)]">
+                                                    <h5 className="text-sm font-bold text-[var(--color-fg)]">
                                                         Confirmation et scellement transactionnel du STC
                                                     </h5>
-                                                    <p className="text-xs text-[var(--color-success-900)] leading-relaxed">
+                                                    <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
                                                         Le scellement effectue un contrôle de fraîcheur transactionnel sur les données de calcul (pointage, congés, contrat).
-                                                        Le résultat net affiché de <strong className="font-data underline">{formatMoneyAr(decompte.netAPayerStc || 0)}</strong> sera scellé dans le registre financier officiel <code>paie_stc</code>.
+                                                        Le résultat net affiché de <strong className="font-data font-bold text-[var(--color-success-700)]">{formatMoneyAr(decompte.netAPayerStc || 0)}</strong> sera scellé dans le registre financier officiel <code>paie_stc</code>.
                                                     </p>
                                                 </div>
                                             </div>
@@ -1178,8 +1345,8 @@ export default function DossierSortieModal({
                                                 />
                                             )}
 
-                                            <div>
-                                                <label className="block text-[11px] font-semibold text-[var(--color-success-950)] mb-1">
+                                            <div className="pt-1">
+                                                <label className="block text-[11px] font-semibold text-[var(--color-fg-muted)] mb-1">
                                                     Commentaire ou référence de validation (optionnel)
                                                 </label>
                                                 <Input
@@ -1212,20 +1379,25 @@ export default function DossierSortieModal({
                                                         STC scellé et verrouillé · N° STC : #{dossier.idStc}
                                                     </p>
                                                     <p className="text-[11px] text-[var(--color-fg-muted)]">
-                                                        Les résultats financiers sont immuables. Le reçu STC téléchargeable reste un projet.
+                                                        Ce décompte est définitivement figé et ne peut plus être recalculé.
                                                     </p>
                                                 </div>
                                             </div>
-                                            {onOpenStcModal && (
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    onClick={() => onOpenStcModal(dossier)}
-                                                    iconRight={<ExternalLink size={13} />}
-                                                >
-                                                    Afficher le STC
-                                                </Button>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="success" size="md">
+                                                    Scellé
+                                                </Badge>
+                                                {onOpenStcModal && (
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={() => onOpenStcModal(dossier)}
+                                                        iconRight={<ExternalLink size={13} />}
+                                                    >
+                                                        Afficher le STC
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -1234,141 +1406,7 @@ export default function DossierSortieModal({
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 4 : Offboarding & Certificat de travail */}
-                {activeTab === 'offboarding' && (
-                    <div className="space-y-4">
-                        {/* Certificat de travail légal */}
-                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                    <Award size={16} className="text-purple-700" />
-                                    Certificat de travail
-                                </h4>
-                                {dossier?.certificatDelivre ? (
-                                    <Badge variant="success" size="sm">
-                                        Délivré le {fmtDate(dossier.dateDelivranceCertificat)}
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="warning" size="sm">
-                                        À délivrer à la cessation
-                                    </Badge>
-                                )}
-                            </div>
-
-                            <p className="text-xs text-[var(--color-fg-muted)]">
-                                Le certificat de travail est exigible à la cessation effective du contrat. Sa délivrance est <strong className="text-[var(--color-fg)]">indépendante</strong> de la validation financière ou du règlement du STC.
-                            </p>
-
-                            {!dossier?.certificatDelivre ? (
-                                <div className="bg-purple-50/60 p-3.5 border border-purple-200 space-y-3">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-[11px] font-semibold text-purple-900 mb-1">
-                                                Date effective de remise
-                                            </label>
-                                            <Input
-                                                type="date"
-                                                value={dateDelivranceCertificat}
-                                                onChange={(e) => setDateDelivranceCertificat(e.target.value)}
-                                                disabled={!canWrite}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[11px] font-semibold text-purple-900 mb-1">
-                                                Mode de remise
-                                            </label>
-                                            <SearchSelect
-                                                options={MODES_REMISE_CERTIFICAT}
-                                                value={modeRemiseCertificat}
-                                                onChange={(val) => setModeRemiseCertificat(val)}
-                                                disabled={!canWrite}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <HasPermission authority="PAIE_WRITE"><Button
-                                        variant="primary"
-                                        size="sm"
-                                        onClick={handleDelivrerCertificat}
-                                        loading={delivrantCertificat}
-                                        disabled={!cessationConfirmee || dossier?.statutDossier === 'CLOTURE'}
-                                        iconLeft={<FileCheck size={14} />}
-                                    >
-                                        Enregistrer la remise du certificat de travail
-                                    </Button></HasPermission>
-                                    {!cessationConfirmee && <p className="text-xs text-[var(--color-warning-700)]">La fin effective du contrat doit être enregistrée avant la remise.</p>}
-                                </div>
-                            ) : (
-                                <div className="p-3 bg-purple-50 border border-purple-200 text-xs text-purple-950 flex items-center justify-between">
-                                    <div>
-                                        <p className="font-semibold">Certificat de travail délivré au salarié</p>
-                                        <p className="text-[11px] text-purple-800">
-                                            Remis le {fmtDate(dossier.dateDelivranceCertificat)} via {dossier.modeRemiseCertificat || 'Remise en main propre'}.
-                                        </p>
-                                    </div>
-                                    <BadgeCheck size={20} className="text-purple-700" />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Formalités matérielles d'offboarding */}
-                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
-                            <h4 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Key size={16} className="text-[var(--color-brand-600)]" />
-                                Formalités de restitution du matériel GALAXAM
-                            </h4>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                                <label className="flex items-center gap-2.5 p-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] cursor-pointer text-xs">
-                                    <input
-                                        type="checkbox"
-                                        checked={offboarding.restitutionBadge}
-                                        disabled={!canWrite}
-                                        onChange={(e) => setOffboarding(prev => ({ ...prev, restitutionBadge: e.target.checked }))}
-                                        className="rounded-none text-[var(--color-brand-600)]"
-                                    />
-                                    <span>Badge d'accès aux locaux restitué</span>
-                                </label>
-                                <label className="flex items-center gap-2.5 p-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] cursor-pointer text-xs">
-                                    <input
-                                        type="checkbox"
-                                        checked={offboarding.restitutionMateriel}
-                                        disabled={!canWrite}
-                                        onChange={(e) => setOffboarding(prev => ({ ...prev, restitutionMateriel: e.target.checked }))}
-                                        className="rounded-none text-[var(--color-brand-600)]"
-                                    />
-                                    <span>Ordinateur / Téléphone restitués</span>
-                                </label>
-                                <label className="flex items-center gap-2.5 p-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] cursor-pointer text-xs">
-                                    <input
-                                        type="checkbox"
-                                        checked={offboarding.restitutionCles}
-                                        disabled={!canWrite}
-                                        onChange={(e) => setOffboarding(prev => ({ ...prev, restitutionCles: e.target.checked }))}
-                                        className="rounded-none text-[var(--color-brand-600)]"
-                                    />
-                                    <span>Clés des locaux / Véhicule restitués</span>
-                                </label>
-                                <label className="flex items-center gap-2.5 p-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] cursor-pointer text-xs">
-                                    <input
-                                        type="checkbox"
-                                        checked={offboarding.entretienDepart}
-                                        disabled={!canWrite}
-                                        onChange={(e) => setOffboarding(prev => ({ ...prev, entretienDepart: e.target.checked }))}
-                                        className="rounded-none text-[var(--color-brand-600)]"
-                                    />
-                                    <span>Entretien de sortie RH réalisé</span>
-                                </label>
-                            </div>
-                            {dossier?.idDossierSortie && dossier?.statutDossier !== 'CLOTURE' && <HasPermission authority="PAIE_WRITE"><Button
-                                variant="secondary" size="sm" onClick={handleSauvegarderFormalites}
-                                loading={savingFormalities} iconLeft={<Save size={14} />}>
-                                Enregistrer les formalités
-                            </Button></HasPermission>}
-                        </div>
-                    </div>
-                )}
-                {activeTab === 'suivi' && <DossierSortieSuiviPanel dossier={dossier} onDossierChange={updated => { setDossier(updated); onSaved?.(updated); }} />}
+                {activeTab === 'suivi' && <div id="panel-suivi" role="tabpanel" aria-labelledby="tab-suivi"><DossierSortieSuiviPanel dossier={dossier} onDossierChange={updated => { setDossier(updated); onSaved?.(updated); }} /></div>}
             </div>
             <ConfirmDialog isOpen={confirmScellement} onClose={() => setConfirmScellement(false)}
                 onConfirm={() => { setConfirmScellement(false); handleScellerStc(); }}

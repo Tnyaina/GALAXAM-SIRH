@@ -218,6 +218,9 @@ public class CongeSoldeController {
             mvt.setIdEmploye(req.idEmploye());
             mvt.setTypeMouvement("AJUSTEMENT");
             mvt.setNbJours(req.nbJours());
+            if (req.dateMouvement() != null) {
+                mvt.setDateMouvement(java.sql.Date.valueOf(req.dateMouvement()));
+            }
             mvt.setCommentaire(req.commentaire().trim());
             if (req.nbJours().signum() > 0 && req.valorisationSpecifique() != null) {
                 mvt.setValeurSource(req.valorisationSpecifique());

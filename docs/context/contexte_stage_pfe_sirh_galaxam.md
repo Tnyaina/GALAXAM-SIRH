@@ -184,9 +184,9 @@ Ce mode de gestion artisanal engendrait des défaillances systémiques :
 
 Le système ne se contente pas d'enregistrer des données : il encode de façon déterministe le corpus réglementaire malgache en vigueur :
 
-### 6.1 Code du Travail (Loi n° 2024-014 du 1er juillet 2024 & Loi n° 2003-044)
+### 6.1 Code du Travail ([Loi n° 2024-014 du 14 août 2024 portant Code du Travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf) & [Loi n° 2003-044](https://www.assemblee-nationale.mg/media/archives_textes/pl/2003-044/Loi-n-2003-044-finale-Portant-Code-du-Travail-1.pdf))
 - **Âge légal d'embauche** : 16 ans révolus stricts (**Art. 100**).
-- **Durée légale du travail** : **40 heures par semaine** (**Art. 109**), soit un diviseur mensuel officiel de **173,33 heures** (Décret n° 2007-563).
+- **Durée légale du travail** : **40 heures par semaine** (**Art. 109**), soit un diviseur mensuel officiel de **173,33 heures** ([Décret n° 72-226 du 6 juillet 1972](https://cnlegis.gov.mg/)).
 - **Heures supplémentaires** (**Art. 110-112** & Décret n° 72-226) :
   - Majoration de **+30%** pour les 8 premières heures de dépassement hebdomadaire (de la 41e à la 48e heure).
   - Majoration de **+50%** pour toute heure effectuée au-delà de la 48e heure hebdomadaire.

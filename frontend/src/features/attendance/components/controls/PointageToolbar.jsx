@@ -87,11 +87,11 @@ export default function PointageToolbar({
                         type="button"
                         disabled={isReadOnly}
                         onClick={onAutoFillStandard}
-                        title="Préremplir l'horaire configuré du site aux lignes non saisies"
+                        title="Préremplir les plages matin et après-midi du site aux lignes non saisies"
                         className="flex items-center gap-1 px-2 h-[30px] text-[11px] font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
                         <ClockCheck size={13} className="text-[var(--color-success-600)] shrink-0" />
-                        <span>Horaire standard</span>
+                        <span>Plages du site</span>
                     </button>
                     <button
                         type="button"

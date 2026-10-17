@@ -26,8 +26,16 @@ const situation = {
 };
 let host, root;
 const setInput = async (input, value) => {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-    await act(async () => { setter.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); });
+    if (!input) return;
+    const proto = input.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype
+        : input.tagName === 'SELECT' ? HTMLSelectElement.prototype
+        : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+    await act(async () => {
+        setter.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
 };
 beforeEach(() => {
     sessionStorage.clear();
@@ -47,14 +55,12 @@ describe('suivi RH du dossier de sortie', () => {
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
         expect(host.textContent).toContain('ANNULÉ');
         expect(host.textContent).toContain('Reçu STC — projet');
-        expect(host.textContent).toContain('Certificat PDF');
         expect(host.textContent).toContain('Certificat DOCX');
-        expect(host.textContent).toContain('Bordereau de remise');
         expect(host.textContent).toContain('700');
         for (const [label, kind, reglementId] of [
             ['Décompte STC scellé', 'decompte'], ['Reçu STC — projet', 'recuProjet'],
-            ['Certificat PDF', 'certificatPdf'], ['Certificat DOCX', 'certificatDocx'],
-            ['Bordereau de remise', 'bordereau'], ['Justificatif PDF', 'quittance', 8],
+            ['Certificat DOCX', 'certificatDocx'],
+            ['Justificatif PDF', 'quittance', 8],
         ]) {
             const button = [...host.querySelectorAll('button')].find(item => item.textContent === label);
             await act(async () => button.click());
@@ -95,7 +101,6 @@ describe('suivi RH du dossier de sortie', () => {
         expect(host.textContent).not.toContain('Dérogation formelle');
         expect(host.textContent).not.toContain('Enregistrer ce règlement');
         expect(host.textContent).toContain('Vérifier puis clôturer');
-        await act(async () => host.querySelector('input[type="checkbox"]').click());
         await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Vérifier puis clôturer').click());
         await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Confirmer l’action').click());
         expect(dossierSortieService.cloturerDossier).toHaveBeenCalledWith(12,
@@ -211,13 +216,12 @@ describe('suivi RH du dossier de sortie', () => {
 
     it('demande une décision complète avant une clôture dérogatoire', async () => {
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
-        const checks = host.querySelectorAll('input[type="checkbox"]');
-        await act(async () => checks[0].click());
+        const check = host.querySelector('input[type="checkbox"]');
+        await act(async () => check.click());
         await setInput(host.querySelector('[aria-label="Justification de la dérogation"]'), 'Échéancier formel');
         await setInput(host.querySelector('[aria-label="Autorité décisionnaire"]'), 'DAF');
         await setInput(host.querySelector('[aria-label="Référence de la décision"]'), 'DEC-2026-1');
         await setInput(host.querySelector('[aria-label="Date de décision"]'), '2026-10-01');
-        await act(async () => host.querySelectorAll('input[type="checkbox"]')[1].click());
         await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Vérifier puis clôturer').click());
         expect(dossierSortieService.cloturerDossier).not.toHaveBeenCalled();
         await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Confirmer l’action').click());

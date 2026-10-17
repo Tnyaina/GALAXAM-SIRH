@@ -264,10 +264,10 @@ export default function PeriodesReferenceTab({
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                    Reprise de solde antérieur (Cutover)
+                    Reprise de solde antérieur
                   </p>
                   <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                    Pour un salarié ayant des droits acquis avant le déploiement de GALAXAM, initialisez le stock et le TCONGE certifiés par la DAF.
+                    Pour un salarié ayant des droits acquis avant le déploiement, initialisez le stock et le Taux congé certifiés par la DAF.
                   </p>
                 </div>
                 {canValidate && (
@@ -285,7 +285,7 @@ export default function PeriodesReferenceTab({
           ) : <Table>
             <Thead><Tr><Th>Année de référence</Th><Th>Statut</Th>
               <Th className="text-right">Jours acquis</Th><Th className="text-right">Valeur acquise</Th>
-              <Th className="text-right">Taux moyen calculé</Th><Th>Application du taux</Th><Th>Contrôle</Th></Tr></Thead>
+              <Th className="text-right">Taux à la clôture</Th><Th>Application du taux</Th><Th>Contrôle</Th></Tr></Thead>
             <Tbody>{periodes.map((periode) => {
               const ouverte = periode.statut === 'OUVERTE';
               return <Tr key={periode.idPeriodeReference}>
@@ -293,7 +293,7 @@ export default function PeriodesReferenceTab({
                 <Td><Badge variant={ouverte ? 'success' : 'neutral'}>{periode.statut}</Badge></Td>
                 <Td className="text-right">{jours(ouverte ? periode.cumulDroitsCourant : periode.cumulDroitsCloture)} j</Td>
                 <Td className="text-right">{formatMoneyAr(ouverte ? periode.cumulValorisationCourante : periode.cumulValorisationCloture)}</Td>
-                <Td className="text-right">{periode.tauxCalculeCloture ? `${formatMoneyAr(periode.tauxCalculeCloture)} / j` : '—'}</Td>
+                <Td className="text-right">{ouverte ? 'En attente de clôture' : periode.tauxCalculeCloture ? `${formatMoneyAr(periode.tauxCalculeCloture)} / j` : '—'}</Td>
                 <Td>{periode.dateEffetActivation
                   ? <span>Activé le {dateFr(periode.dateEffetActivation)}<br />{formatMoneyAr(periode.tauxActive)} / j</span>
                   : !ouverte && Number(periode.tauxCalculeCloture) > 0

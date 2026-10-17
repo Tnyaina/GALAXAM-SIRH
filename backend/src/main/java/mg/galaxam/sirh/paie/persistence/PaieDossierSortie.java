@@ -32,7 +32,6 @@ public class PaieDossierSortie extends ClassMere {
     private String modeRemiseCertificat;
     private Boolean recuStcRemis = Boolean.FALSE;
     private Date dateRemiseRecu;
-    private String checklistOffboarding;
     private Integer idStc;
     private Integer creePar;
     private Integer cloturePar;
@@ -144,12 +143,12 @@ public class PaieDossierSortie extends ClassMere {
                 "id_employe, id_contrat, date_depart, motif_rupture, statut_dossier, " +
                 "donnees_preparation, decision_pret, justification_decision_pret, montant_pret_retenu, " +
                 "certificat_delivre, date_delivrance_certificat, mode_remise_certificat, " +
-                "recu_stc_remis, date_remise_recu, checklist_offboarding, id_stc, " +
+                "recu_stc_remis, date_remise_recu, id_stc, " +
                 "cree_par, cloture_par, date_cloture, motif_cloture, derogation_reglement, justification_derogation, " +
                 "autorite_decision_derogation, reference_decision_derogation, date_decision_derogation, " +
                 "version, reference_simulation, snapshot_simulation, " +
                 "created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
                 "RETURNING id_dossier_sortie, version, created_at, updated_at";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -166,20 +165,19 @@ public class PaieDossierSortie extends ClassMere {
             ps.setString(12, modeRemiseCertificat);
             ps.setBoolean(13, Boolean.TRUE.equals(recuStcRemis));
             ps.setDate(14, dateRemiseRecu);
-            ps.setString(15, checklistOffboarding != null ? checklistOffboarding : "{}");
-            if (idStc != null) ps.setInt(16, idStc); else ps.setNull(16, java.sql.Types.INTEGER);
-            if (creePar != null) ps.setInt(17, creePar); else ps.setNull(17, java.sql.Types.INTEGER);
-            if (cloturePar != null) ps.setInt(18, cloturePar); else ps.setNull(18, java.sql.Types.INTEGER);
-            ps.setTimestamp(19, dateCloture);
-            ps.setString(20, motifCloture);
-            ps.setBoolean(21, Boolean.TRUE.equals(derogationReglement));
-            ps.setString(22, justificationDerogation);
-            ps.setString(23, autoriteDecisionDerogation);
-            ps.setString(24, referenceDecisionDerogation);
-            ps.setDate(25, dateDecisionDerogation);
-            ps.setInt(26, version != null ? version : 1);
-            ps.setString(27, referenceSimulation);
-            ps.setString(28, snapshotSimulation != null ? snapshotSimulation : "{}");
+            if (idStc != null) ps.setInt(15, idStc); else ps.setNull(15, java.sql.Types.INTEGER);
+            if (creePar != null) ps.setInt(16, creePar); else ps.setNull(16, java.sql.Types.INTEGER);
+            if (cloturePar != null) ps.setInt(17, cloturePar); else ps.setNull(17, java.sql.Types.INTEGER);
+            ps.setTimestamp(18, dateCloture);
+            ps.setString(19, motifCloture);
+            ps.setBoolean(20, Boolean.TRUE.equals(derogationReglement));
+            ps.setString(21, justificationDerogation);
+            ps.setString(22, autoriteDecisionDerogation);
+            ps.setString(23, referenceDecisionDerogation);
+            ps.setDate(24, dateDecisionDerogation);
+            ps.setInt(25, version != null ? version : 1);
+            ps.setString(26, referenceSimulation);
+            ps.setString(27, snapshotSimulation != null ? snapshotSimulation : "{}");
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -200,7 +198,7 @@ public class PaieDossierSortie extends ClassMere {
                 "donnees_preparation = ?::jsonb, decision_pret = ?, justification_decision_pret = ?, " +
                 "montant_pret_retenu = ?, certificat_delivre = ?, date_delivrance_certificat = ?, " +
                 "mode_remise_certificat = ?, recu_stc_remis = ?, date_remise_recu = ?, " +
-                "checklist_offboarding = ?::jsonb, id_stc = ?, cloture_par = ?, date_cloture = ?, " +
+                "id_stc = ?, cloture_par = ?, date_cloture = ?, " +
                 "motif_cloture = ?, derogation_reglement = ?, justification_derogation = ?, " +
                 "autorite_decision_derogation = ?, reference_decision_derogation = ?, date_decision_derogation = ?, " +
                 "reference_simulation = ?, snapshot_simulation = ?::jsonb, " +
@@ -220,21 +218,20 @@ public class PaieDossierSortie extends ClassMere {
             ps.setString(11, modeRemiseCertificat);
             ps.setBoolean(12, Boolean.TRUE.equals(recuStcRemis));
             ps.setDate(13, dateRemiseRecu);
-            ps.setString(14, checklistOffboarding != null ? checklistOffboarding : "{}");
-            if (idStc != null) ps.setInt(15, idStc); else ps.setNull(15, java.sql.Types.INTEGER);
-            if (cloturePar != null) ps.setInt(16, cloturePar); else ps.setNull(16, java.sql.Types.INTEGER);
-            ps.setTimestamp(17, dateCloture);
-            ps.setString(18, motifCloture);
-            ps.setBoolean(19, Boolean.TRUE.equals(derogationReglement));
-            ps.setString(20, justificationDerogation);
-            ps.setString(21, autoriteDecisionDerogation);
-            ps.setString(22, referenceDecisionDerogation);
-            ps.setDate(23, dateDecisionDerogation);
-            ps.setString(24, referenceSimulation);
-            ps.setString(25, snapshotSimulation != null ? snapshotSimulation : "{}");
-            ps.setInt(26, idDossierSortie);
+            if (idStc != null) ps.setInt(14, idStc); else ps.setNull(14, java.sql.Types.INTEGER);
+            if (cloturePar != null) ps.setInt(15, cloturePar); else ps.setNull(15, java.sql.Types.INTEGER);
+            ps.setTimestamp(16, dateCloture);
+            ps.setString(17, motifCloture);
+            ps.setBoolean(18, Boolean.TRUE.equals(derogationReglement));
+            ps.setString(19, justificationDerogation);
+            ps.setString(20, autoriteDecisionDerogation);
+            ps.setString(21, referenceDecisionDerogation);
+            ps.setDate(22, dateDecisionDerogation);
+            ps.setString(23, referenceSimulation);
+            ps.setString(24, snapshotSimulation != null ? snapshotSimulation : "{}");
+            ps.setInt(25, idDossierSortie);
             int currentVersion = this.version != null ? this.version : 1;
-            ps.setInt(27, currentVersion);
+            ps.setInt(26, currentVersion);
             int rows = ps.executeUpdate();
             if (rows == 0) {
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
@@ -283,7 +280,6 @@ public class PaieDossierSortie extends ClassMere {
         d.setModeRemiseCertificat(rs.getString("mode_remise_certificat"));
         d.setRecuStcRemis(rs.getBoolean("recu_stc_remis"));
         d.setDateRemiseRecu(rs.getDate("date_remise_recu"));
-        d.setChecklistOffboarding(rs.getString("checklist_offboarding"));
         int stcId = rs.getInt("id_stc");
         if (!rs.wasNull()) d.setIdStc(stcId);
         int cp = rs.getInt("cree_par");
@@ -353,9 +349,6 @@ public class PaieDossierSortie extends ClassMere {
 
     public Date getDateRemiseRecu() { return dateRemiseRecu; }
     public void setDateRemiseRecu(Date dateRemiseRecu) { this.dateRemiseRecu = dateRemiseRecu; }
-
-    public String getChecklistOffboarding() { return checklistOffboarding; }
-    public void setChecklistOffboarding(String checklistOffboarding) { this.checklistOffboarding = checklistOffboarding; }
 
     public Integer getIdStc() { return idStc; }
     public void setIdStc(Integer idStc) { this.idStc = idStc; }

@@ -303,10 +303,6 @@ public class PayrollCockpitService {
                 "message", pendingAdjustments > 0
                         ? pendingAdjustments + " dossier(s) d'acompte ou d'avance à traiter."
                         : "Aucun acompte ou avance en attente de traitement."));
-        for (String code : List.of("CALENDRIERS", "CONGES", "PRETS", "INDEMNITES")) {
-            checks.add(Map.of("code", code, "status", "WARNING",
-                    "message", "Aucun contrôle autonome n'est encore disponible à cette étape ; vérifiez le paramétrage avant le calcul."));
-        }
         readiness.put("checks", checks);
         cockpit.put("readiness", readiness);
         cockpit.put("population", populationPage);

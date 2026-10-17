@@ -292,7 +292,7 @@ function SiteCotisationsList({ siteCotisations = [], onOpenCreate, onToggleStatu
                                     {item.organismeCode ? (
                                         <Badge variant="primary" size="sm">{item.organismeCode}</Badge>
                                     ) : (
-                                        <span className="text-xs text-[var(--color-fg-muted)] italic">Hérité</span>
+                                        <span className="text-xs text-[var(--color-fg-muted)] ">Hérité</span>
                                     )}
                                 </Td>
                                 <Td>
@@ -376,7 +376,7 @@ function CotisationsList({ cotisations = [], onOpenCreate, onOpenEdit, onToggleS
                                         {item.organismeCode ? (
                                             <Badge variant="primary" size="sm">{item.organismeCode}</Badge>
                                         ) : (
-                                            <span className="text-xs text-[var(--color-fg-muted)] italic">Non lié</span>
+                                            <span className="text-xs text-[var(--color-fg-muted)] ">Non lié</span>
                                         )}
                                     </Td>
                                     <Td>{categorieBadge(item.categorie)}</Td>

@@ -63,16 +63,7 @@ export const dossierSortieService = {
         return response.data;
     },
 
-    /**
-     * Met à jour les formalités d'offboarding (restitution matériel, badge, clés).
-     *
-     * @param {number} id
-     * @param {Object} formalites - clé / valeur des restitutions
-     */
-    mettreAJourOffboarding: async (id, formalites) => {
-        const response = await apiClient.put(`paie/dossier-sortie/${id}/offboarding`, formalites);
-        return response.data;
-    },
+
 
     /**
      * Lance la simulation du calcul financier du STC lié au dossier.

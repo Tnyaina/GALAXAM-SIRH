@@ -168,27 +168,7 @@ public class DossierSortieController {
         }
     }
 
-    /**
-     * Met à jour les formalités d'offboarding (restitution matériel, badge, clés).
-     */
-    @PutMapping("/{id}/offboarding")
-    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Void> mettreAJourOffboarding(
-            @PathVariable("id") Integer id,
-            @RequestBody Map<String, Object> formalites) throws Exception {
-        Integer userId = getCurrentUserId();
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                dossierSortieService.mettreAJourOffboarding(id, formalites, userId, c);
-                c.commit();
-                return ResponseEntity.noContent().build();
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        }
-    }
+
 
     /**
      * Lance la simulation financière du STC depuis le dossier préparatoire.

@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Moteur de validation des règles métier de gestion des contrats RH.
- * Encapsule les contraintes légales du Code du Travail (CDI, CDD, Périodes d'essai).
+ * Encapsule les contraintes légales du Code du Travail :
+ * - Types de contrats et CDD : Loi n° 2024-014, Art. 23 à 25 & 28 (Loi n° 2003-044, Art. 8 à 10).
+ * - Période d'essai : Loi n° 2024-014, Art. 52 à 54 (Loi n° 2003-044, Art. 35 et 36).
  */
 @Component
 public class ContratValidationEngine {
@@ -17,7 +19,7 @@ public class ContratValidationEngine {
     /** Types de contrats exigeant légalement une date de fin déterminée */
     private static final Set<String> TYPES_AVEC_DATE_FIN_OBLIGATOIRE = Set.of("CDD", "STAGE", "PRESTATION", "CONSULTANT", "INTERIM", "TEMPORAIRE");
 
-    /** Durée maximale d'une période d'essai initiale en mois (selon la convention/catégorie, max 6 mois) */
+    /** Durée maximale d'une période d'essai initiale en mois (selon la convention/catégorie, max 6 mois, Loi 2024-014 Art. 52-54) */
     public static final int DUREE_MAX_ESSAI_MOIS = 6;
 
     /**

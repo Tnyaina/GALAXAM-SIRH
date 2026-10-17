@@ -27,6 +27,26 @@ const formatDateMouvement = (dateVal, fallbackTimestamp) => {
   });
 };
 
+const formatMotifMouvement = (commentaire) => {
+  if (!commentaire) return '—';
+  const reprise = commentaire.match(/^(?:\[SOLDE_INITIAL\]\s*)?Reprise cutover - Solde initial au (\d{4}-\d{2}-\d{2})\s*:\s*(.*)$/i);
+  if (reprise) {
+    const date = formatDateMouvement(reprise[1]);
+    const details = reprise[2].replace(/^Arrêté DAF\s*:\s*/i, 'Arrêté DAF : ').trim();
+    return `Reprise historique au ${date}${details ? ` · ${details}` : ''}`;
+  }
+  return commentaire
+    .replace(/^\[SOLDE_INITIAL\]\s*/i, '')
+    .replace(/^\[REGULARISATION_POINTAGE\]\s*/i, 'Régularisation de pointage · ')
+    .replace(/^\[([A-Z0-9_]+)\]\s*/i, '')
+    .trim() || '—';
+};
+
+const todayLocal = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 const getMouvementBadgeConfig = (type, commentaire) => {
   if (type === 'AJUSTEMENT' && commentaire &&
     (commentaire.startsWith('[SOLDE_INITIAL]') || commentaire.startsWith('Reprise - Solde initial'))) {
@@ -77,6 +97,7 @@ export default function MouvementsSoldeTable({
   const [showModalAjustement, setShowModalAjustement] = useState(false);
   const [nbJours, setNbJours] = useState('');
   const [commentaire, setCommentaire] = useState('');
+  const [dateMouvement, setDateMouvement] = useState(todayLocal);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showCorrection, setShowCorrection] = useState(false);
@@ -92,7 +113,8 @@ export default function MouvementsSoldeTable({
   const hasCutover = safeMouvements.some(m => m.typeMouvement === 'AJUSTEMENT'
     && (m.commentaire?.startsWith('[SOLDE_INITIAL]')
       || m.commentaire?.startsWith('Reprise - Solde initial')));
-  // Afficher la colonne valeur si au moins un mouvement a une valeur source historique.
+  // valeurSource est un montant de lot pour les crédits, mais un taux unitaire
+  // de secours pour les prises : ce n'est pas leur imputation FIFO réelle.
   const hasValeurSource = safeMouvements.some(m => m.valeurSource != null && Number(m.valeurSource) > 0);
 
   const [correctionAvant, setCorrectionAvant] = useState({ jours: null, valeur: null });
@@ -224,9 +246,11 @@ export default function MouvementsSoldeTable({
         idEmploye,
         nbJours: parseFloat(nbJours),
         commentaire: commentaire.trim(),
+        dateMouvement,
       });
       setNbJours('');
       setCommentaire('');
+      setDateMouvement(todayLocal());
       setShowModalAjustement(false);
       toast.success('Ajustement manuel de solde enregistré avec succès.');
       if (onAjustementSuccess) onAjustementSuccess();
@@ -392,7 +416,7 @@ export default function MouvementsSoldeTable({
                 <Th>Type de Mouvement</Th>
                 <Th className="text-center">Impact Solde</Th>
                 <Th className="text-center">Solde Cumulé</Th>
-                {hasValeurSource && <Th className="text-right">Valeur lot (Ar)</Th>}
+                {hasValeurSource && <Th className="text-right">Valorisation</Th>}
                 <Th>Motif & Justification</Th>
                 <Th>Opérateur</Th>
               </Tr>
@@ -432,7 +456,10 @@ export default function MouvementsSoldeTable({
                     {hasValeurSource && (
                       <Td className="text-right font-mono text-xs text-[var(--color-fg-muted)]">
                         {m.valeurSource != null && Number(m.valeurSource) > 0
-                          ? <span className="font-semibold text-[var(--color-fg)]">{formatMoneyAr(m.valeurSource)}</span>
+                          ? <span className="inline-flex flex-col items-end">
+                              <span className="font-semibold text-[var(--color-fg)]">{formatMoneyAr(m.valeurSource)}{m.typeMouvement === 'PRISE' ? '/j' : ''}</span>
+                              <span className="text-[10px] text-[var(--color-fg-muted)]">{m.typeMouvement === 'PRISE' ? 'Taux de référence' : Number(m.nbJours) > 0 ? 'Valeur créditée' : 'Valeur de référence'}</span>
+                            </span>
                           : <span className="text-[var(--color-fg-subtle)]">—</span>}
                       </Td>
                     )}
@@ -443,7 +470,7 @@ export default function MouvementsSoldeTable({
                             Régul. Pointage
                           </Badge>
                         )}
-                        <span>{m.commentaire || '-'}</span>
+                        <span>{formatMotifMouvement(m.commentaire)}</span>
                         {demandeMatch && onVoirDemande && (
                           <button
                             type="button"
@@ -467,6 +494,11 @@ export default function MouvementsSoldeTable({
           </Table>
         )}
       </div>
+      {hasValeurSource && filteredMouvements.length > 0 && (
+        <p className="text-xs text-[var(--color-fg-muted)]">
+          Pour une prise, le taux affiché sert de référence en cas de congé anticipé. La valeur réellement consommée dépend des droits utilisés, du plus ancien au plus récent.
+        </p>
+      )}
 
       {/* Pagination Registre */}
       {filteredMouvements.length > 0 && (
@@ -522,6 +554,20 @@ export default function MouvementsSoldeTable({
           {error && (
             <Alert type="error" message={error} />
           )}
+
+          <div>
+            <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1" htmlFor="date-ajustement-solde">
+              Date d’effet du mouvement *
+            </label>
+            <Input
+              id="date-ajustement-solde"
+              type="date"
+              value={dateMouvement}
+              onChange={(e) => setDateMouvement(e.target.value)}
+              required
+            />
+            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Cette date détermine à partir de quand l’ajustement entre dans l’historique du solde.</p>
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
@@ -608,7 +654,7 @@ export default function MouvementsSoldeTable({
             {/* Information */}
             <div className="p-2.5 bg-[var(--color-brand-500)]/8 border-l-4 border-[var(--color-brand-500)]">
               <p className="text-xs text-[var(--color-fg-muted)]">
-                Ajustement du reliquat initial. Les prises antérieures déjà clôturées restent inchangées.
+                Corrigez seulement une erreur du solde repris. Ce lot exclut les acquisitions ultérieures ; les prises déjà clôturées restent inchangées.
               </p>
             </div>
 
@@ -617,7 +663,7 @@ export default function MouvementsSoldeTable({
               <div className="py-4 text-center text-xs text-[var(--color-fg-muted)]">Chargement du reliquat actuel…</div>
             ) : correctionAvant.jours !== null && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">Reliquat enregistré actuellement :</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">Reste du lot de reprise uniquement :</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
                     <span className="text-[10px] text-[var(--color-fg-subtle)] block">Jours</span>

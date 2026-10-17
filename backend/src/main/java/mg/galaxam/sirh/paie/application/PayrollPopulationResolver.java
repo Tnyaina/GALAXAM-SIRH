@@ -30,7 +30,8 @@ public class PayrollPopulationResolver {
         String sql = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.est_actif, eac.id_affectation, "
                 + "ct.id_contrat, ct.numero_contrat, rtc.libelle AS type_contrat, rtc.code AS type_contrat_code, "
                 + "rs.libelle AS nom_site, tri.libelle AS regime, tri.code AS regime_code, "
-                + "EXISTS(SELECT 1 FROM paie_stc stc WHERE stc.id_employe = e.id_employe AND stc.id_periode_paie = ? AND stc.statut IN ('VALIDE', 'REGLE')) AS stc_scelle "
+                + "EXISTS(SELECT 1 FROM paie_stc stc WHERE stc.id_employe = e.id_employe AND stc.id_periode_paie = ? AND stc.statut IN ('VALIDE', 'REGLE')) AS stc_scelle, "
+                + "EXISTS(SELECT 1 FROM bulletin_paie bp WHERE bp.id_employe = e.id_employe AND bp.id_periode_paie = ? AND COALESCE(bp.type_bulletin, 'MENSUEL') <> 'STC') AS a_bulletin "
                 + "FROM employe e "
                 + "LEFT JOIN employe_affectation_carriere eac ON eac.id_employe = e.id_employe "
                 + "AND eac.date_debut <= ? AND (eac.date_fin IS NULL OR eac.date_fin >= ?) "
@@ -39,14 +40,22 @@ public class PayrollPopulationResolver {
                 + "LEFT JOIN ref_type_contrat rtc ON rtc.id_type_contrat = ct.id_type_contrat "
                 + "LEFT JOIN ref_site rs ON rs.id_site = eac.id_site "
                 + "LEFT JOIN ref_type_intervenant tri ON tri.id_type_intervenant = ct.id_type_intervenant "
-                + "WHERE e.est_actif = TRUE ORDER BY e.matricule, eac.date_debut";
+                + "WHERE (e.est_actif = TRUE "
+                + "   OR EXISTS(SELECT 1 FROM bulletin_paie bp2 WHERE bp2.id_employe = e.id_employe AND bp2.id_periode_paie = ? AND COALESCE(bp2.type_bulletin, 'MENSUEL') <> 'STC') "
+                + "   OR EXISTS(SELECT 1 FROM employe_affectation_carriere eac2 WHERE eac2.id_employe = e.id_employe "
+                + "             AND eac2.date_debut <= ? AND (eac2.date_fin IS NULL OR eac2.date_fin >= ?))) "
+                + "ORDER BY e.matricule, eac.date_debut";
         Map<Integer, List<Row>> rowsByEmployee = new LinkedHashMap<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, period.id());
-            statement.setDate(2, Date.valueOf(period.endDate()));
-            statement.setDate(3, Date.valueOf(period.startDate()));
-            statement.setDate(4, Date.valueOf(period.endDate()));
-            statement.setDate(5, Date.valueOf(period.startDate()));
+            statement.setInt(2, period.id());
+            statement.setDate(3, Date.valueOf(period.endDate()));
+            statement.setDate(4, Date.valueOf(period.startDate()));
+            statement.setDate(5, Date.valueOf(period.endDate()));
+            statement.setDate(6, Date.valueOf(period.startDate()));
+            statement.setInt(7, period.id());
+            statement.setDate(8, Date.valueOf(period.endDate()));
+            statement.setDate(9, Date.valueOf(period.startDate()));
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
                     int employeeId = result.getInt("id_employe");
@@ -58,7 +67,8 @@ public class PayrollPopulationResolver {
                             result.getString("nom_site"), result.getBoolean("est_actif"),
                             result.getString("regime"), result.getString("type_contrat_code"),
                             result.getString("regime_code"),
-                            result.getBoolean("stc_scelle")));
+                            result.getBoolean("stc_scelle"),
+                            result.getBoolean("a_bulletin")));
                 }
             }
         }
@@ -76,8 +86,12 @@ public class PayrollPopulationResolver {
                         && row.assignmentId() == coverage.lastAssignmentId()).findFirst().orElseThrow();
                 members.add(decide(List.of(last)));
             } catch (RuntimeException error) {
-                members.add(member(rows.get(0), "BLOCKED", String.valueOf(error.getMessage()).startsWith("AMBIGUOUS_CONFIGURATION")
-                        ? "AMBIGUOUS_ASSIGNMENT" : "MISSING_TEMPORAL_ASSIGNMENT"));
+                if (rows.get(0).aBulletin()) {
+                    members.add(decide(rows));
+                } else {
+                    members.add(member(rows.get(0), "BLOCKED", String.valueOf(error.getMessage()).startsWith("AMBIGUOUS_CONFIGURATION")
+                            ? "AMBIGUOUS_ASSIGNMENT" : "MISSING_TEMPORAL_ASSIGNMENT"));
+                }
             }
         }
         return new PayrollPopulation(period.id(), period.code(), period.startDate(), period.endDate(), members);
@@ -86,6 +100,10 @@ public class PayrollPopulationResolver {
     private PayrollPopulationMember decide(List<Row> rows) {
         Row fallbackRow = rows.get(0);
         List<Row> applicableRows = rows.stream().filter(candidate -> candidate.assignmentId() != null).toList();
+        if (fallbackRow.aBulletin()) {
+            Row r = applicableRows.isEmpty() ? fallbackRow : applicableRows.get(applicableRows.size() - 1);
+            return member(r, "INCLUDED", null);
+        }
         if (applicableRows.isEmpty()) {
             return member(fallbackRow, "EXCLUDED", "NO_APPLICABLE_ASSIGNMENT");
         }
@@ -151,5 +169,5 @@ public class PayrollPopulationResolver {
     private record Row(int employeeId, String matricule, String employeeName, Integer assignmentId,
                        Integer contractId, String contractNumber, String typeContrat, String nomSite,
                        boolean employeeActive, String regime, String contractTypeCode, String regimeCode,
-                       boolean stcScelle) {}
+                       boolean stcScelle, boolean aBulletin) {}
 }

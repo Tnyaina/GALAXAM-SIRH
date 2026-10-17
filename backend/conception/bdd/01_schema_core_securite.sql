@@ -302,12 +302,12 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (28, 'SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2001-07-01', NULL, TRUE, TRUE),
 (29, 'PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2001-07-01', NULL, TRUE, TRUE),
 (30, 'JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2001-07-01', NULL, TRUE, TRUE),
-(31, 'SEUIL_RETARD_ASSIDUITE_MIN', 'PAIE', '70', 'Seuil maximal de retard mensuel en minutes pour bénéficier de la prime d assiduité', '2001-07-01', NULL, TRUE, TRUE),
+(31, 'SEUIL_RETARD_ASSIDUITE_MIN', 'PAIE', '70', 'Seuil maximal de retard mensuel en minutes pour bénéficier de la prime d assiduité', '2001-07-01', NULL, FALSE, TRUE),
 (32, 'SEUIL_RETARD_PENALITE_PP_MIN', 'PAIE', '70', 'Seuil de retard mensuel en minutes déclenchant la pénalité sur la prime de performance si congés > seuil', '2001-07-01', NULL, TRUE, TRUE),
 (33, 'SEUIL_CONGES_PENALITE_PP_JOURS', 'PAIE', '1.0', 'Nombre de jours de congés dans le mois au-delà duquel la pénalité sur PP s applique si retard > seuil', '2001-07-01', NULL, TRUE, TRUE),
 (34, 'TAUX_PENALITE_PP', 'PAIE', '0.25', 'Taux de réduction appliqué sur la prime de performance (ex: 0.25 = 1/4 soit 25%)', '2001-07-01', NULL, TRUE, TRUE),
 (38, 'DUREE_REFERENCE_TCONGE_MOIS', 'CONGE', '12', 'TECHNICAL_VALIDITY_LOWER_BOUND — borne technique de validité du paramètre. Ne représente ni le début de la règle métier, ni le début d une campagne TCONGE, ni une date historique.', '2000-01-01', NULL, TRUE, FALSE),
-(42, 'MONTANT_PRIME_ASSIDUITE', 'PAIE', '50000', 'Montant forfaitaire mensuel de la prime d assiduité (accordé si retards < seuil)', '2001-07-01', NULL, TRUE, TRUE)
+(42, 'MONTANT_PRIME_ASSIDUITE', 'PAIE', '50000', 'Montant forfaitaire mensuel de la prime d assiduité (accordé si retards < seuil)', '2001-07-01', NULL, FALSE, TRUE)
 ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
 SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 42) FROM parametre_global));
 INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut, est_actif, est_desactivable)
@@ -320,3 +320,9 @@ VALUES ('CONGE_DECOMPTE_FERIES', 'CONGE', 'INCLUS',
         'Décompte des jours fériés dans les congés débitant le solde acquis : INCLUS ou EXCLUS. Version datée obligatoire.',
         '2001-07-01', TRUE, TRUE)
 ON CONFLICT (code_parametre, date_debut) DO NOTHING;
+INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut, est_actif, est_desactivable)
+VALUES ('DUREE_TRANCHE_MIN_FRACTIONNEMENT_JOURS', 'CONGE', '15',
+        'Durée minimale de la première tranche continue de congé annuel (Art. 130 Loi n° 2024-014 portant Code du Travail).',
+        '2001-07-01', TRUE, FALSE)
+ON CONFLICT (code_parametre, date_debut) DO NOTHING;
+

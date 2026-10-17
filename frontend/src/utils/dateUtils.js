@@ -12,10 +12,33 @@
  * @param {string|Date|null|undefined} d
  * @returns {string} Date au format "YYYY-MM-DD" ou "" si vide/invalide
  */
+/**
+ * Valide qu'une chaîne est une date ISO complète et réaliste (format "YYYY-MM-DD", année entre 1970 et 2100).
+ * Protège contre les dates partielles saisies au clavier dans un input[type="date"] (ex: "0002-08-11").
+ * 
+ * @param {string|null|undefined} str
+ * @returns {boolean}
+ */
+export function isValidIsoDate(str) {
+    if (!str || typeof str !== 'string') return false;
+    const match = str.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return false;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (year < 1970 || year > 2100) return false;
+    if (month < 1 || month > 12) return false;
+    if (day < 1 || day > 31) return false;
+    return true;
+}
+
 export function shiftIsoDate(value, days) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return '';
+    if (!isValidIsoDate(value)) return '';
     const [year, month, day] = value.split('-').map(Number);
     const date = new Date(Date.UTC(year, month - 1, day + days));
+    if (year < 100 && year >= 0) {
+        date.setUTCFullYear(year);
+    }
     return date.toISOString().slice(0, 10);
 }
 
@@ -176,6 +199,7 @@ export function isDateAnterieure(dateStr) {
     let dDebut;
     if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
         const [y, m, d] = dateStr.substring(0, 10).split('-').map(Number);
+        if (y < 1970 || y > 2100) return false;
         dDebut = new Date(y, m - 1, d, 0, 0, 0, 0);
     } else {
         dDebut = new Date(dateStr);

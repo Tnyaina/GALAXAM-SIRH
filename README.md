@@ -10,10 +10,13 @@ L'application centralise la gestion multi-filiales du personnel, le suivi opéra
 
 Ce système remplace l'ancienne gestion dispersée sur tableurs par une plateforme d'entreprise unifiée, déterministe, auditable et strictement alignée sur le cadre légal et réglementaire de Madagascar :
 
-- **Code du Travail malgache** (Loi n° 2003-044 du 28 juillet 2004) ;
-- **Réglementation de la durée du travail** (Décret n° 2007-563, base hebdomadaire de 40 heures = 173,33 heures par mois) ;
-- **Réglementation fiscale et sociale** (Code Général des Impôts, barème progressif IRSA, déclarations SAFI / e-Hetra, CNaPS, FMFP, organismes sanitaires interentreprises OSTIE, AMIT, FUNHECE) ;
-- **Valorisation financière des congés** : Modèle canonique `OHATRA KAJY DROITS CONGES` avec calcul du taux journalier unitaire `TCONGE` et imputation chronologique FIFO.
+- **Code du Travail malgache** : [Loi n° 2024-014 du 14 août 2024 portant Code du Travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf) (adoptée le 01/07/2024, validée par la HCC le 08/08/2024 Décision n° 11-HCC/D3, promulguée le 14/08/2024) et Loi n° 2003-044 ;
+- **Réglementation de la durée du travail & heures supplémentaires** : Loi n° 2024-014 (Art. 109 & 110) et [Décret n° 72-226 du 6 juillet 1972](https://fr.scribd.com/document/887714691/Droit-Malgache-Du-Travail) (durée légale de 40 heures / semaine = 173,33 heures par mois, majorations HS +30% et +50%) ;
+- **Réglementation des congés payés** : [Décret n° 64-161 du 22 avril 1964](https://cabinetkim.mg/blog/code-du-travail-madagascar-nouvelle-loi-2024-014/) et Loi n° 2024-014 (Art. 125 à 135) avec tranche minimale de fractionnement de 15 jours consécutifs (Art. 130) ;
+- **Règlement Intérieur & Opposabilité du Pointage** : L'écrêtage matinal au plancher d'arrivée $\max(H_{\text{badge}}, H_{\text{plancher}})$ est opposable sous réserve de la clause d'interdiction d'accès anticipé du Règlement Intérieur homologué par l'Inspection du Travail (Art. 11 et 108) ;
+- **Réglementation fiscale et sociale** : Code Général des Impôts (barème progressif IRSA 2026, déclarations SAFI / e-Hetra), Décrets CNaPS, FMFP (Loi n° 2017-025), organismes sanitaires interentreprises (OSTIE, AMIT, FUNHECE) ;
+- **Valorisation financière des congés** : Modèle canonique `OHATRA KAJY DROITS CONGES` avec calcul du taux journalier unitaire `TCONGE` et imputation chronologique FIFO (convention interne de gestion assumée face au risque prud'homal du salaire continué Art. 131) ;
+- **Solde de Tout Compte (STC)** : Forclusion et délai légal de dénonciation de **deux (02) mois** (droit positif malgache, et non 6 mois comme en droit français).
 
 Le système est conçu pour une **durabilité pluriannuelle autonome** (exercices 2025, 2026, 2027 et suivants) sans nécessiter de modification de code, de duplication manuelle de constantes ou d'interventions techniques lors des changements d'année.
 

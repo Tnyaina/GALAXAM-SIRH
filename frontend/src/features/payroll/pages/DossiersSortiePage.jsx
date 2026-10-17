@@ -328,7 +328,7 @@ export default function DossiersSortiePage() {
                                                     <span className="block text-[10px] text-[var(--color-fg-muted)]">Reste : {formatMoneyAr(d.soldeRestantAPayer ?? 0)}</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-xs text-[var(--color-fg-muted)] italic">
+                                                <span className="text-xs text-[var(--color-fg-muted)] ">
                                                     Non scellé
                                                 </span>
                                             )}

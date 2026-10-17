@@ -9,10 +9,16 @@ import org.springframework.stereotype.Component;
 
 /**
  * Moteur de calcul et de validation métier des congés et absences.
- * Encapsule les règles du Code du Travail Malagasy (Loi n° 2003-044, Art. 13, 85, 86, 87, 88).
+ * Encapsule les règles du Code du Travail Malagasy (Loi n° 2024-014 du 14 août 2024, Art. 125, 127, 128, 130, 131, 133, 134, 142 ; Loi n° 2003-044, Art. 13, 86, 88).
  */
 @Component
 public class CongeCalculateurEngine {
+
+    /**
+     * Durée minimale légale de la première fraction continue de congé annuel :
+     * 15 jours consécutifs (Loi n° 2024-014 du 14 août 2024, Art. 130 ; Décret n° 64-161 du 22 avril 1964).
+     */
+    public static final int DUREE_TRANCHE_MIN_FRACTIONNEMENT_JOURS = 15;
 
     public static final String LEAVE_BALANCE_INSUFFICIENT = "LEAVE_BALANCE_INSUFFICIENT";
     public static final String LEAVE_NOTICE_NOT_RESPECTED = "LEAVE_NOTICE_NOT_RESPECTED";

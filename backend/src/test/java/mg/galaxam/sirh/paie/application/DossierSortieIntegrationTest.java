@@ -22,6 +22,8 @@ import mg.galaxam.sirh.paie.api.dto.stc.ScellementStcRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.SimulationStcResultDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcReglementRequest;
 import mg.galaxam.sirh.paie.persistence.PaiePret;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +52,7 @@ class DossierSortieIntegrationTest {
     @Autowired private DataSource dataSource;
     @Autowired private DossierSortieService dossierSortieService;
     @Autowired private StcService stcService;
+    @Autowired private PayrollPeriodWorkflowService workflowService;
 
     @Test
     @DisplayName("Dossier de sortie : persistance préparatoire, lecture sources et délivrance certificat")
@@ -160,21 +163,7 @@ class DossierSortieIntegrationTest {
                 assertEquals("MAIN_PROPRE", reloaded.getModeRemiseCertificat());
 
                 // =============================================================
-                // ÉTAPE 4 : Formalités d'offboarding
-                // =============================================================
-                Map<String, Object> offboarding = new HashMap<>();
-                offboarding.put("badgeRestitue", true);
-                offboarding.put("materielPcRestitue", true);
-                offboarding.put("accesMailDesactive", true);
-                dossierSortieService.mettreAJourOffboarding(created.getIdDossierSortie(), offboarding, adminId, c);
-
-                DossierSortieDTO offReloaded = dossierSortieService.obtenirDossier(created.getIdDossierSortie(), c);
-                assertNotNull(offReloaded.getChecklistOffboarding());
-                assertEquals(true, offReloaded.getChecklistOffboarding().get("badgeRestitue"));
-                assertEquals(true, offReloaded.getChecklistOffboarding().get("materielPcRestitue"));
-
-                // =============================================================
-                // ÉTAPE 5 : Idempotence de la persistance (mise à jour du même dossier)
+                // ÉTAPE 4 : Idempotence de la persistance (mise à jour du même dossier)
                 // =============================================================
                 saveReq.setIdDossierSortie(created.getIdDossierSortie());
                 saveReq.setStatutDossier("PRET_A_VALIDER");
@@ -960,6 +949,78 @@ class DossierSortieIntegrationTest {
                     }
                 }
 
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Régression : Salarié avec bulletin mensuel puis STC/désactivation reste inclus dans la population de la campagne")
+    void testPhase21SalarieAvecBulletinMensuelPuisStcResteInclusDansPopulationHistorique() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int adminId = CongeTestFixtureHelper.createAdminUser(c, "rh_stc_hist_" + System.currentTimeMillis());
+                int empId = CongeTestFixtureHelper.createEmploye(c, "HIST-STC-" + (System.currentTimeMillis() % 1000000), "Rasoa", "Bakoly");
+                LocalDate dateDepart = LocalDate.of(2026, 10, 20);
+                int contratId = CongeTestFixtureHelper.createContratActif(c, empId, dateDepart.minusYears(1));
+                CongeTestFixtureHelper.createAffectation(c, empId, contratId, dateDepart.minusYears(1), new BigDecimal("1000000.00"));
+
+                int periodeId = assurerPeriodePaie(c, dateDepart);
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE periode_paie SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'CLOTUREE') WHERE id_periode_paie = ?")) {
+                    ps.setInt(1, periodeId);
+                    ps.executeUpdate();
+                }
+
+                // Insertion d'un bulletin mensuel ordinaire validé/clôturé
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO bulletin_paie (id_periode_paie, id_employe, matricule, nom_prenom, " +
+                        "nom_site, regime_intervenant, intitule_poste, type_bulletin, reference_bulletin, " +
+                        "salaire_base, taux_horaire, total_gains_bruts, net_a_payer, statut) VALUES (" +
+                        "?, ?, 'HIST-001', 'Rasoa Bakoly', 'Siège', 'SALARIE', 'Comptable', 'MENSUEL', 'B-HIST-001', " +
+                        "1000000, 5769.23, 1000000, 950000, 'CLOTURE')")) {
+                    ps.setInt(1, periodeId);
+                    ps.setInt(2, empId);
+                    ps.executeUpdate();
+                }
+
+                // STC ultérieur et désactivation de l'employé
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO paie_stc (id_employe, id_periode_paie, numero_recu, date_depart, motif_rupture, " +
+                        "salaire_base, taux_horaire, net_a_payer_stc, statut) VALUES (?, ?, 'RECU-STC-TEST-001', ?, 'DEMISSION', 1000000, 5769.23, 500000, 'REGLE')")) {
+                    ps.setInt(1, empId);
+                    ps.setInt(2, periodeId);
+                    ps.setDate(3, Date.valueOf(dateDepart));
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement("UPDATE employe SET est_actif = FALSE WHERE id_employe = ?")) {
+                    ps.setInt(1, empId);
+                    ps.executeUpdate();
+                }
+
+                // Vérification de la population : l'employé doit être INCLUDED car il a un bulletin mensuel scellé
+                PayrollPopulationResolver popResolver = new PayrollPopulationResolver();
+                var pop = popResolver.resolve(periodeId, c);
+                boolean isIncluded = pop.members().stream().anyMatch(m ->
+                        m.employeeId() == empId && "INCLUDED".equals(m.decision()));
+                assertTrue(isIncluded, "Le salarié ayant un bulletin mensuel pour la période doit rester INCLUDED");
+                assertTrue(pop.includedEmployeeIds().contains(empId));
+
+                // Vérification du workflow : GENERATE_OUTPUT doit être autorisé
+                var user = new PayrollPeriodUserContext(adminId, java.util.Set.of("PAIE_READ", "PAIE_WRITE", "PAIE_VALIDATE"));
+                var actions = workflowService.describeActions(periodeId, "CLOTUREE", user, c);
+                assertTrue(actions.get("GENERATE_OUTPUT").allowed(), "Les sorties doivent être autorisées sur période clôturée");
+
+                var steps = workflowService.describeCampaignSteps(periodeId, user, c);
+                var calcStep = steps.stream().filter(s -> "CALCULATION".equals(s.code())).findFirst().orElseThrow();
+                assertEquals("LOCKED", calcStep.state());
+                assertTrue(calcStep.warnings().isEmpty(), "Aucun warning sur calcul pour une campagne clôturée");
+
+                var outStep = steps.stream().filter(s -> "OUTPUTS".equals(s.code())).findFirst().orElseThrow();
+                assertEquals("CURRENT", outStep.state());
+                assertTrue(outStep.issues().isEmpty(), "Aucun blocage sur les sorties pour une campagne clôturée");
             } finally {
                 c.rollback();
             }

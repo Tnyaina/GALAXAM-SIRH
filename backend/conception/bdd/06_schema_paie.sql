@@ -668,7 +668,6 @@ CREATE TABLE paie_dossier_sortie (
     mode_remise_certificat VARCHAR(30),
     recu_stc_remis BOOLEAN DEFAULT FALSE,
     date_remise_recu DATE,
-    checklist_offboarding JSONB,
     id_stc INT UNIQUE REFERENCES paie_stc(id_stc) ON DELETE SET NULL,
     cree_par INT REFERENCES utilisateur(id_utilisateur),
     cloture_par INT REFERENCES utilisateur(id_utilisateur),

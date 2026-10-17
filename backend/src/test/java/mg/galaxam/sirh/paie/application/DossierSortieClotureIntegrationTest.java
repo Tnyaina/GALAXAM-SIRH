@@ -837,12 +837,7 @@ public class DossierSortieClotureIntegrationTest {
                         dossierSortieService.enregistrerDelivranceCertificat(test.idDossier(), Date.valueOf(dDep), "COURRIER", test.adminId(), c));
                 assertEquals(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED, exCert.getErrorCode());
 
-                // 3. Modification offboarding interdite
-                SirhBusinessException exOff = assertThrows(SirhBusinessException.class, () ->
-                        dossierSortieService.mettreAJourOffboarding(test.idDossier(), Map.of("badge", true), test.adminId(), c));
-                assertEquals(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED, exOff.getErrorCode());
-
-                // 4. Ajout de versement interdit
+                // 3. Ajout de versement interdit
                 StcReglementRequest reqReg = new StcReglementRequest(Date.valueOf(dDep), "VIR-ILLEGAL", new BigDecimal("1000.00"));
                 SirhBusinessException exReg = assertThrows(SirhBusinessException.class, () ->
                         dossierSortieService.enregistrerReglementDepuisDossier(test.idDossier(), reqReg, test.adminId(), c));

@@ -23,6 +23,9 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import mg.galaxam.sirh.contrat.application.DocumentRhService;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.CertificatTravailDTO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** Documents de sortie : lectures seulement, sans recalcul ni mutation du STC. */
@@ -32,6 +35,15 @@ public class StcDocumentService {
     private static final PDType1Font REGULAR = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
     private static final PDType1Font BOLD = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
     private final ObjectMapper json = new ObjectMapper();
+
+    @Autowired(required = false)
+    private DocumentRhService documentRhService;
+
+    public StcDocumentService() {}
+
+    public StcDocumentService(DocumentRhService documentRhService) {
+        this.documentRhService = documentRhService;
+    }
 
     public enum Type { DECOMPTE, RECU, CERTIFICAT, BORDEREAU }
 
@@ -46,7 +58,15 @@ public class StcDocumentService {
     }
 
     public byte[] certificatDocx(Integer idDossier, Connection c) throws Exception {
-        List<String> lines = certificatLines(dossier(idDossier, c), c);
+        PaieDossierSortie dossier = dossier(idDossier, c);
+        if (documentRhService != null && dossier.getIdContrat() != null) {
+            CertificatTravailDTO dto = documentRhService.preparerCertificat(dossier.getIdContrat(), "globale", c);
+            try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                documentRhService.genererCertificatDocx(dto, out);
+                return out.toByteArray();
+            }
+        }
+        List<String> lines = certificatLines(dossier, c);
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             XWPFParagraph heading = document.createParagraph();
             heading.createRun().setText("CERTIFICAT DE TRAVAIL");
@@ -149,6 +169,7 @@ public class StcDocumentService {
                     lines.add("Versements enregistrés à l'édition : " + money(verse));
                     lines.add("Reste à payer à l'édition : " + money(reste));
                     lines.add("État récapitulatif à la date d'édition ; aucune remise ni signature n'est constatée.");
+                    lines.add("Délai légal de dénonciation : deux (02) mois suivant sa délivrance (Loi n° 2024-014).");
                 } else {
                     lines.add("Ce décompte ne constitue pas une preuve de paiement.");
                 }
@@ -222,11 +243,6 @@ public class StcDocumentService {
             lines.add("Date : " + dossier.getDateDelivranceCertificat() + " ; mode : " + safe(dossier.getModeRemiseCertificat()));
         lines.add("Reçu STC remis : " + Boolean.TRUE.equals(dossier.getRecuStcRemis()));
         if (Boolean.TRUE.equals(dossier.getRecuStcRemis())) lines.add("Date : " + dossier.getDateRemiseRecu());
-        if (dossier.getChecklistOffboarding() != null) {
-            JsonNode node = json.readTree(dossier.getChecklistOffboarding());
-            lines.add("Checklist enregistrée :");
-            node.properties().forEach(e -> lines.add(e.getKey() + " : " + e.getValue().toString()));
-        }
         lines.add("La génération de ce document ne constate aucune remise ni signature.");
         return render("BORDEREAU DE REMISE - ÉTAT ENREGISTRÉ", lines);
     }

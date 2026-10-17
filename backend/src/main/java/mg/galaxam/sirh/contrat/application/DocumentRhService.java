@@ -941,8 +941,8 @@ public class DocumentRhService {
             // Remplacement dynamique des postes occupés
             injecterPostesOccupes(doc, dto.getPostesOccupes());
 
-            // Article 50 : limiter les mentions concernant le salarié aux dates,
-            // emplois successifs, périodes et catégories. Le modèle historique
+            // Loi 2024-014 Art. 40 al. 4 (Loi 2003-044 Art. 24 al. 3) : limiter les mentions concernant le salarié aux dates,
+            // emplois successifs, périodes et catégories professionnelles. Le modèle historique
             // contient aussi une décharge financière et une appréciation non justifiées.
             for (XWPFParagraph p : doc.getParagraphs()) {
                 String texte = p.getText();

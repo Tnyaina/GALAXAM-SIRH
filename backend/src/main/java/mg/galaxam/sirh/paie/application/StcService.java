@@ -1259,7 +1259,7 @@ public class StcService {
         // le statut de l'employé, son contrat et son affectation carrière active sont clos pour éviter les salariés "fantômes".
         if (req.isDesactiverEmploye()) {
             try (PreparedStatement psEmp = c.prepareStatement(
-                    "UPDATE employe SET est_actif = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?")) {
+                    "UPDATE employe SET est_actif = FALSE, date_desactivation = COALESCE(date_desactivation, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?")) {
                 psEmp.setInt(1, req.getIdEmploye());
                 psEmp.executeUpdate();
             }
@@ -2004,7 +2004,9 @@ public class StcService {
         r.setNetEnLettres(convertirEnLettres(s.getNetAPayerStc()));
 
         r.setMentionLiberatoire("Ce document détaille les sommes calculées à la cessation du contrat. "
-                + "Le paiement doit être attesté séparément. La remise ou la signature de ce document "
+                + "Le paiement doit être attesté séparément. En application du droit du travail malgache, "
+                + "le reçu pour solde de tout compte ne peut être dénoncé ou contesté que dans un délai de deux (02) mois "
+                + "suivant sa délivrance. La remise ou la signature de ce document "
                 + "n'emporte aucune renonciation aux droits du travailleur.");
 
         return r;

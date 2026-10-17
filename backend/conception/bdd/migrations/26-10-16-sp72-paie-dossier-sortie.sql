@@ -6,6 +6,8 @@
 -- =====================================================================
 
 -- 1. Table d'orchestration du dossier de sortie préparatoire et administratif
+ALTER TABLE paie_dossier_sortie DROP COLUMN IF EXISTS checklist_offboarding;
+
 CREATE TABLE IF NOT EXISTS paie_dossier_sortie (
     id_dossier_sortie SERIAL PRIMARY KEY,
     id_employe INT NOT NULL REFERENCES employe(id_employe),
@@ -22,7 +24,6 @@ CREATE TABLE IF NOT EXISTS paie_dossier_sortie (
     mode_remise_certificat VARCHAR(30),
     recu_stc_remis BOOLEAN DEFAULT FALSE,
     date_remise_recu DATE,
-    checklist_offboarding JSONB,
     id_stc INT UNIQUE REFERENCES paie_stc(id_stc) ON DELETE SET NULL,
     cree_par INT REFERENCES utilisateur(id_utilisateur),
     cloture_par INT REFERENCES utilisateur(id_utilisateur),

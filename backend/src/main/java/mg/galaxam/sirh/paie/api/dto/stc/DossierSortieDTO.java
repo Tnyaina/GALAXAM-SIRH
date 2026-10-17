@@ -43,6 +43,9 @@ public class DossierSortieDTO {
     private BigDecimal joursPointageReels;
     private BigDecimal totalHeuresPointage;
     private BigDecimal joursSousContrat;
+    private Integer joursOuvresPeriode;
+    private Integer joursCongesPeriode;
+    private BigDecimal heuresAbsenceRetenues;
 
     // Données de congés en lecture seule
     private BigDecimal soldeCongesRestant;
@@ -71,9 +74,6 @@ public class DossierSortieDTO {
     private String modeRemiseCertificat;
     private boolean recuStcRemis;
     private Date dateRemiseRecu;
-
-    // Formalités d'offboarding (restitution badge, matériel, accès)
-    private Map<String, Object> checklistOffboarding;
 
     // Données de calcul / STC lié
     private Integer idStc;
@@ -182,6 +182,15 @@ public class DossierSortieDTO {
     public BigDecimal getJoursSousContrat() { return joursSousContrat; }
     public void setJoursSousContrat(BigDecimal joursSousContrat) { this.joursSousContrat = joursSousContrat; }
 
+    public Integer getJoursOuvresPeriode() { return joursOuvresPeriode; }
+    public void setJoursOuvresPeriode(Integer joursOuvresPeriode) { this.joursOuvresPeriode = joursOuvresPeriode; }
+
+    public Integer getJoursCongesPeriode() { return joursCongesPeriode; }
+    public void setJoursCongesPeriode(Integer joursCongesPeriode) { this.joursCongesPeriode = joursCongesPeriode; }
+
+    public BigDecimal getHeuresAbsenceRetenues() { return heuresAbsenceRetenues; }
+    public void setHeuresAbsenceRetenues(BigDecimal heuresAbsenceRetenues) { this.heuresAbsenceRetenues = heuresAbsenceRetenues; }
+
     public BigDecimal getSoldeCongesRestant() { return soldeCongesRestant; }
     public void setSoldeCongesRestant(BigDecimal soldeCongesRestant) { this.soldeCongesRestant = soldeCongesRestant; }
 
@@ -241,9 +250,6 @@ public class DossierSortieDTO {
 
     public Date getDateRemiseRecu() { return dateRemiseRecu; }
     public void setDateRemiseRecu(Date dateRemiseRecu) { this.dateRemiseRecu = dateRemiseRecu; }
-
-    public Map<String, Object> getChecklistOffboarding() { return checklistOffboarding; }
-    public void setChecklistOffboarding(Map<String, Object> checklistOffboarding) { this.checklistOffboarding = checklistOffboarding; }
 
     public Integer getIdStc() { return idStc; }
     public void setIdStc(Integer idStc) { this.idStc = idStc; }

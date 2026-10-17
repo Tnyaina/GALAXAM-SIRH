@@ -153,9 +153,6 @@ public class DossierSortieService {
             entity.setRecuStcRemis(req.getRecuStcRemis());
             entity.setDateRemiseRecu(req.getDateRemiseRecu());
         }
-        if (req.getChecklistOffboarding() != null) {
-            entity.setChecklistOffboarding(objectMapper.writeValueAsString(req.getChecklistOffboarding()));
-        }
 
         entity.enregistrer(c);
         return assemblerDossierDTO(entity, c);
@@ -231,20 +228,6 @@ public class DossierSortieService {
         entity.setCertificatDelivre(true);
         entity.setDateDelivranceCertificat(dateDelivrance != null ? dateDelivrance : Date.valueOf(PayrollBusinessTime.today()));
         entity.setModeRemiseCertificat(modeRemise != null ? modeRemise : "MAIN_PROPRE");
-        entity.enregistrer(c);
-    }
-
-    /**
-     * Met à jour les formalités administratives d'offboarding (restitution matériel, badge, clés).
-     */
-    public void mettreAJourOffboarding(Integer idDossier, Map<String, Object> formalites, Integer userId, Connection c) throws Exception {
-        PaieDossierSortie entity = PaieDossierSortie.trouverParId(idDossier, c);
-        if (entity == null) throw new IllegalArgumentException("Dossier de sortie introuvable : " + idDossier);
-        if ("CLOTURE".equalsIgnoreCase(entity.getStatutDossier())) {
-            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
-                    "Ce dossier de sortie est clôturé et ne peut plus être modifié.");
-        }
-        entity.setChecklistOffboarding(objectMapper.writeValueAsString(formalites));
         entity.enregistrer(c);
     }
 
@@ -917,13 +900,6 @@ public class DossierSortieService {
             } catch (Exception ignored) {}
         }
 
-        if (entity.getChecklistOffboarding() != null && !entity.getChecklistOffboarding().isBlank()) {
-            try {
-                dto.setChecklistOffboarding(objectMapper.readValue(entity.getChecklistOffboarding(),
-                        new TypeReference<Map<String, Object>>() {}));
-            } catch (Exception ignored) {}
-        }
-
         // 1. Synchronisation Emploi / Carrière (en lecture seule)
         mg.galaxam.sirh.contrat.domain.EmploymentContext emploi = null;
         try {
@@ -1093,15 +1069,30 @@ public class DossierSortieService {
         }
         dto.setJoursSousContrat(new BigDecimal(Math.max(0, joursSousContrat)));
 
-        // Vérification snapshot existant
+        // Vérification snapshot existant et compteurs consolidés de la période
         if (idPeriode != null) {
-            String sqlSnap = "SELECT 1 FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ? " +
-                    "AND statut_snapshot IN ('GELE', 'CONSOMME') LIMIT 1";
+            String sqlSnap = "SELECT nb_jours_ouvrables, nb_jours_presents, nb_jours_conge, " +
+                    "COALESCE(minutes_absence_finale, 0) AS min_abs_fin, heures_absence_retenues " +
+                    "FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ? " +
+                    "AND statut_snapshot IN ('GELE', 'CONSOMME') ORDER BY version_snapshot DESC LIMIT 1";
             try (PreparedStatement ps = c.prepareStatement(sqlSnap)) {
                 ps.setInt(1, dto.getIdEmploye());
                 ps.setInt(2, idPeriode);
                 try (ResultSet rs = ps.executeQuery()) {
-                    dto.setPointageGele(rs.next());
+                    if (rs.next()) {
+                        dto.setPointageGele(true);
+                        dto.setJoursOuvresPeriode(rs.getInt("nb_jours_ouvrables"));
+                        dto.setJoursCongesPeriode(rs.getInt("nb_jours_conge"));
+                        int minFin = rs.getInt("min_abs_fin");
+                        BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
+                        if (minFin > 0) {
+                            dto.setHeuresAbsenceRetenues(BigDecimal.valueOf(minFin).divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP));
+                        } else if (hAbs != null) {
+                            dto.setHeuresAbsenceRetenues(hAbs);
+                        } else {
+                            dto.setHeuresAbsenceRetenues(BigDecimal.ZERO);
+                        }
+                    }
                 }
             }
         }
@@ -1109,6 +1100,7 @@ public class DossierSortieService {
         // Lecture des heures pointées réelles sur [debutCouverture, finCouverture]
         String sqlPtg = "SELECT COUNT(*) AS total_lignes, " +
                 "COUNT(*) FILTER (WHERE r.decompte_absence = FALSE AND (pj.total_heures > 0 OR pj.heures_matin > 0 OR pj.heures_am > 0)) AS jours_travailles_reels, " +
+                "COUNT(*) FILTER (WHERE r.code = 'CONGE') AS jours_conges, " +
                 "COALESCE(SUM(pj.total_heures), 0) AS total_heures " +
                 "FROM pointage_jour pj " +
                 "JOIN ref_statut_pointage_jour r ON r.id_statut_jour = pj.id_statut_jour " +
@@ -1122,12 +1114,34 @@ public class DossierSortieService {
                     dto.setSourcePointage("POINTAGE_REEL");
                     dto.setJoursPointageReels(new BigDecimal(rs.getInt("jours_travailles_reels")));
                     dto.setTotalHeuresPointage(rs.getBigDecimal("total_heures"));
+                    if (dto.getJoursCongesPeriode() == null) {
+                        dto.setJoursCongesPeriode(rs.getInt("jours_conges"));
+                    }
                 } else {
                     dto.setSourcePointage("ESTIMATION_CALENDAIRE");
                     dto.setJoursPointageReels(BigDecimal.ZERO);
                     dto.setTotalHeuresPointage(BigDecimal.ZERO);
                 }
             }
+        }
+
+        if (dto.getJoursOuvresPeriode() == null && dDebutPlage != null) {
+            LocalDate finCalc = dFinPeriode != null ? dFinPeriode : finCouverture;
+            int countOuvres = 0;
+            LocalDate cur = dDebutPlage;
+            while (!cur.isAfter(finCalc)) {
+                if (cur.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && cur.getDayOfWeek() != java.time.DayOfWeek.SUNDAY) {
+                    countOuvres++;
+                }
+                cur = cur.plusDays(1);
+            }
+            dto.setJoursOuvresPeriode(countOuvres);
+        }
+        if (dto.getHeuresAbsenceRetenues() == null) {
+            dto.setHeuresAbsenceRetenues(BigDecimal.ZERO);
+        }
+        if (dto.getJoursCongesPeriode() == null) {
+            dto.setJoursCongesPeriode(0);
         }
     }
 
@@ -1347,18 +1361,6 @@ public class DossierSortieService {
                              : "Solde de congés positif ou nul (" + d.getSoldeCongesRestant() + " j, valorisation estimée : " + d.getIccpEstimee() + " Ar).",
                 soldeNegatif ? "Examiner si une retenue est contractuellement et légalement autorisée." : null,
                 "conges"
-        ));
-
-        // 10. I-01 : Formalités d'offboarding (Info)
-        list.add(new ChecklistItemDTO(
-                "I-01_OFFBOARDING_MATERIEL",
-                "Restitution matériel & Accès",
-                Niveau.INFO,
-                SourceNorme.REGLE_INTERNE_GALAXAM,
-                StatutCheck.A_VERIFIER,
-                "Restitution du badge, PC, clés et clôture des accès informatiques (séparée des obligations salariales).",
-                "Consigner l'état d'avancement dans l'onglet Formalités.",
-                null
         ));
 
         return list;

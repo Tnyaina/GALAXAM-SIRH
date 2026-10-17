@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
     Calculator,
     CheckCircle2,
@@ -70,6 +71,8 @@ export default function StcPreparationModal({
     // Étape UI courante : 'PREPARATION' | 'SIMULATION' | 'VALIDE'
     const [step, setStep] = useState('PREPARATION');
     const [loadingPrep, setLoadingPrep] = useState(false);
+    const [refreshingPrep, setRefreshingPrep] = useState(false);
+    const [prepSelectionKey, setPrepSelectionKey] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
 
@@ -123,6 +126,7 @@ export default function StcPreparationModal({
             const dateRef = fmtDateInput(dateDepartInitiale) || getTodayDateString();
             const data = await stcService.preparerStc(idEmploye, dateRef, motifInitial);
             setPrepData(data);
+            setPrepSelectionKey(`${dateRef}|${data.motifRupture || motifInitial || 'DEMISSION'}`);
 
             // Pré-remplissage 100% backend-driven
             setForm({
@@ -169,11 +173,44 @@ export default function StcPreparationModal({
             chargerDonneesPreparatoires();
         } else {
             setPrepData(null);
+            setPrepSelectionKey('');
             setCalculResult(null);
             setErrorMsg(null);
             setStep('PREPARATION');
         }
     }, [isOpen, idEmploye, chargerDonneesPreparatoires]);
+
+    // Le contexte de paie dépend de la date et du motif affichés, pas seulement de l'ouverture.
+    useEffect(() => {
+        if (!isOpen || !prepData || !form.dateDepart || !form.motifRupture) return;
+        const selectionKey = `${fmtDateInput(form.dateDepart)}|${form.motifRupture}`;
+        if (selectionKey === prepSelectionKey) return;
+
+        let active = true;
+        const timer = window.setTimeout(async () => {
+            setRefreshingPrep(true);
+            setErrorMsg(null);
+            try {
+                const data = await stcService.preparerStc(idEmploye, fmtDateInput(form.dateDepart), form.motifRupture);
+                if (!active) return;
+                setPrepData(data);
+                setPrepSelectionKey(selectionKey);
+                setForm(prev => ({
+                    ...prev,
+                    joursTravaillesDernierMois: data.joursTravaillesEstimes != null
+                        ? String(data.joursTravaillesEstimes) : '',
+                }));
+            } catch (err) {
+                if (active) setErrorMsg(getErrorMessage(err, 'Impossible de mettre à jour le contexte de paie pour cette date.'));
+            } finally {
+                if (active) setRefreshingPrep(false);
+            }
+        }, 250);
+        return () => {
+            active = false;
+            window.clearTimeout(timer);
+        };
+    }, [isOpen, idEmploye, prepData, prepSelectionKey, form.dateDepart, form.motifRupture]);
 
     const handleFormChange = (field, val) => {
         setForm(prev => ({
@@ -217,6 +254,10 @@ export default function StcPreparationModal({
     // 1. Déclenche la simulation
     const handleSimuler = async (e) => {
         if (e) e.preventDefault();
+        if (!prepData || prepSelectionKey !== `${fmtDateInput(form.dateDepart)}|${form.motifRupture}`) {
+            setErrorMsg('Attendez la mise à jour du contexte de paie pour la date choisie.');
+            return;
+        }
         if (!form.dateDepart) {
             setErrorMsg('La date de départ est obligatoire.');
             return;
@@ -231,6 +272,11 @@ export default function StcPreparationModal({
         try {
             const preparationCourante = await stcService.preparerStc(idEmploye, fmtDateInput(form.dateDepart), form.motifRupture);
             setPrepData(preparationCourante);
+            if (preparationCourante.idBulletinMensuel
+                && !['VALIDE', 'CLOTURE'].includes(preparationCourante.statutBulletinMensuel)) {
+                setErrorMsg('Le bulletin mensuel est encore calculé. Validez la paie d’août, puis actualisez cette simulation.');
+                return;
+            }
             const payload = buildPayload(true);
             const result = await stcService.simulerStc(payload);
             setCalculResult(result);
@@ -295,7 +341,7 @@ export default function StcPreparationModal({
         ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
         : `Préparation Solde de Tout Compte — ${prepData?.nomComplet || nomEmploye || ''}`;
     const dateDepartFuture = Boolean(form.dateDepart && form.dateDepart > getTodayDateString());
-    const parcours = simulationOnly ? 'SIMULATION' : 'APPLICATION';
+    const contexteAJour = Boolean(prepData && prepSelectionKey === `${fmtDateInput(form.dateDepart)}|${form.motifRupture}`);
 
     // Rendu
     return (
@@ -311,18 +357,20 @@ export default function StcPreparationModal({
                 dirtyWarningTitle="Calcul de STC en cours"
                 dirtyWarningMessage="Une préparation ou simulation de Solde de Tout Compte est en cours. Si vous quittez maintenant, les paramètres calculés seront réinitialisés. Voulez-vous vraiment quitter ?"
                 footer={
-                    <div className="flex justify-between items-center w-full">
+                    <div className="flex justify-between items-center gap-3 w-full">
                         {step === 'PREPARATION' && (
                             <>
                                 <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={submitting}>
                                     {simulationOnly ? 'Fermer' : 'Annuler'}
                                 </Button>
+                                {errorMsg && <span role="alert" className="min-w-0 flex-1 text-xs text-[var(--color-danger-700)]">{errorMsg}</span>}
                                 <Button
                                     type="button"
                                     variant="primary"
                                     size="sm"
                                     onClick={handleSimuler}
                                     loading={submitting}
+                                    disabled={!contexteAJour || refreshingPrep}
                                     iconRight={<ArrowRight size={15} />}
                                 >
                                     {simulationOnly ? 'Calculer la simulation' : 'Simuler le STC'}
@@ -394,14 +442,12 @@ export default function StcPreparationModal({
                 )}
 
                 {!loadingPrep && prepData && (
-                    <div className="space-y-4">
-                        <Alert
-                            type="info"
-                            title={parcours === 'SIMULATION' ? 'Estimation, sans enregistrement' : 'Parcours d’application'}
-                            message={parcours === 'SIMULATION'
-                                ? 'Choisissez la date, vérifiez les jours proposés, puis calculez. Cet aperçu ne crée ni STC, ni bulletin, ni paiement.'
-                                : 'Préparez les données, contrôlez la simulation, validez le décompte, puis constatez le paiement lorsqu’il est réellement effectué.'}
-                        />
+                    <div className="stc-flow space-y-4">
+                        <p className="stc-flow-intro">
+                            {simulationOnly
+                                ? 'Estimation uniquement · aucun STC ni paiement enregistré.'
+                                : 'Préparez les données, contrôlez le calcul, puis validez le décompte.'}
+                        </p>
                         {/* Indicateur d'étapes */}
                         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3 text-xs">
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'PREPARATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
@@ -421,36 +467,42 @@ export default function StcPreparationModal({
                         </div>
 
                         {/* Synthèse Préremplie des Droits Reconnus (Backend-driven) */}
-                        <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)] grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                        <div className="stc-context-grid">
                             <div>
-                                <span className="text-[11px] text-[var(--color-fg-muted)] block">Matricule & Poste</span>
+                                <span className="stc-context-label">Collaborateur</span>
                                 <strong className="text-[var(--color-fg)]">{prepData.matricule}</strong>
                                 <span className="text-[11px] text-[var(--color-fg-muted)] block truncate">{prepData.intitulePoste}</span>
                             </div>
                             <div>
-                                <span className="text-[11px] text-[var(--color-fg-muted)] block">Ancienneté & Embauche</span>
+                                <span className="stc-context-label">Ancienneté</span>
                                 <strong className="text-[var(--color-fg)]">{formatStcAnciennete(prepData.ancienneteAnnees, prepData.ancienneteMois)}</strong>
                                 <span className="text-[11px] text-[var(--color-fg-muted)] block">{fmtDate(prepData.dateEmbauche)}</span>
                             </div>
                             <div>
-                                <span className="text-[11px] text-[var(--color-fg-muted)] block">Salaire Base Contractuel</span>
+                                <span className="stc-context-label">Salaire de base</span>
                                 <strong className="font-data text-[var(--color-fg)]">{formatMoneyAr(prepData.salaireBase)}</strong>
                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-data block">({formatMoneyAr(prepData.tauxHoraire)}/h)</span>
                             </div>
                             <div>
-                                <span className="text-[11px] text-[var(--color-fg-muted)] block">Solde Congés & Taux congés</span>
+                                <span className="stc-context-label">Congés restants</span>
                                 <strong className="text-[var(--color-fg)]">{prepData.soldeCongesRestant} jours</strong>
                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-data block">({formatMoneyAr(prepData.tauxJournalierConge)}/j)</span>
                             </div>
                         </div>
-                        <div className="flex flex-wrap gap-x-5 gap-y-1 border-b border-[var(--color-border-subtle)] pb-3 text-xs text-[var(--color-fg-muted)]">
+                        {!contexteAJour && <p className="text-xs text-[var(--color-brand-700)]" role="status">Mise à jour du contexte de paie pour la date choisie…</p>}
+                        {contexteAJour && <div className="flex flex-wrap gap-x-5 gap-y-1 border-b border-[var(--color-border-subtle)] pb-3 text-xs text-[var(--color-fg-muted)]">
                             <span>Période : <strong className="text-[var(--color-fg)]">{prepData.codePeriodePaie || 'Non déterminée'}</strong></span>
                             <span>Pointage : <strong className="text-[var(--color-fg)]">{prepData.sourcePointage === 'POINTAGE_REEL' ? 'Données disponibles' : 'Absent ou incomplet'}</strong></span>
                             <span>Bulletin : <strong className="text-[var(--color-fg)]">{prepData.statutBulletinMensuel || 'Non calculé'}</strong></span>
-                        </div>
-                        {prepData.codePeriodePaie === 'HORS_CALENDRIER' && <Alert type="warning"
+                        </div>}
+                        {contexteAJour && prepData.codePeriodePaie === 'HORS_CALENDRIER' && <Alert type="warning"
                             title="Aucune période de paie ne couvre cette date"
                             message="Le prorata part du 1er du mois civil. Vérifiez le cycle 26–25 avant toute validation." />}
+                        {contexteAJour && prepData.idBulletinMensuel && !['VALIDE', 'CLOTURE'].includes(prepData.statutBulletinMensuel) && (
+                            <Alert type="warning" title="Valider le bulletin avant la simulation STC"
+                                message={`Le bulletin #${prepData.idBulletinMensuel} est ${prepData.statutBulletinMensuel?.toLowerCase() || 'en attente'}. Le calcul STC doit reprendre un net définitif. Validez la paie de cette période, puis revenez calculer la simulation.`}
+                                action={prepData.idPeriodePaie && <Link className="text-xs font-semibold text-[var(--color-brand-700)] underline" to={`/paie/periodes/${prepData.idPeriodePaie}/validation`}>Ouvrir la validation de la paie</Link>} />
+                        )}
                         {!simulationOnly && prepData.controlesApplication?.length > 0 && (
                             <div className="space-y-2" aria-label="Contrôles avant application du STC">
                                 {prepData.controlesApplication.map((controle, index) => (
@@ -463,20 +515,15 @@ export default function StcPreparationModal({
                         {/* VUE 1 : PRÉPARATION & SAISIE DES PARAMÈTRES */}
                         {step === 'PREPARATION' && (
                             <form onSubmit={handleSimuler} className="space-y-4">
-                                {prepData.sourcePointage !== 'POINTAGE_REEL' && (
+                                {contexteAJour && prepData.sourcePointage !== 'POINTAGE_REEL' && (
                                     <Alert
                                         type={simulationOnly ? 'info' : 'warning'}
                                         title="Pointage absent"
-                                        message={simulationOnly
+                                        message={prepData.idBulletinMensuel
+                                            ? 'Le bulletin mensuel existe déjà. Vérifiez son pointage et ses variables dans la paie avant validation du STC.'
+                                            : simulationOnly
                                             ? 'Le salaire est estimé sur les jours sous contrat. Vérifiez absences et primes avant le dossier officiel.'
                                             : 'Aucun pointage disponible pour la période finale. Justifiez obligatoirement les jours rémunérés ci-dessous, puis confirmez les absences et variables dans la paie avant validation.'}
-                                    />
-                                )}
-                                {!simulationOnly && (
-                                    <Alert
-                                        type="info"
-                                        title="Contrôle de la paie finale"
-                                        message="Vérifiez le dernier bulletin, les variables approuvées et le pointage clôturé. Un bulletin mensuel validé est repris dans le STC avec son solde impayé ; les éléments variables non intégrés doivent être traités avant la validation."
                                     />
                                 )}
                                 {modePreavisInitial && (
@@ -499,6 +546,8 @@ export default function StcPreparationModal({
                                     />
                                 )}
 
+                                <section className="stc-form-section" aria-labelledby="stc-depart-title">
+                                <div className="stc-section-heading"><span className="stc-section-number">1</span><div><h4 id="stc-depart-title">Départ</h4><p>Définissez la date et le motif du calcul.</p></div></div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <Input
                                         type="date"
@@ -516,149 +565,142 @@ export default function StcPreparationModal({
                                         options={motifsSortie}
                                     />
                                 </div>
+                                </section>
                                 {prepData.idBulletinMensuel && (
-                                    <div className="border border-[var(--color-border)] p-3 space-y-3">
-                                        <h4 className="text-xs font-bold text-[var(--color-fg)]">Rapprochement de la dernière paie</h4>
+                                    <section className="stc-form-section space-y-3" aria-labelledby="stc-paie-title">
+                                        <div className="stc-section-heading"><span className="stc-section-number">2</span><div><h4 id="stc-paie-title">Dernière paie</h4><p>Indiquez seulement les sommes déjà versées.</p></div></div>
                                         <p className="text-xs text-[var(--color-fg-muted)]">
                                             Bulletin mensuel #{prepData.idBulletinMensuel} · état {prepData.statutBulletinMensuel} ·
                                             net {formatMoneyAr(prepData.netBulletinMensuel)}. Seul son solde impayé sera ajouté au STC.
                                         </p>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            <MoneyInput label="Montant déjà payé, vérifié sur la preuve de paiement (Ar)"
+                                            <MoneyInput label="Montant déjà payé (Ar)" hint="Vérifiez la preuve de paiement."
                                                 value={form.montantBulletinDejaPaye}
                                                 onValueChange={(value) => handleFormChange('montantBulletinDejaPaye', value)} />
-                                            <Input type="date" label="Date du paiement de la paie"
+                                            <Input type="date" label="Date du paiement"
                                                 required={Number(form.montantBulletinDejaPaye) > 0}
                                                 value={form.datePaiementBulletin}
                                                 onChange={(event) => handleFormChange('datePaiementBulletin', event.target.value)} />
-                                            <Input label="Référence du paiement de la paie"
+                                            <Input label="Référence du paiement"
                                                 required={Number(form.montantBulletinDejaPaye) > 0}
                                                 value={form.referencePaiementBulletin}
                                                 onChange={(event) => handleFormChange('referencePaiementBulletin', event.target.value)} />
                                         </div>
-                                    </div>
+                                    </section>
                                 )}
 
-                                <div className={`grid grid-cols-1 ${modePreavisInitial && modePreavisInitial !== 'DISPENSE_PAYEE' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3`}>
-                                    {!prepData.idBulletinMensuel && <div>
-                                        <Input
-                                            type="number"
-                                            label={simulationOnly ? 'Jours rémunérés estimés (base 30)' : 'Jours sous contrat à payer (base 30)'}
-                                            min="0"
-                                            max="30"
-                                            step="0.5"
-                                            placeholder={`Estimation : ${prepData.joursTravaillesEstimes || 0}`}
-                                            hint={`Proposition : ${prepData.joursTravaillesEstimes || 0}/30. Ajustez seulement avec un justificatif.`}
-                                            value={form.joursTravaillesDernierMois}
-                                            onChange={(e) => handleFormChange('joursTravaillesDernierMois', e.target.value)}
-                                        />
-                                        {prepData.sourcePointage === 'POINTAGE_REEL' ? (
-                                            <span className="text-[10px] text-[var(--color-success-600)] font-medium flex items-center gap-1 mt-1">
-                                                Pointage : {prepData.joursPointageReels} j · {prepData.totalHeuresPointage} h. Vérifiez les absences.
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] text-[var(--color-warning-600)] block mt-1">
-                                                Justification RH requise pour le STC officiel.
-                                            </span>
-                                        )}
-                                        <Input
-                                            label={prepData.sourcePointage === 'POINTAGE_REEL'
-                                                ? 'Justification des jours rémunérés corrigés'
-                                                : 'Justification des jours rémunérés sans pointage'}
-                                            required={!simulationOnly && prepData.sourcePointage !== 'POINTAGE_REEL'}
-                                            placeholder="Référence du pointage, absence ou régularisation RH"
-                                            value={form.justificationSalaireDernierMois}
-                                            onChange={(e) => handleFormChange('justificationSalaireDernierMois', e.target.value)}
-                                        />
-                                    </div>}
-                                    {(!modePreavisInitial || modePreavisInitial === 'DISPENSE_PAYEE') && (
-                                        <Input
-                                            type="number"
-                                            label="Durée de préavis indemnisée (mois)"
-                                            min="0"
-                                            max="6"
-                                            step="0.5"
-                                            hint="Préavis non exécuté à indemniser, après vérification RH."
-                                            value={form.moisPreavis}
-                                            onChange={(e) => handleFormChange('moisPreavis', e.target.value)}
-                                        />
-                                    )}
-                                    {!simulationOnly && <SearchSelect
-                                        label="Mode de règlement"
-                                        required
-                                        value={form.modeReglement}
-                                        onChange={(val) => handleFormChange('modeReglement', val)}
-                                        options={MODES_REGLEMENT}
-                                    />}
-                                </div>
+                                {!prepData.idBulletinMensuel && (
+                                    <section className="stc-form-section" aria-labelledby="stc-salaire-title">
+                                        <div className="stc-section-heading"><span className="stc-section-number">2</span><div><h4 id="stc-salaire-title">Salaire du dernier mois</h4><p>Vérifiez les jours à rémunérer et indiquez la source utilisée.</p></div></div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                            <Input
+                                                type="number"
+                                                label={simulationOnly ? 'Jours rémunérés estimés (sur 30)' : 'Jours à payer (sur 30)'}
+                                                min="0"
+                                                max="30"
+                                                step="0.5"
+                                                placeholder={`Estimation : ${prepData.joursTravaillesEstimes || 0}`}
+                                                hint={`Proposition : ${prepData.joursTravaillesEstimes || 0} jours. Ajustez si nécessaire.`}
+                                                value={form.joursTravaillesDernierMois}
+                                                onChange={(e) => handleFormChange('joursTravaillesDernierMois', e.target.value)}
+                                            />
+                                            <Input
+                                                label="Justificatif des jours rémunérés"
+                                                required={!simulationOnly && prepData.sourcePointage !== 'POINTAGE_REEL'}
+                                                placeholder="Pointage, absence ou régularisation RH"
+                                                hint={prepData.sourcePointage === 'POINTAGE_REEL'
+                                                    ? `Pointage disponible : ${prepData.joursPointageReels} j · ${prepData.totalHeuresPointage} h.`
+                                                    : 'Requis pour le STC officiel en l’absence de pointage.'}
+                                                value={form.justificationSalaireDernierMois}
+                                                onChange={(e) => handleFormChange('justificationSalaireDernierMois', e.target.value)}
+                                            />
+                                        </div>
+                                    </section>
+                                )}
 
-                                {/* Ajustements Exceptionnels & Surcharges Autorégulées */}
-                                <details className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]" open={!simulationOnly || modePreavisInitial === 'DISPENSE_PAYEE'}>
-                                    <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[var(--color-fg)] marker:text-[var(--color-brand-500)]">
-                                        Indemnités et autres éléments à justifier
-                                        <span className="ml-2 text-xs font-normal text-[var(--color-fg-muted)]">Si nécessaire</span>
-                                    </summary>
-                                <div className="space-y-3 border-t border-[var(--color-border-subtle)] p-4">
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <MoneyInput
-                                            label="Indemnité de licenciement à justifier (Ar)"
-                                            placeholder="Montant validé par la GRH"
-                                            hint="Saisissez uniquement un montant vérifié et documenté par RH."
-                                            value={form.indemniteLicenciement}
-                                            onValueChange={(value) => handleFormChange('indemniteLicenciement', value)}
-                                        />
-                                        {(!modePreavisInitial || modePreavisInitial === 'DISPENSE_PAYEE') && (
+                                {(!modePreavisInitial || modePreavisInitial === 'DISPENSE_PAYEE') && (
+                                    <section className="stc-form-section" aria-labelledby="stc-preavis-title">
+                                        <div className="stc-section-heading"><span className="stc-section-number">3</span><div><h4 id="stc-preavis-title">Préavis indemnisé</h4><p>Renseignez le préavis non exécuté après vérification RH.</p></div></div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                            <Input
+                                                type="number"
+                                                label="Durée indemnisée (mois)"
+                                                min="0"
+                                                max="6"
+                                                step="0.5"
+                                                value={form.moisPreavis}
+                                                onChange={(e) => handleFormChange('moisPreavis', e.target.value)}
+                                            />
                                             <MoneyInput
-                                                label={modePreavisInitial === 'DISPENSE_PAYEE'
-                                                    ? 'Indemnité compensatrice de préavis (Ar)'
-                                                    : 'Indemnité compensatrice de préavis (Ar)'}
+                                                label="Indemnité compensatrice (Ar)"
                                                 placeholder="Montant vérifié par la GRH"
                                                 hint={modePreavisInitial === 'DISPENSE_PAYEE'
-                                                    ? 'Montant transmis depuis la rupture. Ajustez-le si nécessaire.'
-                                                    : 'Saisissez le montant vérifié du préavis non exécuté.'}
+                                                    ? 'Montant repris de la rupture ; ajustez si nécessaire.'
+                                                    : 'Montant vérifié du préavis non exécuté.'}
                                                 value={form.indemnitePreavis}
                                                 onValueChange={(value) => handleFormChange('indemnitePreavis', value)}
                                             />
-                                        )}
-                                    </div>
+                                        </div>
+                                    </section>
+                                )}
 
-                                    {(form.motifRupture === 'LICENCIEMENT_ECONOMIQUE' || form.motifRupture === 'CESSATION_ACTIVITE') && (
-                                        <MoneyInput
-                                            label="Dernière rémunération de référence (Ar)"
-                                            hint="Salaire et accessoires, hors remboursements de frais (art. 48 du Code du travail 2024)."
-                                            value={form.remunerationReferenceLicenciement}
-                                            onValueChange={(value) => handleFormChange('remunerationReferenceLicenciement', value)}
-                                        />
-                                    )}
-                                    <Input
-                                        label="Référence des décisions et calculs d’indemnités"
-                                        hint="Référence de la décision et du calcul si une indemnité est saisie."
-                                        value={form.justificationIndemnites}
-                                        onChange={(e) => handleFormChange('justificationIndemnites', e.target.value)}
-                                    />
+                                {!simulationOnly && (
+                                    <section className="stc-form-section" aria-labelledby="stc-reglement-title">
+                                        <div className="stc-section-heading"><span className="stc-section-number">{!modePreavisInitial || modePreavisInitial === 'DISPENSE_PAYEE' ? '4' : '3'}</span><div><h4 id="stc-reglement-title">Règlement prévu</h4><p>Le paiement effectif sera constaté après validation du décompte.</p></div></div>
+                                        <div className="max-w-md">
+                                            <SearchSelect label="Mode de règlement" required value={form.modeReglement}
+                                                onChange={(val) => handleFormChange('modeReglement', val)} options={MODES_REGLEMENT} />
+                                        </div>
+                                    </section>
+                                )}
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div className="space-y-1">
+                                <details className="stc-details" open={!simulationOnly}>
+                                    <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[var(--color-fg)] marker:text-[var(--color-brand-500)]">
+                                        Autres indemnités et primes
+                                        <span className="ml-2 text-xs font-normal text-[var(--color-fg-muted)]">À compléter si applicable</span>
+                                    </summary>
+                                    <div className="space-y-4 border-t border-[var(--color-border-subtle)] p-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                                             <MoneyInput
-                                                label="Autres gains / primes de départ soumis au régime ordinaire (Ar)"
+                                                label="Indemnité de licenciement (Ar)"
+                                                placeholder="Montant validé par la GRH"
+                                                hint="Saisissez un montant vérifié et documenté."
+                                                value={form.indemniteLicenciement}
+                                                onValueChange={(value) => handleFormChange('indemniteLicenciement', value)}
+                                            />
+                                            {(form.motifRupture === 'LICENCIEMENT_ECONOMIQUE' || form.motifRupture === 'CESSATION_ACTIVITE') && (
+                                                <MoneyInput
+                                                    label="Rémunération de référence (Ar)"
+                                                    hint="Salaire et accessoires, hors remboursements de frais."
+                                                    value={form.remunerationReferenceLicenciement}
+                                                    onValueChange={(value) => handleFormChange('remunerationReferenceLicenciement', value)}
+                                                />
+                                            )}
+                                        </div>
+                                        <Input
+                                            label="Référence de la décision et du calcul"
+                                            hint="À renseigner si une indemnité est saisie."
+                                            value={form.justificationIndemnites}
+                                            onChange={(e) => handleFormChange('justificationIndemnites', e.target.value)}
+                                        />
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                            <MoneyInput
+                                                label="Autres gains ou primes de départ (Ar)"
                                                 placeholder="0 Ar"
                                                 value={form.autresIndemnites}
                                                 onValueChange={(value) => handleFormChange('autresIndemnites', value)}
                                             />
                                             {Number(form.autresIndemnites) > 0 && (
                                                 <Input
-                                                    type="text"
-                                                    placeholder="Motif de l'indemnité exceptionnelle..."
+                                                    label="Motif de ces gains"
+                                                    placeholder="Précisez la prime ou le gain"
                                                     value={form.motifAutresIndemnites}
                                                     onChange={(e) => handleFormChange('motifAutresIndemnites', e.target.value)}
                                                 />
                                             )}
                                         </div>
-
-                                        <p className="text-xs text-[var(--color-fg-muted)]">Les retenues diverses sont traitées dans leur dossier légal, avec justificatif, avant la paie de sortie.</p>
+                                        <p className="text-xs text-[var(--color-fg-muted)]">Les retenues éventuelles sont traitées séparément, avec leur justificatif, avant la paie de sortie.</p>
                                     </div>
-                                </div>
                                 </details>
 
                                 {/* Créances à examiner et acomptes à imputer */}
@@ -749,7 +791,7 @@ export default function StcPreparationModal({
                                 )}
 
                                 {/* Tableau décomposé du calcul STC */}
-                                <Table density="compact" bordered className="overflow-hidden">
+                                <Table density="compact" bordered rowHover={false} className="overflow-hidden">
                                     <Thead>
                                         <Tr>
                                             <Th>Élément de Liquidation STC</Th>
@@ -769,7 +811,7 @@ export default function StcPreparationModal({
                                             <Td className="font-sans">
                                                 Indemnité de Congés Payés (ICCP)
                                                 <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
-                                                    {calculResult.soldeCongesRestant} jours × {formatMoneyAr(calculResult.tauxJournalierConge)}
+                                                    {calculResult.soldeCongesRestant} jours · somme des valeurs restantes des lots
                                                 </span>
                                             </Td>
                                             <Td className="text-right">{formatMoneyAr(calculResult.indemniteCongesPayes)}</Td>
@@ -834,14 +876,14 @@ export default function StcPreparationModal({
                                         )}
                                     </Tbody>
                                     <Tfoot>
-                                        <Tr className="bg-[var(--color-ink-950)] text-[var(--color-on-color)] font-bold">
-                                            <Td className="p-3 font-sans uppercase tracking-wider text-xs text-inherit">
+                                        <Tr className="font-bold" style={{ backgroundColor: 'var(--color-ink-950)' }}>
+                                            <Td className="p-3 font-sans uppercase tracking-wider text-xs" style={{ color: 'var(--color-on-color)' }}>
                                                 NET À PAYER AU SALARIÉ
                                                 <span className="text-[10px] text-[var(--color-ink-200)] block font-normal">
-                                                    Arrondi légal à la dizaine d'Ariary
+                                                    Arrondi à la dizaine d'Ariary
                                                 </span>
                                             </Td>
-                                            <Td className="p-3 text-right text-lg font-data font-black text-inherit">
+                                            <Td className="p-3 text-right text-lg font-data font-black" style={{ color: 'var(--color-on-color)' }}>
                                                 {formatMoneyAr(calculResult.netAPayerStc ?? calculResult.netAPayer)}
                                             </Td>
                                         </Tr>

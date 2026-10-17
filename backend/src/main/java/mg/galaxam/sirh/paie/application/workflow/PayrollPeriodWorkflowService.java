@@ -175,6 +175,13 @@ public class PayrollPeriodWorkflowService {
         return availableActions(periodId, state, user, connection);
     }
 
+    public List<PayrollCampaignStep> describeCampaignSteps(
+            int periodId, PayrollPeriodUserContext user, Connection connection) throws SQLException {
+        PeriodState period = load(periodId, connection, false);
+        Map<String, ActionCapability> actions = availableActions(periodId, period.state(), user, connection);
+        return computeCampaignSteps(period, actions, connection);
+    }
+
     public PayrollPeriodContextView.NextStep describeNextStep(
             int periodId, String state, Map<String, ActionCapability> actions, Connection connection) throws SQLException {
         PeriodState period = load(periodId, connection, false);
@@ -348,12 +355,14 @@ public class PayrollPeriodWorkflowService {
                 + "AND statut_snapshot IN ('GELE','CONSOMME')", periodId) > 0;
 
         boolean hasBulletins = total > 0;
-        boolean populationComplete = hasBulletins && payrollPopulationHasBulletins(
-                periodId, java.util.Set.of("CALCULE", "VALIDE", "CLOTURE"), connection);
+        boolean populationComplete = cloturee
+                ? (hasBulletins && valide == total)
+                : (hasBulletins && payrollPopulationHasBulletins(
+                        periodId, java.util.Set.of("CALCULE", "VALIDE", "CLOTURE"), connection));
         boolean allValidated = hasBulletins && valide == total;
         boolean someCalcOrValid = calcule > 0 || valide > 0;
 
-        int recalcCount = computeRecalculationCount(periodId, state, connection);
+        int recalcCount = cloturee ? 0 : computeRecalculationCount(periodId, state, connection);
         boolean recalcNeeded = recalcCount > 0;
 
         String base = "/paie/periodes/" + periodId;
@@ -400,44 +409,50 @@ public class PayrollPeriodWorkflowService {
         else if (hasBulletins) varState = "COMPLETED";
         else varState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("VARIABLES", "Variables", varState, base + "/variables",
-                !paieOk ? frozenIssue : noIssues,
-                recalcNeeded && hasBulletins ? List.of(recalcCount + " source(s) modifiée(s) après calcul.") : noIssues));
+                cloturee ? noIssues : !paieOk ? frozenIssue : noIssues,
+                cloturee ? noIssues : recalcNeeded && hasBulletins ? List.of(recalcCount + " source(s) modifiée(s) après calcul.") : noIssues));
 
         // 4. CALCULATION — lancement du moteur de calcul
         String calcState;
-        if (!paieOk || !hasSnapshot) calcState = "BLOCKED";
+        if (!paieOk) calcState = "BLOCKED";
         else if (cloturee) calcState = "LOCKED";
+        else if (!hasSnapshot) calcState = "BLOCKED";
         else if (recalcNeeded && hasBulletins) calcState = "STALE";
         else if (hasBulletins && !populationComplete) calcState = "WARNING";
         else if (hasBulletins) calcState = "COMPLETED";
         else calcState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("CALCULATION", "Calcul", calcState, base + "/calcul",
-                !paieOk ? frozenIssue : !hasSnapshot ? List.of("Aucun snapshot de pointage figé.") : noIssues,
-                recalcNeeded && hasBulletins ? List.of("Recalcul recommandé.")
+                cloturee ? noIssues : !paieOk ? frozenIssue : !hasSnapshot ? List.of("Aucun snapshot de pointage figé.") : noIssues,
+                cloturee ? noIssues
+                        : recalcNeeded && hasBulletins ? List.of("Recalcul recommandé.")
                         : hasBulletins && !populationComplete ? List.of("Des salariés restent à calculer.") : noIssues));
 
         // 5. CONTROL — revue des bulletins et anomalies
         String ctrlState;
-        if (!paieOk || !hasBulletins) ctrlState = "BLOCKED";
+        if (!paieOk) ctrlState = "BLOCKED";
         else if (cloturee) ctrlState = "LOCKED";
+        else if (!hasBulletins) ctrlState = "BLOCKED";
         else if (recalcNeeded) ctrlState = "STALE";
         else if (!populationComplete) ctrlState = "WARNING";
         else if (allValidated) ctrlState = "COMPLETED";
         else if (someCalcOrValid) ctrlState = "CURRENT";
         else ctrlState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("CONTROL", "Contrôle", ctrlState, base + "/controle",
-                !hasBulletins ? List.of("Aucun bulletin calculé.") : noIssues,
-                hasBulletins && !populationComplete ? List.of("Bulletins incomplets ; validation bloquée.") : noIssues));
+                cloturee ? noIssues : !hasBulletins ? List.of("Aucun bulletin calculé.") : noIssues,
+                cloturee ? noIssues
+                        : hasBulletins && !populationComplete ? List.of("Bulletins incomplets ; validation bloquée.") : noIssues));
 
         // 6. VALIDATION — approbation des bulletins
         String validState;
-        if (!paieOk || !hasBulletins || recalcNeeded || !populationComplete) validState = "BLOCKED";
+        if (!paieOk) validState = "BLOCKED";
         else if (cloturee) validState = "LOCKED";
+        else if (!hasBulletins || recalcNeeded || !populationComplete) validState = "BLOCKED";
         else if (allValidated) validState = "PAIE_VALIDEE".equals(state) ? "COMPLETED" : "CURRENT";
         else if (someCalcOrValid) validState = "AVAILABLE";
         else validState = "BLOCKED";
         steps.add(new PayrollCampaignStep("VALIDATION", "Validation", validState, base + "/validation",
-                !hasBulletins ? List.of("Aucun bulletin calculé.")
+                cloturee ? noIssues
+                        : !hasBulletins ? List.of("Aucun bulletin calculé.")
                         : recalcNeeded ? List.of("Le calcul est obsolète. Recalculez avant validation.")
                         : !populationComplete ? List.of("La population de paie n'est pas entièrement calculée.") : noIssues,
                 noIssues));
@@ -447,10 +462,11 @@ public class PayrollPeriodWorkflowService {
                 ActionCapability.denied("NA"));
         boolean outputAllowed = outputCapability.allowed();
         String outState;
-        if (!paieOk || !outputAllowed) outState = "BLOCKED";
-        else outState = cloturee ? "CURRENT" : "AVAILABLE";
+        if (cloturee) outState = "CURRENT";
+        else if (!paieOk || !outputAllowed) outState = "BLOCKED";
+        else outState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("OUTPUTS", "Bulletins & Exports", outState, base + "/sorties",
-                outputAllowed ? noIssues : List.of(outputIssue(outputCapability)), noIssues));
+                cloturee || outputAllowed ? noIssues : List.of(outputIssue(outputCapability)), noIssues));
 
         return List.copyOf(steps);
     }
@@ -823,6 +839,9 @@ public class PayrollPeriodWorkflowService {
         if (action == PayrollAction.GENERATE_OUTPUT) {
             ActionCapability stateCapability = outputStateCapability(state);
             if (!stateCapability.allowed()) return stateCapability;
+            if ("CLOTUREE".equals(state)) {
+                return ActionCapability.permit();
+            }
             if (computeRecalculationCount(periodId, state, connection) > 0) {
                 return ActionCapability.denied("PAYROLL_CALCULATION_STALE");
             }
@@ -893,12 +912,14 @@ public class PayrollPeriodWorkflowService {
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
                     int employeeId = result.getInt("id_employe");
-                    if (!expected.contains(employeeId) || !found.add(employeeId)
-                            || !acceptedStatuses.contains(result.getString("statut"))) return false;
+                    if (!acceptedStatuses.contains(result.getString("statut"))) return false;
+                    if (expected.contains(employeeId)) {
+                        found.add(employeeId);
+                    }
                 }
             }
         }
-        return found.equals(expected);
+        return found.containsAll(expected);
     }
 
     private ActionCapability submissionCapability(int periodId, Connection connection) throws SQLException {

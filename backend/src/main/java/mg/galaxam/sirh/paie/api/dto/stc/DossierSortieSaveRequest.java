@@ -62,9 +62,6 @@ public class DossierSortieSaveRequest {
     private Boolean recuStcRemis;
     private Date dateRemiseRecu;
 
-    // Formalités d'offboarding (badge, PC, clés...)
-    private Map<String, Object> checklistOffboarding;
-
     public DossierSortieSaveRequest() {}
 
     public Integer getIdDossierSortie() { return idDossierSortie; }
@@ -114,7 +111,4 @@ public class DossierSortieSaveRequest {
 
     public Date getDateRemiseRecu() { return dateRemiseRecu; }
     public void setDateRemiseRecu(Date dateRemiseRecu) { this.dateRemiseRecu = dateRemiseRecu; }
-
-    public Map<String, Object> getChecklistOffboarding() { return checklistOffboarding; }
-    public void setChecklistOffboarding(Map<String, Object> checklistOffboarding) { this.checklistOffboarding = checklistOffboarding; }
 }
