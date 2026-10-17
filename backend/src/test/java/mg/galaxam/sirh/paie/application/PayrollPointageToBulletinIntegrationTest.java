@@ -36,6 +36,7 @@ class PayrollPointageToBulletinIntegrationTest {
             assertTestDatabase(connection);
             connection.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(connection);
                 int employeeId;
                 try (PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO employe (matricule, nom, prenom, sexe, date_naissance, lieu_naissance, "
@@ -292,6 +293,7 @@ class PayrollPointageToBulletinIntegrationTest {
             assertTestDatabase(connection);
             connection.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(connection);
                 int entrant = insertEmployee(connection, "ENTREE");
                 int sortant = insertEmployee(connection, "SORTIE");
                 try (PreparedStatement statement = connection.prepareStatement(
@@ -356,6 +358,7 @@ class PayrollPointageToBulletinIntegrationTest {
             assertTestDatabase(connection);
             connection.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(connection);
                 int employeeId = insertEmployee(connection, "Inactif");
                 // Contrat terminé dans le passé (2020)
                 int contractId = CongeTestFixtureHelper.createContratActif(connection, employeeId, LocalDate.of(2020, 1, 1));

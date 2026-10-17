@@ -17,6 +17,29 @@ Ce dossier regroupe l'ensemble des règles de configuration légale, des barème
 - `domain/` : invariants métier
 
 Toutes les routes d'origine restent préservées sans régression côté frontend.
+
+## Validité temporelle de `parametre_global`
+
+Les versions sont résolues à une date métier explicite. Une absence de version
+conserve la politique du consommateur ; une ambiguïté de configuration est une
+erreur et aucune version n'est choisie arbitrairement. Les bornes sont
+inclusives, la date de fin peut être ouverte, et PostgreSQL interdit les dates
+inversées et les chevauchements pour un même code via SP76.
+
+Les paramètres mensuels, journaliers et ceux consommés à la date d'un départ
+STC n'ont pas nécessairement la même date de référence. Chaque consommateur
+doit fournir la date métier correspondante. Dans `StcService`, la configuration
+légale et les tranches IRSA sont résolues à la date de départ ; les paramètres
+liés à une période de congé sont lus pour la période concernée. La Map de
+paramètres remise à la synthèse de pointage STC est actuellement résolue au
+début de la période ; le code ne permet pas à lui seul de décider si cette
+valeur doit couvrir toute la période ou varier par journée.
+
+La migration `26-10-16-sp76-parametre-global-validite-temporelle.sql` détecte
+les dates inversées et les chevauchements avant DDL, sans réparer les données.
+Elle requiert les droits de modification de la table et `btree_gist` si
+l'extension n'est pas déjà disponible. Tests de référence :
+`ParametreGlobalTemporalIntegrationTest` et les tests d'intégration STC.
 # Résolution datée des cotisations
 
 `application.SocialContributionContextResolver` est la source de résolution pour les

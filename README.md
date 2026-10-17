@@ -58,7 +58,7 @@ Le système est conçu pour une **durabilité pluriannuelle autonome** (exercice
 
 ### Solde de Tout Compte (STC)
 - Calcul événementiel déclenché à la date de fin de contrat ou de départ effectif.
-- Décomposition complète : salaire au prorata des jours travaillés du dernier mois, indemnité compensatrice de préavis non effectué, indemnité compensatrice de congés payés non pris valorisée au `TCONGE`, indemnité légale de licenciement selon l'ancienneté acquise, déduction du solde restant dû sur prêts.
+- Décomposition : salaire au prorata du dernier mois, indemnité compensatrice de congés payés valorisée au `TCONGE`, montants de préavis/licenciement instruits selon la décision applicable. Le capital restant dû sur prêt peut être consulté, mais le moteur STC n'applique pas de retenue de prêt.
 - Numérotation officielle des reçus pour solde (`STC-AAAA-XXXX`) indexée sur l'année de départ effectif.
 
 ### Déclarations Légales et Fiscales

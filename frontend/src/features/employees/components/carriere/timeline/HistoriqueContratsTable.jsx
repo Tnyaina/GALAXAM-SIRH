@@ -229,7 +229,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenAttestation(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        className="inline-flex items-center justify-center"
+                                                        className="min-h-[44px] inline-flex items-center justify-center"
                                                         iconLeft={<FileCheck size={14} />}
                                                         aria-label={`Générer l'attestation de travail pour le contrat ${ct.numeroContrat || ''}`}
                                                     >
@@ -241,7 +241,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="ghost"
                                                         size="xs"
-                                                        className="inline-flex items-center justify-center"
+                                                        className="min-h-[44px] inline-flex items-center justify-center"
                                                         iconLeft={<FileText size={14} />}
                                                         aria-label={`Consulter le contrat ${ct.numeroContrat || ''}`}
                                                     >
@@ -290,6 +290,7 @@ export default function HistoriqueContratsTable({
                                             /* Salarié ayant quitté l'entreprise : STC et Certificat de travail légal */
                                             <div className="flex justify-end gap-1.5 items-center">
                                                 {onOpenStc && !stcExiste && (
+                                                    <HasPermission all={['PAIE_READ', 'PAIE_WRITE']}>
                                                     <Button
                                                         onClick={() => onOpenStc(ct)}
                                                         variant="outline"
@@ -300,6 +301,7 @@ export default function HistoriqueContratsTable({
                                                     >
                                                         STC
                                                     </Button>
+                                                    </HasPermission>
                                                 )}
                                                 {stcExiste && (
                                                     <span className="text-[10.5px] text-[var(--color-success-700)] px-2 py-1 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 font-sans">

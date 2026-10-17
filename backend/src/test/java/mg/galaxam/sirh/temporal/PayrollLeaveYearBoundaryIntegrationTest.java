@@ -29,10 +29,11 @@ class PayrollLeaveYearBoundaryIntegrationTest {
     @BeforeEach void setup() throws Exception {
         Properties properties = new Properties();
         try (var input = getClass().getResourceAsStream("/application-test.properties")) { properties.load(input); }
-        String url = properties.getProperty("spring.datasource.url");
-        assertEquals("jdbc:postgresql://localhost:5432/sirh_galaxam_test", url);
-        c = DriverManager.getConnection(url, properties.getProperty("spring.datasource.username"),
-                properties.getProperty("spring.datasource.password"));
+        String url = System.getProperty("spring.datasource.url", properties.getProperty("spring.datasource.url"));
+        assertTrue(url.startsWith("jdbc:postgresql:"));
+        c = DriverManager.getConnection(url,
+                System.getProperty("spring.datasource.username", properties.getProperty("spring.datasource.username")),
+                System.getProperty("spring.datasource.password", properties.getProperty("spring.datasource.password")));
         // Première requête, avant toute fixture ou mutation.
         try (var statement = c.createStatement(); var result = statement.executeQuery("SELECT current_database()")) {
             assertTrue(result.next()); assertEquals("sirh_galaxam_test", result.getString(1));
@@ -409,9 +410,11 @@ class PayrollLeaveYearBoundaryIntegrationTest {
                 ParametreGlobal.loadActiveMapAtDate(Date.valueOf("2026-01-01"),c),"TEMPORAL_TEST"));
         assertTrue(error.getMessage().contains("2026-01-01")); assertTrue(error.getMessage().contains("2025-12-31"));
     }
-    @Test void parametresChevauchantsSontAmbigus() throws Exception {
-        parameter("TEMPORAL_TEST", "2025-01-01", null); parameter("TEMPORAL_TEST", "2026-01-01", null);
-        assertTrue(assertThrows(IllegalStateException.class, () -> ParametreGlobal.loadActiveMapAtDate(Date.valueOf("2026-01-01"),c)).getMessage().contains("AMBIGUOUS_CONFIGURATION"));
+    @Test void parametresChevauchantsSontRejetesParPostgres() throws Exception {
+        parameter("TEMPORAL_TEST", "2025-01-01", null);
+        java.sql.SQLException overlap = assertThrows(java.sql.SQLException.class,
+                () -> parameter("TEMPORAL_TEST", "2026-01-01", null));
+        assertEquals("23P01", overlap.getSQLState(), "PostgreSQL doit refuser les périodes de paramètres qui se chevauchent.");
     }
     @Test void referenceBissextileRespectePlusMonths() throws Exception {
         assertEquals(date("2025-02-27"), CongeTauxApplicableService.calculerDateFinReference(date("2024-02-29")));

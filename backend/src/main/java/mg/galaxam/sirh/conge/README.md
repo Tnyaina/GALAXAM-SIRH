@@ -14,3 +14,12 @@ La reprise historique exige la référence identifiable de l'arrêté DAF ; elle
 reste conservée dans les commentaires du taux de reprise et du mouvement de
 stock initial. Le grand récapitulatif lit filiale, site et poste depuis
 `EmploymentContextResolver` à la date de fin du rapport.
+
+Les tentatives scheduler utilisent un bail et un jeton de possession ; une
+tentative expirée peut être reprise, et l'ancien worker ne peut plus renouveler
+le bail ni finaliser le statut. Les bonifications annuelles sont rendues
+idempotentes par une unicité salarié/année, avec diagnostic bloquant en cas de
+données historiques dupliquées. Ces protections empêchent les doubles écritures
+de bonification, mais le bail ne peut pas annuler un traitement métier déjà
+exécuté par un ancien worker : chaque effet métier doit rester idempotent ou
+protégé dans sa propre transaction. Voir le registre de migrations pour SP77.

@@ -39,7 +39,11 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcReglementRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.StcSituationReglementDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.AnnulationReglementRequest;
+import java.sql.Timestamp;
+import mg.galaxam.sirh.contrat.persistence.Employe;
+import mg.galaxam.sirh.paie.api.dto.stc.ClotureDossierRequest;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
+import mg.galaxam.sirh.securite.AuditLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -203,6 +207,27 @@ public class DossierSortieService {
     public void enregistrerDelivranceCertificat(Integer idDossier, Date dateDelivrance, String modeRemise, Integer userId, Connection c) throws Exception {
         PaieDossierSortie entity = PaieDossierSortie.trouverParId(idDossier, c);
         if (entity == null) throw new IllegalArgumentException("Dossier de sortie introuvable : " + idDossier);
+        if ("CLOTURE".equalsIgnoreCase(entity.getStatutDossier())) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Ce dossier de sortie est clôturé et ne peut plus être modifié.");
+        }
+        if (entity.getIdContrat() == null) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "La cessation effective du contrat doit être enregistrée avant la remise du certificat.");
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT ct.date_fin, s.code FROM contrat_travail ct " +
+                "JOIN ref_statut_rh s ON s.id_statut_rh = ct.id_statut_rh WHERE ct.id_contrat = ?")) {
+            ps.setInt(1, entity.getIdContrat());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || rs.getDate(1) == null
+                        || rs.getDate(1).toLocalDate().isAfter(PayrollBusinessTime.today())
+                        || !List.of("ROMPU", "CLOTURE", "TERMINE").contains(rs.getString(2))) {
+                    throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                            "La cessation effective du contrat doit être enregistrée avant la remise du certificat.");
+                }
+            }
+        }
         entity.setCertificatDelivre(true);
         entity.setDateDelivranceCertificat(dateDelivrance != null ? dateDelivrance : Date.valueOf(PayrollBusinessTime.today()));
         entity.setModeRemiseCertificat(modeRemise != null ? modeRemise : "MAIN_PROPRE");
@@ -215,6 +240,10 @@ public class DossierSortieService {
     public void mettreAJourOffboarding(Integer idDossier, Map<String, Object> formalites, Integer userId, Connection c) throws Exception {
         PaieDossierSortie entity = PaieDossierSortie.trouverParId(idDossier, c);
         if (entity == null) throw new IllegalArgumentException("Dossier de sortie introuvable : " + idDossier);
+        if ("CLOTURE".equalsIgnoreCase(entity.getStatutDossier())) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Ce dossier de sortie est clôturé et ne peut plus être modifié.");
+        }
         entity.setChecklistOffboarding(objectMapper.writeValueAsString(formalites));
         entity.enregistrer(c);
     }
@@ -260,6 +289,239 @@ public class DossierSortieService {
             throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED, "Aucun STC lié à ce dossier.");
         }
         return stcService.annulerReglement(dossier.getIdStc(), idReglement, req, userId, c);
+    }
+
+    // =========================================================================
+    // PHASE 3.2 : CLÔTURE ADMINISTRATIVE DU DOSSIER DE SORTIE & CYCLE DE VIE RH
+    // =========================================================================
+
+    /**
+     * Clôture administrativement le dossier de sortie du salarié.
+     * Opération transactionnelle et auditée respectant strictement la séparation entre :
+     * 1. Cessation effective du contrat (autonome du règlement).
+     * 2. Règlement financier du STC (vérifié ou dérogé).
+     * 3. Clôture administrative du dossier (irréversible et protégée).
+     * 4. Statut du salarié (préservation des contrats continus / futurs confirmés).
+     */
+    public DossierSortieDTO cloturerDossier(Integer idDossier, ClotureDossierRequest req, Integer userId, Connection c) throws Exception {
+        if (idDossier == null) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "L'identifiant du dossier est obligatoire.");
+        }
+
+        // 1. Verrouillage transactionnel pessimiste du dossier
+        PaieDossierSortie entity = PaieDossierSortie.trouverParIdPourMiseAJour(idDossier, c);
+        if (entity == null) {
+            throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Dossier de sortie introuvable : " + idDossier);
+        }
+
+        // 2. Contrôle de transition d'état et rejet de double clôture
+        if ("CLOTURE".equalsIgnoreCase(entity.getStatutDossier())) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Ce dossier de sortie est déjà clôturé (clôture prononcée le " + entity.getDateCloture() + "). Une seconde clôture est rejetée.");
+        }
+        if ("ANNULE".equalsIgnoreCase(entity.getStatutDossier())) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Impossible de clôturer administrativement un dossier annulé.");
+        }
+        if (entity.getIdStc() == null || List.of("EN_PREPARATION", "PRET_A_VALIDER").contains(entity.getStatutDossier())) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Le STC doit être préalablement scellé et validé avant de pouvoir procéder à la clôture administrative du dossier (statut actuel : " + entity.getStatutDossier() + ").");
+        }
+
+        // 3. Vérification du règlement financier et dérogation formelle
+        StcSituationReglementDTO situation = stcService.obtenirSituationReglements(entity.getIdStc(), c);
+        boolean estSolde = situation != null && situation.isEstIntegralementRegle();
+        boolean derogation = req != null && req.isDerogationReglementIncomplet();
+
+        if (!estSolde && !derogation) {
+            BigDecimal soldeRestant = situation != null ? situation.getResteAPayer() : BigDecimal.ZERO;
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Clôture administrative refusée : le solde de tout compte n'est pas intégralement réglé (reste à payer : "
+                    + soldeRestant + " Ar). Pour clôturer avec un solde restant dû, une dérogation formelle motivée est obligatoirement requise.");
+        }
+
+        if (!estSolde && derogation) {
+            if (req.getJustificationDerogation() == null || req.getJustificationDerogation().trim().isBlank()) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Clôture par dérogation rejetée : la justification formelle de la dérogation financière est obligatoire en cas de règlement incomplet.");
+            }
+            if (req.getAutoriteDecisionDerogation() == null || req.getAutoriteDecisionDerogation().trim().isBlank()) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Clôture par dérogation rejetée : l'autorité décisionnaire ayant approuvé la dérogation (ex: DIRECTION_GENERALE, DAF) est obligatoire.");
+            }
+            if (req.getReferenceDecisionDerogation() == null || req.getReferenceDecisionDerogation().trim().isBlank()) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Clôture par dérogation rejetée : la référence formelle de la décision ou du protocole de dérogation est obligatoire.");
+            }
+            if (req.getDateDecisionDerogation() == null) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Clôture par dérogation rejetée : la date de la décision formelle de dérogation est obligatoire.");
+            }
+        }
+
+        // 4. Vérification de la cessation effective préalable du contrat rattaché (Responsabilité RH canonique)
+        if (entity.getIdContrat() != null) {
+            String sqlCheckStatut = "SELECT ct.numero_contrat, s.code AS statut_code, ct.date_fin " +
+                    "FROM contrat_travail ct " +
+                    "JOIN ref_statut_rh s ON ct.id_statut_rh = s.id_statut_rh " +
+                    "WHERE ct.id_contrat = ?";
+            try (PreparedStatement psStat = c.prepareStatement(sqlCheckStatut)) {
+                psStat.setInt(1, entity.getIdContrat());
+                try (ResultSet rsStat = psStat.executeQuery()) {
+                    if (rsStat.next()) {
+                        String numCt = rsStat.getString("numero_contrat");
+                        String codeStatut = rsStat.getString("statut_code");
+                        Date dateFinCt = rsStat.getDate("date_fin");
+
+                        if ("ACTIF".equalsIgnoreCase(codeStatut)) {
+                            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                    "Clôture impossible : le contrat associé (N° " + numCt + ") est toujours à l'état ACTIF. " +
+                                    "La cessation effective du contrat doit préalablement être formalisée et enregistrée par le workflow RH canonique (WorkflowRhService) ou la clôture de contrat.");
+                        }
+
+                        if (!List.of("ROMPU", "CLOTURE", "TERMINE").contains(codeStatut != null ? codeStatut.toUpperCase() : "")) {
+                            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                    "Clôture impossible : le statut du contrat associé (N° " + numCt + ", statut: " + codeStatut + ") " +
+                                    "n'est pas conforme pour une clôture de dossier de sortie (attendu : ROMPU ou CLOTURE).");
+                        }
+
+                        if (dateFinCt == null) {
+                            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                    "Clôture impossible : le contrat associé (N° " + numCt + ") ne comporte aucune date de fin effective enregistrée. " +
+                                    "Veuillez régulariser la fin de contrat dans le module Carrière.");
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Contrôle des formalités administratives et checklist
+        DossierSortieDTO currentDto = assemblerDossierDTO(entity, c);
+
+        // Décision obligatoire sur prêt en cours
+        if (currentDto.getCapitalRestantPrets() != null && currentDto.getCapitalRestantPrets().signum() > 0) {
+            if (entity.getDecisionPret() == null || entity.getDecisionPret().trim().isBlank()) {
+                throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                        "Clôture impossible : une créance de prêt d'entreprise subsiste (" + currentDto.getCapitalRestantPrets()
+                        + " Ar) et aucune décision formelle d'arbitrage n'a été consignée.");
+            }
+        }
+
+        // Contrôle des points bloquants de la checklist
+        boolean aControlesBloquants = currentDto.getChecklist().stream()
+                .anyMatch(it -> it.getNiveau() == Niveau.BLOQUANT && it.getStatut() == StatutCheck.NON_CONFORME);
+        if (aControlesBloquants) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Clôture impossible : des formalités ou contrôles obligatoires bloquants non conformes subsistent sur ce dossier.");
+        }
+
+        // 6. Gestion du statut du salarié (préservation stricte de la continuité contractuelle et des contrats futurs confirmés)
+        boolean aAutreContratActif = false;
+        String sqlAutreActif = "SELECT COUNT(*) FROM contrat_travail c " +
+                "JOIN ref_statut_rh s ON c.id_statut_rh = s.id_statut_rh " +
+                "WHERE c.id_employe = ? AND s.code = 'ACTIF' AND c.id_contrat <> ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlAutreActif)) {
+            ps.setInt(1, entity.getIdEmploye());
+            ps.setInt(2, entity.getIdContrat() != null ? entity.getIdContrat() : 0);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) aAutreContratActif = true;
+            }
+        }
+
+        // Continuité contractuelle confirmée : uniquement contrat futur au statut 'PLANIFIE'
+        // (A_SIGNER et BROUILLON ne constituent PAS une continuité contractuelle confirmée)
+        boolean aContratFuturConfirme = false;
+        String sqlFutur = "SELECT COUNT(*) FROM contrat_travail c " +
+                "JOIN ref_statut_rh s ON c.id_statut_rh = s.id_statut_rh " +
+                "WHERE c.id_employe = ? AND c.id_contrat <> ? " +
+                "AND s.code = 'PLANIFIE' AND c.date_debut >= ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlFutur)) {
+            ps.setInt(1, entity.getIdEmploye());
+            ps.setInt(2, entity.getIdContrat() != null ? entity.getIdContrat() : 0);
+            ps.setDate(3, entity.getDateDepart());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) aContratFuturConfirme = true;
+            }
+        }
+
+        // Workflow RH confirmé : uniquement les transitions validées au statut 'PLANIFIE' à date d'effet future
+        // (les brouillons et demandes en attente ne sont pas confirmés)
+        boolean aWorkflowFutur = false;
+        String sqlWf = "SELECT COUNT(*) FROM workflow_rh w " +
+                "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
+                "WHERE w.id_employe = ? AND s.code = 'PLANIFIE' AND w.date_effet >= ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlWf)) {
+            ps.setInt(1, entity.getIdEmploye());
+            ps.setDate(2, entity.getDateDepart());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) aWorkflowFutur = true;
+            }
+        }
+
+        // Désactivation uniquement en l'absence totale d'autre engagement actif ou confirmé
+        if (!aAutreContratActif && !aContratFuturConfirme && !aWorkflowFutur) {
+            String motifDesact = determinerMotifDesactivation(entity.getMotifRupture());
+            Employe emp = new Employe().rechercherParId(entity.getIdEmploye(), c);
+            if (emp != null && emp.isEstActif()) {
+                try {
+                    emp.desactiver(motifDesact, c);
+                } catch (Exception e) {
+                    String sqlDesact = "UPDATE employe SET est_actif = FALSE, date_desactivation = CURRENT_TIMESTAMP, " +
+                            "motif_desactivation = ?::motif_desactivation_enum, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?";
+                    try (PreparedStatement ps = c.prepareStatement(sqlDesact)) {
+                        ps.setString(1, motifDesact);
+                        ps.setInt(2, entity.getIdEmploye());
+                        ps.executeUpdate();
+                    }
+                }
+            }
+        }
+
+        // 7. Enregistrement transactionnel de la clôture
+        entity.setStatutDossier("CLOTURE");
+        entity.setCloturePar(userId);
+        entity.setDateCloture(new Timestamp(System.currentTimeMillis()));
+        entity.setMotifCloture(req != null && req.getMotifCloture() != null && !req.getMotifCloture().isBlank()
+                ? req.getMotifCloture().trim() : "Clôture administrative conforme");
+        entity.setDerogationReglement(derogation);
+        entity.setJustificationDerogation(derogation ? req.getJustificationDerogation().trim() : null);
+        entity.setAutoriteDecisionDerogation(derogation ? req.getAutoriteDecisionDerogation().trim() : null);
+        entity.setReferenceDecisionDerogation(derogation ? req.getReferenceDecisionDerogation().trim() : null);
+        entity.setDateDecisionDerogation(derogation ? req.getDateDecisionDerogation() : null);
+        entity.modifier(c);
+
+        // 8. Journalisation d'audit formelle
+        String actionAudit = derogation ? "CLOTURE_AVEC_DEROGATION_REGLEMENT" : "CLOTURE_ADMINISTRATIVE";
+        String detailDerog = derogation
+                ? "Dérogation autorisée par " + entity.getAutoriteDecisionDerogation()
+                + " (Réf: " + entity.getReferenceDecisionDerogation() + ", Date: " + entity.getDateDecisionDerogation() + ")"
+                : null;
+        AuditLog.audit(c, actionAudit, "paie_dossier_sortie",
+                String.valueOf(entity.getIdDossierSortie()), detailDerog, entity);
+
+        return assemblerDossierDTO(entity, c);
+    }
+
+    private String determinerMotifDesactivation(String motifRupture) {
+        if (motifRupture == null) return "Demission";
+        String upper = motifRupture.toUpperCase();
+        if (upper.contains("DEMISSION")) return "Demission";
+        if (upper.contains("LICENCIEMENT")) return "Licenciement";
+        if (upper.contains("FIN") || upper.contains("TERME") || upper.contains("CDD")) return "Fin_contrat";
+        if (upper.contains("RETRAITE")) return "Retraite";
+        if (upper.contains("DECES")) return "Deces";
+        return "Autre";
+    }
+
+    private static Integer resolveStatut(String code, Connection c) throws Exception {
+        String sql = "SELECT id_statut_rh FROM ref_statut_rh WHERE code = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, code);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        return null;
     }
 
     // =========================================================================
@@ -637,6 +899,12 @@ public class DossierSortieService {
         dto.setCreePar(entity.getCreePar());
         dto.setCloturePar(entity.getCloturePar());
         dto.setDateCloture(entity.getDateCloture());
+        dto.setMotifCloture(entity.getMotifCloture());
+        dto.setDerogationReglement(Boolean.TRUE.equals(entity.getDerogationReglement()));
+        dto.setJustificationDerogation(entity.getJustificationDerogation());
+        dto.setAutoriteDecisionDerogation(entity.getAutoriteDecisionDerogation());
+        dto.setReferenceDecisionDerogation(entity.getReferenceDecisionDerogation());
+        dto.setDateDecisionDerogation(entity.getDateDecisionDerogation());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setVersion(entity.getVersion() != null ? entity.getVersion() : 1);
@@ -657,7 +925,12 @@ public class DossierSortieService {
         }
 
         // 1. Synchronisation Emploi / Carrière (en lecture seule)
-        var emploi = new EmploymentContextResolver().resolveContext(entity.getIdEmploye(), entity.getDateDepart().toLocalDate(), c);
+        mg.galaxam.sirh.contrat.domain.EmploymentContext emploi = null;
+        try {
+            emploi = new EmploymentContextResolver().resolveContext(entity.getIdEmploye(), entity.getDateDepart().toLocalDate(), c);
+        } catch (Exception e) {
+            log.warn("[DossierSortie] Contexte d'emploi non résolu ou multiple pour employé {}: {}", entity.getIdEmploye(), e.getMessage());
+        }
         if (emploi != null) {
             dto.setIdContrat(emploi.idContrat());
             dto.setMatricule(emploi.matricule());
@@ -688,6 +961,54 @@ public class DossierSortieService {
                         ? cfg.getDiviseurMensuelHeures() : new BigDecimal("173.3333");
                 dto.setTauxHoraire(dto.getSalaireBase().divide(diviseur, 4, RoundingMode.HALF_UP));
             }
+        }
+
+        // État administratif du contrat ciblé, distinct de la date de fin et de l'état financier du STC.
+        if (entity.getIdContrat() != null) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT s.code FROM contrat_travail ct JOIN ref_statut_rh s ON s.id_statut_rh = ct.id_statut_rh WHERE ct.id_contrat = ?")) {
+                ps.setInt(1, entity.getIdContrat());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) dto.setStatutContrat(rs.getString(1));
+                }
+            }
+        }
+
+        // Fallback résilient si la résolution unique du contexte d'emploi a échoué (ex: contrats multiples ou réembauche)
+        if (entity.getIdContrat() != null && dto.getDateFinContrat() == null) {
+            String sqlCtFallback = "SELECT c.date_debut, c.date_fin, t.code AS type_contrat " +
+                    "FROM contrat_travail c " +
+                    "LEFT JOIN ref_type_contrat t ON t.id_type_contrat = c.id_type_contrat " +
+                    "WHERE c.id_contrat = ?";
+            try (PreparedStatement ps = c.prepareStatement(sqlCtFallback)) {
+                ps.setInt(1, entity.getIdContrat());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        if (dto.getDateDebutContrat() == null && rs.getDate("date_debut") != null) {
+                            dto.setDateDebutContrat(rs.getDate("date_debut"));
+                        }
+                        if (rs.getDate("date_fin") != null) {
+                            dto.setDateFinContrat(rs.getDate("date_fin"));
+                        }
+                        if (dto.getTypeContrat() == null && rs.getString("type_contrat") != null) {
+                            dto.setTypeContrat(rs.getString("type_contrat"));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (dto.getMatricule() == null && entity.getIdEmploye() != null) {
+            String sqlEmp = "SELECT matricule, nom, prenom FROM employe WHERE id_employe = ?";
+            try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
+                ps.setInt(1, entity.getIdEmploye());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        dto.setMatricule(rs.getString("matricule"));
+                        dto.setNomComplet((rs.getString("nom") + " " + (rs.getString("prenom") != null ? rs.getString("prenom") : "")).trim());
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
         // 2. Synchronisation Pointage (en lecture seule, sans geler ni modifier)

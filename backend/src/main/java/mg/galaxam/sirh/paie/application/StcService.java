@@ -1441,6 +1441,69 @@ public class StcService {
                     "Le STC doit être scellé et validé avant de pouvoir enregistrer un règlement (statut actuel : " + statutStc + ").");
         }
 
+        // 1.bis Vérification du statut du dossier de sortie associé et gestion des dérogations d'échéancier
+        String sqlCheckDosCloture = "SELECT id_dossier_sortie, statut_dossier, derogation_reglement, justification_derogation "
+                + "FROM paie_dossier_sortie WHERE id_stc = ? FOR UPDATE";
+        try (PreparedStatement psDos = c.prepareStatement(sqlCheckDosCloture)) {
+            psDos.setInt(1, idStc);
+            try (ResultSet rsDos = psDos.executeQuery()) {
+                if (rsDos.next()) {
+                    String statutDossier = rsDos.getString("statut_dossier");
+                    boolean derogation = rsDos.getBoolean("derogation_reglement");
+                    if ("CLOTURE".equalsIgnoreCase(statutDossier)) {
+                        if (!derogation) {
+                            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                    "Impossible d'enregistrer un règlement : le dossier de sortie associé est clôturé (statut CLOTURE) "
+                                    + "et ne fait l'objet d'aucune dérogation formelle d'échéancier.");
+                        }
+                    }
+                }
+            }
+        }
+
+        // 1.ter Idempotence technique : si une clé d'idempotence technique est fournie
+        String idemKey = req.idempotencyKey() != null && !req.idempotencyKey().isBlank()
+                ? req.idempotencyKey().trim() : null;
+        if (idemKey != null) {
+            String sqlCheckIdem = "SELECT id_reglement, montant_regle, mode_reglement, reference_reglement, date_reglement, est_annule "
+                    + "FROM paie_stc_reglement WHERE id_stc = ? AND cle_idempotence = ?";
+            try (PreparedStatement psIdem = c.prepareStatement(sqlCheckIdem)) {
+                psIdem.setInt(1, idStc);
+                psIdem.setString(2, idemKey);
+                try (ResultSet rsIdem = psIdem.executeQuery()) {
+                    if (rsIdem.next()) {
+                        boolean wasAnnule = rsIdem.getBoolean("est_annule");
+                        if (wasAnnule) {
+                            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                    "Cette clé d'idempotence (" + idemKey + ") correspond à un règlement qui a été ultérieurement annulé. Nouvelle requête requise.");
+                        }
+
+                        // Contrôle strict de non-divergence du payload (détection de collision ou falsification d'idempotence)
+                        BigDecimal montantExistant = rsIdem.getBigDecimal("montant_regle");
+                        String modeExistant = rsIdem.getString("mode_reglement");
+                        String refExistante = rsIdem.getString("reference_reglement");
+                        Date dateExistante = rsIdem.getDate("date_reglement");
+
+                        boolean memeRef = req.referenceReglement() != null && req.referenceReglement().trim().equalsIgnoreCase(refExistante);
+                        boolean memeMode = (req.modeReglement() == null && "VIREMENT".equalsIgnoreCase(modeExistant))
+                                || (req.modeReglement() != null && req.modeReglement().trim().equalsIgnoreCase(modeExistant));
+                        boolean memeMontant = req.montantRegle() != null && req.montantRegle().compareTo(montantExistant) == 0;
+                        boolean memeDate = req.dateReglement() != null && req.dateReglement().equals(dateExistante);
+
+                        if (!memeRef || !memeMode || !memeMontant || !memeDate) {
+                            throw new SirhBusinessException(SirhErrorCode.DATA_INTEGRITY_VIOLATION,
+                                    "Conflit d'idempotence : la clé '" + idemKey + "' a déjà été enregistrée pour ce STC avec des paramètres distincts "
+                                    + "(référence: '" + refExistante + "', montant: " + montantExistant + " Ar, mode: " + modeExistant + ", date: " + dateExistante + "). "
+                                    + "Une répétition avec des données différentes est interdite.");
+                        }
+
+                        // Rejeu légitime : retourne de manière idempotente la situation déjà persistée
+                        return obtenirSituationReglements(idStc, c);
+                    }
+                }
+            }
+        }
+
         // 2. Calcul du cumul déjà réglé actif depuis le journal paie_stc_reglement (source de vérité)
         BigDecimal totalDejaRegle = BigDecimal.ZERO;
         String sqlSum = "SELECT COALESCE(SUM(montant_regle), 0) FROM paie_stc_reglement WHERE id_stc = ? AND est_annule = FALSE";
@@ -1493,7 +1556,7 @@ public class StcService {
             }
         }
 
-        // 4. Protection contre les doubles soumissions (référence active déjà enregistrée sur ce STC)
+        // 4. Protection contre les doubles soumissions (référence métier active déjà enregistrée sur ce STC)
         String refClean = req.referenceReglement().trim();
         String sqlCheckRef = "SELECT 1 FROM paie_stc_reglement WHERE id_stc = ? AND reference_reglement = ? AND est_annule = FALSE";
         try (PreparedStatement psRef = c.prepareStatement(sqlCheckRef)) {
@@ -1502,7 +1565,7 @@ public class StcService {
             try (ResultSet rsRef = psRef.executeQuery()) {
                 if (rsRef.next()) {
                     throw new SirhBusinessException(SirhErrorCode.DATA_INTEGRITY_VIOLATION,
-                            "Un règlement actif porte déjà la référence '" + refClean + "' sur ce STC. Double soumission refusée.");
+                            "Un règlement actif porte déjà la référence métier '" + refClean + "' sur ce STC. Double soumission refusée.");
                 }
             }
         }
@@ -1511,8 +1574,8 @@ public class StcService {
         String modeReg = req.modeReglement() != null && !req.modeReglement().isBlank()
                 ? req.modeReglement().trim().toUpperCase() : "VIREMENT";
         int idReglementGenere = 0;
-        String sqlInsert = "INSERT INTO paie_stc_reglement (id_stc, date_reglement, montant_regle, mode_reglement, reference_reglement, commentaire, enregistre_par, created_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id_reglement";
+        String sqlInsert = "INSERT INTO paie_stc_reglement (id_stc, date_reglement, montant_regle, mode_reglement, reference_reglement, commentaire, cle_idempotence, enregistre_par, created_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id_reglement";
         try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
             psIns.setInt(1, idStc);
             psIns.setDate(2, req.dateReglement());
@@ -1520,10 +1583,11 @@ public class StcService {
             psIns.setString(4, modeReg);
             psIns.setString(5, refClean);
             psIns.setString(6, req.commentaire());
+            psIns.setString(7, idemKey);
             if (userId != null) {
-                psIns.setInt(7, userId);
+                psIns.setInt(8, userId);
             } else {
-                psIns.setNull(7, java.sql.Types.INTEGER);
+                psIns.setNull(8, java.sql.Types.INTEGER);
             }
             try (ResultSet rsIns = psIns.executeQuery()) {
                 if (rsIns.next()) {
@@ -1549,7 +1613,9 @@ public class StcService {
                 psUpStc.executeUpdate();
             }
 
-            String sqlUpDos = "UPDATE paie_dossier_sortie SET statut_dossier = 'REGLE', updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
+            // Le dossier de sortie bascule à 'REGLE' uniquement s'il n'est pas déjà administrativement 'CLOTURE'
+            String sqlUpDos = "UPDATE paie_dossier_sortie SET statut_dossier = 'REGLE', updated_at = CURRENT_TIMESTAMP "
+                    + "WHERE id_stc = ? AND statut_dossier <> 'CLOTURE'";
             try (PreparedStatement psUpDos = c.prepareStatement(sqlUpDos)) {
                 psUpDos.setInt(1, idStc);
                 psUpDos.executeUpdate();
@@ -1612,7 +1678,7 @@ public class StcService {
 
         // Lecture de toutes les tranches de règlement (actives et annulées)
         String sqlRegs = "SELECT r.id_reglement, r.id_stc, r.date_reglement, r.montant_regle, r.mode_reglement, "
-                + "r.reference_reglement, r.commentaire, r.enregistre_par, r.created_at, "
+                + "r.reference_reglement, r.commentaire, r.cle_idempotence, r.enregistre_par, r.created_at, "
                 + "r.est_annule, r.annule_par, r.date_annulation, r.motif_annulation, "
                 + "ue.identifiant AS nom_enregistre_par, "
                 + "ua.identifiant AS nom_annule_par "
@@ -1635,6 +1701,7 @@ public class StcService {
                     rDto.setModeReglement(rsReg.getString("mode_reglement"));
                     rDto.setReferenceReglement(rsReg.getString("reference_reglement"));
                     rDto.setCommentaire(rsReg.getString("commentaire"));
+                    rDto.setCleIdempotence(rsReg.getString("cle_idempotence"));
                     if (rsReg.getObject("enregistre_par") != null) {
                         rDto.setEnregistrePar(rsReg.getInt("enregistre_par"));
                         rDto.setNomEnregistrePar(rsReg.getString("nom_enregistre_par"));
@@ -1687,6 +1754,27 @@ public class StcService {
                 }
                 statutStc = rs.getString("statut");
                 netAPayerStc = rs.getBigDecimal("net_a_payer_stc") != null ? rs.getBigDecimal("net_a_payer_stc") : BigDecimal.ZERO;
+            }
+        }
+
+        if ("ANNULE".equalsIgnoreCase(statutStc)) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Impossible d'annuler un règlement sur un STC déjà annulé.");
+        }
+
+        // 1.bis Interdiction formelle de l'annulation ordinaire si le dossier de sortie est clôturé
+        String sqlCheckDosCloture = "SELECT id_dossier_sortie, statut_dossier FROM paie_dossier_sortie WHERE id_stc = ? FOR UPDATE";
+        try (PreparedStatement psDos = c.prepareStatement(sqlCheckDosCloture)) {
+            psDos.setInt(1, idStc);
+            try (ResultSet rsDos = psDos.executeQuery()) {
+                if (rsDos.next()) {
+                    String statutDossier = rsDos.getString("statut_dossier");
+                    if ("CLOTURE".equalsIgnoreCase(statutDossier)) {
+                        throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                "L'annulation ordinaire d'un règlement est strictement interdite lorsque le dossier de sortie est clôturé (statut CLOTURE). "
+                                + "Toute correction ultérieure relève d'une procédure exceptionnelle de régularisation post-clôture.");
+                    }
+                }
             }
         }
 

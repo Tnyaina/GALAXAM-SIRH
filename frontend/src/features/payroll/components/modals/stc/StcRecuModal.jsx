@@ -139,7 +139,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                 @media print {
                     @page { size: A4 portrait; margin: 12mm 15mm; }
                     html, body {
-                        background: #fff !important;
+                        background: white !important;
                         height: auto !important;
                         min-height: auto !important;
                         overflow: visible !important;
@@ -150,7 +150,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                     body > * { display: none !important; }
                     body > div:has(#${printSheetId}) { display: block !important; }
                     body > div:has(#${printSheetId}) * { visibility: visible !important; }
-                    body > div:has(#${printSheetId}) > div { display: block !important; position: static !important; inset: auto !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; background: #fff !important; }
+                    body > div:has(#${printSheetId}) > div { display: block !important; position: static !important; inset: auto !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; background: white !important; }
                     body > div:has(#${printSheetId}) > div > div:first-child,
                     body > div:has(#${printSheetId}) > div > div:last-child { display: none !important; }
                     #${printSheetId} {

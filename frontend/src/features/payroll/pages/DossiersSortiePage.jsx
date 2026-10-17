@@ -1,29 +1,18 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-    AlertTriangle,
     ArrowRight,
-    Award,
     BadgeCheck,
-    Banknote,
-    Building2,
-    Calendar,
     CheckCircle2,
     Clock,
-    FileCheck,
-    FileSpreadsheet,
-    FileText,
     FolderCheck,
     Plus,
     RefreshCw,
     Search,
-    ShieldAlert,
-    SlidersHorizontal,
     User,
     UserMinus,
-    UserX,
     XCircle
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
@@ -43,20 +32,23 @@ import { fmtDate, getTodayDateString } from '@/utils/dateUtils';
 import { getErrorMessage } from '@/api/apiClient';
 
 import dossierSortieService from '@/features/payroll/api/dossierSortieService';
-import DossierSortieModal from '@/features/payroll/components/modals/stc/DossierSortieModal';
-import StcPreparationModal from '@/features/payroll/components/modals/stc/StcPreparationModal';
+import { useAuth } from '@/context/AuthContext';
 
 const FILTRES_STATUTS = [
     { value: 'TOUS', label: 'Tous les dossiers' },
     { value: 'EN_PREPARATION', label: 'En préparation' },
     { value: 'PRET_A_VALIDER', label: 'Prêts à valider' },
-    { value: 'VALIDE', label: 'Validés / Réglés' },
+    { value: 'VALIDE', label: 'STC validés' },
+    { value: 'REGLE', label: 'STC réglés' },
     { value: 'CLOTURE', label: 'Clôturés' },
+    { value: 'ANNULE', label: 'Annulés' },
 ];
 
 export default function DossiersSortiePage() {
     const navigate = useNavigate();
     const toast = useToast();
+    const { hasPermission, user } = useAuth();
+    const canWrite = hasPermission('PAIE_WRITE');
 
     const [dossiers, setDossiers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -64,19 +56,11 @@ export default function DossiersSortiePage() {
     const [search, setSearch] = useState('');
     const [selectedStatut, setSelectedStatut] = useState('TOUS');
 
-    // Modale de traitement de dossier
-    const [selectedDossierId, setSelectedDossierId] = useState(null);
-    const [showDossierModal, setShowDossierModal] = useState(false);
-
     // Modale de création d'un nouveau dossier
     const [showNewModal, setShowNewModal] = useState(false);
     const [newEmployeId, setNewEmployeId] = useState('');
     const [newDateDepart, setNewDateDepart] = useState(getTodayDateString());
     const [newMotif, setNewMotif] = useState('DEMISSION');
-
-    // Modale STC Financier (enchaînement fluide)
-    const [showStcModal, setShowStcModal] = useState(false);
-    const [stcContext, setStcContext] = useState(null);
 
     const chargerDossiers = useCallback(async () => {
         setLoading(true);
@@ -114,39 +98,22 @@ export default function DossiersSortiePage() {
         const total = dossiers.length;
         const prep = dossiers.filter(d => d.statutDossier === 'EN_PREPARATION').length;
         const prets = dossiers.filter(d => d.statutDossier === 'PRET_A_VALIDER').length;
-        const valides = dossiers.filter(d => d.statutDossier === 'VALIDE' || d.statutDossier === 'REGLE').length;
+        const valides = dossiers.filter(d => Boolean(d.idStc)).length;
         const clotures = dossiers.filter(d => d.statutDossier === 'CLOTURE').length;
         return { total, prep, prets, valides, clotures };
     }, [dossiers]);
 
     const handleOpenDossier = (id) => {
-        setSelectedDossierId(id);
-        setShowDossierModal(true);
+        navigate(`/paie/dossiers-sortie/${id}`);
     };
 
     const handleCreateDossier = () => {
         if (!newEmployeId) {
-            toast.show('Veuillez sélectionner un employé.', 'warning');
+            toast.warning('Veuillez sélectionner un employé.');
             return;
         }
-        setShowNewModal(false);
-        setSelectedDossierId(null);
-        setShowDossierModal(true);
-    };
-
-    const handleDossierSaved = () => {
-        chargerDossiers();
-    };
-
-    const handleOpenStcFromDossier = (dossierData) => {
-        setShowDossierModal(false);
-        setStcContext({
-            idEmploye: dossierData.idEmploye,
-            nomEmploye: dossierData.nomComplet,
-            dateDepart: dossierData.dateDepart,
-            motifRupture: dossierData.motifRupture,
-        });
-        setShowStcModal(true);
+        const params = new URLSearchParams({ employeId: String(newEmployeId), dateDepart: newDateDepart, motif: newMotif });
+        navigate(`/paie/dossiers-sortie/nouveau?${params.toString()}`);
     };
 
     return (
@@ -156,9 +123,9 @@ export default function DossiersSortiePage() {
             {/* En-tête de page */}
             <PageHeader
                 title="Dossiers de sortie & STC"
-                subtitle="Orchestration du départ des collaborateurs, conformité légale (Loi 2024-004), checklist métier et préparation du solde de tout compte."
+                subtitle="Préparation des départs, suivi financier, formalités RH et documents de sortie."
                 breadcrumbs={[
-                    { label: 'Espace Paie', href: '/paie' },
+                    { label: 'Espace Paie', href: user?.role === 'ROLE_ADMIN' ? '/paie' : undefined },
                     { label: 'Dossiers de sortie' },
                 ]}
                 actions={
@@ -172,14 +139,14 @@ export default function DossiersSortiePage() {
                         >
                             Actualiser
                         </Button>
-                        <Button
+                        {canWrite && <Button
                             variant="primary"
                             size="sm"
                             onClick={() => setShowNewModal(true)}
                             iconLeft={<Plus size={15} />}
                         >
                             Nouveau dossier de sortie
-                        </Button>
+                        </Button>}
                     </div>
                 }
             />
@@ -189,7 +156,7 @@ export default function DossiersSortiePage() {
             )}
 
             {/* StatCards KPI */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {!loading && dossiers.length > 0 && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     title="Total départs enregistrés"
                     value={stats.total}
@@ -212,16 +179,16 @@ export default function DossiersSortiePage() {
                     subtext="Checklist conforme"
                 />
                 <StatCard
-                    title="Validés / Clôturés"
-                    value={stats.valides + stats.clotures}
+                    title="STC scellés"
+                    value={stats.valides}
                     icon={<BadgeCheck size={18} />}
                     color="success"
-                    subtext={`${stats.clotures} définitivement clos`}
+                    subtext={`${stats.clotures} dossiers clos administrativement`}
                 />
-            </div>
+            </div>}
 
             {/* Barre de filtres et recherche */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            {(loading || dossiers.length > 0) && <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div className="flex-1 max-w-md relative">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
                     <Input
@@ -241,7 +208,7 @@ export default function DossiersSortiePage() {
                         className="w-48"
                     />
                 </div>
-            </div>
+            </div>}
 
             {/* Tableau principal des dossiers */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
@@ -253,9 +220,9 @@ export default function DossiersSortiePage() {
                         title="Aucun dossier de sortie trouvé"
                         description={search || selectedStatut !== 'TOUS'
                             ? "Aucun dossier ne correspond à vos critères de recherche."
-                            : "Aucun collaborateur n'est actuellement en cours de sortie."}
-                        actionLabel="Initier un premier dossier"
-                        onAction={() => setShowNewModal(true)}
+                            : "Commencez par choisir un salarié et une date de départ. Le dossier pourra ensuite être préparé et simulé."}
+                        actionLabel={canWrite ? 'Initier un premier dossier' : undefined}
+                        onAction={canWrite ? () => setShowNewModal(true) : undefined}
                         actionIcon={<Plus size={14} />}
                     />
                 ) : (
@@ -263,12 +230,10 @@ export default function DossiersSortiePage() {
                         <Thead>
                             <Tr>
                                 <Th>Collaborateur</Th>
-                                <Th>Départ effectif</Th>
-                                <Th>Motif de rupture</Th>
-                                <Th>Statut dossier</Th>
-                                <Th>Checklist légale</Th>
-                                <Th>Certificat (Art. 50)</Th>
-                                <Th>STC scellé</Th>
+                                <Th>Départ et contrat</Th>
+                                <Th>Dossier</Th>
+                                <Th>Contrôles et certificat</Th>
+                                <Th>STC financier</Th>
                                 <Th className="text-right">Action</Th>
                             </Tr>
                         </Thead>
@@ -299,14 +264,10 @@ export default function DossiersSortiePage() {
                                             <div className="text-xs font-semibold text-[var(--color-fg)]">
                                                 {fmtDate(d.dateDepart)}
                                             </div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)]">
-                                                {d.typeContrat || 'CDI'}
+                                            <div className="text-[11px] text-[var(--color-fg-muted)]">{d.motifRupture || 'Motif à vérifier'}</div>
+                                            <div className="mt-1 text-[11px] text-[var(--color-fg-muted)]">
+                                                {d.typeContrat || 'Contrat'} · {d.statutContrat || 'Statut à vérifier'}
                                             </div>
-                                        </Td>
-                                        <Td>
-                                            <span className="text-xs text-[var(--color-fg)]">
-                                                {d.motifRupture || 'DEMISSION'}
-                                            </span>
                                         </Td>
                                         <Td>
                                             <Badge
@@ -319,17 +280,19 @@ export default function DossiersSortiePage() {
                                             >
                                                 {d.statutDossier || 'EN_PREPARATION'}
                                             </Badge>
+                                            {d.statutDossier === 'CLOTURE' && Number(d.soldeRestantAPayer) > 0 &&
+                                                <div className="text-[10px] text-[var(--color-warning-700)] mt-1">Dette restante · dérogation</div>}
                                         </Td>
                                         <Td>
                                             {totalCheck > 0 ? (
                                                 <div className="space-y-0.5">
                                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                                                         {nbBloquants > 0 ? (
-                                                            <span className="text-red-700 flex items-center gap-1">
+                                                            <span className="text-[var(--color-danger-700)] flex items-center gap-1">
                                                                 <XCircle size={13} /> {nbBloquants} bloquant(s)
                                                             </span>
                                                         ) : (
-                                                            <span className="text-emerald-700 flex items-center gap-1">
+                                                            <span className="text-[var(--color-success-700)] flex items-center gap-1">
                                                                 <CheckCircle2 size={13} /> Conforme
                                                             </span>
                                                         )}
@@ -341,31 +304,32 @@ export default function DossiersSortiePage() {
                                             ) : (
                                                 <span className="text-xs text-[var(--color-fg-muted)]">À initialiser</span>
                                             )}
-                                        </Td>
-                                        <Td>
-                                            {d.certificatDelivre ? (
-                                                <Badge variant="success" size="xs">
-                                                    Remis le {fmtDate(d.dateDelivranceCertificat)}
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="warning" size="xs">
-                                                    Non délivré
-                                                </Badge>
-                                            )}
+                                            <div className="mt-2">
+                                                {d.certificatDelivre ? (
+                                                    <Badge variant="success" size="xs">
+                                                        Certificat remis le {fmtDate(d.dateDelivranceCertificat)}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="warning" size="xs">
+                                                        Certificat non remis
+                                                    </Badge>
+                                                )}
+                                            </div>
                                         </Td>
                                         <Td>
                                             {d.idStc ? (
                                                 <div className="text-xs">
-                                                    <strong className="text-emerald-700 font-data">
-                                                        {d.netAPayerStc ? formatMoneyAr(d.netAPayerStc) : 'Validé'}
+                                                    <strong className="text-[var(--color-success-700)] font-data">
+                                                        {d.netAPayerStc != null ? formatMoneyAr(d.netAPayerStc) : 'Validé'}
                                                     </strong>
                                                     <span className="block text-[10px] text-[var(--color-fg-muted)]">
                                                         N° {d.numeroRecu || d.idStc}
                                                     </span>
+                                                    <span className="block text-[10px] text-[var(--color-fg-muted)]">Reste : {formatMoneyAr(d.soldeRestantAPayer ?? 0)}</span>
                                                 </div>
                                             ) : (
                                                 <span className="text-xs text-[var(--color-fg-muted)] italic">
-                                                    Non calculé
+                                                    Non scellé
                                                 </span>
                                             )}
                                         </Td>
@@ -376,7 +340,7 @@ export default function DossiersSortiePage() {
                                                 onClick={() => handleOpenDossier(d.idDossierSortie)}
                                                 iconRight={<ArrowRight size={13} />}
                                             >
-                                                Traiter
+                                                {canWrite ? 'Traiter' : 'Consulter'}
                                             </Button>
                                         </Td>
                                     </Tr>
@@ -391,35 +355,41 @@ export default function DossiersSortiePage() {
             <Modal
                 isOpen={showNewModal}
                 onClose={() => setShowNewModal(false)}
-                title="Initier un dossier de sortie de collaborateur"
-                size="md"
+                title="Ouvrir un dossier de sortie"
+                size="xl"
                 footer={
                     <div className="flex justify-end gap-2 w-full">
                         <Button variant="ghost" onClick={() => setShowNewModal(false)}>
                             Annuler
                         </Button>
-                        <Button variant="primary" onClick={handleCreateDossier} disabled={!newEmployeId}>
-                            Ouvrir le dossier
+                        <Button variant="primary" onClick={handleCreateDossier} disabled={!canWrite || !newEmployeId}>
+                            Continuer vers le dossier
                         </Button>
                     </div>
                 }
             >
-                <div className="space-y-4">
-                    <p className="text-xs text-[var(--color-fg-muted)]">
-                        Sélectionnez le salarié concerné. Les données d'emploi, de pointage, de congés et de paie seront automatiquement synchronisées en lecture seule.
-                    </p>
+                <div className="space-y-5">
+                    <div className="grid grid-cols-3 gap-2 text-xs" aria-label="Parcours du dossier">
+                        <div className="border-b-2 border-[var(--color-brand-500)] pb-2 font-semibold text-[var(--color-fg)]">1 · Départ</div>
+                        <div className="border-b-2 border-[var(--color-border-subtle)] pb-2 text-[var(--color-fg-muted)]">2 · Vérifications</div>
+                        <div className="border-b-2 border-[var(--color-border-subtle)] pb-2 text-[var(--color-fg-muted)]">3 · STC et suivi</div>
+                    </div>
+                    <div>
+                        <h3 className="text-base font-bold text-[var(--color-fg)]">Qui quitte l’entreprise, et à quelle date ?</h3>
+                        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Vous préparerez ensuite le dossier, sans rompre le contrat ni créer de STC.</p>
+                    </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
-                            Salarié concerné *
-                        </label>
                         <EmployeSearchSelect
+                            label="Salarié concerné"
                             value={newEmployeId}
-                            onChange={(e) => setNewEmployeId(e.target.value)}
+                            onChange={(employeId) => setNewEmployeId(employeId)}
+                            searchEmployes={dossierSortieService.rechercherEmployes}
                             required
                         />
                     </div>
 
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
                             Date effective de sortie *
@@ -448,38 +418,13 @@ export default function DossiersSortiePage() {
                             onChange={(val) => setNewMotif(val)}
                         />
                     </div>
+                    </div>
+                    <p className="border-l-2 border-[var(--color-brand-500)] bg-[var(--color-bg-subtle)] px-3 py-2 text-sm text-[var(--color-fg-muted)]">
+                        Ensuite : vérifier le contrat et la paie. La rupture se valide dans Carrière avant le scellement.
+                    </p>
                 </div>
             </Modal>
 
-            {/* Modale de traitement complet du dossier de sortie */}
-            {showDossierModal && (
-                <DossierSortieModal
-                    isOpen={showDossierModal}
-                    onClose={() => setShowDossierModal(false)}
-                    idDossier={selectedDossierId}
-                    idEmploye={!selectedDossierId ? Number(newEmployeId) : null}
-                    dateDepartInitiale={newDateDepart}
-                    motifInitial={newMotif}
-                    onSaved={handleDossierSaved}
-                    onOpenStcModal={handleOpenStcFromDossier}
-                />
-            )}
-
-            {/* Modale STC existante (enchaînement fluide sans modification de StcService) */}
-            {showStcModal && stcContext && (
-                <StcPreparationModal
-                    isOpen={showStcModal}
-                    onClose={() => setShowStcModal(false)}
-                    idEmploye={stcContext.idEmploye}
-                    nomEmploye={stcContext.nomEmploye}
-                    dateDepartInitiale={stcContext.dateDepart}
-                    motifInitial={stcContext.motifRupture}
-                    onStcValide={() => {
-                        setShowStcModal(false);
-                        chargerDossiers();
-                    }}
-                />
-            )}
         </div>
     );
 }

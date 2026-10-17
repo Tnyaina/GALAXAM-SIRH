@@ -4,6 +4,11 @@ import apiClient from '@/api/apiClient';
  * Service API pour la gestion et le suivi des dossiers de sortie — GALAXAM SIRH
  */
 export const dossierSortieService = {
+    /** Identité minimale des salariés actifs, accessible au rôle paie pour ouvrir un dossier. */
+    rechercherEmployes: async (q = '') => {
+        const response = await apiClient.get('paie/dossier-sortie/employes', { params: { q } });
+        return response.data;
+    },
     /**
      * Liste tous les dossiers de sortie enregistrés.
      */
@@ -90,6 +95,63 @@ export const dossierSortieService = {
     scellerStc: async (id, payload) => {
         const response = await apiClient.post(`paie/dossier-sortie/${id}/sceller`, payload);
         return response.data;
+    },
+
+    obtenirSituationReglements: async (id) => {
+        const response = await apiClient.get(`paie/dossier-sortie/${id}/reglements`);
+        return response.data;
+    },
+
+    enregistrerReglement: async (id, payload, idempotencyKey) => {
+        const response = await apiClient.post(`paie/dossier-sortie/${id}/reglement`, payload, {
+            headers: { 'X-Idempotency-Key': idempotencyKey },
+        });
+        return response.data;
+    },
+
+    annulerReglement: async (id, idReglement, motifAnnulation) => {
+        const response = await apiClient.post(`paie/dossier-sortie/${id}/reglement/${idReglement}/annuler`, {
+            motifAnnulation,
+        });
+        return response.data;
+    },
+
+    cloturerDossier: async (id, payload) => {
+        const response = await apiClient.post(`paie/dossier-sortie/${id}/cloturer`, payload);
+        return response.data;
+    },
+
+    telechargerDocument: async (id, typeDocument, idReglement = null) => {
+        const routes = {
+            decompte: ['decompte/pdf', 'pdf'],
+            recuProjet: ['recu-stc/pdf', 'pdf'],
+            certificatPdf: ['certificat/pdf', 'pdf'],
+            certificatDocx: ['certificat/docx', 'docx'],
+            bordereau: ['bordereau-remise/pdf', 'pdf'],
+            quittance: [`quittance/${idReglement}/pdf`, 'pdf'],
+        };
+        const selected = routes[typeDocument];
+        if (!selected || (typeDocument === 'quittance' && !idReglement)) throw new Error('Document inconnu.');
+        let response;
+        try {
+            response = await apiClient.get(`paie/dossier-sortie/${id}/documents/${selected[0]}`, {
+                responseType: 'blob',
+            });
+        } catch (error) {
+            if (error.response?.data instanceof Blob) {
+                try { error.response.data = JSON.parse(await error.response.data.text()); }
+                catch { /* Une réponse non JSON conserve le message HTTP standard. */ }
+            }
+            throw error;
+        }
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${typeDocument}-${id}${idReglement ? `-${idReglement}` : ''}.${selected[1]}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
 };
 

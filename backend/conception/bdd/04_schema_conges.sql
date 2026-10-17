@@ -126,6 +126,11 @@ CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
 CREATE INDEX idx_mouvement_solde_conge_created_by ON mouvement_solde_conge(created_by);
 CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
 CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
+-- Une bonification d'ancienneté au plus par salarié et par année ; la contrainte
+-- rend atomique la règle que le scheduler vérifie actuellement dans son ledger.
+CREATE UNIQUE INDEX idx_uniq_mouvement_bonification_annee
+    ON mouvement_solde_conge (id_employe, (EXTRACT(YEAR FROM date_mouvement)))
+    WHERE type_mouvement = 'BONIFICATION';
 
 -- Corrections DAF du reliquat de reprise : l'ancien taux et les bulletins restent historiques.
 CREATE TABLE conge_cutover_correction (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/components/ui/feedback/Toast';
 import contratService from '@/features/employees/api/contratService';
 import { isEmbaucheEvent, isRuptureEvent, isConfirmationEssaiEvent, isRenouvellementEssaiEvent } from '@/features/employees/utils/carriereWorkflowUtils';
@@ -18,6 +18,7 @@ export function useCarriereModals({
 }) {
     // Contexte et navigation
     const [, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const toast = useToast();
 
     // État local : modales de carrière et éléments sélectionnés.
@@ -256,6 +257,14 @@ export function useCarriereModals({
     };
 
     const handleOpenStc = (contrat = null) => {
+        if (!contrat?.simulationOnly) {
+            const params = new URLSearchParams({ employeId: String(idEmploye) });
+            const dateDepart = contrat?.dateDepart || contrat?.dateFin;
+            if (dateDepart) params.set('dateDepart', String(dateDepart).slice(0, 10));
+            if (contrat?.motifRupture) params.set('motif', contrat.motifRupture);
+            navigate(`/paie/dossiers-sortie/nouveau?${params.toString()}`);
+            return;
+        }
         setSelectedStcContrat(contrat);
         setIsStcModalOpen(true);
     };

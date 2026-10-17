@@ -37,6 +37,12 @@ public class PaieDossierSortie extends ClassMere {
     private Integer creePar;
     private Integer cloturePar;
     private Timestamp dateCloture;
+    private String motifCloture;
+    private Boolean derogationReglement = Boolean.FALSE;
+    private String justificationDerogation;
+    private String autoriteDecisionDerogation;
+    private String referenceDecisionDerogation;
+    private Date dateDecisionDerogation;
     private Integer version = 1;
     private String referenceSimulation;
     private String snapshotSimulation;
@@ -139,9 +145,11 @@ public class PaieDossierSortie extends ClassMere {
                 "donnees_preparation, decision_pret, justification_decision_pret, montant_pret_retenu, " +
                 "certificat_delivre, date_delivrance_certificat, mode_remise_certificat, " +
                 "recu_stc_remis, date_remise_recu, checklist_offboarding, id_stc, " +
-                "cree_par, cloture_par, date_cloture, version, reference_simulation, snapshot_simulation, " +
+                "cree_par, cloture_par, date_cloture, motif_cloture, derogation_reglement, justification_derogation, " +
+                "autorite_decision_derogation, reference_decision_derogation, date_decision_derogation, " +
+                "version, reference_simulation, snapshot_simulation, " +
                 "created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
                 "RETURNING id_dossier_sortie, version, created_at, updated_at";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -163,9 +171,15 @@ public class PaieDossierSortie extends ClassMere {
             if (creePar != null) ps.setInt(17, creePar); else ps.setNull(17, java.sql.Types.INTEGER);
             if (cloturePar != null) ps.setInt(18, cloturePar); else ps.setNull(18, java.sql.Types.INTEGER);
             ps.setTimestamp(19, dateCloture);
-            ps.setInt(20, version != null ? version : 1);
-            ps.setString(21, referenceSimulation);
-            ps.setString(22, snapshotSimulation != null ? snapshotSimulation : "{}");
+            ps.setString(20, motifCloture);
+            ps.setBoolean(21, Boolean.TRUE.equals(derogationReglement));
+            ps.setString(22, justificationDerogation);
+            ps.setString(23, autoriteDecisionDerogation);
+            ps.setString(24, referenceDecisionDerogation);
+            ps.setDate(25, dateDecisionDerogation);
+            ps.setInt(26, version != null ? version : 1);
+            ps.setString(27, referenceSimulation);
+            ps.setString(28, snapshotSimulation != null ? snapshotSimulation : "{}");
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -187,6 +201,8 @@ public class PaieDossierSortie extends ClassMere {
                 "montant_pret_retenu = ?, certificat_delivre = ?, date_delivrance_certificat = ?, " +
                 "mode_remise_certificat = ?, recu_stc_remis = ?, date_remise_recu = ?, " +
                 "checklist_offboarding = ?::jsonb, id_stc = ?, cloture_par = ?, date_cloture = ?, " +
+                "motif_cloture = ?, derogation_reglement = ?, justification_derogation = ?, " +
+                "autorite_decision_derogation = ?, reference_decision_derogation = ?, date_decision_derogation = ?, " +
                 "reference_simulation = ?, snapshot_simulation = ?::jsonb, " +
                 "version = version + 1, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_dossier_sortie = ? AND version = ?";
@@ -208,11 +224,17 @@ public class PaieDossierSortie extends ClassMere {
             if (idStc != null) ps.setInt(15, idStc); else ps.setNull(15, java.sql.Types.INTEGER);
             if (cloturePar != null) ps.setInt(16, cloturePar); else ps.setNull(16, java.sql.Types.INTEGER);
             ps.setTimestamp(17, dateCloture);
-            ps.setString(18, referenceSimulation);
-            ps.setString(19, snapshotSimulation != null ? snapshotSimulation : "{}");
-            ps.setInt(20, idDossierSortie);
+            ps.setString(18, motifCloture);
+            ps.setBoolean(19, Boolean.TRUE.equals(derogationReglement));
+            ps.setString(20, justificationDerogation);
+            ps.setString(21, autoriteDecisionDerogation);
+            ps.setString(22, referenceDecisionDerogation);
+            ps.setDate(23, dateDecisionDerogation);
+            ps.setString(24, referenceSimulation);
+            ps.setString(25, snapshotSimulation != null ? snapshotSimulation : "{}");
+            ps.setInt(26, idDossierSortie);
             int currentVersion = this.version != null ? this.version : 1;
-            ps.setInt(21, currentVersion);
+            ps.setInt(27, currentVersion);
             int rows = ps.executeUpdate();
             if (rows == 0) {
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
@@ -269,6 +291,14 @@ public class PaieDossierSortie extends ClassMere {
         int clp = rs.getInt("cloture_par");
         if (!rs.wasNull()) d.setCloturePar(clp);
         d.setDateCloture(rs.getTimestamp("date_cloture"));
+        try {
+            d.setMotifCloture(rs.getString("motif_cloture"));
+            d.setDerogationReglement(rs.getBoolean("derogation_reglement"));
+            d.setJustificationDerogation(rs.getString("justification_derogation"));
+            d.setAutoriteDecisionDerogation(rs.getString("autorite_decision_derogation"));
+            d.setReferenceDecisionDerogation(rs.getString("reference_decision_derogation"));
+            d.setDateDecisionDerogation(rs.getDate("date_decision_derogation"));
+        } catch (Exception ignored) {}
         d.setVersion(rs.getInt("version"));
         if (rs.wasNull()) d.setVersion(1);
         d.setReferenceSimulation(rs.getString("reference_simulation"));
@@ -338,6 +368,24 @@ public class PaieDossierSortie extends ClassMere {
 
     public Timestamp getDateCloture() { return dateCloture; }
     public void setDateCloture(Timestamp dateCloture) { this.dateCloture = dateCloture; }
+
+    public String getMotifCloture() { return motifCloture; }
+    public void setMotifCloture(String motifCloture) { this.motifCloture = motifCloture; }
+
+    public Boolean getDerogationReglement() { return derogationReglement; }
+    public void setDerogationReglement(Boolean derogationReglement) { this.derogationReglement = derogationReglement; }
+
+    public String getJustificationDerogation() { return justificationDerogation; }
+    public void setJustificationDerogation(String justificationDerogation) { this.justificationDerogation = justificationDerogation; }
+
+    public String getAutoriteDecisionDerogation() { return autoriteDecisionDerogation; }
+    public void setAutoriteDecisionDerogation(String autoriteDecisionDerogation) { this.autoriteDecisionDerogation = autoriteDecisionDerogation; }
+
+    public String getReferenceDecisionDerogation() { return referenceDecisionDerogation; }
+    public void setReferenceDecisionDerogation(String referenceDecisionDerogation) { this.referenceDecisionDerogation = referenceDecisionDerogation; }
+
+    public Date getDateDecisionDerogation() { return dateDecisionDerogation; }
+    public void setDateDecisionDerogation(Date dateDecisionDerogation) { this.dateDecisionDerogation = dateDecisionDerogation; }
 
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }

@@ -11,6 +11,7 @@ export default function EmployeSearchSelect({
   value,
   onChange,
   employes: employesProp = null,
+  searchEmployes = null,
   error = null,
   placeholder = 'Rechercher par nom, prénom ou matricule…',
   className = '',
@@ -24,6 +25,7 @@ export default function EmployeSearchSelect({
   const fieldId = id || `employee-select-${reactId}`;
   const feedbackId = `${fieldId}-feedback`;
   const [loadingList, setLoadingList] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const dropdownRef = useRef(null);
 
   // Debounce de 300ms sur la frappe utilisateur (évite de surcharger l'API)
@@ -49,14 +51,21 @@ export default function EmployeSearchSelect({
     let isMounted = true;
     setLoadingList(true);
 
-    employeService
-      .getEmployes({ q: debouncedQuery.trim() || undefined, size: 20, actif: true })
+    setSearchError(false);
+    (searchEmployes
+      ? searchEmployes(debouncedQuery.trim())
+      : employeService.getEmployes({ q: debouncedQuery.trim() || undefined, size: 20, actif: true }))
       .then((res) => {
         if (!isMounted) return;
         const list = Array.isArray(res) ? res : res?.content || [];
         setListEmployes(list);
       })
-      .catch((err) => console.error('Erreur recherche serveur employés dans EmployeSearchSelect', err))
+      .catch((err) => {
+        if (!isMounted) return;
+        setListEmployes([]);
+        setSearchError(true);
+        console.error('Erreur recherche serveur employés dans EmployeSearchSelect', err);
+      })
       .finally(() => {
         if (isMounted) setLoadingList(false);
       });
@@ -64,7 +73,7 @@ export default function EmployeSearchSelect({
     return () => {
       isMounted = false;
     };
-  }, [debouncedQuery, employesProp]);
+  }, [debouncedQuery, employesProp, searchEmployes]);
 
   // Retrouver l'objet employé si seule la valeur (ID) est passée depuis le parent
   useEffect(() => {
@@ -235,6 +244,10 @@ export default function EmployeSearchSelect({
               {loadingList ? (
                 <div className="p-3 text-xs text-[var(--color-fg-muted)] text-center">
                   Chargement des employés…
+                </div>
+              ) : searchError ? (
+                <div role="alert" className="p-3 text-xs text-[var(--color-danger-600)] text-center">
+                  Recherche indisponible. Réessayez ou contactez un administrateur si l’accès vous est refusé.
                 </div>
               ) : displayEmployes.length === 0 ? (
                 <div className="p-3 text-xs text-[var(--color-fg-muted)] text-center">

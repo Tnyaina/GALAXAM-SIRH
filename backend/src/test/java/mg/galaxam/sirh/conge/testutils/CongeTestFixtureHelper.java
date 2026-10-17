@@ -114,7 +114,8 @@ public final class CongeTestFixtureHelper {
 
     public static int createPeriodePaie(Connection c, String code, LocalDate debut, LocalDate fin, String codeStatut) throws SQLException {
         int idStatut = getStatutPeriodePaieId(c, codeStatut);
-        String sqlSelect = "SELECT id_periode_paie FROM periode_paie WHERE code = ? OR (daterange(date_debut, date_fin, '[]') && daterange(?, ?, '[]'))";
+        String sqlSelect = "SELECT id_periode_paie, date_debut, date_fin FROM periode_paie "
+                + "WHERE code = ? OR (daterange(date_debut, date_fin, '[]') && daterange(?, ?, '[]'))";
         try (PreparedStatement psSelect = c.prepareStatement(sqlSelect)) {
             psSelect.setString(1, code);
             psSelect.setDate(2, Date.valueOf(debut));
@@ -122,13 +123,15 @@ public final class CongeTestFixtureHelper {
             try (ResultSet rs = psSelect.executeQuery()) {
                 if (rs.next()) {
                     int existingId = rs.getInt(1);
+                    if (!debut.equals(rs.getDate(2).toLocalDate()) || !fin.equals(rs.getDate(3).toLocalDate())) {
+                        throw new SQLException("Fixture de période non isolée : " + code + " [" + debut + ", " + fin
+                                + "] chevauche la période immuable " + existingId + " [" + rs.getDate(2)
+                                + ", " + rs.getDate(3) + "].");
+                    }
                     try (PreparedStatement psUpdate = c.prepareStatement(
-                            "UPDATE periode_paie SET code = ?, date_debut = ?, date_fin = ?, id_statut_periode = ? WHERE id_periode_paie = ?")) {
-                        psUpdate.setString(1, code);
-                        psUpdate.setDate(2, Date.valueOf(debut));
-                        psUpdate.setDate(3, Date.valueOf(fin));
-                        psUpdate.setInt(4, idStatut);
-                        psUpdate.setInt(5, existingId);
+                            "UPDATE periode_paie SET id_statut_periode = ? WHERE id_periode_paie = ?")) {
+                        psUpdate.setInt(1, idStatut);
+                        psUpdate.setInt(2, existingId);
                         psUpdate.executeUpdate();
                     }
                     return existingId;

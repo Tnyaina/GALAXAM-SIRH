@@ -55,14 +55,18 @@ class StcReglementJournalIntegrationTest {
 
     private record TestDossierScelle(int idDossier, int idStc, int idEmploye, int adminId, BigDecimal netScelle, LocalDate dateDepart) {}
 
-    private void assurerPeriodePaie(Connection c, LocalDate date) throws Exception {
+    private Integer trouverPeriodePaieId(Connection c, LocalDate date) throws Exception {
         String sql = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(date));
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return;
+                return rs.next() ? rs.getInt(1) : null;
             }
         }
+    }
+
+    private void assurerPeriodePaie(Connection c, LocalDate date) throws Exception {
+        if (trouverPeriodePaieId(c, date) != null) return;
         LocalDate debut = date.getDayOfMonth() >= 26 ? date.withDayOfMonth(26) : date.minusMonths(1).withDayOfMonth(26);
         LocalDate fin = date.getDayOfMonth() >= 26 ? date.plusMonths(1).withDayOfMonth(25) : date.withDayOfMonth(25);
         String code = "P-" + debut + "-" + fin;
@@ -401,16 +405,23 @@ class StcReglementJournalIntegrationTest {
     void testVerrouillageTransactionnelAntiSurReglementConcurrent() throws Exception {
         int idDossierTest;
         int idStcTest;
+        int idEmployeTest;
+        int idPeriodeTest = -1;
+        boolean periodeCreeeParCeTest = false;
         int adminIdTest;
         BigDecimal netScelleTest;
         LocalDate dDep = LocalDate.of(2026, 9, 25);
 
         try (Connection cSetup = dataSource.getConnection()) {
             cSetup.setAutoCommit(false);
+            boolean periodeExistante = trouverPeriodePaieId(cSetup, dDep) != null;
             String mat = "EMP-REG-CONC-" + System.currentTimeMillis() % 100000;
             var testDossier = creerEtScellerDossierTest(cSetup, mat, dDep, new BigDecimal("30"));
+            idPeriodeTest = trouverPeriodePaieId(cSetup, dDep);
+            periodeCreeeParCeTest = !periodeExistante;
             idDossierTest = testDossier.idDossier();
             idStcTest = testDossier.idStc();
+            idEmployeTest = testDossier.idEmploye();
             adminIdTest = testDossier.adminId();
             netScelleTest = testDossier.netScelle();
             cSetup.commit();
@@ -506,7 +517,329 @@ class StcReglementJournalIntegrationTest {
                     ps.setInt(1, idStcTest);
                     ps.executeUpdate();
                 }
+                if (periodeCreeeParCeTest) {
+                    try (PreparedStatement ps = cClean.prepareStatement(
+                            "DELETE FROM bulletin_paie_ligne WHERE id_bulletin IN "
+                                    + "(SELECT id_bulletin FROM bulletin_paie WHERE id_employe = ? AND id_periode_paie = ?)")) {
+                        ps.setInt(1, idEmployeTest);
+                        ps.setInt(2, idPeriodeTest);
+                        ps.executeUpdate();
+                    }
+                    try (PreparedStatement ps = cClean.prepareStatement(
+                            "DELETE FROM bulletin_paie WHERE id_employe = ? AND id_periode_paie = ?")) {
+                        ps.setInt(1, idEmployeTest);
+                        ps.setInt(2, idPeriodeTest);
+                        ps.executeUpdate();
+                    }
+                }
+                if (periodeCreeeParCeTest && idPeriodeTest > 0) {
+                    // Ne retirer que la période créée par ce test, après ses STC ; une période préexistante reste intacte.
+                    try (PreparedStatement ps = cClean.prepareStatement(
+                            "DELETE FROM periode_paie WHERE id_periode_paie = ?")) {
+                        ps.setInt(1, idPeriodeTest);
+                        ps.executeUpdate();
+                    }
+                }
                 cClean.commit();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Annulation après clôture : interdiction stricte de l'annulation ordinaire si le dossier est CLOTURE")
+    void testInterdictionAnnulationOrdinaireApresClotureDossier() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                String mat = "EMP-REG-CLOT-" + System.currentTimeMillis() % 100000;
+                LocalDate dDep = LocalDate.of(2026, 9, 25);
+                var testDossier = creerEtScellerDossierTest(c, mat, dDep, new BigDecimal("30"));
+
+                // Règlement intégral
+                StcReglementRequest req = new StcReglementRequest(Date.valueOf(dDep), "VIR-CLOT-01", testDossier.netScelle());
+                StcSituationReglementDTO sit = stcService.enregistrerReglement(testDossier.idStc(), req, testDossier.adminId(), c);
+                assertEquals("REGLE", sit.getStatutStc());
+
+                int idReglement = sit.getReglements().get(0).getIdReglement();
+
+                // Clôture administrative du dossier (simulation transition statut CLOTURE)
+                try (PreparedStatement psClot = c.prepareStatement(
+                        "UPDATE paie_dossier_sortie SET statut_dossier = 'CLOTURE', date_cloture = CURRENT_TIMESTAMP WHERE id_dossier_sortie = ?")) {
+                    psClot.setInt(1, testDossier.idDossier());
+                    psClot.executeUpdate();
+                }
+
+                // Tentative d'annulation ordinaire du règlement
+                AnnulationReglementRequest annReq = new AnnulationReglementRequest("Demande tardive post-clôture");
+                SirhBusinessException ex = assertThrows(SirhBusinessException.class, () ->
+                        stcService.annulerReglement(testDossier.idStc(), idReglement, annReq, testDossier.adminId(), c));
+
+                assertEquals(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED, ex.getErrorCode());
+                assertTrue(ex.getMessage().contains("statut CLOTURE"));
+
+                // Vérifier que le règlement est toujours actif et le dossier inchangé
+                try (PreparedStatement psCheck = c.prepareStatement("SELECT est_annule FROM paie_stc_reglement WHERE id_reglement = ?")) {
+                    psCheck.setInt(1, idReglement);
+                    try (ResultSet rs = psCheck.executeQuery()) {
+                        assertTrue(rs.next());
+                        assertFalse(rs.getBoolean("est_annule"), "Le règlement ne doit pas avoir été annulé");
+                    }
+                }
+
+                c.rollback();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Idempotence technique : rejeu d'une requête avec la même cle_idempotence retourne le résultat sans doublon")
+    void testIdempotenceRejeuExactSansDoublon() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                String mat = "EMP-REG-IDEM-" + System.currentTimeMillis() % 100000;
+                LocalDate dDep = LocalDate.of(2026, 9, 25);
+                var testDossier = creerEtScellerDossierTest(c, mat, dDep, new BigDecimal("30"));
+
+                BigDecimal tranche = new BigDecimal("150000.00");
+                String cleIdem = "IDEM-TOKEN-UUID-" + System.nanoTime();
+
+                StcReglementRequest req1 = new StcReglementRequest(Date.valueOf(dDep), "VIR-IDEM-01", tranche, "VIREMENT", "Premier essai", cleIdem);
+
+                // Premier appel : enregistrement effectif
+                StcSituationReglementDTO sit1 = stcService.enregistrerReglement(testDossier.idStc(), req1, testDossier.adminId(), c);
+                assertEquals(1, sit1.getReglements().size());
+                assertEquals(0, tranche.compareTo(sit1.getTotalRegle()));
+
+                // Rejeu exact avec la même clé d'idempotence (simulation retry réseau)
+                StcSituationReglementDTO sit2 = stcService.enregistrerReglement(testDossier.idStc(), req1, testDossier.adminId(), c);
+
+                assertNotNull(sit2);
+                assertEquals(1, sit2.getReglements().size(), "Aucune seconde ligne ne doit avoir été insérée");
+                assertEquals(0, tranche.compareTo(sit2.getTotalRegle()), "Le total réglé ne doit pas avoir doublé");
+                assertEquals(cleIdem, sit2.getReglements().get(0).getCleIdempotence());
+
+                c.rollback();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Idempotence stricte : rejet formel si une même clé est rejouée avec montant, mode, référence ou date différent")
+    void testIdempotenceRejetPayloadDivergent() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                String mat = "EMP-REG-DIV-" + System.currentTimeMillis() % 100000;
+                LocalDate dDep = LocalDate.of(2026, 9, 25);
+                var testDossier = creerEtScellerDossierTest(c, mat, dDep, new BigDecimal("30"));
+
+                BigDecimal montantInitial = new BigDecimal("100000.00");
+                String cleIdem = "IDEM-DIV-TOKEN-" + System.nanoTime();
+
+                StcReglementRequest reqLegitime = new StcReglementRequest(
+                        Date.valueOf(dDep), "VIR-LEGIT-01", montantInitial, "VIREMENT", "Premier versement", cleIdem);
+
+                // 1. Premier enregistrement légitime
+                StcSituationReglementDTO sit = stcService.enregistrerReglement(testDossier.idStc(), reqLegitime, testDossier.adminId(), c);
+                assertEquals(1, sit.getReglements().size());
+
+                // 2. Rejeu avec montant altéré
+                StcReglementRequest reqMontantDifferent = new StcReglementRequest(
+                        Date.valueOf(dDep), "VIR-LEGIT-01", new BigDecimal("120000.00"), "VIREMENT", "Montant modifié", cleIdem);
+                SirhBusinessException exMontant = assertThrows(SirhBusinessException.class, () ->
+                        stcService.enregistrerReglement(testDossier.idStc(), reqMontantDifferent, testDossier.adminId(), c));
+                assertEquals(SirhErrorCode.DATA_INTEGRITY_VIOLATION, exMontant.getErrorCode());
+                assertTrue(exMontant.getMessage().contains("Conflit d'idempotence"));
+
+                // 3. Rejeu avec référence altérée
+                StcReglementRequest reqRefDifferente = new StcReglementRequest(
+                        Date.valueOf(dDep), "VIR-ALT-99", montantInitial, "VIREMENT", "Référence modifiée", cleIdem);
+                SirhBusinessException exRef = assertThrows(SirhBusinessException.class, () ->
+                        stcService.enregistrerReglement(testDossier.idStc(), reqRefDifferente, testDossier.adminId(), c));
+                assertEquals(SirhErrorCode.DATA_INTEGRITY_VIOLATION, exRef.getErrorCode());
+                assertTrue(exRef.getMessage().contains("Conflit d'idempotence"));
+
+                // 4. Rejeu avec mode de règlement altéré
+                StcReglementRequest reqModeDifferent = new StcReglementRequest(
+                        Date.valueOf(dDep), "VIR-LEGIT-01", montantInitial, "CHEQUE", "Mode chèque au lieu de virement", cleIdem);
+                SirhBusinessException exMode = assertThrows(SirhBusinessException.class, () ->
+                        stcService.enregistrerReglement(testDossier.idStc(), reqModeDifferent, testDossier.adminId(), c));
+                assertEquals(SirhErrorCode.DATA_INTEGRITY_VIOLATION, exMode.getErrorCode());
+                assertTrue(exMode.getMessage().contains("Conflit d'idempotence"));
+
+                c.rollback();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Concurrence idempotente : deux threads envoyant exactement la même clé d'idempotence aboutissent sans doublon ni conflit")
+    void testIdempotenceConcurrenteMemeCleDeuxThreads() throws Exception {
+        int idDossierTest;
+        int idStcTest;
+        int idEmployeTest;
+        int idPeriodeTest = -1;
+        boolean periodeCreeeParCeTest = false;
+        int adminIdTest;
+        BigDecimal tranche = new BigDecimal("180000.00");
+        String cleIdemPartagee = "IDEM-CONC-TWIN-" + System.nanoTime();
+        LocalDate dDep = LocalDate.of(2026, 9, 25);
+
+        try (Connection cSetup = dataSource.getConnection()) {
+            cSetup.setAutoCommit(false);
+            boolean periodeExistante = trouverPeriodePaieId(cSetup, dDep) != null;
+            String mat = "E-IDCONC-" + (System.currentTimeMillis() % 100000);
+            var testDossier = creerEtScellerDossierTest(cSetup, mat, dDep, new BigDecimal("30"));
+            idPeriodeTest = trouverPeriodePaieId(cSetup, dDep);
+            periodeCreeeParCeTest = !periodeExistante;
+            idDossierTest = testDossier.idDossier();
+            idStcTest = testDossier.idStc();
+            idEmployeTest = testDossier.idEmploye();
+            adminIdTest = testDossier.adminId();
+            cSetup.commit();
+        }
+
+        try {
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            CountDownLatch readyLatch = new CountDownLatch(2);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failureCount = new AtomicInteger(0);
+
+            Runnable task = () -> {
+                readyLatch.countDown();
+                try {
+                    startLatch.await();
+                    try (Connection cTask = dataSource.getConnection()) {
+                        cTask.setAutoCommit(false);
+                        try {
+                            StcReglementRequest req = new StcReglementRequest(
+                                    Date.valueOf(dDep), "VIR-TWIN-01", tranche, "VIREMENT", "Versement concurrent identique", cleIdemPartagee);
+                            stcService.enregistrerReglement(idStcTest, req, adminIdTest, cTask);
+                            cTask.commit();
+                            successCount.incrementAndGet();
+                        } catch (Exception e) {
+                            cTask.rollback();
+                            failureCount.incrementAndGet();
+                        }
+                    }
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                }
+            };
+
+            Future<?> f1 = executor.submit(task);
+            Future<?> f2 = executor.submit(task);
+            readyLatch.await(5, TimeUnit.SECONDS);
+            startLatch.countDown();
+
+            f1.get(10, TimeUnit.SECONDS);
+            f2.get(10, TimeUnit.SECONDS);
+            executor.shutdown();
+
+            // Les deux threads doivent réussir (l'un a inséré, l'autre a reçu la réponse idempotente sans réinsertion)
+            assertEquals(2, successCount.get(), "Les deux requêtes avec la même clé d'idempotence doivent être acceptées");
+            assertEquals(0, failureCount.get(), "Aucune exception ne doit être levée lors d'un rejeu concurrent identique");
+
+            // Vérification en base : exactement UNE seule ligne insérée
+            try (Connection cCheck = dataSource.getConnection()) {
+                StcSituationReglementDTO sit = stcService.obtenirSituationReglements(idStcTest, cCheck);
+                assertNotNull(sit);
+                assertEquals(1, sit.getReglements().size(), "Exactement 1 seul règlement doit être persisté pour cette clé");
+                assertEquals(0, tranche.compareTo(sit.getTotalRegle()), "Le montant ne doit pas avoir doublé");
+                assertEquals(cleIdemPartagee, sit.getReglements().get(0).getCleIdempotence());
+            }
+
+        } finally {
+            // Nettoyage
+            try (Connection cClean = dataSource.getConnection()) {
+                cClean.setAutoCommit(false);
+                try (PreparedStatement ps = cClean.prepareStatement("DELETE FROM paie_stc_reglement WHERE id_stc = ?")) {
+                    ps.setInt(1, idStcTest);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = cClean.prepareStatement("DELETE FROM paie_dossier_sortie WHERE id_dossier_sortie = ?")) {
+                    ps.setInt(1, idDossierTest);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = cClean.prepareStatement("DELETE FROM paie_stc WHERE id_stc = ?")) {
+                    ps.setInt(1, idStcTest);
+                    ps.executeUpdate();
+                }
+                if (periodeCreeeParCeTest) {
+                    try (PreparedStatement ps = cClean.prepareStatement(
+                            "DELETE FROM bulletin_paie_ligne WHERE id_bulletin IN "
+                                    + "(SELECT id_bulletin FROM bulletin_paie WHERE id_employe = ? AND id_periode_paie = ?)")) {
+                        ps.setInt(1, idEmployeTest);
+                        ps.setInt(2, idPeriodeTest);
+                        ps.executeUpdate();
+                    }
+                    try (PreparedStatement ps = cClean.prepareStatement(
+                            "DELETE FROM bulletin_paie WHERE id_employe = ? AND id_periode_paie = ?")) {
+                        ps.setInt(1, idEmployeTest);
+                        ps.setInt(2, idPeriodeTest);
+                        ps.executeUpdate();
+                    }
+                    if (idPeriodeTest > 0) {
+                        try (PreparedStatement ps = cClean.prepareStatement("DELETE FROM periode_paie WHERE id_periode_paie = ?")) {
+                            ps.setInt(1, idPeriodeTest);
+                            ps.executeUpdate();
+                        }
+                    }
+                }
+                cClean.commit();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Réutilisation de référence après annulation : autorisée et tracée dans le journal")
+    void testReutilisationReferenceApresAnnulationAutorisee() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                String mat = "EMP-REG-REUSE-" + System.currentTimeMillis() % 100000;
+                LocalDate dDep = LocalDate.of(2026, 9, 25);
+                var testDossier = creerEtScellerDossierTest(c, mat, dDep, new BigDecimal("30"));
+
+                BigDecimal tranche = new BigDecimal("200000.00");
+                String refMetier = "CHQ-REUSE-999";
+
+                // 1. Versement initial
+                StcReglementRequest req1 = new StcReglementRequest(Date.valueOf(dDep), refMetier, tranche, "CHEQUE", "Chèque rejeté");
+                StcSituationReglementDTO sit1 = stcService.enregistrerReglement(testDossier.idStc(), req1, testDossier.adminId(), c);
+                int idReg1 = sit1.getReglements().get(0).getIdReglement();
+
+                // 2. Annulation du versement
+                AnnulationReglementRequest annReq = new AnnulationReglementRequest("Chèque retourné pour motif technique");
+                stcService.annulerReglement(testDossier.idStc(), idReg1, annReq, testDossier.adminId(), c);
+
+                // 3. Réutilisation de la même référence métier (ex: re-présentation du chèque régularisé)
+                StcReglementRequest req2 = new StcReglementRequest(Date.valueOf(dDep), refMetier, tranche, "CHEQUE", "Chèque régularisé représenté");
+                StcSituationReglementDTO sit2 = stcService.enregistrerReglement(testDossier.idStc(), req2, testDossier.adminId(), c);
+
+                // La situation doit comporter 2 lignes (1 annulée, 1 active)
+                assertEquals(2, sit2.getReglements().size());
+                long countActifs = sit2.getReglements().stream().filter(r -> !r.isEstAnnule()).count();
+                long countAnnules = sit2.getReglements().stream().filter(r -> r.isEstAnnule()).count();
+                assertEquals(1, countActifs);
+                assertEquals(1, countAnnules);
+                assertEquals(0, tranche.compareTo(sit2.getTotalRegle()));
+
+                c.rollback();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
             }
         }
     }

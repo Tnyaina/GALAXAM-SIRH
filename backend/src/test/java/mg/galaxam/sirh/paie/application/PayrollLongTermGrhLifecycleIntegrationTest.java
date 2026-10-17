@@ -70,6 +70,7 @@ class PayrollLongTermGrhLifecycleIntegrationTest {
             c.setAutoCommit(false);
 
             try {
+                CongeTestFixtureHelper.cleanDatabase(c);
                 // =========================================================================
                 // 0. INITIALISATION DU PARC DES SALARIÉS & UTILISATEURS
                 // =========================================================================

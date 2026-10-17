@@ -88,7 +88,7 @@ class PointagePhase6IntegrationTest {
             try (PreparedStatement insert = c.prepareStatement(
                     "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, "
                             + "date_debut, date_fin, est_actif) VALUES (?, ?, 'JOURNALIER', 10000, "
-                            + "DATE '2027-09-02', DATE '2027-09-02', TRUE)")) {
+                            + "DATE '2026-09-02', DATE '2026-09-02', TRUE)")) {
                 insert.setInt(1, activeSiteId);
                 insert.setInt(2, autonomousAllowanceId);
                 insert.executeUpdate();
@@ -96,7 +96,7 @@ class PointagePhase6IntegrationTest {
             try (PreparedStatement insert = c.prepareStatement(
                     "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, "
                             + "date_debut, date_fin, est_actif) VALUES (?, ?, 'JOURNALIER', 20000, "
-                            + "DATE '2027-09-03', DATE '2027-09-03', TRUE)")) {
+                            + "DATE '2026-09-03', DATE '2026-09-03', TRUE)")) {
                 insert.setInt(1, activeSiteId);
                 insert.setInt(2, autonomousAllowanceId);
                 insert.executeUpdate();
@@ -106,13 +106,13 @@ class PointagePhase6IntegrationTest {
         var fiche = pointageEmployeService.getFichePointageEmploye(
                 employeId, null, "periode", testPeriodId, true);
         var first = fiche.getPointagesData().stream()
-                .filter(day -> "2027-09-01".equals(day.getDateComplete())).findFirst().orElseThrow();
+                .filter(day -> "2026-09-01".equals(day.getDateComplete())).findFirst().orElseThrow();
         var active = fiche.getPointagesData().stream()
-                .filter(day -> "2027-09-02".equals(day.getDateComplete())).findFirst().orElseThrow();
+                .filter(day -> "2026-09-02".equals(day.getDateComplete())).findFirst().orElseThrow();
         var changed = fiche.getPointagesData().stream()
-                .filter(day -> "2027-09-03".equals(day.getDateComplete())).findFirst().orElseThrow();
+                .filter(day -> "2026-09-03".equals(day.getDateComplete())).findFirst().orElseThrow();
         var expired = fiche.getPointagesData().stream()
-                .filter(day -> "2027-09-04".equals(day.getDateComplete())).findFirst().orElseThrow();
+                .filter(day -> "2026-09-04".equals(day.getDateComplete())).findFirst().orElseThrow();
         String key = Integer.toString(autonomousAllowanceId);
         assertFalse(first.getIndemnitesProposees().containsKey(key));
         assertTrue(active.getIndemnitesProposees().get(key).accordee());
@@ -177,14 +177,14 @@ class PointagePhase6IntegrationTest {
 
             // Récupérer une période ouverte
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT id_periode_paie FROM periode_paie WHERE code = '2027-09-T' LIMIT 1")) {
+                    "SELECT id_periode_paie FROM periode_paie WHERE code = '2026-09-T' LIMIT 1")) {
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         testPeriodId = rs.getInt(1);
                     } else {
                         try (PreparedStatement psIns = c.prepareStatement(
                                 "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
-                                "VALUES ('2027-09-T', 'Période Test', '2027-09-01', '2027-09-30', 2) RETURNING id_periode_paie")) {
+                                "VALUES ('2026-09-T', 'Période Test', '2026-09-01', '2026-09-30', 2) RETURNING id_periode_paie")) {
                             try (ResultSet rsIns = psIns.executeQuery()) {
                                 rsIns.next();
                                 testPeriodId = rsIns.getInt(1);
@@ -299,7 +299,7 @@ class PointagePhase6IntegrationTest {
             }
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, date_debut, est_actif) "
-                            + "VALUES (?, ?, 'JOURNALIER', 10000, DATE '2027-09-01', TRUE)")) {
+                            + "VALUES (?, ?, 'JOURNALIER', 10000, DATE '2026-09-01', TRUE)")) {
                 ps.setInt(1, activeSiteId);
                 ps.setInt(2, autonomousAllowanceId);
                 ps.executeUpdate();
@@ -311,7 +311,7 @@ class PointagePhase6IntegrationTest {
             assertNotNull(amountFromControl);
             assertTrue(amountFromControl.signum() > 0);
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT COUNT(*) FROM pointage_jour WHERE id_employe = ? AND date_pointage BETWEEN DATE '2027-09-01' AND DATE '2027-09-30'")) {
+                    "SELECT COUNT(*) FROM pointage_jour WHERE id_employe = ? AND date_pointage BETWEEN DATE '2026-09-01' AND DATE '2026-09-30'")) {
                 ps.setInt(1, employeId);
                 try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); assertEquals(0, rs.getInt(1)); }
             }
@@ -321,7 +321,7 @@ class PointagePhase6IntegrationTest {
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, "
                             + "total_heures, minutes_retard, heures_nuit, version) "
-                            + "VALUES (?, ?, ?, DATE '2027-09-01', "
+                            + "VALUES (?, ?, ?, DATE '2026-09-01', "
                             + "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'DISPENSE_POINTAGE'), "
                             + "8, 0, 0, 1) RETURNING id_pointage")) {
                 ps.setInt(1, employeId);
@@ -366,12 +366,12 @@ class PointagePhase6IntegrationTest {
     void testChangementEligibiliteHsEnSemaine() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             try (PreparedStatement ps = c.prepareStatement(
-                    "UPDATE employe_affectation_carriere SET date_fin=DATE '2027-09-15' WHERE id_affectation=?")) {
+                    "UPDATE employe_affectation_carriere SET date_fin=DATE '2026-09-15' WHERE id_affectation=?")) {
                 ps.setInt(1, initialAssignmentId);
                 ps.executeUpdate();
             }
             int suivante = CongeTestFixtureHelper.createAffectation(c, employeId, contractId,
-                    LocalDate.of(2027, 9, 16), new BigDecimal("1000000"));
+                    LocalDate.of(2026, 9, 16), new BigDecimal("1000000"));
             assertTrue(pointageSyntheseService.preflightPeriode(testPeriodId, c)
                     .changementsEligibiliteHs().isEmpty());
 
@@ -384,8 +384,8 @@ class PointagePhase6IntegrationTest {
             assertFalse(preflight.pret());
             assertTrue(preflight.changementsEligibiliteHs().stream().anyMatch(changement ->
                     changement.idEmploye() == employeId
-                            && changement.dateChangement().equals(LocalDate.of(2027, 9, 16))
-                            && changement.debutTroncon().equals(LocalDate.of(2027, 9, 14))));
+                            && changement.dateChangement().equals(LocalDate.of(2026, 9, 16))
+                            && changement.debutTroncon().equals(LocalDate.of(2026, 9, 14))));
             var error = assertThrows(IllegalStateException.class,
                     () -> pointageSyntheseService.gelerPeriode(testPeriodId, adminUserId, c));
             assertTrue(error.getMessage().contains("POINTAGE_HS_ELIGIBILITY_CHANGE"));
@@ -400,7 +400,7 @@ class PointagePhase6IntegrationTest {
             assertFalse(preflight.pret());
             assertTrue(preflight.journeesManquantes().stream()
                     .anyMatch(jour -> jour.idEmploye() == employeId
-                            && jour.date().equals(LocalDate.of(2027, 9, 1))));
+                            && jour.date().equals(LocalDate.of(2026, 9, 1))));
         }
     }
 
@@ -411,7 +411,7 @@ class PointagePhase6IntegrationTest {
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO pointage_jour (id_employe,id_periode_paie,id_site,date_pointage,id_statut_jour,"
                             + "heure_entree_matin,heure_entree_matin_effective,heure_sortie_am,horaire_continu_jour,version) "
-                            + "VALUES (?,?,?,DATE '2027-09-30',1,TIME '23:00',TIME '23:00',TIME '02:00',TRUE,1)")) {
+                            + "VALUES (?,?,?,DATE '2026-09-30',1,TIME '23:00',TIME '23:00',TIME '02:00',TRUE,1)")) {
                 ps.setInt(1, employeId); ps.setInt(2, testPeriodId); ps.setInt(3, activeSiteId);
                 ps.executeUpdate();
             }
@@ -432,7 +432,7 @@ class PointagePhase6IntegrationTest {
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO pointage_jour (id_employe,id_periode_paie,id_site,date_pointage,id_statut_jour,"
                             + "heure_entree_matin,heure_entree_matin_effective,heure_sortie_am,horaire_continu_jour,version) "
-                            + "VALUES (?,?,?,DATE '2027-09-29',1,TIME '23:00',TIME '23:00',TIME '02:00',TRUE,1)")) {
+                            + "VALUES (?,?,?,DATE '2026-09-29',1,TIME '23:00',TIME '23:00',TIME '02:00',TRUE,1)")) {
                 ps.setInt(1, employeId); ps.setInt(2, testPeriodId); ps.setInt(3, activeSiteId);
                 ps.executeUpdate();
             }
@@ -459,7 +459,7 @@ class PointagePhase6IntegrationTest {
             dto.setHoraireContinu(true);
             dto.setHeureEntreeMatin("23:00");
             dto.setHeureSortieAm("02:00");
-            dto.setDatePointage("2027-09-29");
+            dto.setDatePointage("2026-09-29");
             var preview = pointageService.previsualiserPointage(dto, c);
             assertEquals(3.0, preview.getHeuresNuit(), 0.0001);
             dto.setHeureEntreeMatin("00:00");
@@ -468,7 +468,7 @@ class PointagePhase6IntegrationTest {
             assertEquals(2.0, morningAfterSplit.getTotalHeures(), 0.0001);
             assertEquals(2.0, morningAfterSplit.getHeuresNuit(), 0.0001);
             dto.setHeureEntreeMatin("23:00");
-            dto.setDatePointage("2027-09-30");
+            dto.setDatePointage("2026-09-30");
             var error = assertThrows(RuntimeException.class,
                     () -> pointageService.previsualiserPointage(dto, c));
             assertTrue(error.getMessage().contains("POINTAGE_CROSS_PERIOD_SHIFT"));
@@ -491,12 +491,12 @@ class PointagePhase6IntegrationTest {
                 }
             }
             try (PreparedStatement ps = c.prepareStatement(
-                    "UPDATE employe_affectation_carriere SET date_fin = '2027-09-15' WHERE id_affectation = ?")) {
+                    "UPDATE employe_affectation_carriere SET date_fin = '2026-09-15' WHERE id_affectation = ?")) {
                 ps.setInt(1, affectation);
                 ps.executeUpdate();
             }
             int seconde = CongeTestFixtureHelper.createAffectation(c, employeId, contrat,
-                    LocalDate.of(2027, 9, 16), new BigDecimal("1000000"));
+                    LocalDate.of(2026, 9, 16), new BigDecimal("1000000"));
             try (PreparedStatement ps = c.prepareStatement(
                     "UPDATE employe_affectation_carriere SET id_fonction = 1, id_site = ? WHERE id_affectation = ?")) {
                 ps.setInt(1, activeSiteId);
@@ -505,9 +505,9 @@ class PointagePhase6IntegrationTest {
             }
             var preflight = pointageSyntheseService.preflightPeriode(testPeriodId, c);
             assertTrue(preflight.journeesManquantes().stream().anyMatch(jour -> jour.idEmploye() == employeId
-                    && jour.date().equals(LocalDate.of(2027, 9, 1))));
+                    && jour.date().equals(LocalDate.of(2026, 9, 1))));
             assertFalse(preflight.journeesManquantes().stream().anyMatch(jour -> jour.idEmploye() == employeId
-                    && jour.date().equals(LocalDate.of(2027, 9, 16))));
+                    && jour.date().equals(LocalDate.of(2026, 9, 16))));
         }
     }
 
@@ -562,14 +562,9 @@ class PointagePhase6IntegrationTest {
             c.setAutoCommit(false);
             try {
                 try (PreparedStatement ps = c.prepareStatement(
-                        "UPDATE periode_paie SET date_fin = '2027-09-28' WHERE id_periode_paie = ?")) {
-                    ps.setInt(1, testPeriodId);
-                    ps.executeUpdate();
-                }
-                try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, " +
                     "id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, total_heures) " +
-                    "VALUES (?, ?, ?, '2027-09-01', " +
+                    "VALUES (?, ?, ?, '2026-09-01', " +
                     "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT'), " +
                     "'08:00', '12:00', '13:00', '17:00', 8)")) {
                     ps.setInt(1, employeId);
@@ -637,7 +632,7 @@ class PointagePhase6IntegrationTest {
     void casA_absence1j_solde2j_couvertureTotale() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             CongeTestFixtureHelper.crediterSolde(c, employeId, 2.0, "Solde 2j initial");
-            Date dateAbsence = Date.valueOf(LocalDate.of(2027, 9, 7));
+            Date dateAbsence = Date.valueOf(LocalDate.of(2026, 9, 7));
 
             c.setAutoCommit(false);
             RegularisationCongeResult res = congeService.regulariserCongeAnnuelDepuisPointageStructure(
@@ -668,7 +663,7 @@ class PointagePhase6IntegrationTest {
     void casB_absence1j_soldeDemiJour_couverturePartielle() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             CongeTestFixtureHelper.crediterSolde(c, employeId, 0.5, "Solde 0.5j initial");
-            Date dateAbsence = Date.valueOf(LocalDate.of(2027, 9, 8));
+            Date dateAbsence = Date.valueOf(LocalDate.of(2026, 9, 8));
 
             c.setAutoCommit(false);
             RegularisationCongeResult res = congeService.regulariserCongeAnnuelDepuisPointageStructure(
@@ -698,7 +693,7 @@ class PointagePhase6IntegrationTest {
     @DisplayName("Cas C : absence 1j, solde 0 -> 0 congé, 1j absence complète, aucune écriture ledger")
     void casC_absence1j_soldeNul_aucuneCouverture() throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            Date dateAbsence = Date.valueOf(LocalDate.of(2027, 9, 9));
+            Date dateAbsence = Date.valueOf(LocalDate.of(2026, 9, 9));
 
             c.setAutoCommit(false);
             RegularisationCongeResult res = congeService.regulariserCongeAnnuelDepuisPointageStructure(
@@ -729,7 +724,7 @@ class PointagePhase6IntegrationTest {
     void casD_absenceDemiJour_soldeQuartJour_fractionFine() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             CongeTestFixtureHelper.crediterSolde(c, employeId, 0.25, "Solde 0.25j initial");
-            Date dateAbsence = Date.valueOf(LocalDate.of(2027, 9, 10));
+            Date dateAbsence = Date.valueOf(LocalDate.of(2026, 9, 10));
 
             c.setAutoCommit(false);
             RegularisationCongeResult res = congeService.regulariserCongeAnnuelDepuisPointageStructure(
@@ -760,7 +755,7 @@ class PointagePhase6IntegrationTest {
     void casE_retryMemeRegularisation_idempotence() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             CongeTestFixtureHelper.crediterSolde(c, employeId, 2.0, "Solde 2j initial");
-            Date dateAbsence = Date.valueOf(LocalDate.of(2027, 9, 11));
+            Date dateAbsence = Date.valueOf(LocalDate.of(2026, 9, 11));
 
             c.setAutoCommit(false);
             RegularisationCongeResult res1 = congeService.regulariserCongeAnnuelDepuisPointageStructure(
@@ -801,7 +796,7 @@ class PointagePhase6IntegrationTest {
     void testGelReopenRegelComplet() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             // 1. Créer un pointage version 1
-            LocalDate datePtg = LocalDate.of(2027, 9, 14);
+            LocalDate datePtg = LocalDate.of(2026, 9, 14);
             int ptgId;
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, " +

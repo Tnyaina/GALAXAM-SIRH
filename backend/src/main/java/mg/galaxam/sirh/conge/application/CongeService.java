@@ -465,8 +465,13 @@ public class CongeService {
                     mouvement.setTypeMouvement("BONIFICATION");
                     mouvement.setNbJours(BigDecimal.valueOf(aCrediter));
                     mouvement.setCommentaire("Bonification d'ancienneté (" + anciennete + " ans)");
-                    mouvement.save(c);
-                    mouvements.add(new MouvementDroit("BONIFICATION", ref, aCrediter));
+                    // La date métier de référence du scheduler est la clôture du mois,
+                    // y compris au passage décembre/janvier. PostgreSQL arbitre atomiquement
+                    // une éventuelle seconde tentative pour ce salarié et cette année.
+                    mouvement.setDateMouvement(Date.valueOf(ref));
+                    if (mouvement.saveBonificationAnnuelleUneFois(c)) {
+                        mouvements.add(new MouvementDroit("BONIFICATION", ref, aCrediter));
+                    }
                 }
             }
             employesTraites++;

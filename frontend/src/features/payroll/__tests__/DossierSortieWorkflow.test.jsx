@@ -6,6 +6,9 @@ import DossierSortieModal from '../components/modals/stc/DossierSortieModal';
 import DossiersSortiePage from '../pages/DossiersSortiePage';
 import dossierSortieService from '../api/dossierSortieService';
 import contratService from '@/features/employees/api/contratService';
+const permissions = vi.hoisted(() => ({ canWrite: true }));
+const navigateSpy = vi.hoisted(() => vi.fn());
+const toastCalls = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() }));
 
 vi.mock('../api/dossierSortieService', () => ({
     default: {
@@ -25,7 +28,7 @@ vi.mock('@/features/employees/api/contratService', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-    useNavigate: () => vi.fn(),
+    useNavigate: () => navigateSpy,
     Link: ({ children, to }) => <a href={to}>{children}</a>,
 }));
 
@@ -38,17 +41,38 @@ vi.mock('@/components/ui/overlays/Modal', () => ({
         </div>
     ) : null
 }));
-
-vi.mock('@/components/ui/feedback/Toast', () => ({
-    useToast: () => ({ show: vi.fn() })
+vi.mock('@/components/ui/overlays/ConfirmDialog', () => ({
+    default: ({ isOpen, onConfirm }) => isOpen ? <button onClick={onConfirm}>Valider la confirmation</button> : null
 }));
 
-vi.mock('../components/modals/stc/StcPreparationModal', () => ({
+vi.mock('@/components/ui/feedback/Toast', () => ({
+    useToast: () => toastCalls
+}));
+
+vi.mock('@/components/ui/forms/EmployeSearchSelect', () => ({
+    default: ({ onChange }) => <button type="button" onClick={() => onChange(7, { idEmploye: 7 })}>Choisir le salarié</button>
+}));
+
+vi.mock('@/features/auth/components/HasPermission', () => ({
+    default: ({ children }) => <>{children}</>
+}));
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => permissions.canWrite }) }));
+
+vi.mock('../components/modals/stc/StcRecuModal', () => ({
     default: () => null
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let host, root;
+const changeField = async (field, value) => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+        field.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value');
+    await act(async () => {
+        descriptor.set.call(field, value);
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+};
 
 const mockDossier = {
     idDossierSortie: 101,
@@ -121,6 +145,7 @@ const mockDossier = {
 };
 
 beforeEach(() => {
+    permissions.canWrite = true;
     host = document.createElement('div');
     document.body.appendChild(host);
     root = createRoot(host);
@@ -129,6 +154,7 @@ beforeEach(() => {
         { code: 'LICENCIEMENT_SIMPLE', libelle: 'Licenciement simple', actif: true }
     ]);
     dossierSortieService.obtenirDossier.mockResolvedValue(mockDossier);
+    dossierSortieService.obtenirDossierEmploye.mockResolvedValue(mockDossier);
     dossierSortieService.sauvegarderDossier.mockResolvedValue({
         ...mockDossier,
         statutDossier: 'PRET_A_VALIDER',
@@ -148,6 +174,27 @@ afterEach(async () => {
 });
 
 describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
+    it('laisse consulter la liste sans proposer de création à un lecteur', async () => {
+        permissions.canWrite = false;
+        await act(async () => root.render(<DossiersSortiePage />));
+        expect(host.textContent).toContain('Rakoto Jean');
+        expect(host.textContent).not.toContain('Nouveau dossier de sortie');
+    });
+    it('ouvre la page dédiée avec le salarié et les données de départ choisis', async () => {
+        await act(async () => root.render(<DossiersSortiePage />));
+        await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent.includes('Nouveau dossier de sortie')).click());
+        await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent === 'Choisir le salarié').click());
+        await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent.includes('Continuer vers le dossier')).click());
+        expect(navigateSpy).toHaveBeenCalledWith(expect.stringMatching(/^\/paie\/dossiers-sortie\/nouveau\?employeId=7&dateDepart=.+&motif=DEMISSION$/));
+    });
+    it('affiche une date SQL horodatée dans le champ de date et confirme une sauvegarde réussie', async () => {
+        dossierSortieService.obtenirDossier.mockResolvedValue({ ...mockDossier, dateDepart: '2026-10-31T00:00:00.000+03:00' });
+        await act(async () => root.render(<DossierSortieModal isOpen idDossier={101} onClose={vi.fn()} />));
+        expect(host.querySelector('input[type="date"]').value).toBe('2026-10-31');
+        await changeField(host.querySelector('input[type="date"]'), '2026-10-30');
+        await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent.includes('Sauvegarder le dossier')).click());
+        expect(toastCalls.success).toHaveBeenCalledWith('Dossier préparatoire de sortie enregistré avec succès.');
+    });
     it('affiche le dossier de sortie avec données sources en lecture seule et statuts', async () => {
         await act(async () => {
             root.render(
@@ -162,10 +209,11 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
         expect(dossierSortieService.obtenirDossier).toHaveBeenCalledWith(101);
         expect(host.textContent).toContain('Rakoto Jean');
         expect(host.textContent).toContain('EMP-007');
+        await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent.includes('1. Situation')).click());
         expect(host.textContent).toContain('Pointage du mois');
         expect(host.textContent).toContain('22 j');
         expect(host.textContent).toContain('5.5 j');
-        expect(host.textContent).toContain('Données sources & Synthèse');
+        expect(host.textContent).toContain('1. Situation');
     });
 
     it('affiche la checklist dynamique avec distinction des règles légales et sévérité', async () => {
@@ -179,13 +227,13 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
             );
         });
 
-        const btnChecklist = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Checklist de conformité'));
+        const btnChecklist = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Points à traiter'));
         expect(btnChecklist).toBeDefined();
         await act(async () => {
             btnChecklist.click();
         });
 
-        expect(host.textContent).toContain('Loi 2024-004 (Légal)');
+        expect(host.textContent).toContain('Cadre légal malgache');
         expect(host.textContent).toContain('Délivrance obligatoire du certificat de travail');
         expect(host.textContent).toContain('Prêts et avances non soldés');
         expect(host.textContent).toContain('BLOQUANT');
@@ -202,7 +250,7 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
             );
         });
 
-        const btnPret = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Prêts & Règlements'));
+        const btnPret = [...host.querySelectorAll('button')].find(b => b.textContent.includes('3. Prêts'));
         expect(btnPret).toBeDefined();
         await act(async () => {
             btnPret.click();
@@ -211,6 +259,9 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
         expect(host.textContent).toContain('Prêt d\'entreprise en cours de remboursement');
         expect(host.textContent).toContain('200 000 Ar');
         expect(host.textContent).toContain('Décision de gestion du prêt au départ du salarié');
+
+        const justification = host.querySelector('textarea');
+        await changeField(justification, 'Maintien par accord écrit');
 
         // Sauvegarder le dossier préparatoire
         const btnSave = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Sauvegarder le dossier'));
@@ -227,6 +278,9 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
     });
 
     it('permet d’enregistrer la délivrance du certificat de travail (Art. 50)', async () => {
+        dossierSortieService.obtenirDossier.mockResolvedValue({
+            ...mockDossier, statutContrat: 'ROMPU', dateFinContrat: '2026-10-01'
+        });
         await act(async () => {
             root.render(
                 <DossierSortieModal
@@ -237,13 +291,13 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
             );
         });
 
-        const btnOffboarding = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Offboarding & Certificat'));
+        const btnOffboarding = [...host.querySelectorAll('button')].find(b => b.textContent.includes('5. Formalités'));
         expect(btnOffboarding).toBeDefined();
         await act(async () => {
             btnOffboarding.click();
         });
 
-        expect(host.textContent).toContain('Certificat de travail (Loi 2024-004, Art. 50)');
+        expect(host.textContent).toContain('Certificat de travail');
         const btnDelivrer = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Enregistrer la remise du certificat'));
         expect(btnDelivrer).toBeDefined();
 
@@ -332,6 +386,9 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
 
         await act(async () => {
             btnSceller.click();
+        });
+        await act(async () => {
+            [...host.querySelectorAll('button')].find(b => b.textContent === 'Valider la confirmation').click();
         });
 
         expect(dossierSortieService.scellerStc).toHaveBeenCalledWith(101, expect.objectContaining({

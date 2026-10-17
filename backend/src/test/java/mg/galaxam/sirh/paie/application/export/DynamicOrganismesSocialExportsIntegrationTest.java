@@ -14,6 +14,7 @@ import javax.sql.DataSource;
 import java.io.ByteArrayInputStream;
 import java.sql.Connection;
 import java.time.LocalDate;
+import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,6 +41,7 @@ public class DynamicOrganismesSocialExportsIntegrationTest {
             verifierBaseTestUniquement(c);
             c.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(c);
                 // 1. Charger fixtures Q1 de base
                 try (var is = getClass().getResourceAsStream("/q1_test_fixtures_inserts.sql")) {
                     assertNotNull(is, "Fichier q1_test_fixtures_inserts.sql manquant");

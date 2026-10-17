@@ -7,6 +7,7 @@ import mg.galaxam.sirh.common.dto.ApiErrorResponse;
 import mg.galaxam.sirh.common.dto.BusinessIssue;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
+import org.postgresql.util.PSQLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -85,6 +86,8 @@ public class GlobalExceptionHandler {
         // P1-06 : Extraction du SQLSTATE via SQLException (standard JDBC) — ne jamais parser le message texte.
         Throwable cause = ex.getMostSpecificCause();
         if (cause instanceof SQLException sqlEx) {
+            ResponseEntity<ApiErrorResponse> pointagePeriodError = pointagePeriodConstraint(sqlEx, request);
+            if (pointagePeriodError != null) return pointagePeriodError;
             String sqlState = sqlEx.getSQLState();
             log.debug("SQLSTATE={}", sqlState);
 
@@ -133,9 +136,26 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(java.sql.SQLException.class)
     public ResponseEntity<ApiErrorResponse> handleSqlException(java.sql.SQLException ex, HttpServletRequest request) {
+        ResponseEntity<ApiErrorResponse> pointagePeriodError = pointagePeriodConstraint(ex, request);
+        if (pointagePeriodError != null) return pointagePeriodError;
         log.error("Erreur SQL lors du traitement sur [{}] : {}", request.getRequestURI(), ex.getMessage(), ex);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, SirhErrorCode.PERSISTENCE_ERROR.name(),
                 "Une erreur est survenue lors de l'enregistrement des données. Veuillez réessayer ou contacter l'administrateur si le problème persiste.", request);
+    }
+
+    private ResponseEntity<ApiErrorResponse> pointagePeriodConstraint(SQLException ex, HttpServletRequest request) {
+        if (!"23514".equals(ex.getSQLState()) || !(ex instanceof PSQLException pg)
+                || pg.getServerErrorMessage() == null) return null;
+        String constraint = pg.getServerErrorMessage().getConstraint();
+        if ("ck_pointage_jour_periode_dates".equals(constraint)) {
+            return problem(HttpStatus.CONFLICT, SirhErrorCode.DATA_INTEGRITY_VIOLATION.name(),
+                    "La date du pointage doit appartenir à la période de paie sélectionnée.", request);
+        }
+        if ("ck_periode_paie_bornes_immuables".equals(constraint)) {
+            return problem(HttpStatus.CONFLICT, SirhErrorCode.DATA_INTEGRITY_VIOLATION.name(),
+                    "Les dates d'une période de paie ne peuvent plus être modifiées après sa création.", request);
+        }
+        return null;
     }
 
     @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)

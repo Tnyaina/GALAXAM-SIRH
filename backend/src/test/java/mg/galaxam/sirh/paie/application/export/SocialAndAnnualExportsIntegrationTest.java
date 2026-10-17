@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
+import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,6 +41,7 @@ public class SocialAndAnnualExportsIntegrationTest {
             verifierBaseTestUniquement(c);
             c.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(c);
                 // Charger les fixtures Q1 dans la transaction
                 try (var is = getClass().getResourceAsStream("/q1_test_fixtures_inserts.sql")) {
                     assertNotNull(is, "Fichier q1_test_fixtures_inserts.sql manquant");

@@ -15,17 +15,22 @@ public record StcReglementRequest(
         @NotBlank String referenceReglement,
         BigDecimal montantRegle,
         String modeReglement,
-        String commentaire
+        String commentaire,
+        String idempotencyKey
 ) {
     /**
      * Constructeur rétro-compatible pour les appels n'indiquant que la date et la référence.
      * Dans ce cas, le montant réglé par défaut sera le solde restant à payer.
      */
     public StcReglementRequest(Date dateReglement, String referenceReglement) {
-        this(dateReglement, referenceReglement, null, "VIREMENT", null);
+        this(dateReglement, referenceReglement, null, "VIREMENT", null, null);
     }
 
     public StcReglementRequest(Date dateReglement, String referenceReglement, BigDecimal montantRegle) {
-        this(dateReglement, referenceReglement, montantRegle, "VIREMENT", null);
+        this(dateReglement, referenceReglement, montantRegle, "VIREMENT", null, null);
+    }
+
+    public StcReglementRequest(Date dateReglement, String referenceReglement, BigDecimal montantRegle, String modeReglement, String commentaire) {
+        this(dateReglement, referenceReglement, montantRegle, modeReglement, commentaire, null);
     }
 }

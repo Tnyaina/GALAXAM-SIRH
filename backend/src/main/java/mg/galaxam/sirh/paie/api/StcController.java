@@ -149,13 +149,27 @@ public class StcController {
      */
     @PostMapping({"/{idStc}/regler", "/{idStc}/reglement"})
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<StcSituationReglementDTO> enregistrerReglement(@PathVariable("idStc") Integer idStc,
+    public ResponseEntity<StcSituationReglementDTO> enregistrerReglement(
+            @PathVariable("idStc") Integer idStc,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyHeader,
             @Valid @RequestBody StcReglementRequest req) throws Exception {
         Integer userId = getCurrentUserId();
+        StcReglementRequest effectiveReq = req;
+        if ((req.idempotencyKey() == null || req.idempotencyKey().isBlank())
+                && idempotencyHeader != null && !idempotencyHeader.isBlank()) {
+            effectiveReq = new StcReglementRequest(
+                    req.dateReglement(),
+                    req.referenceReglement(),
+                    req.montantRegle(),
+                    req.modeReglement(),
+                    req.commentaire(),
+                    idempotencyHeader.trim()
+            );
+        }
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                StcSituationReglementDTO sit = stcService.enregistrerReglement(idStc, req, userId, c);
+                StcSituationReglementDTO sit = stcService.enregistrerReglement(idStc, effectiveReq, userId, c);
                 c.commit();
                 return ResponseEntity.ok(sit);
             } catch (Exception ex) {

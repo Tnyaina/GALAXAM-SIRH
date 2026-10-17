@@ -29,6 +29,7 @@ public class DossierSortieDTO {
 
     private Integer idContrat;
     private String typeContrat;
+    private String statutContrat;
     private Date dateDebutContrat;
     private Date dateFinContrat;
 
@@ -90,10 +91,16 @@ public class DossierSortieDTO {
     private String referenceSimulation;
     private Map<String, Object> donneesPreparation;
 
-    // Traçabilité
+    // Traçabilité et clôture
     private Integer creePar;
     private Integer cloturePar;
     private Timestamp dateCloture;
+    private String motifCloture;
+    private boolean derogationReglement;
+    private String justificationDerogation;
+    private String autoriteDecisionDerogation;
+    private String referenceDecisionDerogation;
+    private Date dateDecisionDerogation;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
@@ -142,6 +149,8 @@ public class DossierSortieDTO {
 
     public String getTypeContrat() { return typeContrat; }
     public void setTypeContrat(String typeContrat) { this.typeContrat = typeContrat; }
+    public String getStatutContrat() { return statutContrat; }
+    public void setStatutContrat(String statutContrat) { this.statutContrat = statutContrat; }
 
     public Date getDateDebutContrat() { return dateDebutContrat; }
     public void setDateDebutContrat(Date dateDebutContrat) { this.dateDebutContrat = dateDebutContrat; }
@@ -265,6 +274,19 @@ public class DossierSortieDTO {
 
     public Timestamp getDateCloture() { return dateCloture; }
     public void setDateCloture(Timestamp dateCloture) { this.dateCloture = dateCloture; }
+    public String getMotifCloture() { return motifCloture; }
+    public void setMotifCloture(String motifCloture) { this.motifCloture = motifCloture; }
+    public boolean isDerogationReglement() { return derogationReglement; }
+    public void setDerogationReglement(boolean derogationReglement) { this.derogationReglement = derogationReglement; }
+    public String getJustificationDerogation() { return justificationDerogation; }
+    public void setJustificationDerogation(String justificationDerogation) { this.justificationDerogation = justificationDerogation; }
+    public String getAutoriteDecisionDerogation() { return autoriteDecisionDerogation; }
+    public void setAutoriteDecisionDerogation(String autoriteDecisionDerogation) { this.autoriteDecisionDerogation = autoriteDecisionDerogation; }
+    public String getReferenceDecisionDerogation() { return referenceDecisionDerogation; }
+    public void setReferenceDecisionDerogation(String referenceDecisionDerogation) { this.referenceDecisionDerogation = referenceDecisionDerogation; }
+    public Date getDateDecisionDerogation() { return dateDecisionDerogation; }
+    public void setDateDecisionDerogation(Date dateDecisionDerogation) { this.dateDecisionDerogation = dateDecisionDerogation; }
+    public boolean isEstCloture() { return "CLOTURE".equalsIgnoreCase(statutDossier); }
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }

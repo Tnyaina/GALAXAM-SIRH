@@ -398,7 +398,7 @@ export default function RuptureContratModal({
                                 iconRight={<ArrowRight size={16} />}
                                 onClick={handleLancerSimulationStc}
                             >
-                                Simuler le Solde de Tout Compte
+                                Estimer le STC
                             </Button>
                         )}
                     </div>
@@ -413,9 +413,7 @@ export default function RuptureContratModal({
                             </h3>
                             <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
                                 Le motif <strong className="text-[var(--color-fg)]">{libMotifSortie}</strong> avec date de sortie au <strong className="text-[var(--color-fg)]">{fmtDateFr(formData.dateEffet)}</strong> a été enregistré.
-                                {isDateEffetFuture
-                                    ? ' Après validation finale, l\'offboarding sera planifié jusqu\'au terme du préavis.'
-                                    : ' L\'application prendra effet immédiatement lors de la validation finale.'}
+                                {' Le contrat reste en vigueur jusqu’à la validation du workflow et la date d’effet.'}
                             </p>
                         </div>
                     </div>

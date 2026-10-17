@@ -49,6 +49,12 @@ public class NotificationRhScheduler {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                // Le contrôle anti-doublon notification est un SELECT puis INSERT.
+                // Le verrou transactionnel rend cette séquence sérialisée même si
+                // le bail du registre expire pendant une génération longue.
+                try (PreparedStatement lock = c.prepareStatement("SELECT pg_advisory_xact_lock(1195467864, 1)")) {
+                    lock.execute();
+                }
                 // 1. Supprimer les anciennes notifications non critiques
                 purguerAnciennesNotifications(c);
 

@@ -103,7 +103,7 @@ class NotificationRhSchedulerIntegrationTest {
 
             // Vérifier la présence de l'alerte pour contrat échu
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT type_alerte, priorite, titre, message FROM notification_rh WHERE id_employe_concerne = ?")) {
+                    "SELECT type_alerte, priorite, titre, message FROM notification_rh WHERE id_employe_concerne = ? AND type_alerte = 'CONTRAT_ECHU_NON_REGULARISE'")) {
                 ps.setInt(1, emp1);
                 try (ResultSet rs = ps.executeQuery()) {
                     assertTrue(rs.next(), "Alerte de contrat échu attendue");
@@ -115,7 +115,7 @@ class NotificationRhSchedulerIntegrationTest {
 
             // Vérifier la présence de l'alerte pour essai échu
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT type_alerte, priorite, titre, message FROM notification_rh WHERE id_employe_concerne = ?")) {
+                    "SELECT type_alerte, priorite, titre, message FROM notification_rh WHERE id_employe_concerne = ? AND type_alerte = 'ESSAI_ECHU_SANS_DECISION'")) {
                 ps.setInt(1, emp2);
                 try (ResultSet rs = ps.executeQuery()) {
                     assertTrue(rs.next(), "Alerte d'essai échu attendue");

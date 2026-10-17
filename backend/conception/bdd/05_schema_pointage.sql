@@ -60,6 +60,21 @@ CREATE TABLE periode_paie (
 CREATE INDEX idx_periode_paie_statut ON periode_paie(id_statut_periode);
 CREATE INDEX idx_periode_paie_valide_par ON periode_paie(valide_par);
 
+-- Les bornes définissent définitivement la campagne. Les états restent modifiables.
+CREATE OR REPLACE FUNCTION interdire_modification_bornes_periode_paie()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF ROW(NEW.date_debut, NEW.date_fin) IS DISTINCT FROM ROW(OLD.date_debut, OLD.date_fin) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            CONSTRAINT = 'ck_periode_paie_bornes_immuables',
+            MESSAGE = format('Les bornes de la période %s sont immuables après création.', OLD.id_periode_paie);
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_periode_paie_bornes_immuables
+BEFORE UPDATE OF date_debut, date_fin ON periode_paie
+FOR EACH ROW EXECUTE FUNCTION interdire_modification_bornes_periode_paie();
+
 CREATE TABLE periode_paie_transition (
     id_transition BIGSERIAL PRIMARY KEY,
     id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
@@ -177,6 +192,30 @@ CREATE INDEX idx_pointage_jour_site ON pointage_jour(id_site);
 CREATE INDEX idx_pointage_jour_saisi_par ON pointage_jour(saisi_par);
 CREATE INDEX idx_pointage_demande_conge ON pointage_jour(id_demande_conge) WHERE id_demande_conge IS NOT NULL;
 CREATE INDEX idx_pointage_ajuste_daf ON pointage_jour(ajuste_par_daf) WHERE ajuste_par_daf = TRUE;
+
+-- Verrou FOR SHARE sur la période : une validation de date ne dépend pas d'une
+-- simple lecture concurrente des bornes. Les limites sont inclusives.
+CREATE OR REPLACE FUNCTION verifier_pointage_jour_periode()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    v_debut DATE;
+    v_fin DATE;
+BEGIN
+    SELECT date_debut, date_fin INTO v_debut, v_fin
+    FROM periode_paie
+    WHERE id_periode_paie = NEW.id_periode_paie
+    FOR SHARE;
+    IF NOT FOUND OR NEW.date_pointage NOT BETWEEN v_debut AND v_fin THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            CONSTRAINT = 'ck_pointage_jour_periode_dates',
+            MESSAGE = format('La date %s du pointage est hors de la période %s.',
+                NEW.date_pointage, NEW.id_periode_paie);
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_pointage_jour_periode_dates
+BEFORE INSERT OR UPDATE OF date_pointage, id_periode_paie ON pointage_jour
+FOR EACH ROW EXECUTE FUNCTION verifier_pointage_jour_periode();
 
 -- 5. Indemnités Journalières (Source Unique de Vérité)
 CREATE TABLE pointage_indemnite_jour (

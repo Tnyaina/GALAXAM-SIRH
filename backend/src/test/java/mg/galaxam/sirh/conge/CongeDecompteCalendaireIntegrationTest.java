@@ -154,11 +154,9 @@ class CongeDecompteCalendaireResolverIntegrationTest {
                         "INSERT INTO parametre_global (code_parametre,categorie,valeur,date_debut,est_actif,est_desactivable) "
                         + "VALUES ('CONGE_DECOMPTE_FERIES','CONGE','EXCLUS',DATE '2026-01-01',TRUE,TRUE),"
                         + "('CONGE_DECOMPTE_FERIES','CONGE','INCLUS',DATE '2026-01-02',TRUE,TRUE)")) {
-                    ps.executeUpdate();
+                    java.sql.SQLException overlap = assertThrows(java.sql.SQLException.class, ps::executeUpdate);
+                    assertEquals("23P01", overlap.getSQLState(), "PostgreSQL doit refuser les périodes qui se chevauchent.");
                 }
-                var ambiguous = assertThrows(IllegalStateException.class, () -> CongeDecompteCalendaireResolver.calculer(
-                        emp, LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 2), false, c));
-                assertTrue(ambiguous.getMessage().contains("AMBIGUOUS_CONFIGURATION"));
             } finally {
                 c.rollback();
             }

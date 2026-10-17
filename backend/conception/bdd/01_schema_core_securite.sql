@@ -100,6 +100,12 @@ CREATE TABLE scheduler_execution (
     completed_at TIMESTAMP NULL,
     attempt_count INTEGER NOT NULL DEFAULT 1,
     error_message TEXT NULL,
+    attempt_token UUID,
+    lease_until TIMESTAMP NULL,
+    CONSTRAINT ck_scheduler_execution_lease CHECK (
+        (status = 'RUNNING' AND attempt_token IS NOT NULL AND lease_until IS NOT NULL)
+        OR (status <> 'RUNNING' AND lease_until IS NULL)
+    ),
     PRIMARY KEY (job_code, execution_key)
 );
 
@@ -227,7 +233,8 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 ('PAIE_CAMPAGNE',     'Cycles de paie',          'CalendarRange',     '/paie?tab=periodes',              2, 2, 'PAIE_MODULE'),
 ('PAIE_ACOMPTES',     'Acomptes & avances',      'SlidersHorizontal', '/paie/acomptes-avances',           3, 2, 'PAIE_MODULE'),
 ('PAIE_PRESTATAIRES', 'Prestataires indépendants','Users',            '/paie/prestataires',             4, 2, 'PAIE_MODULE'),
-('PAIE_CONFIGURATION','Configuration de paie',  'Settings2',         '/paie/configuration',             5, 2, 'PAIE_MODULE'),
+('PAIE_CONFIGURATION','Configuration de paie',  'Settings2',         '/paie/configuration',             7, 2, 'PAIE_MODULE'),
+('PAIE_DOSSIERS_SORTIE', 'Dossiers de sortie & STC', 'UserMinus', '/paie/dossiers-sortie',           5, 2, 'PAIE_MODULE'),
 ('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              6, 2, 'PAIE_MODULE');
 -- Habilitations Menus (Role x Menu) (Archives Finales Sprint 11)
 -- ROLE_ADMIN (id_role = 1) : Accès complet
@@ -250,6 +257,7 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'PAIE_ACOMPTES'),
 (1, 'PAIE_PRESTATAIRES'),
 (1, 'PAIE_CONFIGURATION'),
+(1, 'PAIE_DOSSIERS_SORTIE'),
 (1, 'PAIE_DECLARATIONS'),
 (1, 'ADMIN_MODULE'),
 (1, 'ADMIN_SECURITE'),

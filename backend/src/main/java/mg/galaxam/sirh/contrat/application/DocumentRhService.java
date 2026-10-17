@@ -548,8 +548,8 @@ public class DocumentRhService {
         }
         dto.setTypeContrat(typeContratLib);
 
-        // Formule libératoire légale obligatoire
-        dto.setMentionLiberatoire("Nous confirmons que le/la salarié(e) quitte l'entreprise libre de tout engagement et de toute obligation envers la société.");
+        // Le certificat n'atteste ni l'absence de dette ni le règlement du STC.
+        dto.setMentionLiberatoire(null);
 
         // Postes successivement occupés
         List<PosteHistoriqueDTO> postes = chargerPostesSuccessifs(emp.getIdEmploye(), c);
@@ -940,6 +940,26 @@ public class DocumentRhService {
 
             // Remplacement dynamique des postes occupés
             injecterPostesOccupes(doc, dto.getPostesOccupes());
+
+            // Article 50 : limiter les mentions concernant le salarié aux dates,
+            // emplois successifs, périodes et catégories. Le modèle historique
+            // contient aussi une décharge financière et une appréciation non justifiées.
+            for (XWPFParagraph p : doc.getParagraphs()) {
+                String texte = p.getText();
+                if (texte.contains("né(e) le") && texte.contains("a été employé(e)")) {
+                    remplacerTexteParagrapheComplet(p, "Madame/Monsieur " + emp.getNomComplet()
+                            + " a été employé(e) du " + dto.getDateEntreeTexte()
+                            + " au " + dto.getDateSortieTexte() + ".");
+                } else if (texte.contains("Au moment de son départ")) {
+                    remplacerTexteParagrapheComplet(p, "Dernier emploi : "
+                            + (dto.getDernierPoste() != null ? dto.getDernierPoste() : "non renseigné")
+                            + (dto.getDerniereCategorie() != null ? " (" + dto.getDerniereCategorie() + ")" : "") + ".");
+                } else if (texte.contains("libre de tout engagement")
+                        || texte.contains("libre de toute dette")
+                        || texte.contains("sérieux et professionnalisme")) {
+                    remplacerTexteParagrapheComplet(p, "");
+                }
+            }
 
             // Nettoyage complet des pieds de page de modèle (suppression des mentions confidentielles / page numbers orphelins)
             for (XWPFFooter footer : doc.getFooterList()) {

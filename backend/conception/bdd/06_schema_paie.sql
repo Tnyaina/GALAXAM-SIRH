@@ -673,12 +673,23 @@ CREATE TABLE paie_dossier_sortie (
     cree_par INT REFERENCES utilisateur(id_utilisateur),
     cloture_par INT REFERENCES utilisateur(id_utilisateur),
     date_cloture TIMESTAMP WITH TIME ZONE,
+    motif_cloture TEXT,
+    derogation_reglement BOOLEAN DEFAULT FALSE,
+    justification_derogation TEXT,
+    autorite_decision_derogation VARCHAR(100),
+    reference_decision_derogation VARCHAR(100),
+    date_decision_derogation DATE,
     version INT NOT NULL DEFAULT 1,
     reference_simulation VARCHAR(100),
     snapshot_simulation JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_dossier_sortie_statut CHECK (statut_dossier IN ('EN_PREPARATION', 'PRET_A_VALIDER', 'VALIDE', 'REGLE', 'CLOTURE', 'ANNULE')),
+    CONSTRAINT chk_dossier_derogation_gouvernance CHECK (derogation_reglement IS NOT TRUE OR (
+        autorite_decision_derogation IS NOT NULL AND TRIM(autorite_decision_derogation) <> '' AND
+        reference_decision_derogation IS NOT NULL AND TRIM(reference_decision_derogation) <> '' AND
+        date_decision_derogation IS NOT NULL
+    )),
     CONSTRAINT uk_dossier_sortie_employe_depart UNIQUE (id_employe, date_depart)
 );
 
@@ -699,6 +710,7 @@ CREATE TABLE paie_stc_reglement (
     annule_par INT REFERENCES utilisateur(id_utilisateur),
     date_annulation TIMESTAMP WITH TIME ZONE,
     motif_annulation TEXT,
+    cle_idempotence VARCHAR(64),
     enregistre_par INT REFERENCES utilisateur(id_utilisateur),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT paie_stc_reglement_id_stc_fkey
@@ -708,6 +720,7 @@ CREATE TABLE paie_stc_reglement (
 CREATE INDEX idx_stc_reglement_stc ON paie_stc_reglement(id_stc);
 CREATE INDEX idx_stc_reglement_date ON paie_stc_reglement(date_reglement);
 CREATE UNIQUE INDEX uk_stc_reglement_stc_ref_active ON paie_stc_reglement(id_stc, reference_reglement) WHERE est_annule = FALSE;
+CREATE UNIQUE INDEX uk_stc_reglement_idempotence ON paie_stc_reglement(id_stc, cle_idempotence) WHERE cle_idempotence IS NOT NULL;
 
 -- 12. Grand-Livre de Valorisation des Droits à Congés
 CREATE TABLE conge_journal_droit (

@@ -294,7 +294,7 @@ export const AuthProvider = ({ children }) => {
             return '/conges';
         }
         if (hasPermission('PAIE_READ')) {
-            return '/paie';
+            return '/paie/dossiers-sortie';
         }
         if (hasPermission('ORGANISATION_READ')) {
             return '/admin/organisation';

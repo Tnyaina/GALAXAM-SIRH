@@ -1351,10 +1351,15 @@ public class WorkflowRhService {
             }
 
             Integer idStatutActif = workflowsAAppliquer.isEmpty() ? null : resolveStatut("ACTIF", c);
+            RuntimeException erreurApplication = null;
             for (AutoApplication application : workflowsAAppliquer) {
                 WorkflowRh wf = application.workflow();
                 c.setAutoCommit(false);
                 try {
+                    if (!verrouillerWorkflowEncorePlanifie(wf.getIdWorkflow(), c)) {
+                        c.rollback();
+                        continue;
+                    }
                     Date dateEffet = wf.getDateEffet();
 
                     // 1. Appliquer l'effet réel du workflow
@@ -1386,6 +1391,10 @@ public class WorkflowRhService {
                     c.rollback();
                     System.err.println("Erreur autoAppliquerMouvement (id=" + wf.getIdWorkflow() + ") : "
                             + exWf.getMessage());
+                    if (erreurApplication == null) {
+                        erreurApplication = new IllegalStateException(
+                                "Échec d'application d'au moins un workflow RH planifié.", exWf);
+                    }
                 } finally {
                     c.setAutoCommit(initialAutoCommit);
                 }
@@ -1408,8 +1417,23 @@ public class WorkflowRhService {
                             "  )")) {
                 psConsolider.executeUpdate();
             }
+            if (erreurApplication != null) throw erreurApplication;
         } catch (Exception e) {
             System.err.println("Erreur autoAppliquerMouvementsEchus : " + e.getMessage());
+            throw new IllegalStateException("Le traitement des mouvements RH planifiés est incomplet.", e);
+        }
+    }
+
+    private static boolean verrouillerWorkflowEncorePlanifie(int idWorkflow, Connection c) throws Exception {
+        String sql = "SELECT 1 FROM workflow_rh w "
+                + "JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
+                + "WHERE w.id_workflow = ? AND s.code = 'PLANIFIE' AND w.date_effet <= CURRENT_DATE "
+                + "FOR UPDATE OF w";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idWorkflow);
+            try (var rs = ps.executeQuery()) {
+                return rs.next();
+            }
         }
     }
 

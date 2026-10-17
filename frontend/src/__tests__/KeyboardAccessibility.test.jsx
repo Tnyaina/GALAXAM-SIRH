@@ -115,7 +115,7 @@ describe('Accessibilité au clavier et navigation (WCAG 2.1 AA)', () => {
                 </Modal>
             ));
 
-            const dialog = host.querySelector('[role="dialog"]');
+            const dialog = document.body.querySelector('[role="dialog"]');
             expect(dialog).not.toBeNull();
             expect(dialog.getAttribute('aria-modal')).toBe('true');
             expect(dialog.getAttribute('aria-labelledby')).toBe('modal-title');
@@ -140,7 +140,7 @@ describe('Accessibilité au clavier et navigation (WCAG 2.1 AA)', () => {
                 />
             ));
 
-            const dialog = host.querySelector('[role="dialog"]');
+            const dialog = document.body.querySelector('[role="dialog"]');
             expect(dialog).not.toBeNull();
 
             const buttons = dialog.querySelectorAll('button');

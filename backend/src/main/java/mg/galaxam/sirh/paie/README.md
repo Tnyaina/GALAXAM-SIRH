@@ -148,6 +148,22 @@ XLS/XLSX restent propres à chaque document réglementaire. Les dates courantes
 des workflows paie passent par `PayrollBusinessTime`; un calendrier peut recevoir
 un `Clock` explicite pour rester déterministe en test.
 
+## Dossier de sortie et règlements STC
+
+Le dossier de sortie conserve son cycle administratif distinct du calcul STC.
+La clôture enregistre son motif et, si une dérogation de règlement est utilisée,
+sa justification. Le journal des règlements STC conserve une clé d'idempotence
+technique pour les retries ; la même clé associée à un contenu différent est
+refusée. Les contrôles applicatifs bloquent les opérations ordinaires de
+règlement ou d'annulation lorsque le dossier associé est clôturé.
+
+Les changements de schéma correspondants sont portés par SP75 (sécurité du
+journal de règlements) et SP78 (traçabilité de clôture). Le schéma canonique 06
+contient les colonnes et index déclarés. Pour une base existante, appliquer les
+migrations dans l'ordre enregistré, après vérification de leur état. La partie
+STC en cours de modification doit être considérée comme non finalisée tant que
+la branche et ses tests n'ont pas été validés.
+
 ### Statuts et capacités de campagne
 
 `PayrollPeriodWorkflowService` décide si `CLOSE` et `GENERATE_OUTPUT` sont

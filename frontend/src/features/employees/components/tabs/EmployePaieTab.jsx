@@ -1,5 +1,6 @@
 import SharedButton from '@/components/ui/forms/Button';
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Banknote,
     FileText,
@@ -68,6 +69,7 @@ function AccordionSection({ id, icon, title, badge = null, children, defaultOpen
 }
 
 export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
+    const navigate = useNavigate();
     // État local : synthèse, documents ouverts et retours d'action.
     const [loading, setLoading] = useState(true);
     const [sectionErrors, setSectionErrors] = useState({});
@@ -79,7 +81,6 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isStcPrepOpen, setIsStcPrepOpen] = useState(false);
-    const [stcSimulationOnly, setStcSimulationOnly] = useState(true);
     const [selectedStcRecuId, setSelectedStcRecuId] = useState(null);
     const [isDemandeOpen, setIsDemandeOpen] = useState(false);
     const [bulletinQuery, setBulletinQuery] = useState('');
@@ -198,8 +199,12 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         <p className="text-[var(--color-fg-muted)]">Le contrat est terminé et aucun solde de tout compte en cours n’a été trouvé.</p>
                     </div>
                     {canWrite && (
-                        <Button type="button" variant="warning" size="xs" iconLeft={<Calculator size={13} />} onClick={() => { setStcSimulationOnly(false); setIsStcPrepOpen(true); }} className="shrink-0">
-                            Etablir le STC
+                        <Button type="button" variant="warning" size="xs" iconLeft={<Calculator size={13} />} onClick={() => {
+                            const params = new URLSearchParams({ employeId: String(idEmploye) });
+                            if (synthese?.dateFinContrat) params.set('dateDepart', String(synthese.dateFinContrat).slice(0, 10));
+                            navigate(`/paie/dossiers-sortie/nouveau?${params.toString()}`);
+                        }} className="shrink-0">
+                            Ouvrir le dossier de sortie
                         </Button>
                     )}
                 </div>
@@ -208,7 +213,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div><h2 className="text-base font-bold text-[var(--color-fg)]">Paie et rémunération</h2><p className="text-xs text-[var(--color-fg-muted)]">Situation du salarié et historique des bulletins</p></div>
                 <div className="flex flex-wrap gap-2">
-                    {canWrite && <Button type="button" variant="outline" size="xs" iconLeft={<Calculator size={13} />} onClick={() => { setStcSimulationOnly(true); setIsStcPrepOpen(true); }}>Simuler un STC</Button>}
+                    {canWrite && <Button type="button" variant="outline" size="xs" iconLeft={<Calculator size={13} />} onClick={() => setIsStcPrepOpen(true)}>Estimer le STC</Button>}
                     {canWrite && <Button type="button" variant="primary" size="xs" onClick={() => setIsDemandeOpen(true)}>Demander un acompte / une avance</Button>}
                 </div>
             </div>
@@ -516,7 +521,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         nomEmploye={synthese?.nomComplet || employe?.nom || ''}
                         dateDepartInitiale={synthese?.dateFinContrat || null}
                         motifInitial="DEMISSION"
-                        simulationOnly={stcSimulationOnly}
+                        simulationOnly
                         onStcValide={() => chargerDonnees({ silent: true })}
                     />
                 )}

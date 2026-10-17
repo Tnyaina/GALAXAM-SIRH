@@ -75,6 +75,25 @@ public class MouvementSoldeConge extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
+        inserer(c, false);
+        return this;
+    }
+
+    /**
+     * Insère la bonification annuelle du scheduler avec l'unicité PostgreSQL
+     * comme arbitre entre deux tentatives concurrentes.
+     *
+     * @return true si le mouvement a été créé, false si la même année était déjà créditée
+     */
+    public boolean saveBonificationAnnuelleUneFois(Connection c) throws Exception {
+        controler(c);
+        if (!"BONIFICATION".equals(typeMouvement) || idEmploye == null || dateMouvement == null) {
+            throw new IllegalStateException("Une bonification avec salarié et date explicites est requise.");
+        }
+        return inserer(c, true);
+    }
+
+    private boolean inserer(Connection c, boolean idempotentBonification) throws Exception {
         if (dateMouvement == null && idDemandeConge != null) {
             try (PreparedStatement demande = c.prepareStatement(
                     "SELECT date_debut FROM demande_conge WHERE id_demande_conge = ?")) {
@@ -116,7 +135,26 @@ public class MouvementSoldeConge extends ClassMere {
         }
         String sql = "INSERT INTO mouvement_solde_conge (" +
                 "id_employe, type_mouvement, nb_jours, id_demande_conge, date_mouvement, commentaire, created_by, valeur_source" +
-                ") VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?)";
+                ") VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?)"
+                + (idempotentBonification ? " ON CONFLICT DO NOTHING RETURNING id_mouvement" : "");
+        if (idempotentBonification) {
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                int i = 1;
+                ps.setInt(i++, idEmploye);
+                ps.setString(i++, typeMouvement);
+                ps.setBigDecimal(i++, nbJours);
+                setNullableInt(ps, i++, idDemandeConge);
+                ps.setDate(i++, dateMouvement);
+                setNullableString(ps, i++, commentaire);
+                setNullableInt(ps, i++, createdBy);
+                ps.setBigDecimal(i++, valeurSource);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return false;
+                    this.idMouvement = rs.getInt(1);
+                    return true;
+                }
+            }
+        }
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
             ps.setInt(i++, idEmploye);
@@ -135,7 +173,7 @@ public class MouvementSoldeConge extends ClassMere {
                 }
             }
         }
-        return this;
+        return true;
     }
 
     @Override

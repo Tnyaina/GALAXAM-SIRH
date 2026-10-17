@@ -23,6 +23,7 @@ public class StcReglementDTO {
     private String nomAnnulePar;
     private Timestamp dateAnnulation;
     private String motifAnnulation;
+    private String cleIdempotence;
 
     public StcReglementDTO() {}
 
@@ -70,4 +71,7 @@ public class StcReglementDTO {
 
     public String getMotifAnnulation() { return motifAnnulation; }
     public void setMotifAnnulation(String motifAnnulation) { this.motifAnnulation = motifAnnulation; }
+
+    public String getCleIdempotence() { return cleIdempotence; }
+    public void setCleIdempotence(String cleIdempotence) { this.cleIdempotence = cleIdempotence; }
 }

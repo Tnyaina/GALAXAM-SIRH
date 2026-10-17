@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import EmployePaieTab from '../components/tabs/EmployePaieTab';
 import paieService from '@/features/payroll/api/paieService';
 import stcService from '@/features/payroll/api/stcService';
+const navigateSpy = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigateSpy }));
 vi.mock('@/features/payroll/api/paieService', () => ({ default: { getSynthesePaieEmploye: vi.fn(), listerBulletinsEmploye: vi.fn(), listerAjustements: vi.fn(), listerTypesMouvements: vi.fn(), creerAjustement: vi.fn(), listerModesReglement: vi.fn().mockResolvedValue([]) } }));
 vi.mock('@/features/payroll/api/stcService', () => ({ default: { listerStcEmploye: vi.fn() } }));
 vi.mock('@/features/payroll/components/views/BulletinPaieDrawer', () => ({ default: () => null }));
@@ -35,6 +37,8 @@ describe('Onglet Paie employé', () => {
     it('suit la décision STC du backend', async () => {
         paieService.getSynthesePaieEmploye.mockResolvedValue({ stcActionRequise: true, codeStatutContrat: 'ACTIF' });
         await render(); expect(host.textContent).toContain('Solde de Tout Compte à établir');
+        await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent.includes('Ouvrir le dossier de sortie')).click());
+        expect(navigateSpy).toHaveBeenCalledWith('/paie/dossiers-sortie/nouveau?employeId=7');
     });
     it('sépare les soldes d’acomptes et d’avances fournis par le backend', async () => {
         paieService.getSynthesePaieEmploye.mockResolvedValue({ acomptesRestants: 25000, avancesRestantes: 80000, demandesAcompteAvanceEnAttente: 1 });

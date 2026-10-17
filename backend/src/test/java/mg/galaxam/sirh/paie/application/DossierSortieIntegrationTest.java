@@ -103,6 +103,8 @@ class DossierSortieIntegrationTest {
                 assertNotNull(created);
                 assertNotNull(created.getIdDossierSortie());
                 assertEquals("EN_PREPARATION", created.getStatutDossier());
+                assertEquals("ACTIF", created.getStatutContrat(),
+                        "La date de fin seule ne doit pas être présentée comme une cessation effective.");
                 assertEquals("Andria Hery", created.getNomComplet());
                 assertEquals("DEMISSION", created.getMotifRupture());
                 assertEquals("MAINTIEN_ECHEANCIER", created.getDecisionPret());
@@ -139,6 +141,16 @@ class DossierSortieIntegrationTest {
                 // ÉTAPE 3 : Délivrance du Certificat de Travail (Art. 50)
                 // =============================================================
                 assertFalse(created.isCertificatDelivre());
+                assertThrows(SirhBusinessException.class,
+                        () -> dossierSortieService.enregistrerDelivranceCertificat(
+                                created.getIdDossierSortie(), Date.valueOf(dateDepart), "MAIN_PROPRE", adminId, c),
+                        "Une date de fin renseignée ne suffit pas tant que le contrat reste ACTIF.");
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE contrat_travail SET id_statut_rh = " +
+                        "(SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ROMPU') WHERE id_contrat = ?")) {
+                    ps.setInt(1, contratId);
+                    ps.executeUpdate();
+                }
                 dossierSortieService.enregistrerDelivranceCertificat(
                         created.getIdDossierSortie(), Date.valueOf(dateDepart), "MAIN_PROPRE", adminId, c);
 
@@ -658,36 +670,6 @@ class DossierSortieIntegrationTest {
                 if (rs.next()) return rs.getInt(1);
             }
         }
-        // Pour éviter tout conflit d'exclusion daterange avec une période mensuelle civile préexistante dans la base de test,
-        // on adapte temporairement les bornes des périodes qui chevauchent [debut, fin].
-        // Comme chaque test s'exécute dans une transaction c.rollback(), cette adaptation est isolée et réversible.
-        try (PreparedStatement psShift = c.prepareStatement(
-                "UPDATE periode_paie SET date_fin = ? WHERE date_debut < ? AND date_fin >= ?")) {
-            psShift.setDate(1, Date.valueOf(debut.minusDays(1)));
-            psShift.setDate(2, Date.valueOf(debut));
-            psShift.setDate(3, Date.valueOf(debut));
-            psShift.executeUpdate();
-        }
-        try (PreparedStatement psShift2 = c.prepareStatement(
-                "UPDATE periode_paie SET date_debut = ? WHERE date_debut <= ? AND date_fin > ?")) {
-            psShift2.setDate(1, Date.valueOf(fin.plusDays(1)));
-            psShift2.setDate(2, Date.valueOf(fin));
-            psShift2.setDate(3, Date.valueOf(fin));
-            psShift2.executeUpdate();
-        }
-        try (PreparedStatement psDelInt = c.prepareStatement(
-                "DELETE FROM pointage_jour WHERE id_periode_paie IN (SELECT id_periode_paie FROM periode_paie WHERE date_debut >= ? AND date_fin <= ?)")) {
-            psDelInt.setDate(1, Date.valueOf(debut));
-            psDelInt.setDate(2, Date.valueOf(fin));
-            psDelInt.executeUpdate();
-        }
-        try (PreparedStatement psDelPer = c.prepareStatement(
-                "DELETE FROM periode_paie WHERE date_debut >= ? AND date_fin <= ?")) {
-            psDelPer.setDate(1, Date.valueOf(debut));
-            psDelPer.setDate(2, Date.valueOf(fin));
-            psDelPer.executeUpdate();
-        }
-
         String ins = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
                 "VALUES (?, ?, ?, ?, 1) RETURNING id_periode_paie";
         try (PreparedStatement ps = c.prepareStatement(ins)) {
@@ -1274,6 +1256,7 @@ class DossierSortieIntegrationTest {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(c);
                 int adminId = CongeTestFixtureHelper.createAdminUser(c, "rh_p21_c2625_" + System.currentTimeMillis());
                 int empId = CongeTestFixtureHelper.createEmploye(c, "P21-C2625-" + (System.currentTimeMillis() % 1000000), "Ranaivo", "Hery");
                 LocalDate dateDepart = LocalDate.of(2026, 10, 10);
@@ -1355,6 +1338,7 @@ class DossierSortieIntegrationTest {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(c);
                 int adminId = CongeTestFixtureHelper.createAdminUser(c, "rh_p21_emb11_" + System.currentTimeMillis());
                 int empId = CongeTestFixtureHelper.createEmploye(c, "P21-E11-" + (System.currentTimeMillis() % 1000000), "Ratsimba", "Paul");
                 LocalDate dateEmbauche = LocalDate.of(2026, 10, 11);
@@ -1407,6 +1391,7 @@ class DossierSortieIntegrationTest {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(c);
                 int adminId = CongeTestFixtureHelper.createAdminUser(c, "rh_p21_fev_" + System.currentTimeMillis());
 
                 // Cas A : Février 2026 (28 jours, non bissextile)
@@ -1480,6 +1465,7 @@ class DossierSortieIntegrationTest {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                CongeTestFixtureHelper.cleanDatabase(c);
                 int adminId = CongeTestFixtureHelper.createAdminUser(c, "rh_p21_pcomp_" + System.currentTimeMillis());
                 BigDecimal salBase = new BigDecimal("1800000.00");
 

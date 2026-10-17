@@ -24,6 +24,46 @@ installations. Sur une base existante, appliquer uniquement après vérification
 de l'état de la migration et des diagnostics ; le rôle doit pouvoir modifier
 `parametre_global` et, si nécessaire, installer `btree_gist`.
 
+`26-10-16-sp77-scheduler-ownership.sql` ajoute un jeton de possession et une
+échéance de bail aux exécutions RUNNING, en attribuant un bail de 30 minutes aux
+lignes historiques. La migration ajoute aussi une unicité salarié/année aux
+mouvements de bonification après diagnostic des doublons. Arrêter toutes les
+anciennes instances de l'application avant migration puis déployer le nouveau
+code : l'ancien code ne vérifie pas le jeton et pourrait contourner la clôture
+par possession. Toute bonification en doublon bloque la migration avec les
+salariés et années concernés ; ne pas supprimer ou fusionner ces mouvements sans
+arbitrage métier.
+La migration a été vérifiée sous PostgreSQL 15 ; `gen_random_uuid()` est fourni
+par PostgreSQL 13 et versions ultérieures. Le rôle d'application de la migration
+doit posséder les deux tables concernées, ou disposer des droits équivalents
+pour `ALTER TABLE` et `CREATE INDEX`.
+
+`26-10-16-sp75-stc-reglement-securite.sql` renforce le journal des règlements
+STC : montant nul autorisé, annulation tracée, clé d'idempotence et unicité des
+références actives par STC. Une même clé d'idempotence ne doit pas être réutilisée
+pour une requête différente. Vérifier les définitions déjà présentes avant
+application, car le script remplace le contrôle de montant et ajoute des index.
+
+`26-10-16-sp78-dossier-sortie-cloture.sql` ajoute le motif de clôture et les
+champs de traçabilité d'une éventuelle dérogation de règlement. Ces colonnes
+doivent être disponibles avant le déploiement du code qui les lit/écrit. SP78
+est actuellement un script non commité dans la branche de travail ; son statut
+de livraison doit être confirmé avant de le traiter comme migration publiée.
+
+Diagnostic préalable des éventuels doublons bloquants :
+
+```sql
+SELECT id_employe,
+       EXTRACT(YEAR FROM date_mouvement)::INTEGER AS annee,
+       array_agg(id_mouvement ORDER BY id_mouvement) AS mouvements,
+       COUNT(*) AS nombre
+FROM mouvement_solde_conge
+WHERE type_mouvement = 'BONIFICATION'
+GROUP BY id_employe, EXTRACT(YEAR FROM date_mouvement)
+HAVING COUNT(*) > 1
+ORDER BY id_employe, annee;
+```
+
 `26-10-11-sp64-prestataires-menu.sql` ajoute « Prestataires indépendants »
 dans le menu Paie pour les rôles qui disposent de la lecture Paie. Appliquer
 après SP63 sur une base existante ; le schéma canonique contient ce menu.
@@ -166,6 +206,15 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-10-07-sp58-agent-pointage-sans-fiche-employe.sql` | Rétablissement périmètre agent pointage sans fiche employé | `01_schema_core_securite.sql` |
 | `26-10-08-sp59-security-user-read-indexes.sql` | Index des recherches case-insensitive de comptes et des refresh tokens | `01_schema_core_securite.sql` |
 | `26-10-12-sp67-activation-par-regle-metier.sql` | Rend les paramètres membres des règles groupées basculables par action métier atomique | `01_schema_core_securite.sql` |
+| `26-10-16-sp74-affectation-integrity.sql` | Cohérence contrat/salarié et service/département par clés composées | `02_schema_referentiels_rh.sql`, `03_schema_employes_contrats.sql` |
+| `26-10-16-sp75-stc-reglement-securite.sql` | Annulation tracée, montant >= 0 et unicité des références de règlements STC actifs | `06_schema_paie.sql` |
+| `26-10-16-sp76-parametre-global-validite-temporelle.sql` | Dates valides et exclusion des chevauchements par code paramètre | `01_schema_core_securite.sql` |
+| `26-10-16-sp77-scheduler-ownership.sql` | Possession des tentatives scheduler et unicité des bonifications annuelles | `01_schema_core_securite.sql`, `04_schema_conges.sql` |
+| `26-10-16-sp78-dossier-sortie-cloture.sql` | Motif de clôture, dérogation et justification de dérogation pour dossier de sortie | `06_schema_paie.sql` |
+| `26-10-16-sp79-stc-reglement-idempotence.sql` | Clé d'idempotence technique et index d'unicité partiel pour requêtes répétées de règlement STC | `06_schema_paie.sql` |
+| `26-10-16-sp80-pointage-jour-periode-integrite.sql` | Contrainte et index de cohérence entre date de pointage et période de rattachement | `05_schema_pointage.sql` |
+| `26-10-16-sp81-derogation-decision-gouvernance.sql` | Autorité, référence de protocole et date d'acte pour clôture par dérogation avec solde restant | `06_schema_paie.sql` |
+| `26-10-17-sp82-menu-dossiers-sortie.sql` | Entrée de menu dédiée aux dossiers de sortie pour les rôles ayant `PAIE_READ` | `01_schema_core_securite.sql` |
 
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 91 tables et 9 vues cohérentes.
