@@ -66,6 +66,33 @@ class PointagePhase6IntegrationTest {
     private String autonomousAllowanceCode;
 
     @Test
+    @DisplayName("Un salarié sorti en cours de campagne reste dans la synthèse de pointage")
+    void sortieEnCoursDeCampagneResteDansLaSynthese() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE contrat_travail SET date_fin=DATE '2026-09-15' WHERE id_contrat=?")) {
+                ps.setInt(1, contractId); ps.executeUpdate();
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET date_fin=DATE '2026-09-15' WHERE id_affectation=?")) {
+                ps.setInt(1, initialAssignmentId); ps.executeUpdate();
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe SET est_actif=FALSE WHERE id_employe=?")) {
+                ps.setInt(1, employeId); ps.executeUpdate();
+            }
+            assertTrue(pointageSyntheseService.getSynthesePeriode(testPeriodId, null, c).stream()
+                    .anyMatch(row -> row.getIdEmploye() == employeId));
+            assertTrue(pointageSyntheseService.preflightPeriode(testPeriodId, c).nombreEmployes() > 0);
+            var page = pointageSyntheseService.getSynthesePeriodePaginee(
+                    testPeriodId, null, null, null, 1, 100, c);
+            @SuppressWarnings("unchecked")
+            var rows = (java.util.List<PointageSyntheseMensuelleDTO>) page.get("synthese");
+            assertTrue(rows.stream().anyMatch(row -> row.getIdEmploye() == employeId));
+        }
+    }
+
+    @Test
     @DisplayName("La fiche propose les indemnités de la période en deux lectures groupées")
     void periodAllowanceSuggestionsFollowDayContext() throws Exception {
         try (Connection c = dataSource.getConnection()) {

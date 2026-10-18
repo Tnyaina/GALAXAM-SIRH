@@ -106,7 +106,8 @@ public class PayrollService {
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Bulletin introuvable pendant le contrôle d'obsolescence.");
                 // Les éléments RH datés peuvent changer entre le calcul et la validation.
-                // Le salaire est comparé directement ; les autres changements sont repérés par leur horodatage.
+                // Le salaire de clôture est comparé directement ; seuls les changements
+                // qui recouvrent la campagne rendent le bulletin obsolète.
                 try {
                     var coverage = employmentContextResolver.resolveCoverage(rs.getInt("id_employe"),
                             rs.getDate("date_debut").toLocalDate(), rs.getDate("date_fin").toLocalDate(), c);
@@ -124,10 +125,14 @@ public class PayrollService {
                 if (calculatedAt != null) {
                     try (PreparedStatement changed = c.prepareStatement(
                             "SELECT EXISTS (SELECT 1 FROM employe_affectation_carriere a "
-                            + "WHERE a.id_employe = ? AND a.updated_at > ?) "
-                            + "OR EXISTS (SELECT 1 FROM contrat_travail ct WHERE ct.id_employe = ? AND ct.updated_at > ?)")) {
+                            + "WHERE a.id_employe = ? AND a.updated_at > ? "
+                            + "AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?)) "
+                            + "OR EXISTS (SELECT 1 FROM contrat_travail ct WHERE ct.id_employe = ? AND ct.updated_at > ? "
+                            + "AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?))")) {
                         changed.setInt(1, rs.getInt("id_employe")); changed.setTimestamp(2, calculatedAt);
-                        changed.setInt(3, rs.getInt("id_employe")); changed.setTimestamp(4, calculatedAt);
+                        changed.setDate(3, rs.getDate("date_fin")); changed.setDate(4, rs.getDate("date_debut"));
+                        changed.setInt(5, rs.getInt("id_employe")); changed.setTimestamp(6, calculatedAt);
+                        changed.setDate(7, rs.getDate("date_fin")); changed.setDate(8, rs.getDate("date_debut"));
                         try (ResultSet change = changed.executeQuery()) {
                             change.next();
                             if (change.getBoolean(1)) throw new IllegalStateException(

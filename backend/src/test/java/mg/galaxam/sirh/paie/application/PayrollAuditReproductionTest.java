@@ -146,6 +146,58 @@ class PayrollAuditReproductionTest {
     }
 
     @Test
+    void modificationContratEtAffectationFutursNeBloquePasValidationHistorique() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                CongeTestFixtureHelper.cleanDatabase(c);
+                int employee = CongeTestFixtureHelper.createEmploye(c, "AUDIT-FUTUR", "Audit", "Futur");
+                int contract = CongeTestFixtureHelper.createContratActif(c, employee, LocalDate.of(2026, 10, 1));
+                int currentAssignment = CongeTestFixtureHelper.createAffectation(c, employee, contract,
+                        LocalDate.of(2026, 10, 1), new BigDecimal("300000"));
+                int period = CongeTestFixtureHelper.createPeriodePaie(c, "AUDIT-FUTUR-2026",
+                        LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 30), "VALIDEE");
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE contrat_travail SET updated_at=CURRENT_TIMESTAMP - INTERVAL '2 hours' WHERE id_contrat=?")) {
+                    ps.setInt(1, contract); ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE employe_affectation_carriere SET updated_at=CURRENT_TIMESTAMP - INTERVAL '2 hours' WHERE id_affectation=?")) {
+                    ps.setInt(1, currentAssignment); ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO bulletin_paie (id_periode_paie,id_employe,type_bulletin,reference_bulletin,"
+                        + "matricule,nom_prenom,intitule_poste,nom_site,regime_intervenant,salaire_base,"
+                        + "taux_horaire,net_a_payer,statut,date_calcul) VALUES (?,?,'MENSUEL','AUDIT-FUTUR',"
+                        + "'AUDIT-FUTUR','Audit Futur','Salarié','Antananarivo','PERMANENT',"
+                        + "300000,1730,300000,'CALCULE',CURRENT_TIMESTAMP - INTERVAL '1 hour')")) {
+                    ps.setInt(1, period); ps.setInt(2, employee); ps.executeUpdate();
+                }
+                int futureContract = CongeTestFixtureHelper.createContratActif(c, employee, LocalDate.of(2026, 11, 1));
+                int futureAssignment = CongeTestFixtureHelper.createAffectation(c, employee, futureContract,
+                        LocalDate.of(2026, 11, 1), new BigDecimal("450000"));
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE contrat_travail SET commentaire='Modification future',updated_at=CURRENT_TIMESTAMP WHERE id_contrat=?")) {
+                    ps.setInt(1, futureContract); ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE employe_affectation_carriere SET salaire_base=460000,updated_at=CURRENT_TIMESTAMP WHERE id_affectation=?")) {
+                    ps.setInt(1, futureAssignment); ps.executeUpdate();
+                }
+                assertDoesNotThrow(() -> payrollService.validerPaiePeriode(period, null, c));
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT statut FROM bulletin_paie WHERE id_periode_paie=? AND id_employe=?")) {
+                    ps.setInt(1, period); ps.setInt(2, employee);
+                    try (var rs = ps.executeQuery()) {
+                        assertTrue(rs.next());
+                        assertEquals("VALIDE", rs.getString(1));
+                    }
+                }
+            } finally { c.rollback(); }
+        }
+    }
+
+    @Test
     void calculIndividuelSalarieSansContratSurPeriodeEstRejete() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

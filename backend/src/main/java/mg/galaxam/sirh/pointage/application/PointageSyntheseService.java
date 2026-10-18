@@ -1276,7 +1276,9 @@ public class PointageSyntheseService {
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-            "WHERE e.est_actif = TRUE "
+            // La population est datée : un salarié sorti après avoir travaillé sur
+            // cette campagne doit rester dans la synthèse et le snapshot de paie.
+            "WHERE ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) "
         );
 
         if (idSite != null && idSite > 0) {
@@ -1287,6 +1289,8 @@ public class PointageSyntheseService {
         // 3. Traiter chaque employé via la méthode unifiée
         try (PreparedStatement psE = c.prepareStatement(sqlEmp.toString())) {
             int pIdx = 1;
+            psE.setDate(pIdx++, Date.valueOf(dateFin));
+            psE.setDate(pIdx++, Date.valueOf(dateDebut));
             psE.setDate(pIdx++, Date.valueOf(dateFin));
             psE.setDate(pIdx++, Date.valueOf(dateDebut));
             if (idSite != null && idSite > 0) {
@@ -1439,11 +1443,14 @@ public class PointageSyntheseService {
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
             "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code IN ('ACTIF', 'HISTORISE', 'CLOTURE', 'ROMPU') " +
-            "WHERE e.est_actif = TRUE "
+            "JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
+            "WHERE ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) "
         );
         if (idSite != null && idSite > 0) sqlTot.append("AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) ");
         try (PreparedStatement psTot = c.prepareStatement(sqlTot.toString())) {
             int pIdx = 1;
+            psTot.setDate(pIdx++, Date.valueOf(dateFin));
+            psTot.setDate(pIdx++, Date.valueOf(dateDebut));
             psTot.setDate(pIdx++, Date.valueOf(dateFin));
             psTot.setDate(pIdx++, Date.valueOf(dateDebut));
             if (idSite != null && idSite > 0) {
@@ -1456,53 +1463,24 @@ public class PointageSyntheseService {
             }
         }
 
-        // 2. Alert counts (pour pills d'alertes)
+        // Les alertes et le total des retards suivent la même population datée
+        // que la synthèse, y compris les collaborateurs sortis pendant le cycle.
         int countNuit = 0;
         int countRetard = 0;
         int countAbsence = 0;
         int countHs = employeesWithHs.size();
         int countCompense = employeesWithCompensation.size();
-        StringBuilder sqlAl = new StringBuilder(
-            "SELECT " +
-            "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND pj.heures_nuit > 0 " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_nuit, " +
-            "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND pj.minutes_retard > 0 " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_retard, " +
-            "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN ref_statut_pointage_jour spj ON pj.id_statut_jour = spj.id_statut_jour JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND spj.code LIKE '%ABS%' " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_absence, " +
-            "0 AS count_compense, 0 AS count_hs"
-        );
-        try (PreparedStatement psAl = c.prepareStatement(sqlAl.toString())) {
-            int aIdx = 1;
-            psAl.setInt(aIdx++, idPeriode);
-            if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
-            psAl.setInt(aIdx++, idPeriode);
-            if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
-            psAl.setInt(aIdx++, idPeriode);
-            if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
-            try (ResultSet rsAl = psAl.executeQuery()) {
-                if (rsAl.next()) {
-                    countNuit = rsAl.getInt("count_nuit");
-                    countRetard = rsAl.getInt("count_retard");
-                    countAbsence = rsAl.getInt("count_absence");
-                }
-            }
+        int totalRetardMins = 0;
+        for (PointageSyntheseMensuelleDTO dto : periodValues) {
+            int minutesRetard = dto.getTotalMinutesRetard();
+            totalRetardMins += minutesRetard;
+            if (minutesRetard > 0) countRetard++;
+            if (dto.getNbJoursAbsence() > 0) countAbsence++;
+            if (dto.getTronconsSemaine() != null && dto.getTronconsSemaine().stream()
+                    .anyMatch(troncon -> troncon.getHeuresNuit() > 0)) countNuit++;
         }
 
         // 3. Global KPIs
-        int totalRetardMins = 0;
-        StringBuilder sqlKpi = new StringBuilder(
-            "SELECT COALESCE(SUM(pj.minutes_retard), 0) AS tot_ret " +
-            "FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe " +
-            "WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE "
-        );
-        if (idSite != null && idSite > 0) sqlKpi.append("AND pj.id_site = ? ");
-        try (PreparedStatement psKpi = c.prepareStatement(sqlKpi.toString())) {
-            psKpi.setInt(1, idPeriode);
-            if (idSite != null && idSite > 0) psKpi.setInt(2, idSite);
-            try (ResultSet rsKpi = psKpi.executeQuery()) {
-                if (rsKpi.next()) {
-                    totalRetardMins = rsKpi.getInt("tot_ret");
-                }
-            }
-        }
 
         // 4. CTE filtrée pour paginer au niveau SQL
         StringBuilder whereFilter = new StringBuilder();
@@ -1554,7 +1532,7 @@ public class PointageSyntheseService {
             "    LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "    LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "    LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-            "    WHERE e.est_actif = TRUE " + whereFilter.toString() +
+            "    WHERE ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) " + whereFilter.toString() +
             "    ORDER BY e.id_employe, a.date_debut DESC " +
             ") ";
 
@@ -1563,6 +1541,8 @@ public class PointageSyntheseService {
         int totalElements = 0;
         try (PreparedStatement psC = c.prepareStatement(countSql)) {
             int idx = 1;
+            psC.setDate(idx++, Date.valueOf(dateFin));
+            psC.setDate(idx++, Date.valueOf(dateDebut));
             psC.setDate(idx++, Date.valueOf(dateFin));
             psC.setDate(idx++, Date.valueOf(dateDebut));
             for (Object p : filterParams) {
@@ -1585,6 +1565,8 @@ public class PointageSyntheseService {
 
             try (PreparedStatement psD = c.prepareStatement(dataSql)) {
                 int idx = 1;
+                psD.setDate(idx++, Date.valueOf(dateFin));
+                psD.setDate(idx++, Date.valueOf(dateDebut));
                 psD.setDate(idx++, Date.valueOf(dateFin));
                 psD.setDate(idx++, Date.valueOf(dateDebut));
                 for (Object p : filterParams) {
@@ -2486,7 +2468,7 @@ public class PointageSyntheseService {
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-            "WHERE e.est_actif = TRUE "
+            "WHERE ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) "
         );
 
         if (idSite != null && idSite > 0) {
@@ -2496,6 +2478,8 @@ public class PointageSyntheseService {
 
         try (PreparedStatement psE = c.prepareStatement(sqlEmp.toString())) {
             int pIdx = 1;
+            psE.setDate(pIdx++, Date.valueOf(dateFinTroncon));
+            psE.setDate(pIdx++, Date.valueOf(dateDebutTroncon));
             psE.setDate(pIdx++, Date.valueOf(dateFinTroncon));
             psE.setDate(pIdx++, Date.valueOf(dateDebutTroncon));
             if (idSite != null && idSite > 0) {
