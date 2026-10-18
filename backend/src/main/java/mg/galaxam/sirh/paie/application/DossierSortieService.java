@@ -996,10 +996,33 @@ public class DossierSortieService {
         // 4. Synchronisation Paie & Trésorerie (en lecture seule)
         collecterPaieEtTresorerieEnLecture(dto, c);
 
+        // La preuve de paiement mensuel est portée par la préparation puis figée
+        // dans paie_stc au scellement. Elle ne doit pas être confondue avec les
+        // règlements du STC lui-même.
+        if (entity.getIdStc() == null && dto.getDonneesPreparation() != null) {
+            Object valeur = dto.getDonneesPreparation().get("montantBulletinDejaPaye");
+            if (valeur != null && !valeur.toString().isBlank()) {
+                BigDecimal dejaPaye = new BigDecimal(valeur.toString());
+                dto.setMontantBulletinDejaPaye(dejaPaye);
+                dto.setSoldeBulletinARegler((dto.getNetBulletinMensuel() != null ? dto.getNetBulletinMensuel() : BigDecimal.ZERO)
+                        .subtract(dejaPaye).max(BigDecimal.ZERO));
+            }
+        }
+
         // 5. Informations sur le STC lié et sa situation de règlement
         if (entity.getIdStc() != null) {
             PaieStc stc = PaieStc.trouverParId(entity.getIdStc(), c);
             if (stc != null) {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT montant_bulletin_deja_paye, solde_bulletin_a_regler FROM paie_stc WHERE id_stc = ?")) {
+                    ps.setInt(1, entity.getIdStc());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            dto.setMontantBulletinDejaPaye(rs.getBigDecimal("montant_bulletin_deja_paye"));
+                            dto.setSoldeBulletinARegler(rs.getBigDecimal("solde_bulletin_a_regler"));
+                        }
+                    }
+                }
                 dto.setNumeroRecu(stc.getNumeroRecu());
                 dto.setNetAPayerStc(stc.getNetAPayerStc());
                 dto.setDateReglement(stc.getDateReglement());

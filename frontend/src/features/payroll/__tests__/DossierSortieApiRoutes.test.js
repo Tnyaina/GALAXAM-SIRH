@@ -30,8 +30,8 @@ it('utilise les six routes documentaires du dossier sous le chemin API canonique
 it('utilise les routes de règlement, annulation et clôture du dossier', async () => {
     apiClient.post.mockResolvedValue({ data: { idDossierSortie: 12 } });
     await dossierSortieService.enregistrerReglement(12, { montantRegle: 200 }, 'idem-12');
-    expect(apiClient.post).toHaveBeenCalledWith('paie/dossier-sortie/12/reglement',
-        { montantRegle: 200 }, { headers: { 'X-Idempotency-Key': 'idem-12' } });
+    expect(apiClient.post).toHaveBeenCalledWith('paie/dossier-sortie/12/reglement-justifie',
+        expect.any(FormData), { headers: { 'Content-Type': 'multipart/form-data', 'X-Idempotency-Key': 'idem-12' } });
     await dossierSortieService.annulerReglement(12, 8, 'Erreur bancaire');
     expect(apiClient.post).toHaveBeenCalledWith('paie/dossier-sortie/12/reglement/8/annuler',
         { motifAnnulation: 'Erreur bancaire' });

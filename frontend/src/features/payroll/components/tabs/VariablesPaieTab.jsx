@@ -416,7 +416,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const pendingCount = variableSummary.pendingCount;
 
     useEffect(() => {
-        if (!loading && !refreshError) onPendingCountChange?.(pendingCount);
+        if (!loading) {
+            onPendingCountChange?.(refreshError ? null : pendingCount, refreshError || null);
+        }
     }, [loading, refreshError, pendingCount, onPendingCountChange]);
 
     const statutLabels = {

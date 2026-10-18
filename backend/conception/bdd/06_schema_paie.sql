@@ -323,6 +323,55 @@ CREATE INDEX idx_bulletin_paie_valide_par ON bulletin_paie(valide_par);
 CREATE INDEX idx_bulletin_paie_cloture_par ON bulletin_paie(cloture_par);
 CREATE INDEX idx_bulletin_paie_rouvert_par ON bulletin_paie(rouvert_par);
 
+-- Suivi financier distinct du statut de validation du bulletin.
+CREATE TABLE paie_bulletin_virement_lot (
+    id_lot BIGSERIAL PRIMARY KEY,
+    id_periode_paie INT NOT NULL REFERENCES periode_paie(id_periode_paie),
+    statut VARCHAR(20) NOT NULL DEFAULT 'PREPARE' CHECK (statut IN ('PREPARE', 'TRANSMIS', 'ANNULE')),
+    cree_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cree_par INT REFERENCES utilisateur(id_utilisateur),
+    transmis_at TIMESTAMPTZ,
+    transmis_par INT REFERENCES utilisateur(id_utilisateur)
+);
+CREATE TABLE paie_bulletin_virement_ligne (
+    id_ligne BIGSERIAL PRIMARY KEY,
+    id_lot BIGINT NOT NULL REFERENCES paie_bulletin_virement_lot(id_lot),
+    id_bulletin INT NOT NULL REFERENCES bulletin_paie(id_bulletin),
+    montant NUMERIC(20,2) NOT NULL CHECK (montant > 0),
+    beneficiaire VARCHAR(150) NOT NULL,
+    banque VARCHAR(100) NOT NULL,
+    rib VARCHAR(100) NOT NULL,
+    statut VARCHAR(20) NOT NULL DEFAULT 'EN_ATTENTE' CHECK (statut IN ('EN_ATTENTE', 'CONFIRME', 'REJETE', 'ANNULE')),
+    reference_banque VARCHAR(255),
+    date_execution DATE,
+    motif_rejet TEXT,
+    traite_at TIMESTAMPTZ,
+    traite_par INT REFERENCES utilisateur(id_utilisateur),
+    UNIQUE (id_lot, id_bulletin)
+);
+CREATE UNIQUE INDEX uk_paie_virement_bulletin_en_attente ON paie_bulletin_virement_ligne(id_bulletin) WHERE statut = 'EN_ATTENTE';
+CREATE TABLE paie_bulletin_reglement (
+    id_reglement BIGSERIAL PRIMARY KEY,
+    id_bulletin INT NOT NULL REFERENCES bulletin_paie(id_bulletin),
+    id_ligne_virement BIGINT UNIQUE REFERENCES paie_bulletin_virement_ligne(id_ligne),
+    montant NUMERIC(20,2) NOT NULL CHECK (montant > 0),
+    mode_reglement VARCHAR(20) NOT NULL CHECK (mode_reglement IN ('VIREMENT', 'CHEQUE', 'ESPECES', 'MOBILE_MONEY')),
+    date_reglement DATE NOT NULL,
+    reference_reglement VARCHAR(255) NOT NULL,
+    commentaire TEXT,
+    nom_justificatif VARCHAR(255) NOT NULL,
+    mime_justificatif VARCHAR(30) NOT NULL CHECK (mime_justificatif IN ('application/pdf', 'image/png', 'image/jpeg')),
+    contenu_justificatif BYTEA NOT NULL,
+    taille_justificatif INT NOT NULL CHECK (taille_justificatif BETWEEN 1 AND 5242880),
+    cree_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cree_par INT REFERENCES utilisateur(id_utilisateur),
+    annule_at TIMESTAMPTZ,
+    annule_par INT REFERENCES utilisateur(id_utilisateur),
+    motif_annulation TEXT
+);
+CREATE INDEX idx_paie_bulletin_reglement_actif ON paie_bulletin_reglement(id_bulletin) WHERE annule_at IS NULL;
+CREATE UNIQUE INDEX uk_paie_bulletin_reglement_reference_active ON paie_bulletin_reglement(id_bulletin, mode_reglement, reference_reglement) WHERE annule_at IS NULL;
+
 -- Identité de l'employeur conservée à la validation pour les réimpressions.
 CREATE TABLE bulletin_paie_employeur_snapshot (
     id_bulletin INT PRIMARY KEY REFERENCES bulletin_paie(id_bulletin) ON DELETE CASCADE,
@@ -705,6 +754,10 @@ CREATE TABLE paie_stc_reglement (
     mode_reglement VARCHAR(30) NOT NULL DEFAULT 'VIREMENT',
     reference_reglement VARCHAR(255) NOT NULL,
     commentaire TEXT,
+    nom_justificatif VARCHAR(255),
+    mime_justificatif VARCHAR(30),
+    contenu_justificatif BYTEA,
+    taille_justificatif INT,
     est_annule BOOLEAN NOT NULL DEFAULT FALSE,
     annule_par INT REFERENCES utilisateur(id_utilisateur),
     date_annulation TIMESTAMP WITH TIME ZONE,
@@ -715,6 +768,9 @@ CREATE TABLE paie_stc_reglement (
     CONSTRAINT paie_stc_reglement_id_stc_fkey
         FOREIGN KEY (id_stc) REFERENCES paie_stc(id_stc) ON DELETE RESTRICT
 );
+
+ALTER TABLE paie_bulletin_reglement
+    ADD COLUMN id_stc_reglement INT UNIQUE REFERENCES paie_stc_reglement(id_reglement);
 
 CREATE INDEX idx_stc_reglement_stc ON paie_stc_reglement(id_stc);
 CREATE INDEX idx_stc_reglement_date ON paie_stc_reglement(date_reglement);

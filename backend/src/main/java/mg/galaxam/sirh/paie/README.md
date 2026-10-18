@@ -7,6 +7,48 @@ métier ne sont pas interchangeables avec celles du contrat.
 
 Ce dossier regroupe le moteur de paie, la préparation et le calcul des bulletins, les campagnes de paie, le solde de tout compte (STC) et les exports fiscaux/sociaux.
 
+## Règlements des bulletins mensuels
+
+Le statut du bulletin (`VALIDE`, `CLOTURE`) décrit la validation de la paie ;
+il ne constitue pas une preuve de paiement. Le registre
+`paie_bulletin_reglement` conserve les paiements déjà effectués et enregistrés par bulletin,
+avec montant, mode (`VIREMENT`, `CHEQUE`, `ESPECES`, `MOBILE_MONEY`), date,
+référence, auteur et justificatif obligatoire (PDF, PNG ou JPEG, 5 Mo maximum).
+La preuve est stockée dans la même transaction et reste téléchargeable après
+annulation. Le solde est calculé à partir du net figé du bulletin
+moins les versements actifs. Un paiement partiel reste possible ; le serveur
+refuse un montant supérieur au solde. L'annulation d'un paiement manuel garde
+son motif et son auteur dans l'historique. Les anciens règlements enregistrés
+avant le caractère obligatoire de la pièce restent signalés comme sans preuve
+jusqu'à leur rapprochement avec un justificatif réel.
+
+Les virements groupés ont un cycle distinct : lot `PREPARE`, fichier CSV
+contrôlé, lot `TRANSMIS`, puis enregistrement des virements réellement effectués
+ou signalement des lignes non exécutées. Le statut technique `CONFIRME` d'une
+ligne signifie que le paiement a été enregistré dans le dossier ; il ne
+représente pas une confirmation bancaire externe. Une ligne enregistrée crée
+un règlement ; une ligne rejetée libère le bulletin pour un nouveau paiement.
+Un lot non transmis peut être
+annulé sans effacer sa trace. La génération ou le téléchargement du CSV ne
+change jamais le solde payé. L'enregistrement d'une ligne exige un justificatif
+du virement déjà effectué. Le CSV est un export générique de préparation :
+son adéquation au format attendu par la banque doit être vérifiée avant envoi.
+
+L'API est dans `api/BulletinReglementController.java`, sous
+`/paie/reglements`. Les tables sont définies dans le schéma canonique 06 ;
+la migration SP84 les ajoute aux bases existantes. L'interface de la période
+est `ReglementsBulletinsPage`, et le même panneau
+`BulletinReglementSlideOver` est ouvert depuis la fiche salarié. Un bulletin
+`MENSUEL` et un bulletin `STC` restent deux pièces distinctes : le premier
+décrit la paie de la période, le second le solde de départ. Lorsqu'un versement
+STC couvre aussi le bulletin mensuel, une seule écriture de paiement STC porte
+la preuve réelle et sa part mensuelle est affectée au registre du bulletin par
+`id_stc_reglement`. Cette affectation ne crée pas un second décaissement.
+L'annulation du versement STC annule également l'affectation liée. Les versements
+STC historiques sans preuve peuvent être rapprochés avec une pièce réelle et
+une part mensuelle explicite. Un bulletin inclus dans un STC actif est exclu des
+nouveaux paiements directs et des lots de virements afin d'éviter un doublon.
+
 ## Contexte d'un bulletin
 
 `PayrollCalculationContextAssembler` construit l'unique `PayrollCalculationInput` transmis à

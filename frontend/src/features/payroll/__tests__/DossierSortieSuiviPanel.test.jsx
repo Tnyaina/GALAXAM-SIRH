@@ -37,6 +37,11 @@ const setInput = async (input, value) => {
         input.dispatchEvent(new Event('change', { bubbles: true }));
     });
 };
+const addProof = async () => {
+    const input = host.querySelector('input[type="file"]');
+    Object.defineProperty(input, 'files', { configurable: true, value: [new File(['%PDF-1.4'], 'preuve.pdf', { type: 'application/pdf' })] });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+};
 beforeEach(() => {
     sessionStorage.clear();
     permission.canWrite = true;
@@ -53,14 +58,14 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi
 describe('suivi RH du dossier de sortie', () => {
     it('sépare les états, affiche les règlements annulés et les six documents sans mutation', async () => {
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
-        expect(host.textContent).toContain('ANNULÉ');
+        expect(host.textContent).toContain('Annulé');
         expect(host.textContent).toContain('Reçu STC — projet');
         expect(host.textContent).toContain('Certificat DOCX');
         expect(host.textContent).toContain('700');
         for (const [label, kind, reglementId] of [
             ['Décompte STC scellé', 'decompte'], ['Reçu STC — projet', 'recuProjet'],
             ['Certificat DOCX', 'certificatDocx'],
-            ['Justificatif PDF', 'quittance', 8],
+            ['Quittance PDF', 'quittance', 8],
         ]) {
             const button = [...host.querySelectorAll('button')].find(item => item.textContent === label);
             await act(async () => button.click());
@@ -117,18 +122,20 @@ describe('suivi RH du dossier de sortie', () => {
 
     it('enregistre un paiement partiel seulement après confirmation avec clé d’idempotence', async () => {
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
+        await addProof();
         await setInput(host.querySelector('[aria-label="Référence du règlement"]'), 'VIR-2');
         await setInput(host.querySelector('[aria-label="Montant du règlement"]'), '200');
         await act(async () => host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
         expect(dossierSortieService.enregistrerReglement).not.toHaveBeenCalled();
         await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Confirmer l’action').click());
         expect(dossierSortieService.enregistrerReglement).toHaveBeenCalledWith(12,
-            expect.objectContaining({ referenceReglement: 'VIR-2', montantRegle: '200' }), expect.any(String));
+            expect.objectContaining({ referenceReglement: 'VIR-2', montantRegle: '200' }), expect.any(String), expect.any(File));
     });
 
     it('conserve le solde du serveur lorsqu’un règlement est refusé', async () => {
         dossierSortieService.enregistrerReglement.mockRejectedValue(new Error('Règlement refusé'));
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
+        await addProof();
         await setInput(host.querySelector('[aria-label="Référence du règlement"]'), 'VIR-REFUS');
         await setInput(host.querySelector('[aria-label="Montant du règlement"]'), '100');
         await act(async () => host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
@@ -141,6 +148,7 @@ describe('suivi RH du dossier de sortie', () => {
     it('réutilise la même clé après une réponse réseau perdue et un rafraîchissement de page', async () => {
         dossierSortieService.enregistrerReglement.mockRejectedValueOnce(new Error('Réseau indisponible'));
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
+        await addProof();
         await setInput(host.querySelector('[aria-label="Référence du règlement"]'), 'VIR-REPRISE');
         await setInput(host.querySelector('[aria-label="Montant du règlement"]'), '200');
         await act(async () => host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
@@ -150,6 +158,7 @@ describe('suivi RH du dossier de sortie', () => {
         await act(async () => root.unmount());
         root = createRoot(host);
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
+        await addProof();
         await setInput(host.querySelector('[aria-label="Référence du règlement"]'), 'VIR-REPRISE');
         await setInput(host.querySelector('[aria-label="Montant du règlement"]'), '200');
         await act(async () => host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
@@ -162,6 +171,7 @@ describe('suivi RH du dossier de sortie', () => {
         let resolvePayment;
         dossierSortieService.enregistrerReglement.mockImplementation(() => new Promise(resolve => { resolvePayment = resolve; }));
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
+        await addProof();
         await setInput(host.querySelector('[aria-label="Référence du règlement"]'), 'VIR-DOUBLE');
         await setInput(host.querySelector('[aria-label="Montant du règlement"]'), '100');
         await act(async () => host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
@@ -177,6 +187,7 @@ describe('suivi RH du dossier de sortie', () => {
     it('emploie une nouvelle clé quand la charge utile du règlement change', async () => {
         dossierSortieService.enregistrerReglement.mockRejectedValue(new Error('Réseau indisponible'));
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} />));
+        await addProof();
         await setInput(host.querySelector('[aria-label="Référence du règlement"]'), 'VIR-CHANGE');
         await setInput(host.querySelector('[aria-label="Montant du règlement"]'), '100');
         const submit = async () => {
@@ -193,6 +204,7 @@ describe('suivi RH du dossier de sortie', () => {
     it('annonce un paiement confirmé même si la lecture du dossier échoue ensuite', async () => {
         dossierSortieService.obtenirDossier.mockRejectedValueOnce(new Error('Réseau indisponible'));
         await act(async () => root.render(<DossierSortieSuiviPanel dossier={dossier} onDossierChange={vi.fn()} />));
+        await addProof();
         await setInput(host.querySelector('[aria-label="Référence du règlement"]'), 'VIR-CONFIRME');
         await setInput(host.querySelector('[aria-label="Montant du règlement"]'), '200');
         await act(async () => host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));

@@ -244,13 +244,13 @@ export default function CalculStepPage() {
                         </div>
 
                         {affectedEmployees.length > 0 && (
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded text-xs space-y-2">
+                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-none text-xs space-y-2">
                                 <span className="font-semibold text-[var(--color-fg)]">
                                     {affectedEmployees.length} collaborateur(s) directement affecté(s) :
                                 </span>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {affectedEmployees.map((emp, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-2 bg-[var(--color-bg-subtle)] rounded border border-[var(--color-border-subtle)]">
+                                        <div key={idx} className="flex items-center justify-between p-2 bg-[var(--color-bg-subtle)] rounded-none border border-[var(--color-border-subtle)]">
                                             <span className="font-medium text-[var(--color-fg)]">{emp.nomPrenom || emp.matricule}</span>
                                             <span className="text-[11px] text-[var(--color-fg-muted)] font-data">
                                                 {[emp.source, emp.detail].filter(Boolean).join(' · ')}
@@ -534,9 +534,7 @@ export default function CalculStepPage() {
                             const totalBulletinsCount = isSimulationActive ? simulationBulletins.length : (bulletinTotal || existingBulletins.length);
                             const clientPageCount = Math.max(1, Math.ceil(tableFiltered.length / TABLE_PAGE_SIZE));
                             const clientPage = Math.min(bulletinPage, clientPageCount);
-                            const clientSlice = isSimulationActive
-                                ? tableFiltered.slice((clientPage - 1) * TABLE_PAGE_SIZE, clientPage * TABLE_PAGE_SIZE)
-                                : (tableSearch.trim() ? tableFiltered.slice((bulletinPage - 1) * TABLE_PAGE_SIZE, bulletinPage * TABLE_PAGE_SIZE) : displayBulletins);
+                            const clientSlice = tableFiltered.slice((clientPage - 1) * TABLE_PAGE_SIZE, clientPage * TABLE_PAGE_SIZE);
                             const rowsToShow = isSimulationActive || tableSearch.trim() ? clientSlice : displayBulletins;
                             const currentTotalItems = tableSearch.trim() ? tableFiltered.length : totalBulletinsCount;
 
@@ -562,7 +560,7 @@ export default function CalculStepPage() {
                                     loading={calcLoading && !isSimulationActive}
                                     emptyMessage={tableSearch ? `Aucun bulletin correspondant à « ${tableSearch} »` : 'Aucun bulletin calculé pour cette exécution.'}
                                     pagination={{
-                                        currentPage: bulletinPage,
+                                        currentPage: isSimulationActive || tableSearch.trim() ? clientPage : bulletinPage,
                                         totalItems: currentTotalItems,
                                         pageSize: TABLE_PAGE_SIZE,
                                         onPageChange: (p) => setBulletinPage(p),

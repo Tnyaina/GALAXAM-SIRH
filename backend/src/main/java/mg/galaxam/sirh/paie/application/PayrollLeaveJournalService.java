@@ -135,6 +135,24 @@ public class PayrollLeaveJournalService {
             BigDecimal baseTotale = netBase.add(mntHs).max(BigDecimal.ZERO);
             BigDecimal valMois = baseTotale.multiply(droitMois).divide(diviseurConge, 2, RoundingMode.HALF_UP);
 
+            // Un mois déjà valorisé est figé : le remplacer en silence laisserait son lot FIFO
+            // et les cumuls des mois suivants avec les anciennes valeurs.
+            try (PreparedStatement existing = c.prepareStatement(
+                    "SELECT jours_droit_acquis, valorisation_mensuelle FROM conge_journal_droit "
+                            + "WHERE id_employe=? AND annee=? AND mois=? FOR UPDATE")) {
+                existing.setInt(1, idEmp);
+                existing.setInt(2, annee);
+                existing.setInt(3, mois);
+                try (ResultSet previous = existing.executeQuery()) {
+                    if (previous.next() && (previous.getBigDecimal(1).compareTo(droitMois) != 0
+                            || previous.getBigDecimal(2).compareTo(valMois) != 0)) {
+                        throw new IllegalStateException("CONGE_ACQUISITION_RECALCULATION_CONFLICT: "
+                                + "droits ou valorisation déjà figés pour " + annee + "-" + mois
+                                + ". Utiliser une régularisation auditée avant de reclôturer la paie.");
+                    }
+                }
+            }
+
             // 2. Résolution de la période de référence bornée KAJY pour l'employé
             // Calcul du numéro de mois dans la référence à partir de la position calendaire
             int numeroMoisRef = dateFinPaie.getMonthValue();

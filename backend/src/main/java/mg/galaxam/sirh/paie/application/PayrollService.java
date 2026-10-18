@@ -99,12 +99,42 @@ public class PayrollService {
 
     private void verifierBulletinNonObsolete(Integer bulletinId, Connection c) throws Exception {
         String sql = "SELECT b.id_snapshot_pointage, b.version_snapshot_pointage, b.id_config_legale, " +
-                "b.id_employe, b.id_periode_paie, p.date_fin FROM bulletin_paie b " +
+                "b.id_employe, b.id_periode_paie, b.salaire_base, b.date_calcul, p.date_debut, p.date_fin FROM bulletin_paie b " +
                 "JOIN periode_paie p ON p.id_periode_paie = b.id_periode_paie WHERE b.id_bulletin = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, bulletinId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Bulletin introuvable pendant le contrôle d'obsolescence.");
+                // Les éléments RH datés peuvent changer entre le calcul et la validation.
+                // Le salaire est comparé directement ; les autres changements sont repérés par leur horodatage.
+                try {
+                    var coverage = employmentContextResolver.resolveCoverage(rs.getInt("id_employe"),
+                            rs.getDate("date_debut").toLocalDate(), rs.getDate("date_fin").toLocalDate(), c);
+                    var employment = employmentContextResolver.resolveContext(rs.getInt("id_employe"), coverage.lastDay(), c);
+                    BigDecimal calculatedSalary = rs.getBigDecimal("salaire_base");
+                    if (employment == null || employment.salaireBase() == null || calculatedSalary == null
+                            || employment.salaireBase().compareTo(calculatedSalary) != 0) {
+                        throw new IllegalStateException("PAYROLL_RESULT_OBSOLETE: le salaire ou l'emploi a changé; recalcul explicite requis.");
+                    }
+                } catch (IllegalStateException error) {
+                    if (error.getMessage() != null && error.getMessage().startsWith("PAYROLL_RESULT_OBSOLETE")) throw error;
+                    throw new IllegalStateException("PAYROLL_RESULT_OBSOLETE: le contexte d'emploi a changé; recalcul explicite requis.", error);
+                }
+                Timestamp calculatedAt = rs.getTimestamp("date_calcul");
+                if (calculatedAt != null) {
+                    try (PreparedStatement changed = c.prepareStatement(
+                            "SELECT EXISTS (SELECT 1 FROM employe_affectation_carriere a "
+                            + "WHERE a.id_employe = ? AND a.updated_at > ?) "
+                            + "OR EXISTS (SELECT 1 FROM contrat_travail ct WHERE ct.id_employe = ? AND ct.updated_at > ?)")) {
+                        changed.setInt(1, rs.getInt("id_employe")); changed.setTimestamp(2, calculatedAt);
+                        changed.setInt(3, rs.getInt("id_employe")); changed.setTimestamp(4, calculatedAt);
+                        try (ResultSet change = changed.executeQuery()) {
+                            change.next();
+                            if (change.getBoolean(1)) throw new IllegalStateException(
+                                    "PAYROLL_RESULT_OBSOLETE: le contrat ou l'affectation a changé; recalcul explicite requis.");
+                        }
+                    }
+                }
                 Integer snapshotId = nullableInt(rs, "id_snapshot_pointage");
                 Integer snapshotVersion = nullableInt(rs, "version_snapshot_pointage");
                 if (snapshotId != null) {
@@ -231,39 +261,7 @@ public class PayrollService {
         }
         int bulletinId = precedent.getIdBulletin();
         restaurerImputationsMouvements(bulletinId, employeId, periodeId, c);
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT e.id_echeance, e.id_pret, e.montant_preleve "
-                + "FROM paie_pret_echeance e WHERE e.id_bulletin = ? AND e.id_periode_paie = ? FOR UPDATE")) {
-            ps.setInt(1, bulletinId);
-            ps.setInt(2, periodeId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    BigDecimal montant = rs.getBigDecimal("montant_preleve");
-                    if (montant == null || montant.signum() <= 0) continue;
-                    try (PreparedStatement pret = c.prepareStatement(
-                            "UPDATE paie_pret SET capital_rembourse = capital_rembourse - ?, "
-                            + "capital_restant_du = capital_restant_du + ?, "
-                            + "statut = CASE WHEN statut = 'SOLDE' THEN 'EN_COURS' ELSE statut END "
-                            + "WHERE id_pret = ? AND capital_rembourse >= ?")) {
-                        pret.setBigDecimal(1, montant);
-                        pret.setBigDecimal(2, montant);
-                        pret.setInt(3, rs.getInt("id_pret"));
-                        pret.setBigDecimal(4, montant);
-                        if (pret.executeUpdate() != 1) {
-                            throw new IllegalStateException("PRET_IMPUTATION_INCOHERENTE: capital remboursé insuffisant.");
-                        }
-                    }
-                    try (PreparedStatement echeance = c.prepareStatement(
-                            "UPDATE paie_pret_echeance SET montant_preleve = 0, "
-                            + "montant_restant_echeance = montant_echeance, statut = 'A_ECHOIR', "
-                            + "id_bulletin = NULL, id_periode_paie = NULL, date_prelevement = NULL "
-                            + "WHERE id_echeance = ?")) {
-                        echeance.setInt(1, rs.getInt("id_echeance"));
-                        echeance.executeUpdate();
-                    }
-                }
-            }
-        }
+        restaurerImputationsPrets(bulletinId, periodeId, c);
     }
 
     private void restaurerImputationsMouvements(int bulletinId, int employeId, int periodeId, Connection c) throws Exception {
@@ -307,6 +305,47 @@ public class PayrollService {
             ps.setInt(2, employeId);
             ps.setInt(3, periodeId);
             ps.executeUpdate();
+        }
+    }
+
+    private void restaurerPretsBulletin(int bulletinId, int periodeId, Connection c) throws Exception {
+        restaurerImputationsPrets(bulletinId, periodeId, c);
+    }
+
+    private void restaurerImputationsPrets(int bulletinId, int periodeId, Connection c) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT e.id_echeance, e.id_pret, e.montant_preleve "
+                + "FROM paie_pret_echeance e WHERE e.id_bulletin = ? AND e.id_periode_paie = ? FOR UPDATE")) {
+            ps.setInt(1, bulletinId);
+            ps.setInt(2, periodeId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    BigDecimal montant = rs.getBigDecimal("montant_preleve");
+                    if (montant == null || montant.signum() <= 0) continue;
+                    try (PreparedStatement pret = c.prepareStatement(
+                            "UPDATE paie_pret SET capital_rembourse = capital_rembourse - ?, "
+                            + "capital_restant_du = capital_restant_du + ?, "
+                            + "statut = CASE WHEN statut = 'SOLDE' THEN 'EN_COURS' ELSE statut END "
+                            + "WHERE id_pret = ? AND capital_rembourse >= ?")) {
+                        pret.setBigDecimal(1, montant);
+                        pret.setBigDecimal(2, montant);
+                        pret.setInt(3, rs.getInt("id_pret"));
+                        pret.setBigDecimal(4, montant);
+                        if (pret.executeUpdate() != 1) {
+                            throw new IllegalStateException("PRET_IMPUTATION_INCOHERENTE: capital remboursé insuffisant.");
+                        }
+                    }
+                    try (PreparedStatement echeance = c.prepareStatement(
+                            "UPDATE paie_pret_echeance SET montant_preleve = 0, "
+                            + "montant_restant_echeance = LEAST(montant_echeance, montant_restant_echeance + ?), statut = 'A_ECHOIR', "
+                            + "id_bulletin = NULL, id_periode_paie = NULL, date_prelevement = NULL "
+                            + "WHERE id_echeance = ?")) {
+                        echeance.setBigDecimal(1, montant);
+                        echeance.setInt(2, rs.getInt("id_echeance"));
+                        echeance.executeUpdate();
+                    }
+                }
+            }
         }
     }
 
@@ -362,6 +401,7 @@ public class PayrollService {
             // Si la période était en PAIE_VALIDEE, un recalcul la replace en VALIDEE (bulletins en attente d'approbation)
             String sqlReset = "UPDATE periode_paie SET " +
                     "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE'), " +
+                    "version = version + 1, " +
                     "updated_at = CURRENT_TIMESTAMP " +
                     "WHERE id_periode_paie = ? AND id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'PAIE_VALIDEE')";
             try (PreparedStatement psReset = c.prepareStatement(sqlReset)) {
@@ -476,7 +516,8 @@ public class PayrollService {
      * Valide l'ensemble des bulletins calculés d'une période.
      */
     public PayrollBatchResult validerPaiePeriode(Integer idPeriodePaie, Integer idUtilisateur, Connection c) throws Exception {
-        List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
+        List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c).stream()
+                .filter(b -> !"STC".equalsIgnoreCase(b.getTypeBulletin())).toList();
         var population = payrollPopulationResolver.resolve(idPeriodePaie, c);
         java.util.Set<Integer> attendus = new java.util.HashSet<>(population.includedEmployeeIds());
         java.util.Set<Integer> presentes = new java.util.HashSet<>();
@@ -518,6 +559,7 @@ public class PayrollService {
         // Transition du statut de la période vers PAIE_VALIDEE (Paie Validée & Approuvée)
         String sqlPeriode = "UPDATE periode_paie SET " +
                 "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'PAIE_VALIDEE'), " +
+                "version = version + 1, " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_periode_paie = ? AND id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE')";
         try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
@@ -579,16 +621,8 @@ public class PayrollService {
         for (BulletinPaie bp : bulletins) {
             if (!"STC".equalsIgnoreCase(bp.getTypeBulletin())) {
                 restaurerImputationsMouvements(bp.getIdBulletin(), bp.getIdEmploye(), idPeriodePaie, c);
+                restaurerImputationsPrets(bp.getIdBulletin(), idPeriodePaie, c);
             }
-        }
-
-        // 2. Dé-imputer les échéances de prêts prélevées sur cette période
-        String sqlUnfreezePrets = "UPDATE paie_pret_echeance SET statut = 'A_ECHOIR', montant_preleve = 0, " +
-                "montant_restant_echeance = montant_echeance, id_bulletin = NULL, id_periode_paie = NULL " +
-                "WHERE id_periode_paie = ? AND statut IN ('PRELEVEE_EN_PAIE', 'PRELEVEE_PARTIELLEMENT')";
-        try (PreparedStatement ps = c.prepareStatement(sqlUnfreezePrets)) {
-            ps.setInt(1, idPeriodePaie);
-            ps.executeUpdate();
         }
 
     }

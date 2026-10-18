@@ -13,6 +13,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
+import Select from '@/components/ui/forms/Select';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import contratService from '@/features/employees/api/contratService';
 import { optionsMotifsSortie } from '@/features/employees/utils/motifsSortie';
@@ -87,6 +88,10 @@ export default function StcPreparationModal({
     const [showConfirmValider, setShowConfirmValider] = useState(false);
     const [dateReglement, setDateReglement] = useState('');
     const [referenceReglement, setReferenceReglement] = useState('');
+    const [montantRegle, setMontantRegle] = useState('');
+    const [partBulletinMensuel, setPartBulletinMensuel] = useState('');
+    const [modeReglement, setModeReglement] = useState('VIREMENT');
+    const [paymentFile, setPaymentFile] = useState(null);
     const [motifsSortie, setMotifsSortie] = useState([]);
 
     useEffect(() => {
@@ -310,18 +315,22 @@ export default function StcPreparationModal({
     };
 
     const handleEnregistrerReglement = async () => {
-        if (!dateReglement || !referenceReglement.trim()) {
-            setErrorMsg('La date et la référence du paiement réellement effectué sont obligatoires.');
+        const zeroNet = Number(calculResult?.netAPayerStc || 0) === 0;
+        if (!dateReglement || !referenceReglement.trim() || (!zeroNet && (!paymentFile || Number(montantRegle) <= 0))) {
+            setErrorMsg('Le montant, la date, la référence et la preuve réelle du paiement sont obligatoires.');
             return;
         }
         setSubmitting(true);
         setErrorMsg(null);
         try {
-            await stcService.enregistrerReglement(calculResult.idStc, {
+            const situation = await stcService.enregistrerReglement(calculResult.idStc, {
                 dateReglement,
                 referenceReglement: referenceReglement.trim(),
-            });
-            const regle = { ...calculResult, statut: 'REGLE' };
+                montantRegle: zeroNet ? 0 : montantRegle,
+                modeReglement,
+                partBulletinMensuel: zeroNet ? 0 : partBulletinMensuel || 0,
+            }, paymentFile);
+            const regle = { ...calculResult, statut: situation?.statutStc || 'VALIDE' };
             setCalculResult(regle);
             onStcValide?.(regle);
         } catch (err) {
@@ -784,9 +793,18 @@ export default function StcPreparationModal({
                                             <Input label="Référence du règlement (virement, chèque ou reçu caisse)"
                                                 value={referenceReglement}
                                                 onChange={(e) => setReferenceReglement(e.target.value)} />
+                                            <MoneyInput label="Montant déjà versé (Ar)" min={0.01} value={montantRegle} onValueChange={value => { setMontantRegle(value); setPartBulletinMensuel(Math.min(Number(value || 0), Number(calculResult?.soldeBulletinARegler || 0))); }} />
+                                            <Select label="Mode de règlement" value={modeReglement} onChange={setModeReglement} options={[{ value: 'VIREMENT', label: 'Virement' }, { value: 'CHEQUE', label: 'Chèque' }, { value: 'ESPECES', label: 'Espèces' }, { value: 'MOBILE_MONEY', label: 'Mobile money' }]} />
+                                            {Number(calculResult?.soldeBulletinARegler || 0) > 0 && <MoneyInput label="Part du bulletin mensuel (Ar)" min={0} max={Math.min(Number(montantRegle || 0), Number(calculResult.soldeBulletinARegler))} value={partBulletinMensuel} onValueChange={setPartBulletinMensuel} />}
+                                            <Input label="Preuve réelle du paiement" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={e => setPaymentFile(e.target.files?.[0] || null)} />
                                         </div>
-                                        <Button type="button" variant="primary" size="sm" loading={submitting}
-                                            onClick={handleEnregistrerReglement}>Enregistrer le règlement</Button>
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <Button type="button" variant="primary" size="sm" loading={submitting}
+                                                onClick={handleEnregistrerReglement}>Enregistrer le règlement</Button>
+                                            <a href="/paie/dossiers-sortie" className="text-xs text-[var(--color-brand-600)] hover:underline">
+                                                Suivi complet avec pièce jointe via le dossier de sortie &rarr;
+                                            </a>
+                                        </div>
                                     </div>
                                 )}
 

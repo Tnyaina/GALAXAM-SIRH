@@ -18,6 +18,11 @@ public record StcReglementRequest(
         String commentaire,
         String idempotencyKey
 ) {
+    /** Alias pour compatibilité français/anglais */
+    public String cleIdempotence() {
+        return idempotencyKey;
+    }
+
     /**
      * Constructeur rétro-compatible pour les appels n'indiquant que la date et la référence.
      * Dans ce cas, le montant réglé par défaut sera le solde restant à payer.

@@ -52,6 +52,7 @@ class StcReglementJournalIntegrationTest {
     @Autowired private DataSource dataSource;
     @Autowired private DossierSortieService dossierSortieService;
     @Autowired private StcService stcService;
+    @Autowired private StcPaymentReconciliationService reconciliationService;
 
     private record TestDossierScelle(int idDossier, int idStc, int idEmploye, int adminId, BigDecimal netScelle, LocalDate dateDepart) {}
 
@@ -117,6 +118,51 @@ class StcReglementJournalIntegrationTest {
         DossierSortieDTO scelle = dossierSortieService.scellerDossierEtStc(dossier.getIdDossierSortie(), sealReq, adminId, c);
 
         return new TestDossierScelle(scelle.getIdDossierSortie(), scelle.getIdStc(), empId, adminId, scelle.getNetAPayerStc(), dateDepart);
+    }
+
+    @Test
+    @DisplayName("Un versement STC justifié règle sa part mensuelle une seule fois et son annulation suit la source")
+    void testAffectationDuVersementStcAuBulletinMensuel() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                LocalDate depart = LocalDate.of(2026, 9, 25);
+                var dossier = creerEtScellerDossierTest(c, "SL" + Math.abs(System.nanoTime() % 1_000_000_000), depart, new BigDecimal("30"));
+                int periode;
+                try (PreparedStatement ps = c.prepareStatement("SELECT id_periode_paie FROM paie_stc WHERE id_stc=?")) {
+                    ps.setInt(1, dossier.idStc());
+                    try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); periode = rs.getInt(1); }
+                }
+                int bulletin;
+                try (PreparedStatement ps = c.prepareStatement("INSERT INTO bulletin_paie(id_periode_paie,id_employe,type_bulletin,reference_bulletin,matricule,nom_prenom,intitule_poste,nom_site,regime_intervenant,salaire_base,taux_horaire,net_a_payer,statut) VALUES (?,?, 'MENSUEL', ?,?,?,'Agent','Siège','SALARIE',600000,3750,200,'VALIDE') RETURNING id_bulletin")) {
+                    ps.setInt(1, periode); ps.setInt(2, dossier.idEmploye());
+                    ps.setString(3, "BP-STC-LINK-" + System.nanoTime());
+                    ps.setString(4, "L" + dossier.idEmploye()); ps.setString(5, "Agent test");
+                    try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); bulletin = rs.getInt(1); }
+                }
+                try (PreparedStatement ps = c.prepareStatement("UPDATE paie_stc SET id_bulletin_mensuel=?,solde_bulletin_a_regler=200 WHERE id_stc=?")) {
+                    ps.setInt(1, bulletin); ps.setInt(2, dossier.idStc()); ps.executeUpdate();
+                }
+                var payment = new StcReglementRequest(Date.valueOf(depart), "VIR-LINK-" + System.nanoTime(),
+                        new BigDecimal("200"), "VIREMENT", "Règlement réel", "idem-" + System.nanoTime());
+                var situation = stcService.enregistrerReglement(dossier.idStc(), payment, dossier.adminId(), c);
+                int idReglement = situation.getReglements().get(0).getIdReglement();
+                var evidence = new PaymentEvidence("preuve.pdf", "application/pdf", "%PDF-1.7 preuve".getBytes());
+                reconciliationService.affecter(c, dossier.idStc(), idReglement, new BigDecimal("200"), evidence, dossier.adminId());
+                reconciliationService.affecter(c, dossier.idStc(), idReglement, new BigDecimal("200"), null, dossier.adminId());
+                try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*),SUM(montant) FROM paie_bulletin_reglement WHERE id_stc_reglement=? AND annule_at IS NULL")) {
+                    ps.setInt(1, idReglement);
+                    try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); assertEquals(1, rs.getInt(1)); assertEquals(0, new BigDecimal("200").compareTo(rs.getBigDecimal(2))); }
+                }
+                assertThrows(SirhBusinessException.class, () -> reconciliationService.affecter(c, dossier.idStc(), idReglement, BigDecimal.ZERO, evidence, dossier.adminId()));
+                stcService.annulerReglement(dossier.idStc(), idReglement, new AnnulationReglementRequest("Erreur de paiement"), dossier.adminId(), c);
+                try (PreparedStatement ps = c.prepareStatement("SELECT annule_at FROM paie_bulletin_reglement WHERE id_stc_reglement=?")) {
+                    ps.setInt(1, idReglement);
+                    try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); assertNotNull(rs.getTimestamp(1)); }
+                }
+                c.rollback();
+            } catch (Exception e) { c.rollback(); throw e; }
+        }
     }
 
     @Test

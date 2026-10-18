@@ -1679,7 +1679,8 @@ public class StcService {
         // Lecture de toutes les tranches de règlement (actives et annulées)
         String sqlRegs = "SELECT r.id_reglement, r.id_stc, r.date_reglement, r.montant_regle, r.mode_reglement, "
                 + "r.reference_reglement, r.commentaire, r.cle_idempotence, r.enregistre_par, r.created_at, "
-                + "r.est_annule, r.annule_par, r.date_annulation, r.motif_annulation, "
+                + "r.est_annule, r.annule_par, r.date_annulation, r.motif_annulation, r.nom_justificatif, "
+                + "COALESCE((SELECT SUM(br.montant) FROM paie_bulletin_reglement br WHERE br.id_stc_reglement=r.id_reglement AND br.annule_at IS NULL),0) AS part_bulletin_mensuel, "
                 + "ue.identifiant AS nom_enregistre_par, "
                 + "ua.identifiant AS nom_annule_par "
                 + "FROM paie_stc_reglement r "
@@ -1702,6 +1703,8 @@ public class StcService {
                     rDto.setReferenceReglement(rsReg.getString("reference_reglement"));
                     rDto.setCommentaire(rsReg.getString("commentaire"));
                     rDto.setCleIdempotence(rsReg.getString("cle_idempotence"));
+                    rDto.setNomJustificatif(rsReg.getString("nom_justificatif"));
+                    rDto.setPartBulletinMensuel(rsReg.getBigDecimal("part_bulletin_mensuel"));
                     if (rsReg.getObject("enregistre_par") != null) {
                         rDto.setEnregistrePar(rsReg.getInt("enregistre_par"));
                         rDto.setNomEnregistrePar(rsReg.getString("nom_enregistre_par"));
@@ -1808,6 +1811,17 @@ public class StcService {
             psCancel.setString(2, req.motifAnnulation().trim());
             psCancel.setInt(3, idReglement);
             psCancel.executeUpdate();
+        }
+        // Une affectation mensuelle n'est pas un second paiement : elle suit
+        // l'annulation de son versement STC source dans la même transaction.
+        try (PreparedStatement psAllocation = c.prepareStatement(
+                "UPDATE paie_bulletin_reglement SET annule_at=CURRENT_TIMESTAMP,annule_par=?,motif_annulation=? "
+                + "WHERE id_stc_reglement=? AND annule_at IS NULL")) {
+            if (userId == null) psAllocation.setNull(1, java.sql.Types.INTEGER);
+            else psAllocation.setInt(1, userId);
+            psAllocation.setString(2, "Annulation du versement STC source : " + req.motifAnnulation().trim());
+            psAllocation.setInt(3, idReglement);
+            psAllocation.executeUpdate();
         }
 
         // 4. Recalcul de la somme active après annulation

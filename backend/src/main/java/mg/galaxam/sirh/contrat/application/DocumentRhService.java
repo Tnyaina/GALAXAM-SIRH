@@ -811,11 +811,22 @@ public class DocumentRhService {
             // Nettoyage de la date de signature pour éviter ", le JJ/MM/AAAA" si la ville est vide
             for (XWPFParagraph p : doc.getParagraphs()) {
                 String txt = p.getText();
-                if (txt.contains("[Ville]") && txt.contains("[JJ/MM/AAAA]")) {
+                if (txt.startsWith("[Ville]") && txt.contains("[JJ/MM/AAAA]")) {
                     String dateLine = (sig.getVille() != null && !sig.getVille().isBlank())
                             ? sig.getVille().trim() + ", le " + sig.getDateEmissionTexte()
                             : "Le " + sig.getDateEmissionTexte();
                     remplacerTexteParagrapheComplet(p, dateLine);
+                    break;
+                }
+            }
+
+            // Référence distincte de la date de signature : ne pas l'effacer.
+            for (XWPFParagraph p : doc.getParagraphs()) {
+                if (p.getText().startsWith("Référence : [N° de référence]")) {
+                    String dateLine = (sig.getVille() != null && !sig.getVille().isBlank())
+                            ? sig.getVille().trim() + ", le " + sig.getDateEmissionTexte()
+                            : "Le " + sig.getDateEmissionTexte();
+                    remplacerTexteParagrapheComplet(p, "Référence : " + dto.getReference() + " · " + dateLine);
                     break;
                 }
             }
@@ -935,29 +946,47 @@ public class DocumentRhService {
                 }
             }
 
+            // L'en-tête du modèle comporte des séparateurs même lorsque l'adresse
+            // ou le site web sont absents. Composer uniquement les valeurs présentes.
+            for (XWPFTable table : doc.getTables()) {
+                for (XWPFTableRow row : table.getRows()) {
+                    for (XWPFTableCell cell : row.getTableCells()) {
+                        for (XWPFParagraph p : cell.getParagraphs()) {
+                            String texte = p.getText();
+                            if (texte.contains("[Adresse complète] ·")) {
+                                List<String> lignes = new ArrayList<>();
+                                if (ent.getAdresse() != null && !ent.getAdresse().isBlank()) lignes.add(ent.getAdresse());
+                                if (ent.getVille() != null && !ent.getVille().isBlank()) lignes.add(ent.getVille());
+                                if (ent.getPays() != null && !ent.getPays().isBlank()) lignes.add(ent.getPays());
+                                if (ent.getNif() != null && !ent.getNif().isBlank()) lignes.add("NIF : " + ent.getNif());
+                                if (ent.getStat() != null && !ent.getStat().isBlank()) lignes.add("STAT : " + ent.getStat());
+                                remplacerTexteParagrapheComplet(p, String.join(" · ", lignes));
+                            } else if (texte.contains("Tél. [Téléphone]")) {
+                                List<String> contacts = new ArrayList<>();
+                                if (ent.getTelephone() != null && !ent.getTelephone().isBlank()) contacts.add("Tél. : " + ent.getTelephone());
+                                if (ent.getEmail() != null && !ent.getEmail().isBlank()) contacts.add("Email : " + ent.getEmail());
+                                if (ent.getSiteWeb() != null && !ent.getSiteWeb().isBlank()) contacts.add(ent.getSiteWeb());
+                                remplacerTexteParagrapheComplet(p, String.join(" · ", contacts));
+                            }
+                        }
+                    }
+                }
+            }
+
             map.put("[Date de fin de contrat]", dto.getDateSortieTexte());
             remplacerVariables(doc, map);
 
             // Remplacement dynamique des postes occupés
             injecterPostesOccupes(doc, dto.getPostesOccupes());
 
-            // Loi 2024-014 Art. 40 al. 4 (Loi 2003-044 Art. 24 al. 3) : limiter les mentions concernant le salarié aux dates,
-            // emplois successifs, périodes et catégories professionnelles. Le modèle historique
-            // contient aussi une décharge financière et une appréciation non justifiées.
+            // Le modèle historique contient une décharge financière et une appréciation
+            // non justifiées : conserver les données factuelles, retirer ces mentions.
             for (XWPFParagraph p : doc.getParagraphs()) {
                 String texte = p.getText();
-                if (texte.contains("né(e) le") && texte.contains("a été employé(e)")) {
-                    remplacerTexteParagrapheComplet(p, "Madame/Monsieur " + emp.getNomComplet()
-                            + " a été employé(e) du " + dto.getDateEntreeTexte()
-                            + " au " + dto.getDateSortieTexte() + ".");
-                } else if (texte.contains("Au moment de son départ")) {
-                    remplacerTexteParagrapheComplet(p, "Dernier emploi : "
-                            + (dto.getDernierPoste() != null ? dto.getDernierPoste() : "non renseigné")
-                            + (dto.getDerniereCategorie() != null ? " (" + dto.getDerniereCategorie() + ")" : "") + ".");
-                } else if (texte.contains("libre de tout engagement")
-                        || texte.contains("libre de toute dette")
-                        || texte.contains("sérieux et professionnalisme")) {
-                    remplacerTexteParagrapheComplet(p, "");
+                if (texte.contains("libre de tout engagement") || texte.contains("libre de toute dette")) {
+                    remplacerTexteParagrapheComplet(p, "Le contrat de travail a pris fin le " + dto.getDateSortieTexte() + ".");
+                } else if (texte.contains("sérieux et professionnalisme")) {
+                    remplacerTexteParagrapheComplet(p, "Le présent certificat est délivré pour servir et valoir ce que de droit.");
                 }
             }
 
@@ -966,6 +995,30 @@ public class DocumentRhService {
                 for (XWPFParagraph p : footer.getParagraphs()) {
                     for (int r = p.getRuns().size() - 1; r >= 0; r--) {
                         p.removeRun(r);
+                    }
+                }
+            }
+
+            for (XWPFParagraph p : doc.getParagraphs()) {
+                for (XWPFRun run : p.getRuns()) {
+                    run.setFontFamily("Arial");
+                    run.setItalic(false);
+                    if (!p.getText().contains("CERTIFICAT DE TRAVAIL")) run.setFontSize(10);
+                }
+            }
+            for (XWPFTable table : doc.getTables()) {
+                for (XWPFTableRow row : table.getRows()) {
+                    for (XWPFTableCell cell : row.getTableCells()) {
+                        for (XWPFParagraph p : cell.getParagraphs()) {
+                            for (XWPFRun run : p.getRuns()) {
+                                run.setFontFamily("Arial");
+                                run.setItalic(false);
+                                run.setColor("24323C");
+                                if (!p.getText().contains(ent.getNom() != null ? ent.getNom().toUpperCase() : "GALAXAM LOGISTICS")) {
+                                    run.setFontSize(8);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -991,13 +1044,20 @@ public class DocumentRhService {
     }
 
     private void injecterPostesOccupes(XWPFDocument doc, List<PosteHistoriqueDTO> postes) {
-        if (postes == null || postes.isEmpty()) return;
+        if (postes == null || postes.isEmpty()) {
+            for (XWPFParagraph paragraphe : doc.getParagraphs()) {
+                if (paragraphe.getText().contains("[Date début]")) {
+                    remplacerTexteParagrapheComplet(paragraphe, "");
+                }
+            }
+            return;
+        }
 
         // Trouver le paragraphe qui contient le modèle de liste de postes
         for (int i = 0; i < doc.getParagraphs().size(); i++) {
             XWPFParagraph p = doc.getParagraphs().get(i);
             String text = p.getText();
-            if (text.contains("Date début") && text.contains("Date fin") && text.contains("Intitulé du poste")) {
+            if (text.contains("[Date début]") && text.contains("[Date fin]") && text.contains("[Intitulé du poste]")) {
                 // Remplacer ce paragraphe par les vraies lignes de postes
                 p.getRuns().forEach(r -> r.setText("", 0));
                 
@@ -1005,10 +1065,19 @@ public class DocumentRhService {
                 PosteHistoriqueDTO premier = postes.get(0);
                 p.createRun().setText(formaterLignePoste(premier));
 
-                // Ajouter des paragraphes pour les autres postes
-                for (int j = 1; j < postes.size(); j++) {
-                    XWPFParagraph nextP = doc.createParagraph();
-                    nextP.createRun().setText(formaterLignePoste(postes.get(j)));
+                // Le modèle contient deux lignes d'exemple ; réutiliser la seconde avant
+                // d'ajouter d'éventuels postes, sans laisser de champs fictifs.
+                int index = 1;
+                for (int k = i + 1; k < doc.getParagraphs().size(); k++) {
+                    XWPFParagraph suivant = doc.getParagraphs().get(k);
+                    if (!suivant.getText().contains("[Date début]")) break;
+                    remplacerTexteParagrapheComplet(suivant,
+                            index < postes.size() ? formaterLignePoste(postes.get(index++)) : "");
+                }
+                XWPFParagraph ancre = doc.getParagraphs().get(i + 2);
+                for (; index < postes.size(); index++) {
+                    XWPFParagraph suivant = doc.insertNewParagraph(ancre.getCTP().newCursor());
+                    suivant.createRun().setText(formaterLignePoste(postes.get(index)));
                 }
                 break;
             }

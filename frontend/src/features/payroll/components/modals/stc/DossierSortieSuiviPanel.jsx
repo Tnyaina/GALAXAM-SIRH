@@ -7,6 +7,7 @@ import { fmtDate, getTodayDateString } from '@/utils/dateUtils';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
 import Alert from '@/components/ui/feedback/Alert';
 import { Card } from '@/components/ui/data-display/Card';
@@ -19,6 +20,19 @@ const documentOptions = [
     ['certificatDocx', 'Certificat DOCX'],
 ];
 
+const labelsStatut = {
+    ROMPU: 'Terminé', CLOTURE: 'Clôturé', TERMINE: 'Terminé',
+    VALIDE: 'Validé', REGLE: 'Réglé', PRET_A_VALIDER: 'Prêt à clôturer',
+    EN_PREPARATION: 'En préparation', ANNULE: 'Annulé',
+};
+const libelleStatut = (code) => labelsStatut[code] || code || 'À vérifier';
+const libelleReference = (reference) => {
+    const value = String(reference || '').trim();
+    return !value || ['non', 'n/a', 'na', '-'].includes(value.toLowerCase())
+        ? 'Non renseignée'
+        : value;
+};
+
 export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
     const id = dossier?.idDossierSortie;
     const [situation, setSituation] = useState(null);
@@ -29,7 +43,9 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
     const [confirmation, setConfirmation] = useState(null);
     const [cancellation, setCancellation] = useState(null);
     const [showCertificatModal, setShowCertificatModal] = useState(false);
-    const [payment, setPayment] = useState({ dateReglement: getTodayDateString(), referenceReglement: '', montantRegle: '', modeReglement: 'VIREMENT' });
+    const [paymentFile, setPaymentFile] = useState(null);
+    const [historicalAllocation, setHistoricalAllocation] = useState(null);
+    const [payment, setPayment] = useState({ dateReglement: getTodayDateString(), referenceReglement: '', montantRegle: '', partBulletinMensuel: '', modeReglement: 'VIREMENT' });
     const [closure, setClosure] = useState({ motifCloture: '', derogationReglementIncomplet: false, justificationDerogation: '', autoriteDecisionDerogation: '', referenceDecisionDerogation: '', dateDecisionDerogation: '', confirmationFormalites: true });
 
     useEffect(() => {
@@ -55,7 +71,7 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
         'Téléchargement impossible.'
     );
     const registerPayment = () => run(async () => {
-        const fingerprint = JSON.stringify({ ...payment, zeroNetAttestation });
+        const fingerprint = JSON.stringify({ ...payment, fileName: paymentFile?.name, fileSize: paymentFile?.size, zeroNetAttestation });
         const storageKey = `galaxam:stc:reglement:${id}`;
         if (pendingPayment.current?.fingerprint !== fingerprint) {
             let stored = null;
@@ -67,11 +83,12 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
         const data = await dossierSortieService.enregistrerReglement(id, {
             ...payment,
             montantRegle: zeroNetAttestation ? 0 : payment.montantRegle,
-        }, pendingPayment.current.key);
+        }, pendingPayment.current.key, ...(paymentFile ? [paymentFile] : []));
         pendingPayment.current = null;
         try { sessionStorage.removeItem(storageKey); } catch { /* stockage indisponible */ }
         setSituation(data);
-        setPayment(prev => ({ ...prev, referenceReglement: '', montantRegle: '' }));
+        setPayment(prev => ({ ...prev, referenceReglement: '', montantRegle: '', partBulletinMensuel: '' }));
+        setPaymentFile(null);
         try { onDossierChange?.(await dossierSortieService.obtenirDossier(id)); }
         catch { setError('Règlement enregistré. Actualisation du dossier indisponible : rechargez la page pour voir son état.'); }
     }, 'Règlement refusé.');
@@ -85,6 +102,13 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
         setCancellation(null);
         onDossierChange?.(await dossierSortieService.obtenirDossier(id));
     }, 'Annulation refusée.');
+    const reconcileHistorical = () => run(async () => {
+        const data = await dossierSortieService.affecterReglementHistorique(id, historicalAllocation.idReglement,
+            historicalAllocation.partBulletinMensuel, historicalAllocation.file);
+        setSituation(data);
+        setHistoricalAllocation(null);
+        onDossierChange?.(await dossierSortieService.obtenirDossier(id));
+    }, 'Rapprochement refusé.');
 
     const closed = dossier?.statutDossier === 'CLOTURE';
     const financialReady = situation && ['VALIDE', 'REGLE'].includes(situation.statutStc || 'VALIDE');
@@ -101,48 +125,101 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
         if (kind === 'certificatDocx') return showCertificate;
         return Boolean(dossier?.idStc);
     });
+    const monthlyDue = Math.max(0, Number(dossier?.soldeBulletinARegler || 0));
+    const monthlyAllocated = (situation?.reglements || []).filter(row => !row.estAnnule)
+        .reduce((total, row) => total + Number(row.partBulletinMensuel || 0), 0);
+    const monthlyRemaining = Math.max(0, monthlyDue - monthlyAllocated);
 
     return <div className="space-y-5 text-sm">
         {error && <Alert type="error" message={error} />}
         <div className="grid gap-3 sm:grid-cols-3" aria-label="États distincts du départ">
             <Card shadow="none" className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Contrat</p>
-                <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{dossier?.statutContrat || 'À vérifier'}</p>
+                <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{libelleStatut(dossier?.statutContrat)}</p>
                 <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{contractEnded ? `Fin effective : ${fmtDate(dossier.dateFinContrat)}` : `Fin : ${fmtDate(dossier?.dateFinContrat) || 'non enregistrée'}`}</p>
             </Card>
             <Card shadow="none" className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">STC financier</p>
-                <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{dossier?.idStc ? situation?.statutStc || 'Scellé' : 'Non scellé'}</p>
+                <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{dossier?.idStc ? libelleStatut(situation?.statutStc || 'VALIDE') : 'Non scellé'}</p>
                 {dossier?.idStc && <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Reste à payer : {formatMoneyAr(situation?.resteAPayer ?? dossier.soldeRestantAPayer ?? 0)}</p>}
+                {dossier?.idBulletinMensuel && Number(dossier.soldeBulletinARegler || 0) > 0 && (
+                    <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+                        {situation?.estIntegralementRegle || dossier?.estIntegralementRegle ? 'Bulletin mensuel payé via le STC' : 'Bulletin mensuel inclus dans le STC'} : {formatMoneyAr(dossier.soldeBulletinARegler)}
+                    </p>
+                )}
             </Card>
             <Card shadow="none" className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Dossier administratif</p>
-                <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{dossier?.statutDossier || 'En préparation'}</p>
+                <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{libelleStatut(dossier?.statutDossier || 'EN_PREPARATION')}</p>
                 {closed && Number(situation?.resteAPayer ?? dossier?.soldeRestantAPayer ?? 0) > 0 && <p className="mt-1 text-xs font-semibold text-[var(--color-warning-700)]">Clôturé avec dette restante</p>}
             </Card>
         </div>
         {dossier?.derogationReglement && <Alert type="warning" title="Clôture dérogatoire avec solde dû" message={`${dossier.justificationDerogation || ''} · Décision : ${dossier.autoriteDecisionDerogation || ''} · ${dossier.referenceDecisionDerogation || ''} · ${fmtDate(dossier.dateDecisionDerogation)}. Le solde restant reste dû.`} />}
-        {dossier?.idStc && <section className="space-y-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
-            <div className="flex items-center gap-2"><Wallet size={18} className="text-[var(--color-brand-600)]" /><h3 className="text-base font-bold text-[var(--color-fg)]">Règlements du STC</h3></div>
-            <div className="grid gap-2 sm:grid-cols-3">
-                {[['Net scellé', situation?.netAPayerStc ?? dossier.netAPayerStc ?? 0], ['Versé', situation?.totalRegle ?? dossier.montantTotalRegle ?? 0], ['Reste à payer', situation?.resteAPayer ?? dossier.soldeRestantAPayer ?? 0]].map(([label, amount]) =>
-                    <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
-                        <p className="text-xs text-[var(--color-fg-muted)]">{label}</p><p className="mt-1 font-data text-lg font-bold text-[var(--color-fg)]">{formatMoneyAr(amount)}</p>
-                    </div>)}
+        {dossier?.idStc && <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+            <div className="border-b border-[var(--color-border-subtle)] p-4">
+                <div className="flex items-center gap-2"><Wallet size={18} className="text-[var(--color-brand-600)]" /><h3 className="text-base font-bold text-[var(--color-fg)]">Règlements du STC</h3></div>
+                <p className="mt-1.5 text-sm leading-5 text-[var(--color-fg-muted)]">Les paiements enregistrés sont listés ici. Télécharger un justificatif n’enregistre pas un nouveau paiement.</p>
             </div>
-            <p className="text-xs text-[var(--color-fg-muted)]">Chaque versement apparaît dans le journal. Un document téléchargé ne constate aucun nouveau paiement.</p>
-            {(situation?.reglements || dossier.reglements || []).map(row => <div key={row.idReglement} className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--color-border-subtle)] py-3">
-                <span>{fmtDate(row.dateReglement)} · {row.referenceReglement} · {formatMoneyAr(row.montantRegle)} · {row.modeReglement} {row.estAnnule && <strong className="text-[var(--color-danger-700)]">ANNULÉ</strong>}</span>
-                <div className="flex gap-3"><Button type="button" variant="outline" size="xs" disabled={busy} onClick={() => download('quittance', row.idReglement)}>Justificatif PDF</Button>
-                    {!row.estAnnule && financialReady && !closed && <HasPermission authority="PAIE_WRITE"><Button type="button" variant="ghost" size="xs" disabled={busy} onClick={() => setCancellation({ idReglement: row.idReglement, motifAnnulation: '' })}>Annuler ce règlement</Button></HasPermission>}
-                </div>
-            </div>)}
-            {mayPay && <HasPermission authority="PAIE_WRITE"><form className="grid gap-3 border-t border-[var(--color-border-subtle)] pt-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); if (!busyRef.current) setConfirmation('payment'); }}>
+            <div className="grid gap-px bg-[var(--color-border-subtle)] sm:grid-cols-3">
+                {[
+                    { label: 'Total dû', amount: situation?.netAPayerStc ?? dossier.netAPayerStc ?? 0 },
+                    { label: 'Total versé', amount: situation?.totalRegle ?? dossier.montantTotalRegle ?? 0 },
+                    { label: 'Reste à payer', amount: situation?.resteAPayer ?? dossier.soldeRestantAPayer ?? 0, remaining: true },
+                ].map(({ label, amount, remaining }) => {
+                    const settled = remaining && Number(amount) <= 0;
+                    return <div key={label} className={`flex min-h-20 flex-col items-start justify-center gap-1 px-4 py-3 ${settled ? 'bg-[var(--color-success-50)]' : 'bg-[var(--color-surface)]'}`}>
+                        <div className="flex w-full items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-[var(--color-fg-muted)]">{label}</span>
+                            {settled && <span className="border border-[var(--color-success-200)] px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-success-700)]">Soldé</span>}
+                        </div>
+                        <span className={`font-data text-xl font-bold ${settled ? 'text-[var(--color-success-700)]' : 'text-[var(--color-fg)]'}`}>{formatMoneyAr(amount)}</span>
+                    </div>;
+                })}
+            </div>
+            <div className="p-4">
+                <h4 className="mb-3 text-sm font-bold text-[var(--color-fg)]">Historique des versements</h4>
+                {(situation?.reglements || dossier.reglements || []).length === 0 ? (
+                    <p className="border border-dashed border-[var(--color-border-subtle)] px-3 py-4 text-sm text-[var(--color-fg-muted)]">Aucun versement enregistré pour le moment.</p>
+                ) : <div className="divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)]">
+                    {(situation?.reglements || dossier.reglements || []).map(row => <div key={row.idReglement} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                        <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)_minmax(130px,auto)] sm:items-center">
+                            <span className="text-sm font-medium text-[var(--color-fg)]">{fmtDate(row.dateReglement)}</span>
+                            <span className="text-sm leading-5 text-[var(--color-fg)]">
+                                <span className="font-semibold">{row.modeReglement || 'Mode non renseigné'}</span>
+                                <span className="block text-[var(--color-fg-muted)]">Référence : {libelleReference(row.referenceReglement)}</span>
+                                {Number(row.partBulletinMensuel || 0) > 0 && <span className="block text-[var(--color-fg-muted)]">Affecté au bulletin mensuel : {formatMoneyAr(row.partBulletinMensuel)}</span>}
+                                {row.estAnnule && <strong className="ml-2 text-xs font-bold text-[var(--color-danger-700)]">Annulé</strong>}
+                            </span>
+                            <strong className="font-data text-lg font-bold text-[var(--color-fg)] sm:text-right">{formatMoneyAr(row.montantRegle)}</strong>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                            <Button type="button" variant="outline" size="xs" disabled={busy} onClick={() => download('quittance', row.idReglement)}>Quittance PDF</Button>
+                            {row.nomJustificatif && <Button type="button" variant="outline" size="xs" disabled={busy} onClick={() => run(() => dossierSortieService.telechargerPreuveReglement(id, row.idReglement), 'Preuve indisponible.')}>Preuve</Button>}
+                            {!row.estAnnule && (!row.nomJustificatif || (monthlyRemaining > 0 && Number(row.partBulletinMensuel || 0) === 0)) && <HasPermission authority="PAIE_WRITE"><Button type="button" variant="outline" size="xs" disabled={busy} onClick={() => setHistoricalAllocation({ idReglement: row.idReglement, montant: row.montantRegle, partBulletinMensuel: Math.min(Number(row.montantRegle), monthlyRemaining), hasProof: Boolean(row.nomJustificatif), file: null })}>Rapprocher</Button></HasPermission>}
+                            {!row.estAnnule && financialReady && !closed && <HasPermission authority="PAIE_WRITE"><Button type="button" variant="ghost" size="xs" disabled={busy} onClick={() => setCancellation({ idReglement: row.idReglement, motifAnnulation: '' })}>Annuler ce règlement</Button></HasPermission>}
+                        </div>
+                    </div>)}
+                </div>}
+            </div>
+            {historicalAllocation && <HasPermission authority="PAIE_WRITE"><form className="grid gap-3 border-t border-[var(--color-border-subtle)] p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); if (historicalAllocation.file || historicalAllocation.hasProof) reconcileHistorical(); }}>
+                <h4 className="text-sm font-bold sm:col-span-2">Rapprocher un versement déjà enregistré</h4>
+                <MoneyInput label="Part affectée au bulletin mensuel (Ar)" min={0} max={Math.min(Number(historicalAllocation.montant), monthlyRemaining)} value={historicalAllocation.partBulletinMensuel} onValueChange={value => setHistoricalAllocation(p => ({ ...p, partBulletinMensuel: value }))} />
+                {!historicalAllocation.hasProof && <Input label="Preuve réelle du paiement" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={e => setHistoricalAllocation(p => ({ ...p, file: e.target.files?.[0] || null }))} />}
+                {historicalAllocation.hasProof && <p className="text-sm text-[var(--color-fg-muted)]">La preuve déjà enregistrée sera réutilisée.</p>}
+                <div className="flex gap-2 sm:col-span-2"><Button type="submit" disabled={busy || (!historicalAllocation.file && !historicalAllocation.hasProof)}>Enregistrer le rapprochement</Button><Button type="button" variant="outline" onClick={() => setHistoricalAllocation(null)}>Annuler</Button></div>
+            </form></HasPermission>}
+            {mayPay && <HasPermission authority="PAIE_WRITE"><form className="grid gap-3 border-t border-[var(--color-border-subtle)] p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); if (!busyRef.current && (zeroNetAttestation || paymentFile)) setConfirmation('payment'); }}>
                 <h4 className="text-sm font-bold text-[var(--color-fg)] sm:col-span-2">Nouveau règlement</h4>
                 <Input label="Date du règlement" type="date" required min={String(dossier.dateDepart || '').slice(0, 10) || undefined} max={getTodayDateString()} value={payment.dateReglement} onChange={e => setPayment(p => ({ ...p, dateReglement: e.target.value }))} />
-                <Select label="Mode du règlement" value={payment.modeReglement} onChange={value => setPayment(p => ({ ...p, modeReglement: value }))} options={[{ value: 'VIREMENT', label: 'Virement' }, { value: 'CHEQUE', label: 'Chèque' }, { value: 'ESPECES', label: 'Espèces' }]} />
+                <Select label="Mode du règlement" value={payment.modeReglement} onChange={value => setPayment(p => ({ ...p, modeReglement: value }))} options={[{ value: 'VIREMENT', label: 'Virement' }, { value: 'CHEQUE', label: 'Chèque' }, { value: 'ESPECES', label: 'Espèces' }, { value: 'MOBILE_MONEY', label: 'Mobile money' }]} />
                 <Input label="Référence du règlement" aria-label="Référence du règlement" required placeholder="Ex. référence bancaire" value={payment.referenceReglement} onChange={e => setPayment(p => ({ ...p, referenceReglement: e.target.value }))} />
-                <Input label="Montant du règlement (Ar)" aria-label="Montant du règlement" type="number" step="0.01" min={zeroNetAttestation ? '0' : '0.01'} max={situation?.resteAPayer ?? undefined} required value={zeroNetAttestation ? '0' : payment.montantRegle} disabled={zeroNetAttestation} onChange={e => setPayment(p => ({ ...p, montantRegle: e.target.value }))} />
+                <MoneyInput label="Montant du règlement (Ar)" aria-label="Montant du règlement" min={zeroNetAttestation ? 0 : 0.01} max={situation?.resteAPayer ?? undefined} required value={zeroNetAttestation ? 0 : payment.montantRegle} disabled={zeroNetAttestation} onValueChange={value => setPayment(p => ({ ...p, montantRegle: value, partBulletinMensuel: Math.min(Number(value || 0), monthlyRemaining) }))} />
+                {monthlyRemaining > 0 && !zeroNetAttestation && <MoneyInput label="Part affectée au bulletin mensuel (Ar)" min={0} max={Math.min(Number(payment.montantRegle || 0), monthlyRemaining)} value={payment.partBulletinMensuel} onValueChange={value => setPayment(p => ({ ...p, partBulletinMensuel: value }))} hint={`Solde mensuel inclus dans le STC : ${formatMoneyAr(monthlyRemaining)}. Ce montant ne crée pas un second paiement.`} />}
+                {!zeroNetAttestation && (
+                    <div className="sm:col-span-2">
+                        <Input label="Justificatif réel du versement (PDF, PNG, JPEG ; 5 Mo maximum)" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={e => setPaymentFile(e.target.files?.[0] || null)} />
+                    </div>
+                )}
                 <div className="flex justify-end sm:col-span-2"><Button type="submit" variant="primary" disabled={busy}>{zeroNetAttestation ? 'Attester le STC à solde nul' : 'Vérifier puis enregistrer'}</Button></div>
             </form></HasPermission>}
         </section>}
@@ -163,7 +240,7 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
             </div>
             <p className="text-xs text-[var(--color-fg-muted)]">Le reçu STC reste un projet. Télécharger un document ne constate ni remise ni signature.</p>
             {documents.length === 0 && <p className="text-sm text-[var(--color-fg-muted)]">Les documents apparaîtront selon l'état du contrat et du STC.</p>}
-            <div className="grid gap-2 sm:grid-cols-2">{documents.map(([kind, label]) => <Button key={kind} type="button" variant="outline" disabled={busy} onClick={() => download(kind)} className="min-h-11 justify-between text-left"><span>{label}</span><Download size={15} className="shrink-0" /></Button>)}</div>
+            <div className="grid gap-2 sm:grid-cols-3">{documents.map(([kind, label]) => <Button key={kind} type="button" variant="outline" disabled={busy} onClick={() => download(kind)} className="min-h-11 justify-between text-left"><span>{label}</span><Download size={15} className="shrink-0" /></Button>)}</div>
         </section>
         {mayClose && <HasPermission authority="PAIE_WRITE"><section className="space-y-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
             <h3 className="text-base font-bold text-[var(--color-fg)]">Clôture administrative</h3>

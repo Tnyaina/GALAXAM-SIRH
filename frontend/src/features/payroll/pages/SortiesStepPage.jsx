@@ -91,10 +91,18 @@ export default function SortiesStepPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard title="Période" value={periodCode} color="brand" subtext="Campagne traitée" />
-                    <StatCard title="Bulletins calculés" value={kpis.effectifCalcule ?? kpis.totalBulletins ?? '—'} color="info" subtext="Effectif payé" />
+                    <StatCard title="Bulletins calculés" value={kpis.effectifCalcule ?? kpis.totalBulletins ?? '—'} color="info" subtext="Règlements suivis séparément" />
                     <StatCard title="Brut total" value={totalBrut == null ? '—' : formatMoneyAr(totalBrut)} color="neutral" subtext="Masse salariale brute" />
-                    <StatCard title="Total Net à payer" value={totalNet == null ? '—' : formatMoneyAr(totalNet)} color="success" subtext="Virements bancaires" />
+                    <StatCard title="Total Net à payer" value={totalNet == null ? '—' : formatMoneyAr(totalNet)} color="success" subtext="Avant suivi des règlements" />
                 </div>
+
+                <Card shadow="none">
+                    <CardHeader><CardTitle size="sm">Paiements des bulletins</CardTitle></CardHeader>
+                    <CardBody className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-3"><CheckCircle2 size={18} className="mt-0.5 text-[var(--color-brand-600)] shrink-0" /><div><p className="text-sm font-semibold">Règlements individuels et lots de virements</p><p className="text-xs text-[var(--color-fg-muted)]">Enregistrez les paiements déjà effectués et consultez le reste à payer, même après clôture de la paie.</p></div></div>
+                        <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${id}/reglements`)}>Suivre les paiements</Button>
+                    </CardBody>
+                </Card>
 
                 <Card shadow="none">
                     <CardHeader><CardTitle size="sm">Documents de la période</CardTitle></CardHeader>

@@ -230,7 +230,9 @@ public class CongeService {
         }
         BigDecimal formule = calculerFormuleAcquisition(idEmploye, debutPeriode, finPeriode,
                 absencesInjustifiees, joursTravailEffectif, c);
-        BigDecimal joursNonEligibles = new BigDecimal("30").subtract(formule);
+        BigDecimal diviseur = BigDecimal.valueOf(getParamGlobalInt(
+                "DIVISEUR_JOURS_CALENDAIRE_CONGE", finPeriode, c));
+        BigDecimal joursNonEligibles = diviseur.subtract(formule).max(BigDecimal.ZERO);
         BigDecimal droitMois = calculerDroitAcquis(joursNonEligibles, finPeriode, c);
 
         // Protection anti-duplication au cutover (Phase 2A-3B) :
@@ -403,12 +405,19 @@ public class CongeService {
         int joursPalier = bonusActif ? entierBonificationPositif(params, codesBonification[2]) : 0;
 
         java.util.List<ContratActif> contrats = new java.util.ArrayList<>();
-        String sqlContrats = "SELECT ct.id_employe, ct.date_debut FROM contrat_travail ct " +
-                "JOIN ref_statut_rh s ON ct.id_statut_rh = s.id_statut_rh WHERE s.code = 'ACTIF'";
-        try (PreparedStatement ps = c.prepareStatement(sqlContrats); ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Date debut = rs.getDate("date_debut");
-                if (debut != null) contrats.add(new ContratActif(rs.getInt("id_employe"), debut.toLocalDate()));
+        String sqlContrats = "SELECT ct.id_employe, MIN(ct.date_debut) AS date_debut FROM contrat_travail ct " +
+                "JOIN ref_statut_rh s ON ct.id_statut_rh = s.id_statut_rh " +
+                "WHERE (s.code = 'ACTIF' OR (s.code IN ('CLOTURE', 'ROMPU') AND ct.date_fin IS NOT NULL)) " +
+                "AND ct.date_debut <= ? " +
+                "AND (ct.date_fin IS NULL OR ct.date_fin >= ?) GROUP BY ct.id_employe";
+        try (PreparedStatement ps = c.prepareStatement(sqlContrats)) {
+            ps.setDate(1, Date.valueOf(ref));
+            ps.setDate(2, Date.valueOf(ref));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Date debut = rs.getDate("date_debut");
+                    if (debut != null) contrats.add(new ContratActif(rs.getInt("id_employe"), debut.toLocalDate()));
+                }
             }
         }
 
@@ -423,11 +432,12 @@ public class CongeService {
         if (!idsEmployesEligibles.isEmpty()) {
             String placeholders = String.join(",", java.util.Collections.nCopies(idsEmployesEligibles.size(), "?"));
             String sqlMouvements = "SELECT id_employe, type_mouvement, date_mouvement, nb_jours " +
-                    "FROM mouvement_solde_conge WHERE id_employe IN (" + placeholders + ")";
+                    "FROM mouvement_solde_conge WHERE id_employe IN (" + placeholders + ") AND date_mouvement <= ?";
             try (PreparedStatement psMvt = c.prepareStatement(sqlMouvements)) {
                 for (int index = 0; index < idsEmployesEligibles.size(); index++) {
                     psMvt.setInt(index + 1, idsEmployesEligibles.get(index));
                 }
+                psMvt.setDate(idsEmployesEligibles.size() + 1, Date.valueOf(ref));
                 try (ResultSet rs = psMvt.executeQuery()) {
                     while (rs.next()) {
                         Date date = rs.getDate("date_mouvement");
@@ -855,6 +865,9 @@ public class CongeService {
         }
 
         BigDecimal ancienNbJours = d.getNbJoursDecomptes();
+        Date ancienneDateDebut = d.getDateDebut();
+        RefTypeConge ancienType = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
+        boolean ancienDebite = ancienType != null && ancienType.isDecompteSoldeAcquis();
 
         if (req != null) {
             if (req.idTypeConge() != null) d.setIdTypeConge(req.idTypeConge());
@@ -881,14 +894,46 @@ public class CongeService {
             }
         }
 
+        if (etaitValide) {
+            try (PreparedStatement psP = c.prepareStatement(
+                    "SELECT p.code FROM periode_paie p JOIN ref_statut_periode_paie r "
+                            + "ON p.id_statut_periode = r.id_statut_periode "
+                            + "WHERE p.date_debut <= ? AND p.date_fin >= ? "
+                            + "AND r.code IN ('CLOTUREE', 'PAIE_VALIDEE') LIMIT 1")) {
+                psP.setDate(1, d.getDateFin());
+                psP.setDate(2, d.getDateDebut());
+                try (ResultSet rs = psP.executeQuery()) {
+                    if (rs.next()) throw new IllegalStateException(
+                            "Impossible de déplacer un congé validé dans une période de paie déjà validée ou clôturée.");
+                }
+            }
+        }
         d.controler(c);
         d.update(c);
 
         if (etaitValide) {
             RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
-            if (typeConge != null && typeConge.isDecompteSoldeAcquis()) {
+            boolean nouveauDebite = typeConge != null && typeConge.isDecompteSoldeAcquis();
+            if (!ancienDebite && nouveauDebite) {
+                boolean priseExiste;
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT 1 FROM mouvement_solde_conge WHERE id_demande_conge=? AND type_mouvement='PRISE' LIMIT 1")) {
+                    ps.setInt(1, d.getIdDemandeConge());
+                    try (ResultSet rs = ps.executeQuery()) { priseExiste = rs.next(); }
+                }
+                MouvementSoldeConge prise = new MouvementSoldeConge();
+                prise.setIdEmploye(d.getIdEmploye());
+                prise.setTypeMouvement(priseExiste ? "AJUSTEMENT" : "PRISE");
+                prise.setNbJours(d.getNbJoursDecomptes().negate());
+                prise.setIdDemandeConge(d.getIdDemandeConge());
+                prise.setDateMouvement(d.getDateDebut());
+                prise.setCommentaire("Prise de congé après modification de la demande #" + d.getIdDemandeConge());
+                prise.setCreatedBy(currentUserId);
+                prise.save(c);
+            } else if (ancienDebite) {
                 BigDecimal nouveauNbJours = d.getNbJoursDecomptes();
-                BigDecimal delta = nouveauNbJours.subtract(ancienNbJours != null ? ancienNbJours : BigDecimal.ZERO);
+                BigDecimal delta = (nouveauDebite ? nouveauNbJours : BigDecimal.ZERO)
+                        .subtract(ancienNbJours != null ? ancienNbJours : BigDecimal.ZERO);
                 if (delta.compareTo(BigDecimal.ZERO) != 0) {
                     MouvementSoldeConge ajustement = new MouvementSoldeConge();
                     ajustement.setIdEmploye(d.getIdEmploye());
@@ -897,9 +942,20 @@ public class CongeService {
                     ajustement.setIdDemandeConge(d.getIdDemandeConge());
                     ajustement.setDateMouvement(d.getDateDebut());
                     ajustement.setCommentaire("Ajustement de solde suite modification durée de la demande #" + d.getIdDemandeConge()
-                            + " (" + ancienNbJours + "j -> " + nouveauNbJours + "j)");
+                            + " (débit " + ancienNbJours + "j -> "
+                            + (nouveauDebite ? nouveauNbJours : BigDecimal.ZERO) + "j)");
                     ajustement.setCreatedBy(currentUserId);
                     ajustement.save(c);
+                }
+            }
+
+            if (!ancienneDateDebut.equals(d.getDateDebut())) {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE mouvement_solde_conge SET date_mouvement=? "
+                                + "WHERE id_demande_conge=? AND type_mouvement IN ('PRISE','AJUSTEMENT')")) {
+                    ps.setDate(1, d.getDateDebut());
+                    ps.setInt(2, d.getIdDemandeConge());
+                    ps.executeUpdate();
                 }
             }
 

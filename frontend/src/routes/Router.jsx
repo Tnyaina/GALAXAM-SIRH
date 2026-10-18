@@ -36,6 +36,7 @@ const CalculStepPage       = lazy(() => import("@/features/payroll/pages/CalculS
 const ControleStepPage     = lazy(() => import("@/features/payroll/pages/ControleStepPage"));
 const ValidationStepPage   = lazy(() => import("@/features/payroll/pages/ValidationStepPage"));
 const SortiesStepPage      = lazy(() => import("@/features/payroll/pages/SortiesStepPage"));
+const ReglementsBulletinsPage = lazy(() => import("@/features/payroll/pages/ReglementsBulletinsPage"));
 
 // Sprint UX 2 — Espaces dédiés Paie V1 Full V3
 const AcomptesAvancesPage       = lazy(() => import("@/features/payroll/pages/AcomptesAvancesPage"));
@@ -175,9 +176,9 @@ export default function Router() {
                         <Route path="/paie/dossiers-sortie/:id" element={<DossierSortieDetailPage />} />
                     </Route>
 
-                    {/* Module Paie & Rémunération (Admin DAF)              */}
+                    {/* Module Paie & Rémunération */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute requiredPermission="PAIE_READ" allowedRoles={["ROLE_ADMIN"]} />}>
+                    <Route element={<ProtectedRoute requiredPermission="PAIE_READ" />}>
                         {/* Page d'accueil paie : Centre de paie opérationnel */}
                         <Route path="/paie" element={<GestionPaiePage />} />
                         <Route path="/paie/prestataires" element={<PrestatairesPage />} />
@@ -199,6 +200,7 @@ export default function Router() {
                         <Route path="/paie/periodes/:periodId"              element={<Navigate to="preparation" replace />} />
                         <Route path="/paie/periodes/:periodId/validation"   element={<ValidationStepPage />} />
                         <Route path="/paie/periodes/:periodId/sorties"      element={<SortiesStepPage />} />
+                        <Route path="/paie/periodes/:periodId/reglements"  element={<ReglementsBulletinsPage />} />
                         <Route path="/paie/periodes/:periodId/calculation"  element={<Navigate to="calcul" replace />} />
                         <Route path="/paie/periodes/:periodId/outputs"      element={<Navigate to="sorties" replace />} />
 

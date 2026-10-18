@@ -128,7 +128,6 @@ export default function DocumentOfficielModal({
     const superieur = docData?.superieurHierarchique || '';
     const tempsTravail = docData?.tempsTravail || 'plein';
     const heuresHebdo = docData?.heuresHebdomadaires || 40;
-    const mentionLiberatoire = docData?.mentionLiberatoire || "Nous confirmons que le/la salarié(e) quitte l'entreprise libre de tout engagement et de toute dette envers la société.";
     const postesOccupes = docData?.postesOccupes || [];
 
     const modalFooter = (
@@ -393,11 +392,11 @@ export default function DocumentOfficielModal({
                                         )}
 
                                         <p>
-                                            Le contrat de travail a pris fin le <strong>{dateSortieTexte}</strong>. {mentionLiberatoire}
+                                            Le contrat de travail a pris fin le <strong>{dateSortieTexte}</strong>.
                                         </p>
 
                                         <p>
-                                            Le présent certificat est délivré pour servir et valoir ce que de droit, conformément aux dispositions légales et conventionnelles applicables. Nous confirmons que le/la salarié(e) a rempli ses fonctions avec sérieux et professionnalisme durant toute la durée de sa collaboration au sein de notre entreprise.
+                                            Le présent certificat est délivré pour servir et valoir ce que de droit.
                                         </p>
                                     </>
                                 )}

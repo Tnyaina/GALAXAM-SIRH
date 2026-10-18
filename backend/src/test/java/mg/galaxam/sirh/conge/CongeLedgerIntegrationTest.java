@@ -48,6 +48,54 @@ class CongeLedgerIntegrationTest {
     private int typeAnnuelId;
 
     @Test
+    void acquisitionPartielleRespecteLeDiviseurConfigure() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE parametre_global SET valeur='26' WHERE code_parametre='DIVISEUR_JOURS_CALENDAIRE_CONGE'")) {
+                    ps.executeUpdate();
+                }
+                BigDecimal acquis = congeService.enregistrerAcquisitionMensuelle(
+                        employeId, 2026, 3, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+                        new BigDecimal("15"), null, adminUserId, c);
+                assertEquals(0, new BigDecimal("1.4423").compareTo(acquis));
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    @Test
+    void rattrapageBonificationUtiliseLaSituationALaDateDeReference() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE contrat_travail SET date_debut=?, date_fin=?, "
+                                + "id_statut_rh=(SELECT id_statut_rh FROM ref_statut_rh WHERE code='CLOTURE') "
+                                + "WHERE id_employe=?")) {
+                    ps.setDate(1, Date.valueOf("2010-01-01"));
+                    ps.setDate(2, Date.valueOf("2027-01-31"));
+                    ps.setInt(3, employeId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO mouvement_solde_conge(id_employe,type_mouvement,nb_jours,date_mouvement,commentaire) "
+                                + "VALUES (?, 'AJUSTEMENT', 900, ?, 'Mouvement futur')")) {
+                    ps.setInt(1, employeId);
+                    ps.setDate(2, Date.valueOf("2027-12-31"));
+                    ps.executeUpdate();
+                }
+                congeService.executerBonificationMensuelle(LocalDate.of(2026, 9, 30), c);
+                assertEquals(1, nombreBonifications(c));
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    @Test
     void palierBonificationDesactiveNeReintroduitPasUnPalierParDefaut() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

@@ -7,7 +7,6 @@ import {
     Clock,
     FolderCheck,
     Plus,
-    RefreshCw,
     Search,
     User,
     UserMinus,
@@ -20,10 +19,10 @@ import Input from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
+import { Card } from '@/components/ui/data-display/Card';
 import StatCard from '@/components/ui/data-display/StatCard';
 import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -43,6 +42,26 @@ const FILTRES_STATUTS = [
     { value: 'CLOTURE', label: 'Clôturés' },
     { value: 'ANNULE', label: 'Annulés' },
 ];
+
+const LIBELLES_STATUT = {
+    EN_PREPARATION: 'En préparation',
+    PRET_A_VALIDER: 'Prêt à valider',
+    VALIDE: 'STC validé',
+    REGLE: 'STC réglé',
+    CLOTURE: 'Clôturé',
+    ANNULE: 'Annulé',
+    ROMPU: 'Terminé',
+    TERMINE: 'Terminé',
+};
+const libelleStatut = (code) => LIBELLES_STATUT[code] || code || 'À vérifier';
+const LIBELLES_MOTIF = {
+    DEMISSION: 'Démission',
+    LICENCIEMENT_SIMPLE: 'Licenciement',
+    FIN_CONTRAT: 'Fin de contrat',
+    RUPTURE_CONVENTIONNELLE: 'Rupture conventionnelle',
+    RETRAITE: 'Retraite',
+    FAUTE_LOURDE: 'Faute lourde',
+};
 
 export default function DossiersSortiePage() {
     const navigate = useNavigate();
@@ -124,21 +143,13 @@ export default function DossiersSortiePage() {
             <PageHeader
                 title="Dossiers de sortie & STC"
                 subtitle="Préparation des départs, suivi financier, formalités RH et documents de sortie."
+                icon={UserMinus}
                 breadcrumbs={[
                     { label: 'Espace Paie', href: user?.role === 'ROLE_ADMIN' ? '/paie' : undefined },
                     { label: 'Dossiers de sortie' },
                 ]}
                 actions={
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={chargerDossiers}
-                            loading={loading}
-                            iconLeft={<RefreshCw size={14} />}
-                        >
-                            Actualiser
-                        </Button>
                         {canWrite && <Button
                             variant="primary"
                             size="sm"
@@ -156,12 +167,12 @@ export default function DossiersSortiePage() {
             )}
 
             {/* StatCards KPI */}
-            {!loading && dossiers.length > 0 && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {!loading && dossiers.length > 0 && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <StatCard
-                    title="Total départs enregistrés"
+                    title="Dossiers enregistrés"
                     value={stats.total}
                     icon={<UserMinus size={18} />}
-                    subtext="Actifs ou traités"
+                    subtext="Tous les départs"
                     color="brand"
                 />
                 <StatCard
@@ -188,7 +199,12 @@ export default function DossiersSortiePage() {
             </div>}
 
             {/* Barre de filtres et recherche */}
-            {(loading || dossiers.length > 0) && <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <Card as="section" shadow="none" className="overflow-hidden" aria-label="Liste des dossiers de sortie">
+            {(loading || dossiers.length > 0) && <div className="border-b border-[var(--color-border-subtle)] p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 sm:mr-auto">
+                    <h2 className="text-sm font-bold text-[var(--color-fg)]">Dossiers</h2>
+                    <Badge variant="neutral" size="sm">{dossiersFiltres.length}</Badge>
+                </div>
                 <div className="flex-1 max-w-md relative">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
                     <Input
@@ -210,8 +226,8 @@ export default function DossiersSortiePage() {
                 </div>
             </div>}
 
-            {/* Tableau principal des dossiers */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+            {/* Liste des dossiers */}
+            <div className="space-y-3 p-3 sm:p-4">
                 {loading ? (
                     <SkeletonTable rows={5} columns={6} />
                 ) : dossiersFiltres.length === 0 ? (
@@ -226,66 +242,56 @@ export default function DossiersSortiePage() {
                         actionIcon={<Plus size={14} />}
                     />
                 ) : (
-                    <Table>
-                        <Thead>
-                            <Tr>
-                                <Th>Collaborateur</Th>
-                                <Th>Départ et contrat</Th>
-                                <Th>Dossier</Th>
-                                <Th>Contrôles et certificat</Th>
-                                <Th>STC financier</Th>
-                                <Th className="text-right">Action</Th>
-                            </Tr>
-                        </Thead>
-                        <Tbody>
-                            {dossiersFiltres.map((d) => {
+                    dossiersFiltres.map((d) => {
                                 const totalCheck = d.checklist?.length || 0;
                                 const nbConforme = d.checklist?.filter(c => c.statut === 'CONFORME').length || 0;
                                 const nbBloquants = d.checklist?.filter(c => c.niveau === 'BLOQUANT' && c.statut === 'NON_CONFORME').length || 0;
 
                                 return (
-                                    <Tr key={d.idDossierSortie || d.idEmploye}>
-                                        <Td>
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="w-8 h-8 rounded-none bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center font-bold text-[11px] text-[var(--color-brand-600)]">
-                                                    {d.matricule ? d.matricule.slice(-3) : <User size={14} />}
+                                    <article
+                                        key={d.idDossierSortie || d.idEmploye}
+                                        className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] transition-colors hover:border-[var(--color-brand-300)]"
+                                    >
+                                        <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(210px,1.45fr)_minmax(130px,.8fr)_minmax(130px,.8fr)_minmax(190px,1.15fr)_minmax(145px,.9fr)_auto] lg:items-center">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <div className="grid h-10 w-10 shrink-0 place-items-center border border-[var(--color-brand-200)] bg-[var(--color-brand-50)] text-[var(--color-brand-700)]">
+                                                    <User size={18} aria-hidden="true" />
                                                 </div>
-                                                <div>
-                                                    <div className="font-bold text-xs text-[var(--color-fg)]">
+                                                <div className="min-w-0">
+                                                    <div className="truncate text-sm font-bold text-[var(--color-fg)]">
                                                         {d.nomComplet || 'Salarié non identifié'}
                                                     </div>
-                                                    <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                                        {d.matricule} · {d.intitulePoste || d.departement || 'Salarié'}
+                                                    <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                                                        <span className="font-medium text-[var(--color-fg)]">{d.matricule || 'Matricule manquant'}</span>
+                                                        <span aria-hidden="true"> · </span>
+                                                        {d.intitulePoste || d.departement || 'Salarié'}
                                                     </div>
                                                 </div>
                                             </div>
-                                        </Td>
-                                        <Td>
-                                            <div className="text-xs font-semibold text-[var(--color-fg)]">
-                                                {fmtDate(d.dateDepart)}
+                                            <div>
+                                                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Départ</div>
+                                                <div className="text-sm font-semibold text-[var(--color-fg)]">{fmtDate(d.dateDepart)}</div>
+                                                <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">{LIBELLES_MOTIF[d.motifRupture] || d.motifRupture || 'Motif à vérifier'}</div>
+                                                <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">{d.typeContrat || 'Contrat'} · {libelleStatut(d.statutContrat)}</div>
                                             </div>
-                                            <div className="text-[11px] text-[var(--color-fg-muted)]">{d.motifRupture || 'Motif à vérifier'}</div>
-                                            <div className="mt-1 text-[11px] text-[var(--color-fg-muted)]">
-                                                {d.typeContrat || 'Contrat'} · {d.statutContrat || 'Statut à vérifier'}
+                                            <div>
+                                                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">État du dossier</div>
+                                                <Badge
+                                                    variant={
+                                                        d.statutDossier === 'CLOTURE' || d.statutDossier === 'REGLE' ? 'success' :
+                                                        d.statutDossier === 'VALIDE' ? 'primary' :
+                                                        d.statutDossier === 'PRET_A_VALIDER' ? 'info' : 'warning'
+                                                    }
+                                                    size="sm"
+                                                >
+                                                    {libelleStatut(d.statutDossier || 'EN_PREPARATION')}
+                                                </Badge>
+                                                {d.statutDossier === 'CLOTURE' && Number(d.soldeRestantAPayer) > 0 &&
+                                                    <div className="mt-1 text-[10px] text-[var(--color-warning-700)]">Dette restante · dérogation</div>}
                                             </div>
-                                        </Td>
-                                        <Td>
-                                            <Badge
-                                                variant={
-                                                    d.statutDossier === 'CLOTURE' ? 'success' :
-                                                    d.statutDossier === 'VALIDE' ? 'primary' :
-                                                    d.statutDossier === 'PRET_A_VALIDER' ? 'info' : 'warning'
-                                                }
-                                                size="sm"
-                                            >
-                                                {d.statutDossier || 'EN_PREPARATION'}
-                                            </Badge>
-                                            {d.statutDossier === 'CLOTURE' && Number(d.soldeRestantAPayer) > 0 &&
-                                                <div className="text-[10px] text-[var(--color-warning-700)] mt-1">Dette restante · dérogation</div>}
-                                        </Td>
-                                        <Td>
-                                            {totalCheck > 0 ? (
-                                                <div className="space-y-0.5">
+                                            <div>
+                                                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Vérifications</div>
+                                                {totalCheck > 0 ? <>
                                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                                                         {nbBloquants > 0 ? (
                                                             <span className="text-[var(--color-danger-700)] flex items-center gap-1">
@@ -300,56 +306,46 @@ export default function DossiersSortiePage() {
                                                     <span className="text-[10px] text-[var(--color-fg-muted)]">
                                                         {nbConforme} / {totalCheck} points validés
                                                     </span>
+                                                </> : <span className="text-xs text-[var(--color-fg-muted)]">À initialiser</span>}
+                                                <div className="mt-1.5 text-[11px]">
+                                                    <span className={d.certificatDelivre ? 'font-medium text-[var(--color-success-700)]' : 'font-medium text-[var(--color-warning-700)]'}>
+                                                        {d.certificatDelivre ? `Certificat remis · ${fmtDate(d.dateDelivranceCertificat)}` : 'Certificat à remettre'}
+                                                    </span>
                                                 </div>
-                                            ) : (
-                                                <span className="text-xs text-[var(--color-fg-muted)]">À initialiser</span>
-                                            )}
-                                            <div className="mt-2">
-                                                {d.certificatDelivre ? (
-                                                    <Badge variant="success" size="xs">
-                                                        Certificat remis le {fmtDate(d.dateDelivranceCertificat)}
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="warning" size="xs">
-                                                        Certificat non remis
-                                                    </Badge>
-                                                )}
                                             </div>
-                                        </Td>
-                                        <Td>
+                                            <div>
+                                                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">STC financier</div>
                                             {d.idStc ? (
-                                                <div className="text-xs">
-                                                    <strong className="text-[var(--color-success-700)] font-data">
+                                                <div>
+                                                    <strong className="font-data text-sm font-bold text-[var(--color-success-700)]">
                                                         {d.netAPayerStc != null ? formatMoneyAr(d.netAPayerStc) : 'Validé'}
                                                     </strong>
-                                                    <span className="block text-[10px] text-[var(--color-fg-muted)]">
-                                                        N° {d.numeroRecu || d.idStc}
+                                                    <span className="mt-0.5 block text-[11px] text-[var(--color-fg-muted)]">
+                                                        Réf. {d.numeroRecu || d.idStc}
                                                     </span>
-                                                    <span className="block text-[10px] text-[var(--color-fg-muted)]">Reste : {formatMoneyAr(d.soldeRestantAPayer ?? 0)}</span>
+                                                    <span className="block text-[11px] text-[var(--color-fg-muted)]">À payer : {formatMoneyAr(d.soldeRestantAPayer ?? 0)}</span>
                                                 </div>
                                             ) : (
                                                 <span className="text-xs text-[var(--color-fg-muted)] ">
                                                     Non scellé
                                                 </span>
                                             )}
-                                        </Td>
-                                        <Td className="text-right">
+                                            </div>
                                             <Button
                                                 variant="outline"
-                                                size="xs"
+                                                size="sm"
                                                 onClick={() => handleOpenDossier(d.idDossierSortie)}
                                                 iconRight={<ArrowRight size={13} />}
                                             >
-                                                {canWrite ? 'Traiter' : 'Consulter'}
+                                                Ouvrir
                                             </Button>
-                                        </Td>
-                                    </Tr>
+                                        </div>
+                                    </article>
                                 );
-                            })}
-                        </Tbody>
-                    </Table>
+                    })
                 )}
             </div>
+            </Card>
 
             {/* Modale d'initialisation d'un nouveau dossier */}
             <Modal

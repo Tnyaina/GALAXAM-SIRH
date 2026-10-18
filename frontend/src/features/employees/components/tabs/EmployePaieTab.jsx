@@ -35,6 +35,7 @@ import DemandeAcompteAvanceModal from '@/features/employees/components/modals/De
 
 // Lazy loading des lourds modules et modales de paie externes
 const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/views/BulletinPaieDrawer'));
+const BulletinReglementSlideOver = lazy(() => import('@/features/payroll/components/views/BulletinReglementSlideOver'));
 const StcPreparationModal = lazy(() => import('@/features/payroll/components/modals/stc/StcPreparationModal'));
 const StcRecuModal = lazy(() => import('@/features/payroll/components/modals/stc/StcRecuModal'));
 
@@ -68,7 +69,7 @@ function AccordionSection({ id, icon, title, badge = null, children, defaultOpen
     );
 }
 
-export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
+export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead = true }) {
     const navigate = useNavigate();
     // État local : synthèse, documents ouverts et retours d'action.
     const [loading, setLoading] = useState(true);
@@ -80,6 +81,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
     const [stcList, setStcList] = useState([]);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [reglementBulletinId, setReglementBulletinId] = useState(null);
     const [isStcPrepOpen, setIsStcPrepOpen] = useState(false);
     const [selectedStcRecuId, setSelectedStcRecuId] = useState(null);
     const [isDemandeOpen, setIsDemandeOpen] = useState(false);
@@ -319,7 +321,11 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                             <Badge variant={b.badgeVariant || (b.isValide || b.isCloture ? 'success' : b.isCalcule ? 'info' : 'default')} size="xs">{b.statut}</Badge>
                                         </Td>
                                         <Td className="text-right">
-                                            <Button type="button" variant="outline" size="xs" iconLeft={<Eye size={12} />} onClick={() => handleVoirBulletin(b.idBulletin)}>Voir</Button>
+                                            <div className="flex justify-end gap-2">
+                                                <Button type="button" variant="outline" size="xs" iconLeft={<Eye size={12} />} onClick={() => handleVoirBulletin(b.idBulletin)}>Voir</Button>
+                                                {canRead && (b.typeBulletin || 'MENSUEL') === 'MENSUEL' && ['VALIDE', 'CLOTURE'].includes(b.statut) &&
+                                                    <Button type="button" variant="outline" size="xs" iconLeft={<Banknote size={12} />} onClick={() => setReglementBulletinId(b.idBulletin)}>Règlements</Button>}
+                                            </div>
                                         </Td>
                                     </Tr>
                                 ))}
@@ -505,6 +511,10 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
 
             {/* ===== MODALES (Lazy) ===== */}
             <Suspense fallback={null}>
+                {reglementBulletinId && <BulletinReglementSlideOver
+                    isOpen idBulletin={reglementBulletinId} canWrite={canWrite}
+                    onClose={() => setReglementBulletinId(null)}
+                    onChanged={() => chargerDonnees({ silent: true })} />}
                 {isDrawerOpen && (
                     <BulletinPaieDrawer
                         isOpen={isDrawerOpen}

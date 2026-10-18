@@ -21,8 +21,9 @@ export default function VariablesStepPage() {
     const canMutate = addVariableCapability?.allowed === true;
     const mutationDisabledReason = (addVariableCapability?.reasonCodes || []).join(', ') || 'La période est en lecture seule.';
     const [pendingCount, setPendingCount] = useState(null);
+    const [variablesError, setVariablesError] = useState(null);
 
-    useEffect(() => { setPendingCount(null); }, [activePeriodId]);
+    useEffect(() => { setPendingCount(null); setVariablesError(null); }, [activePeriodId]);
 
     // Actions
     const handleVariableChange = () => refreshSilent();
@@ -44,7 +45,13 @@ export default function VariablesStepPage() {
                 label: 'Calcul de la paie',
                 destination: `/paie/periodes/${activePeriodId}/calcul`,
                 disabled: pendingCount === null || pendingCount > 0,
-                disabledReason: pendingCount === null ? 'Chargement des variables.' : pendingCount > 0 ? `${pendingCount} variable(s) à approuver avant le calcul.` : undefined,
+                disabledReason: variablesError
+                    ? 'Impossible de vérifier les variables en attente suite à une erreur réseau.'
+                    : pendingCount === null
+                        ? 'Chargement des variables…'
+                        : pendingCount > 0
+                            ? `${pendingCount} variable(s) à approuver avant le calcul.`
+                            : undefined,
             }}
         >
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 sm:p-5">
@@ -52,7 +59,7 @@ export default function VariablesStepPage() {
                     <VariablesPaieTab
                         idPeriodeActive={activePeriodId}
                         onVariableChanged={handleVariableChange}
-                        onPendingCountChange={setPendingCount}
+                        onPendingCountChange={(count, err) => { setPendingCount(count); setVariablesError(err); }}
                         canMutate={canMutate}
                         mutationDisabledReason={mutationDisabledReason}
                         periodStatus={context?.selectedPeriod?.statutCode || context?.selectedPeriod?.statut || context?.selectedPeriod?.state || context?.currentPeriod?.statutCode || context?.currentPeriod?.statut || context?.currentPeriod?.state}

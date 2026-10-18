@@ -4,6 +4,7 @@ package mg.galaxam.sirh.paie.api;
 import jakarta.validation.Valid;
 import java.sql.Connection;
 import java.sql.Date;
+import java.math.BigDecimal;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
@@ -17,13 +18,17 @@ import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
 import mg.galaxam.sirh.paie.application.StcService;
+import mg.galaxam.sirh.paie.application.StcPaymentReconciliationService;
+import mg.galaxam.sirh.paie.application.PaymentEvidence;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Contrôleur REST pour la gestion, simulation et émission du Solde de Tout Compte (STC).
@@ -35,10 +40,12 @@ public class StcController {
 
     private final DataSource dataSource;
     private final StcService stcService;
+    private final StcPaymentReconciliationService reconciliation;
 
-    public StcController(DataSource dataSource, StcService stcService) {
+    public StcController(DataSource dataSource, StcService stcService, StcPaymentReconciliationService reconciliation) {
         this.dataSource = dataSource;
         this.stcService = stcService;
+        this.reconciliation = reconciliation;
     }
 
     /**
@@ -153,23 +160,34 @@ public class StcController {
             @PathVariable("idStc") Integer idStc,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyHeader,
             @Valid @RequestBody StcReglementRequest req) throws Exception {
+        throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                "Utilisez le règlement STC justifié avec une pièce réelle et la part mensuelle.");
+    }
+
+    @PostMapping(value = "/{idStc}/reglement-justifie", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<StcSituationReglementDTO> enregistrerReglementJustifie(
+            @PathVariable("idStc") Integer idStc,
+            @RequestHeader("X-Idempotency-Key") String idempotencyKey,
+            @RequestParam String dateReglement, @RequestParam String referenceReglement,
+            @RequestParam BigDecimal montantRegle, @RequestParam String modeReglement,
+            @RequestParam(defaultValue = "0") BigDecimal partBulletinMensuel,
+            @RequestParam(value = "file", required = false) MultipartFile file) throws Exception {
+        PaymentEvidence preuve = montantRegle != null && montantRegle.signum() > 0 ? PaymentEvidence.from(file) : null;
+        if (idempotencyKey == null || idempotencyKey.isBlank())
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Clé d'idempotence obligatoire.");
         Integer userId = getCurrentUserId();
-        StcReglementRequest effectiveReq = req;
-        if ((req.idempotencyKey() == null || req.idempotencyKey().isBlank())
-                && idempotencyHeader != null && !idempotencyHeader.isBlank()) {
-            effectiveReq = new StcReglementRequest(
-                    req.dateReglement(),
-                    req.referenceReglement(),
-                    req.montantRegle(),
-                    req.modeReglement(),
-                    req.commentaire(),
-                    idempotencyHeader.trim()
-            );
-        }
+        StcReglementRequest req = new StcReglementRequest(Date.valueOf(dateReglement), referenceReglement,
+                montantRegle, modeReglement, null, idempotencyKey.trim());
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                StcSituationReglementDTO sit = stcService.enregistrerReglement(idStc, effectiveReq, userId, c);
+                StcSituationReglementDTO sit = stcService.enregistrerReglement(idStc, req, userId, c);
+                if (preuve != null) reconciliation.affecter(c, idStc,
+                        reconciliation.idReglement(c, idStc, idempotencyKey.trim()), partBulletinMensuel, preuve, userId);
+                else if (partBulletinMensuel != null && partBulletinMensuel.signum() > 0)
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Une affectation mensuelle exige une preuve réelle.");
+                sit = stcService.obtenirSituationReglements(idStc, c);
                 c.commit();
                 return ResponseEntity.ok(sit);
             } catch (Exception ex) {

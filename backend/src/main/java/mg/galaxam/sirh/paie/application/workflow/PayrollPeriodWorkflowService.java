@@ -315,7 +315,7 @@ public class PayrollPeriodWorkflowService {
         if (List.of("A_VALIDER", "TRANSMIS_DAF").contains(state)) return "VALIDATION_POINTAGE";
         if ("CLOTUREE".equals(state)) return "OUTPUTS";
 
-        int total = count(connection, "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", period.id());
+        int total = count(connection, "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL'", period.id());
         if (total == 0) return "PREPARATION";
 
         if (computeRecalculationCount(period.id(), state, connection) > 0) return "CALCULATION";
@@ -324,11 +324,11 @@ public class PayrollPeriodWorkflowService {
         }
 
         int valide = count(connection,
-                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')", period.id());
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' AND statut IN ('VALIDE','CLOTURE')", period.id());
         if (valide == total) return "PAIE_VALIDEE".equals(state) ? "OUTPUTS" : "VALIDATION";
 
         int calcule = count(connection,
-                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", period.id());
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' AND statut = 'CALCULE'", period.id());
         return calcule > 0 ? "CONTROL" : "CALCULATION";
     }
 
@@ -345,11 +345,11 @@ public class PayrollPeriodWorkflowService {
         boolean cloturee = "CLOTUREE".equals(state);
 
         int total = paieOk ? count(connection,
-                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", periodId) : 0;
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL'", periodId) : 0;
         int calcule = paieOk && total > 0 ? count(connection,
-                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId) : 0;
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' AND statut = 'CALCULE'", periodId) : 0;
         int valide = paieOk && total > 0 ? count(connection,
-                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')", periodId) : 0;
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' AND statut IN ('VALIDE','CLOTURE')", periodId) : 0;
         boolean hasSnapshot = paieOk && count(connection,
                 "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
                 + "AND statut_snapshot IN ('GELE','CONSOMME')", periodId) > 0;
@@ -493,14 +493,14 @@ public class PayrollPeriodWorkflowService {
     private int computeRecalculationCount(int periodId, String state, Connection connection) throws SQLException {
         if (!List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state)) return 0;
         int bulletinCount = count(connection,
-                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? "
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' "
                 + "AND statut IN ('CALCULE','VALIDE','CLOTURE')", periodId);
         if (bulletinCount == 0) return 0;
 
         String cancelledAdjustment = mg.galaxam.sirh.paie.domain.PayrollStatuses.cancelledAdjustmentSql("a.statut");
         String sql = "SELECT COUNT(*) FROM paie_avance_acompte a "
                 + "JOIN bulletin_paie b ON b.id_periode_paie = a.id_periode_paie "
-                + "AND b.id_employe = a.id_employe "
+                + "AND b.id_employe = a.id_employe AND COALESCE(b.type_bulletin,'MENSUEL') = 'MENSUEL' "
                 + "WHERE a.id_periode_paie = ? AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
                 + "AND ((NOT (" + cancelledAdjustment + ") AND a.statut <> 'REJETE') OR a.id_bulletin IS NOT NULL) "
                 + "AND a.updated_at > COALESCE(b.updated_at, b.date_calcul, '1970-01-01'::timestamptz)";
@@ -510,7 +510,7 @@ public class PayrollPeriodWorkflowService {
                 result.next();
                 int changedVariables = result.getInt(1);
                 String staleSnapshotsSql = "SELECT COUNT(*) FROM bulletin_paie b "
-                        + "WHERE b.id_periode_paie = ? "
+                        + "WHERE b.id_periode_paie = ? AND COALESCE(b.type_bulletin,'MENSUEL') = 'MENSUEL' "
                         + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
                         + "AND b.id_snapshot_pointage IS NOT NULL "
                         + "AND NOT EXISTS ("
@@ -531,7 +531,16 @@ public class PayrollPeriodWorkflowService {
                     snapshots.setInt(1, periodId);
                     try (ResultSet stale = snapshots.executeQuery()) {
                         stale.next();
-                        return changedVariables + stale.getInt(1);
+                        int staleAttendance = stale.getInt(1);
+                        int changedEmployment = count(connection,
+                                "SELECT COUNT(*) FROM bulletin_paie b WHERE b.id_periode_paie = ? "
+                                + "AND COALESCE(b.type_bulletin,'MENSUEL') = 'MENSUEL' "
+                                + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') AND b.date_calcul IS NOT NULL "
+                                + "AND (EXISTS (SELECT 1 FROM employe_affectation_carriere a "
+                                + "WHERE a.id_employe = b.id_employe AND a.updated_at > b.date_calcul) "
+                                + "OR EXISTS (SELECT 1 FROM contrat_travail ct "
+                                + "WHERE ct.id_employe = b.id_employe AND ct.updated_at > b.date_calcul))", periodId);
+                        return changedVariables + staleAttendance + changedEmployment;
                     }
                 }
             }
@@ -855,7 +864,7 @@ public class PayrollPeriodWorkflowService {
                 return ActionCapability.denied("PAYROLL_VARIABLE_STATE_LOCKED");
             }
             int protectedBulletins = count(connection,
-                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')",
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' AND statut IN ('VALIDE','CLOTURE')",
                     periodId);
             return protectedBulletins == 0
                     ? ActionCapability.permit()
@@ -879,7 +888,7 @@ public class PayrollPeriodWorkflowService {
         }
 
         int calculated = count(connection,
-                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId);
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' AND statut = 'CALCULE'", periodId);
         if (action == PayrollAction.VALIDATE
                 && !payrollPopulationHasBulletins(periodId, java.util.Set.of("CALCULE", "VALIDE"), connection)) {
             return ActionCapability.denied("PAYROLL_POPULATION_INCOMPLETE");
@@ -907,7 +916,7 @@ public class PayrollPeriodWorkflowService {
         if (expected.isEmpty()) return false;
         java.util.Set<Integer> found = new java.util.HashSet<>();
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT id_employe, statut FROM bulletin_paie WHERE id_periode_paie = ?")) {
+                "SELECT id_employe, statut FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL'")) {
             statement.setInt(1, periodId);
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
@@ -984,9 +993,9 @@ public class PayrollPeriodWorkflowService {
         }
         if (List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) {
             int total = count(connection,
-                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", periodId);
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL'", periodId);
             int calculated = count(connection,
-                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId);
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL' AND statut = 'CALCULE'", periodId);
             if (total == 0) {
                 issues.add(new BusinessIssue("PAYROLL_NOT_CALCULATED",
                         "La paie doit être calculée avant validation.", Map.of("periodId", periodId)));
@@ -1045,7 +1054,7 @@ public class PayrollPeriodWorkflowService {
         String sql = "SELECT COUNT(*) AS total, "
                 + "COUNT(*) FILTER (WHERE statut = 'CALCULE') AS calculated, "
                 + "COUNT(*) FILTER (WHERE statut IN ('VALIDE', 'CLOTURE')) AS validated "
-                + "FROM bulletin_paie WHERE id_periode_paie = ?";
+                + "FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin,'MENSUEL') = 'MENSUEL'";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, periodId);
             try (ResultSet result = statement.executeQuery()) {

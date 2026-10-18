@@ -3,6 +3,8 @@ import { Printer, FileText, Download } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
+import Select from '@/components/ui/forms/Select';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td, Tfoot } from '@/components/ui/data-display/Table';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -21,6 +23,10 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
     const [error, setError] = useState(null);
     const [dateReglement, setDateReglement] = useState('');
     const [referenceReglement, setReferenceReglement] = useState('');
+    const [montantRegle, setMontantRegle] = useState('');
+    const [partBulletinMensuel, setPartBulletinMensuel] = useState('');
+    const [modeReglement, setModeReglement] = useState('VIREMENT');
+    const [paymentFile, setPaymentFile] = useState(null);
     const [savingPayment, setSavingPayment] = useState(false);
     const printAreaRef = useRef(null);
 
@@ -60,14 +66,15 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
     };
 
     const handleRegisterPayment = async () => {
-        if (!dateReglement || !referenceReglement.trim()) {
-            setError('Indiquez la date et la référence du paiement réellement effectué.');
+        const zeroNet = Number(recu?.netAPayerStc || 0) === 0;
+        if (!dateReglement || !referenceReglement.trim() || (!zeroNet && (!paymentFile || Number(montantRegle) <= 0))) {
+            setError('Indiquez le montant, la date, la référence et la preuve réelle du paiement.');
             return;
         }
         setSavingPayment(true);
         setError(null);
         try {
-            await stcService.enregistrerReglement(idStc, { dateReglement, referenceReglement: referenceReglement.trim() });
+            await stcService.enregistrerReglement(idStc, { dateReglement, referenceReglement: referenceReglement.trim(), montantRegle: zeroNet ? 0 : montantRegle, modeReglement, partBulletinMensuel: zeroNet ? 0 : partBulletinMensuel || 0 }, paymentFile);
             setRecu(await stcService.obtenirRecuStc(idStc));
             onPaymentRegistered?.();
         } catch (err) {
@@ -198,9 +205,18 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                             onChange={(event) => setDateReglement(event.target.value)} />
                         <Input label="Référence du règlement" value={referenceReglement}
                             onChange={(event) => setReferenceReglement(event.target.value)} />
+                        <MoneyInput label="Montant déjà versé (Ar)" min={0.01} value={montantRegle} onValueChange={value => { setMontantRegle(value); setPartBulletinMensuel(Math.min(Number(value || 0), Number(recu?.soldeBulletinARegler || 0))); }} />
+                        <Select label="Mode de règlement" value={modeReglement} onChange={setModeReglement} options={[{ value: 'VIREMENT', label: 'Virement' }, { value: 'CHEQUE', label: 'Chèque' }, { value: 'ESPECES', label: 'Espèces' }, { value: 'MOBILE_MONEY', label: 'Mobile money' }]} />
+                        {Number(recu?.soldeBulletinARegler || 0) > 0 && <MoneyInput label="Part du bulletin mensuel (Ar)" min={0} max={Math.min(Number(montantRegle || 0), Number(recu.soldeBulletinARegler))} value={partBulletinMensuel} onValueChange={setPartBulletinMensuel} />}
+                        <Input label="Preuve réelle du paiement" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={event => setPaymentFile(event.target.files?.[0] || null)} />
                     </div>
-                    <Button type="button" variant="primary" size="sm" loading={savingPayment}
-                        onClick={handleRegisterPayment}>Enregistrer le règlement</Button>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Button type="button" variant="primary" size="sm" loading={savingPayment}
+                            onClick={handleRegisterPayment}>Enregistrer le règlement</Button>
+                        <a href="/paie/dossiers-sortie" className="text-xs text-[var(--color-brand-600)] hover:underline">
+                            Suivi complet avec pièce jointe via le dossier de sortie &rarr;
+                        </a>
+                    </div>
                 </div>
             )}
 

@@ -216,6 +216,34 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
         expect(host.textContent).toContain('Situation');
     });
 
+    it('transmet le paiement mensuel constaté à la préparation du STC', async () => {
+        dossierSortieService.obtenirDossier.mockResolvedValue({
+            ...mockDossier,
+            idBulletinMensuel: 42,
+            statutBulletinMensuel: 'CLOTURE',
+            netBulletinMensuel: 660930,
+            capitalRestantPrets: 0,
+            donneesPreparation: {},
+        });
+        await act(async () => root.render(<DossierSortieModal isOpen idDossier={101} onClose={vi.fn()} />));
+        await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent.includes('Situation')).click());
+        const field = label => {
+            const element = [...host.querySelectorAll('label')].find(item => item.textContent.includes(label));
+            return host.querySelector(`[id="${element.htmlFor}"]`);
+        };
+        await changeField(field('Montant déjà versé'), '660930');
+        await changeField(field('Date du paiement'), '2026-10-17');
+        await changeField(field('Référence du paiement'), 'VIR-MENS-42');
+        await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent.includes('Sauvegarder le dossier')).click());
+        expect(dossierSortieService.sauvegarderDossier).toHaveBeenCalledWith(expect.objectContaining({
+            donneesPreparation: expect.objectContaining({
+                montantBulletinDejaPaye: 660930,
+                datePaiementBulletin: '2026-10-17',
+                referencePaiementBulletin: 'VIR-MENS-42',
+            }),
+        }));
+    });
+
     it('affiche la checklist dynamique avec distinction des règles légales et sévérité', async () => {
         await act(async () => {
             root.render(
@@ -395,8 +423,8 @@ describe('Phase 1 — Dossier de sortie & Checklist métier', () => {
 
         expect(dossierSortieService.listerDossiers).toHaveBeenCalled();
         expect(host.textContent).toContain('Dossiers de sortie & STC');
-        expect(host.textContent).toContain('Total départs enregistrés');
+        expect(host.textContent).toContain('Dossiers enregistrés');
         expect(host.textContent).toContain('Rakoto Jean');
-        expect(host.textContent).toContain('DEMISSION');
+        expect(host.textContent).toContain('Démission');
     });
 });

@@ -106,7 +106,7 @@ public class PayrollCockpitService {
                 "COALESCE(SUM(irsa_net), 0) AS total_irsa, " +
                 "COALESCE(SUM(net_a_payer), 0) AS total_net_a_payer, " +
                 "COALESCE(SUM(total_retenues_acompte_pret), 0) AS total_retenues " +
-                "FROM bulletin_paie WHERE id_periode_paie = ?";
+                "FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin, 'MENSUEL') = 'MENSUEL'";
 
         Map<String, Object> kpis = new HashMap<>();
         BigDecimal brutActuel = BigDecimal.ZERO;
@@ -145,7 +145,7 @@ public class PayrollCockpitService {
 
         if (idPeriodeM1 != null) {
             String sqlKpiM1 = "SELECT COALESCE(SUM(total_gains_bruts), 0) AS brut_m1, " +
-                    "COALESCE(SUM(net_a_payer), 0) AS net_m1 FROM bulletin_paie WHERE id_periode_paie = ?";
+                    "COALESCE(SUM(net_a_payer), 0) AS net_m1 FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin, 'MENSUEL') = 'MENSUEL'";
             try (PreparedStatement ps = c.prepareStatement(sqlKpiM1)) {
                 ps.setInt(1, idPeriodeM1);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -173,7 +173,7 @@ public class PayrollCockpitService {
         // Map des nets M-1 par employé
         Map<Integer, BigDecimal> empNetM1Map = new HashMap<>();
         if (idPeriodeM1 != null) {
-            String sqlEmpM1 = "SELECT id_employe, net_a_payer FROM bulletin_paie WHERE id_periode_paie = ?";
+            String sqlEmpM1 = "SELECT id_employe, net_a_payer FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin, 'MENSUEL') = 'MENSUEL'";
             try (PreparedStatement ps = c.prepareStatement(sqlEmpM1)) {
                 ps.setInt(1, idPeriodeM1);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -190,7 +190,7 @@ public class PayrollCockpitService {
                 "bp.total_cotisations_salariales, bp.irsa_net, bp.net_a_payer, bp.statut, " +
                 "COALESCE(bp.type_bulletin, 'MENSUEL') AS type_bulletin " +
                 "FROM bulletin_paie bp " +
-                "WHERE bp.id_periode_paie = ? " +
+                "WHERE bp.id_periode_paie = ? AND COALESCE(bp.type_bulletin, 'MENSUEL') = 'MENSUEL' " +
                 "ORDER BY bp.matricule ASC";
 
         List<Map<String, Object>> bulletinPage = new ArrayList<>();

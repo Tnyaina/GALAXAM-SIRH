@@ -37,6 +37,53 @@ class CongeWorkflowIntegrationTest {
     private int motifNaissanceId;
     private int motifDecesId;
 
+    @Test
+    void modifierTypeValideRestituePuisRedecompteLesDroits() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            CongeTestFixtureHelper.crediterSolde(c, employeId, 20.0, "Solde initial acquis");
+            DemandeConge demande = new DemandeConge();
+            demande.setIdEmploye(employeId);
+            demande.setIdTypeConge(typeAnnuelId);
+            demande.setDateDebut(Date.valueOf("2027-11-02"));
+            demande.setDateFin(Date.valueOf("2027-11-04"));
+            demande.setDerogationDelaiPreavis(true);
+            var cree = congeService.creerDemande(demande, adminUserId, c);
+            congeService.validerDemande(cree.getIdDemandeConge(), adminUserId, "Validation", c);
+            assertEquals(0, new BigDecimal("17").compareTo(
+                    VSoldeCongeEmploye.rechercherParEmploye(employeId, c).getSoldeActuel()));
+
+            int maladie = CongeTestFixtureHelper.getTypeCongeId(c, "MALADIE");
+            congeService.modifierDemande(cree.getIdDemandeConge(),
+                    new mg.galaxam.sirh.conge.domain.DemandeCongeRequests.ModifierDemandeRequest(
+                            maladie, null, null, null, null, null, null, null, null, null, null, null),
+                    adminUserId, true, c);
+            assertEquals(0, new BigDecimal("20").compareTo(
+                    VSoldeCongeEmploye.rechercherParEmploye(employeId, c).getSoldeActuel()));
+
+            congeService.modifierDemande(cree.getIdDemandeConge(),
+                    new mg.galaxam.sirh.conge.domain.DemandeCongeRequests.ModifierDemandeRequest(
+                            typeAnnuelId, null, null, null, null, null, null, null, null, null, null, null),
+                    adminUserId, true, c);
+            assertEquals(0, new BigDecimal("17").compareTo(
+                    VSoldeCongeEmploye.rechercherParEmploye(employeId, c).getSoldeActuel()));
+
+            LocalDate nouvelleDate = LocalDate.of(2027, 11, 9);
+            congeService.modifierDemande(cree.getIdDemandeConge(),
+                    new mg.galaxam.sirh.conge.domain.DemandeCongeRequests.ModifierDemandeRequest(
+                            null, null, nouvelleDate, nouvelleDate.plusDays(2), null, null,
+                            null, null, null, null, null, null), adminUserId, true, c);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_demande_conge=? AND date_mouvement<>?")) {
+                ps.setInt(1, cree.getIdDemandeConge());
+                ps.setDate(2, Date.valueOf(nouvelleDate));
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(0, rs.getInt(1));
+                }
+            }
+        }
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         try (Connection c = dataSource.getConnection()) {

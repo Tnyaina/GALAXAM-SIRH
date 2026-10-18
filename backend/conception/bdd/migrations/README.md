@@ -1,5 +1,20 @@
 # Registre des Migrations Incrémentales BDD
 
+`26-10-18-sp84-bulletin-reglements.sql` ajoute le journal des règlements des
+bulletins mensuels et les lots de virements. Appliquer ce script sur une base
+existante avant de déployer l'API de règlements. Une installation neuve utilise
+les tables équivalentes du schéma canonique `06_schema_paie.sql`. L'export d'un
+lot ne confirme aucun paiement : chaque ligne doit être rapprochée du retour
+bancaire ou rejetée. Chaque règlement confirmé exige une pièce PDF, PNG ou JPEG
+conservée dans le journal. Si une version antérieure a enregistré des paiements
+sans pièce, ils restent identifiables comme historiques sans justificatif. L'API
+refuse toute nouvelle confirmation sans pièce ; la régularisation des anciennes
+lignes doit se faire à partir d'une preuve réelle, jamais d'un fichier créé après
+coup. Le script ajoute aussi les colonnes de preuve au journal STC et la clé
+`id_stc_reglement` au journal mensuel : elle lie une part du même versement STC
+au bulletin mensuel sans enregistrer un second décaissement. Le même DDL figure
+dans `06_schema_paie.sql` pour les installations neuves.
+
 `26-10-12-sp65-retire-seuil-heures-semaine-compensation.sql` clôt et
 désactive l'ancien seuil hebdomadaire, remplacé par
 `paie_config_legale.duree_hebdo_legale`. La ligne reste conservée pour l'audit.

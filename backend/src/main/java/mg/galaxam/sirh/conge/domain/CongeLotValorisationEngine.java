@@ -148,7 +148,7 @@ public class CongeLotValorisationEngine {
                     anticipations.put(-mouvement.id(), new Anticipation(restant, mouvement.valeurSource()));
                 }
                 joursSansLot = joursSansLot.add(restant);
-                if ("PRISE".equals(type) && mouvement.idDemande() != null) {
+                if (("PRISE".equals(type) || "AJUSTEMENT".equals(type)) && mouvement.idDemande() != null) {
                     prisesParDemande.computeIfAbsent(mouvement.idDemande(), ignored -> new ArrayList<>()).addAll(prises);
                 }
             } else if ("ANNULATION".equals(type)) {

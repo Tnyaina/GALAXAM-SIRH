@@ -60,7 +60,7 @@ class StcDocumentIntegrationTest {
                         + "(id_employe,id_contrat,date_depart,motif_rupture,id_stc) "
                         + "VALUES (?,?,'2026-08-15','DEMISSION',?) RETURNING id_dossier_sortie", employee, contract, stc);
                 String decompte = pdfText(documents.pdf(dossier, StcDocumentService.Type.DECOMPTE, c));
-                assertTrue(decompte.contains("1000.00 Ar"));
+                assertTrue(decompte.contains("1 000,00 Ar"));
                 assertTrue(decompte.contains("EMPLOYEUR HISTORIQUE"));
                 assertTrue(decompte.contains("NOM HISTORIQUE"));
                 assertTrue(decompte.contains("ne constitue pas une preuve de paiement"));
@@ -75,15 +75,17 @@ class StcDocumentIntegrationTest {
                         + "VALUES (?,'2026-08-16',300,'VIREMENT',?, '2026-08-16 10:00:00+03') RETURNING id_reglement",
                         stc, "PAY-1-" + unique);
                 String one = pdfText(documents.justificatif(dossier, first, c));
-                assertTrue(one.contains("300.00 Ar"));
-                assertTrue(one.contains("700.00 Ar"));
+                assertTrue(one.contains("QUITTANCE DE RÈGLEMENT STC"));
+                assertTrue(one.contains("Validation de l'employeur"));
+                assertTrue(one.contains("300,00 Ar"));
+                assertTrue(one.contains("700,00 Ar"));
                 insert(c, "INSERT INTO paie_stc_reglement "
                         + "(id_stc,date_reglement,montant_regle,mode_reglement,reference_reglement,created_at) "
                         + "VALUES (?,'2026-08-17',200,'VIREMENT',?, '2026-08-17 10:00:00+03') RETURNING id_reglement",
                         stc, "PAY-2-" + unique);
-                assertTrue(pdfText(documents.justificatif(dossier, first, c)).contains("700.00 Ar"));
+                assertTrue(pdfText(documents.justificatif(dossier, first, c)).contains("700,00 Ar"));
                 String recu = pdfText(documents.pdf(dossier, StcDocumentService.Type.RECU, c));
-                assertTrue(recu.contains("500.00 Ar"));
+                assertTrue(recu.contains("500,00 Ar"));
                 assertTrue(recu.contains("PROJET"));
                 assertFalse(recu.contains("integralement acquitte"));
 
@@ -91,7 +93,7 @@ class StcDocumentIntegrationTest {
                         + "date_annulation='2026-08-18 10:00:00+03',motif_annulation='Erreur bancaire' "
                         + "WHERE id_reglement=?", first);
                 String cancelled = pdfText(documents.justificatif(dossier, first, c));
-                assertTrue(cancelled.contains("ECRITURE ANNULEE"));
+                assertTrue(cancelled.contains("ÉCRITURE ANNULÉE"));
                 assertTrue(cancelled.contains("Erreur bancaire"));
 
                 int autreStc = insert(c, "INSERT INTO paie_stc "
@@ -131,7 +133,7 @@ class StcDocumentIntegrationTest {
                             .reduce("", (a, b) -> a + " " + b);
                     assertFalse(contenu.contains("libre de toute dette"));
                     assertFalse(contenu.contains("sérieux et professionnalisme"));
-                    assertFalse(contenu.contains("né(e) le"));
+                    assertTrue(contenu.contains("né(e) le"));
                 }
                 assertTrue(pdfText(documents.pdf(dossier, StcDocumentService.Type.BORDEREAU, c))
                         .contains("ne constate aucune remise ni signature"));

@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,8 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcSituationReglementDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.AnnulationReglementRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.ClotureDossierRequest;
 import mg.galaxam.sirh.paie.application.DossierSortieService;
+import mg.galaxam.sirh.paie.application.PaymentEvidence;
+import mg.galaxam.sirh.paie.application.StcPaymentReconciliationService;
 import mg.galaxam.sirh.paie.application.export.StcDocumentService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.CacheControl;
@@ -31,6 +34,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Contrôleur REST pour la gestion et le suivi du dossier de sortie du salarié.
@@ -43,12 +47,15 @@ public class DossierSortieController {
     private final DataSource dataSource;
     private final DossierSortieService dossierSortieService;
     private final StcDocumentService stcDocumentService;
+    private final StcPaymentReconciliationService reconciliation;
 
     public DossierSortieController(DataSource dataSource, DossierSortieService dossierSortieService,
-                                  StcDocumentService stcDocumentService) {
+                                  StcDocumentService stcDocumentService,
+                                  StcPaymentReconciliationService reconciliation) {
         this.dataSource = dataSource;
         this.dossierSortieService = dossierSortieService;
         this.stcDocumentService = stcDocumentService;
+        this.reconciliation = reconciliation;
     }
 
     /**
@@ -222,28 +229,81 @@ public class DossierSortieController {
             @PathVariable("id") Integer id,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyHeader,
             @Valid @RequestBody StcReglementRequest req) throws Exception {
+        throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                "Utilisez le règlement justifié avec une pièce réelle et la part affectée au bulletin mensuel.");
+    }
+
+    @PostMapping(value = "/{id}/reglement-justifie", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<StcSituationReglementDTO> enregistrerReglementJustifie(
+            @PathVariable("id") Integer id,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyHeader,
+            @RequestParam String dateReglement, @RequestParam String referenceReglement,
+            @RequestParam BigDecimal montantRegle, @RequestParam String modeReglement,
+            @RequestParam(defaultValue = "0") BigDecimal partBulletinMensuel,
+            @RequestParam(value = "commentaire", required = false) String commentaire,
+            @RequestParam(value = "file", required = false) MultipartFile file) throws Exception {
+        PaymentEvidence preuve = montantRegle != null && montantRegle.signum() > 0 ? PaymentEvidence.from(file) : null;
+        if (idempotencyHeader == null || idempotencyHeader.isBlank())
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Clé d'idempotence obligatoire.");
         Integer userId = getCurrentUserId();
-        StcReglementRequest effectiveReq = req;
-        if ((req.idempotencyKey() == null || req.idempotencyKey().isBlank())
-                && idempotencyHeader != null && !idempotencyHeader.isBlank()) {
-            effectiveReq = new StcReglementRequest(
-                    req.dateReglement(),
-                    req.referenceReglement(),
-                    req.montantRegle(),
-                    req.modeReglement(),
-                    req.commentaire(),
-                    idempotencyHeader.trim()
-            );
-        }
+        StcReglementRequest effectiveReq = new StcReglementRequest(Date.valueOf(dateReglement), referenceReglement,
+                montantRegle, modeReglement, commentaire, idempotencyHeader.trim());
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 StcSituationReglementDTO sit = dossierSortieService.enregistrerReglementDepuisDossier(id, effectiveReq, userId, c);
+                int idReglement = reconciliation.idReglement(c, sit.getIdStc(), idempotencyHeader.trim());
+                if (preuve != null) reconciliation.affecter(c, sit.getIdStc(), idReglement, partBulletinMensuel, preuve, userId);
+                else if (partBulletinMensuel != null && partBulletinMensuel.signum() > 0)
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Une affectation mensuelle exige une preuve réelle du versement.");
+                sit = dossierSortieService.obtenirSituationReglementsDepuisDossier(id, c);
                 c.commit();
                 return ResponseEntity.ok(sit);
             } catch (Exception ex) {
                 c.rollback();
                 throw ex;
+            }
+        }
+    }
+
+    @PostMapping(value = "/{id}/reglement/{idReglement}/affectation", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<StcSituationReglementDTO> affecterReglementHistorique(
+            @PathVariable("id") Integer id, @PathVariable("idReglement") Integer idReglement,
+            @RequestParam BigDecimal partBulletinMensuel,
+            @RequestParam(value = "file", required = false) MultipartFile file) throws Exception {
+        PaymentEvidence preuve = file == null ? null : PaymentEvidence.from(file);
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                StcSituationReglementDTO sit = dossierSortieService.obtenirSituationReglementsDepuisDossier(id, c);
+                if (sit == null) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "STC introuvable.");
+                reconciliation.affecter(c, sit.getIdStc(), idReglement, partBulletinMensuel, preuve, getCurrentUserId());
+                sit = dossierSortieService.obtenirSituationReglementsDepuisDossier(id, c);
+                c.commit();
+                return ResponseEntity.ok(sit);
+            } catch (Exception ex) { c.rollback(); throw ex; }
+        }
+    }
+
+    @GetMapping("/{id}/reglement/{idReglement}/preuve")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> telechargerPreuveReglement(@PathVariable("id") Integer id,
+                                                               @PathVariable("idReglement") Integer idReglement) throws Exception {
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "SELECT r.mime_justificatif,r.contenu_justificatif FROM paie_stc_reglement r "
+                + "JOIN paie_dossier_sortie d ON d.id_stc=r.id_stc "
+                + "WHERE d.id_dossier_sortie=? AND r.id_reglement=?")) {
+            ps.setInt(1, id);
+            ps.setInt(2, idReglement);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || rs.getBytes(2) == null) return ResponseEntity.notFound().build();
+                String mime = rs.getString(1);
+                String ext = "application/pdf".equals(mime) ? "pdf" : "image/png".equals(mime) ? "png" : "jpg";
+                return ResponseEntity.ok().contentType(MediaType.parseMediaType(mime))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=preuve-stc-" + idReglement + "." + ext)
+                        .body(rs.getBytes(2));
             }
         }
     }
@@ -353,7 +413,7 @@ public class DossierSortieController {
         try (Connection c = dataSource.getConnection()) {
             c.setReadOnly(true);
             return pdf(stcDocumentService.justificatif(id, idReglement, c),
-                    "justificatif-stc-" + id + "-" + idReglement + ".pdf");
+                    "quittance-stc-" + id + "-" + idReglement + ".pdf");
         }
     }
 

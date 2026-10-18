@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     AlertTriangle,
     ArrowLeft,
-    Award,
     BadgeCheck,
     Banknote,
     Building2,
@@ -12,14 +11,11 @@ import {
     Clock,
     Coins,
     ExternalLink,
-    FileCheck,
     FileSpreadsheet,
     FileText,
     Info,
-    Key,
     Lock,
     Receipt,
-    RefreshCw,
     Save,
     ShieldAlert,
     ShieldCheck,
@@ -31,10 +27,11 @@ import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import { Textarea } from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
-import { Card } from '@/components/ui/data-display/Card';
+import { Card, CardBody, CardFooter } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Alert from '@/components/ui/feedback/Alert';
 import { Tabs } from '@/components/ui/navigation/Tabs';
@@ -56,12 +53,6 @@ const OPTIONS_DECISION_PRET = [
     { value: 'REMBOURSEMENT_SEPARE', label: '2. Remboursement séparé direct (Chèque ou virement dédié)' },
     { value: 'RETENUE_STC_AUTORISEE', label: '3. Retenue sur STC (Dans la limite de la quotité saisissable légale)' },
     { value: 'CONTENTIEUX_RECOUVREMENT', label: '4. Dossier transmis au service recouvrement / contentieux' },
-];
-
-const MODES_REMISE_CERTIFICAT = [
-    { value: 'MAIN_PROPRE', label: 'Remise en main propre contre décharge' },
-    { value: 'COURRIER_RECOMMANDE', label: 'Envoi postal recommandé avec AR' },
-    { value: 'EMAIL_SECURISE', label: 'Courrier électronique sécurisé (PDF signé)' },
 ];
 
 export default function DossierSortieModal({
@@ -100,6 +91,9 @@ export default function DossierSortieModal({
     const [decisionPret, setDecisionPret] = useState('MAINTIEN_ECHEANCIER');
     const [justificationDecisionPret, setJustificationDecisionPret] = useState('');
     const [montantPretRetenu, setMontantPretRetenu] = useState(0);
+    const [montantBulletinDejaPaye, setMontantBulletinDejaPaye] = useState('0');
+    const [datePaiementBulletin, setDatePaiementBulletin] = useState('');
+    const [referencePaiementBulletin, setReferencePaiementBulletin] = useState('');
 
     // Chargement des motifs de rupture légaux
     useEffect(() => {
@@ -138,6 +132,9 @@ export default function DossierSortieModal({
                 setDecisionPret(data.decisionPret || 'MAINTIEN_ECHEANCIER');
                 setJustificationDecisionPret(data.justificationDecisionPret || '');
                 setMontantPretRetenu(data.montantPretRetenu || 0);
+                setMontantBulletinDejaPaye(String(data.donneesPreparation?.montantBulletinDejaPaye ?? data.montantBulletinDejaPaye ?? 0));
+                setDatePaiementBulletin(String(data.donneesPreparation?.datePaiementBulletin || data.datePaiementBulletin || '').slice(0, 10));
+                setReferencePaiementBulletin(data.donneesPreparation?.referencePaiementBulletin || data.referencePaiementBulletin || '');
                 setSimulationResult(data.snapshotSimulation ? {
                         referenceSimulation: data.referenceSimulation,
                         version: data.version,
@@ -166,6 +163,15 @@ export default function DossierSortieModal({
     // Sauvegarde du dossier préparatoire
     const handleSauvegarder = async () => {
         if (!dossier?.idEmploye) return;
+        const montantPaye = Number(montantBulletinDejaPaye || 0);
+        if (!Number.isFinite(montantPaye) || montantPaye < 0 || montantPaye > Number(dossier.netBulletinMensuel || 0)) {
+            setErrorMsg('Le montant déjà payé doit être compris entre 0 et le net du bulletin mensuel.');
+            return;
+        }
+        if (montantPaye > 0 && (!datePaiementBulletin || !referencePaiementBulletin.trim())) {
+            setErrorMsg('Indiquez la date et la référence du paiement du bulletin mensuel.');
+            return;
+        }
         setSaving(true);
         setErrorMsg(null);
         try {
@@ -183,6 +189,9 @@ export default function DossierSortieModal({
                 donneesPreparation: {
                     dateDepart,
                     motifRupture,
+                    montantBulletinDejaPaye: montantPaye,
+                    datePaiementBulletin: montantPaye > 0 ? datePaiementBulletin : null,
+                    referencePaiementBulletin: montantPaye > 0 ? referencePaiementBulletin.trim() : null,
                 }
             };
             const updated = await dossierSortieService.sauvegarderDossier(payload);
@@ -201,6 +210,13 @@ export default function DossierSortieModal({
     const handleSimulerStc = async () => {
         let currentDossier = dossier;
         if (!currentDossier?.idEmploye) return;
+        const montantPaye = Number(montantBulletinDejaPaye || 0);
+        if (!Number.isFinite(montantPaye) || montantPaye < 0 || montantPaye > Number(currentDossier.netBulletinMensuel || 0)
+            || (montantPaye > 0 && (!datePaiementBulletin || !referencePaiementBulletin.trim()))) {
+            setErrorMsg('Vérifiez le montant, la date et la référence du paiement du bulletin mensuel.');
+            setActiveTab('synthese');
+            return;
+        }
         if (!currentDossier?.idDossierSortie || hasUnsavedPreparation) {
             setSaving(true);
             setErrorMsg(null);
@@ -219,6 +235,9 @@ export default function DossierSortieModal({
                     donneesPreparation: {
                         dateDepart,
                         motifRupture,
+                        montantBulletinDejaPaye: Number(montantBulletinDejaPaye || 0),
+                        datePaiementBulletin: Number(montantBulletinDejaPaye || 0) > 0 ? datePaiementBulletin : null,
+                        referencePaiementBulletin: Number(montantBulletinDejaPaye || 0) > 0 ? referencePaiementBulletin.trim() : null,
                     }
                 };
                 currentDossier = await dossierSortieService.sauvegarderDossier(payload);
@@ -322,13 +341,16 @@ export default function DossierSortieModal({
 
     const hasLoans = dossier?.capitalRestantPrets && Number(dossier.capitalRestantPrets) > 0;
     const nbBloquants = dossier?.checklist?.filter(c => c.niveau === 'BLOQUANT' && c.statut === 'NON_CONFORME').length || 0;
-    const cessationConfirmee = ['ROMPU', 'CLOTURE', 'TERMINE'].includes(dossier?.statutContrat)
-        && dossier?.dateFinContrat && String(dossier.dateFinContrat).slice(0, 10) <= getTodayDateString();
     const bulletinValide = ['VALIDE', 'CLOTURE'].includes(dossier?.statutBulletinMensuel);
     const bulletinEnAttente = Boolean(dossier?.idBulletinMensuel) && !bulletinValide;
     const hasUnsavedPreparation = Boolean(dossier) && !dossier.idStc && (
         dateDepart !== String(dossier.dateDepart || '').slice(0, 10)
         || motifRupture !== (dossier.motifRupture || 'DEMISSION')
+        || Number(montantBulletinDejaPaye || 0) !== Number(dossier.donneesPreparation?.montantBulletinDejaPaye ?? 0)
+        || (Number(montantBulletinDejaPaye || 0) > 0 && (
+            datePaiementBulletin !== String(dossier.donneesPreparation?.datePaiementBulletin || '').slice(0, 10)
+            || referencePaiementBulletin.trim() !== (dossier.donneesPreparation?.referencePaiementBulletin || '')
+        ))
         || (Boolean(hasLoans) && (
             decisionPret !== (dossier.decisionPret || 'MAINTIEN_ECHEANCIER')
             || justificationDecisionPret !== (dossier.justificationDecisionPret || '')
@@ -366,10 +388,10 @@ export default function DossierSortieModal({
             isDirty={hasUnsavedPreparation}
             closeOnEscape={!confirmAbandon && !confirmScellement}
             closeOnBackdrop={!confirmAbandon && !confirmScellement}
-            footer={
+            footer={pageMode && dossier?.idStc ? null :
                 <div className="w-full space-y-4">
                     {/* 1. Bandeau de statut / prérequis inspiré du Centre de Paie */}
-                    <section className={`flex flex-wrap items-center justify-between gap-3 border px-3.5 py-2.5 ${
+                    {(!pageMode || !dossier?.idStc) && <section className={`flex flex-wrap items-center justify-between gap-3 border px-3.5 py-2.5 ${
                         dossier?.idStc
                             ? 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'
                             : (simulationResult?.referenceSimulation || dossier?.referenceSimulation)
@@ -401,12 +423,12 @@ export default function DossierSortieModal({
                         <Badge variant={dossier?.idStc ? 'success' : (simulationResult?.referenceSimulation || dossier?.referenceSimulation) ? 'brand' : dossier?.pretAValider ? 'success' : 'warning'} size="sm">
                             {dossier?.idStc ? 'Scellé' : (simulationResult?.referenceSimulation || dossier?.referenceSimulation) ? 'Simulé' : dossier?.pretAValider ? 'Prêt' : `${nbBloquants} à traiter`}
                         </Badge>
-                    </section>
+                    </section>}
 
                     {/* 2. Barre d'actions en bas de page, sur le modèle du Centre de Paie (PayrollCampaignShell) */}
                     <nav aria-label="Actions du dossier" className={pageMode ? "border-t border-[var(--color-border-subtle)] pt-4 pb-1" : "pt-1"}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="flex items-center gap-2">
+                            {!pageMode && <div className="flex items-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -416,7 +438,7 @@ export default function DossierSortieModal({
                                 >
                                     {pageMode ? 'Retour aux dossiers' : 'Fermer'}
                                 </Button>
-                            </div>
+                            </div>}
                             <div className="flex flex-wrap items-center gap-2.5">
                                 {dossier && !dossier.idStc && dossier.statutDossier !== 'ANNULE' && canWrite && (
                                     !dossier.idDossierSortie || hasUnsavedPreparation ? (
@@ -471,23 +493,40 @@ export default function DossierSortieModal({
                         Impossible d’afficher le dossier. Vérifiez les données du salarié ou revenez à la liste.
                     </div>
                 )}
-                {!loading && dossier && <Alert type="info" title="Prochaine étape"
-                    message={canWrite ? prochaineEtape : 'Consultation seule : vérifiez la situation, le calcul et le suivi.'}
-                    action={dossier.idDossierSortie && <Button type="button" variant="outline" size="xs" onClick={() => setActiveTab(prochaineSection)}>
-                        {prochaineSection === 'checklist' ? 'Voir les points' : prochaineSection === 'suivi' ? 'Voir le suivi' : 'Voir le calcul'}
-                    </Button>} />}
-
-                {!loading && dossier && (dossier.idStc || (!simulationNeedsRefresh && simulationResult?.decompte)) && (
-                    <div role="status" aria-label="Récapitulatif financier" className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3">
-                        <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">{dossier.idStc ? 'Net scellé' : 'Net simulé · provisoire'}</p>
-                            <p className="font-data text-lg font-bold text-[var(--color-fg)]">{formatMoneyAr(dossier.idStc ? dossier.netAPayerStc : simulationResult.decompte.netAPayerStc)}</p>
-                        </div>
-                        {dossier.idStc && <div className="text-right">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Reste à payer</p>
-                            <p className="font-data text-lg font-bold text-[var(--color-fg)]">{formatMoneyAr(dossier.soldeRestantAPayer)}</p>
-                        </div>}
-                    </div>
+                {!loading && dossier && (
+                    <Card as="section" shadow="none" aria-label="État et prochaine étape du dossier">
+                        <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 items-start gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-[var(--color-brand-100)] text-[var(--color-brand-700)]">
+                                    {dossier.idStc ? <BadgeCheck size={19} aria-hidden="true" /> : <Info size={19} aria-hidden="true" />}
+                                </div>
+                                <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h2 className="text-sm font-bold text-[var(--color-fg)]">{dossier.idStc ? 'STC scellé' : 'Prochaine étape'}</h2>
+                                        {dossier.idStc && <Badge variant="success" size="xs">Validé</Badge>}
+                                    </div>
+                                    <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-fg-muted)]">
+                                        {canWrite ? prochaineEtape : 'Consultation seule : vérifiez la situation, le calcul et le suivi.'}
+                                    </p>
+                                </div>
+                            </div>
+                            {dossier.idDossierSortie && <Button type="button" variant="primary" size="sm" onClick={() => setActiveTab(prochaineSection)} className="shrink-0 self-start sm:self-center">
+                                {prochaineSection === 'checklist' ? 'Voir les points' : prochaineSection === 'suivi' ? 'Suivi et documents' : 'Voir le calcul'}
+                            </Button>}
+                        </CardBody>
+                        {(dossier.idStc || (!simulationNeedsRefresh && simulationResult?.decompte)) && (
+                            <CardFooter role="status" aria-label="Récapitulatif financier" className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">{dossier.idStc ? 'Net scellé' : 'Net simulé · provisoire'}</p>
+                                    <p className="font-data text-xl font-bold text-[var(--color-fg)]">{formatMoneyAr(dossier.idStc ? dossier.netAPayerStc : simulationResult.decompte.netAPayerStc)}</p>
+                                </div>
+                                {dossier.idStc && <div className="sm:text-right">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Reste à payer</p>
+                                    <p className="font-data text-xl font-bold text-[var(--color-fg)]">{formatMoneyAr(dossier.soldeRestantAPayer)}</p>
+                                </div>}
+                            </CardFooter>
+                        )}
+                    </Card>
                 )}
 
                 {!loading && dossier && !dossier.idStc && (
@@ -519,14 +558,6 @@ export default function DossierSortieModal({
                             : 'Une simulation STC reste possible avec les données de pointage et le prorata. Si un bulletin mensuel doit être établi, calculez et validez-le avant le scellement, puis relancez la simulation pour éviter un décompte sans rapprochement.'}
                     />
                 )}
-                {dossier?.idDossierSortie && !hasUnsavedPreparation && (
-                    <div className="flex justify-end">
-                        <Button variant="ghost" size="sm" onClick={chargerDossier} loading={loading} iconLeft={<RefreshCw size={14} />}>
-                            Actualiser les données du dossier
-                        </Button>
-                    </div>
-                )}
-
                 {/* En-tête Salarié & Contrat */}
                 <Card shadow="none" className="bg-[var(--color-bg-subtle)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -668,7 +699,7 @@ export default function DossierSortieModal({
                                         </strong>
                                     </div>
                                 </div>
-                                <p className="text-[11px] text-[var(--color-fg-muted)] italic">
+                                <p className="text-[11px] text-[var(--color-fg-muted)]">
                                     {dossier?.pointageGele ? 'Pointage gelé pour cette période.' : 'Pointage encore susceptible de changer.'}
                                 </p>
                             </div>
@@ -723,21 +754,48 @@ export default function DossierSortieModal({
                                     <span className="text-xs text-[var(--color-fg-muted)] ml-1">Net</span>
                                 </div>
                                 <div className="text-xs text-[var(--color-fg-muted)] flex justify-between border-t border-[var(--color-border-subtle)] pt-2">
-                                    <span>Déjà payé :</span>
+                                    <span>Versé avant STC :</span>
                                     <strong className="font-data text-[var(--color-fg)]">
                                         {dossier?.montantBulletinDejaPaye ? formatMoneyAr(dossier.montantBulletinDejaPaye) : '0 Ar'}
                                     </strong>
                                 </div>
                                 <p className="text-[11px] text-[var(--color-fg-muted)]">
                                     {dossier?.soldeBulletinARegler ? (
-                                        <span>Reste à payer : <strong className="font-data">{formatMoneyAr(dossier.soldeBulletinARegler)}</strong></span>
+                                        <span>{dossier.idStc ? (dossier.estIntegralementRegle ? 'Payé via le STC' : 'Repris dans le STC') : 'À intégrer au STC'} : <strong className="font-data">{formatMoneyAr(dossier.soldeBulletinARegler)}</strong></span>
                                     ) : bulletinValide ? 'Aucun solde mensuel indiqué.' : 'Aucun bulletin validé à rapprocher.'}
                                 </p>
                             </div>
                         </div>
 
+                        {dossier?.idBulletinMensuel && bulletinValide && !dossier?.idStc && (
+                            <Card as="section" shadow="none" className="p-4 space-y-3" aria-label="Paiement du bulletin mensuel">
+                                <div>
+                                    <h4 className="text-sm font-bold text-[var(--color-fg)]">Paiement du bulletin mensuel</h4>
+                                    <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+                                        Bulletin #{dossier.idBulletinMensuel} · Net {formatMoneyAr(dossier.netBulletinMensuel)}. Le solde non payé sera repris dans le STC.
+                                    </p>
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <MoneyInput label="Montant déjà versé (Ar)" min={0} max={Number(dossier.netBulletinMensuel || 0)}
+                                        value={montantBulletinDejaPaye} onValueChange={setMontantBulletinDejaPaye}
+                                        disabled={!canWrite || saving || simulating} />
+                                    <Input type="date" label="Date du paiement" value={datePaiementBulletin}
+                                        onChange={(event) => setDatePaiementBulletin(event.target.value)}
+                                        required={Number(montantBulletinDejaPaye || 0) > 0}
+                                        disabled={!canWrite || saving || simulating || Number(montantBulletinDejaPaye || 0) === 0} />
+                                    <Input label="Référence du paiement" value={referencePaiementBulletin}
+                                        onChange={(event) => setReferencePaiementBulletin(event.target.value)}
+                                        required={Number(montantBulletinDejaPaye || 0) > 0}
+                                        disabled={!canWrite || saving || simulating || Number(montantBulletinDejaPaye || 0) === 0} />
+                                </div>
+                                <p className="text-xs font-medium text-[var(--color-fg)]">
+                                    À reprendre dans le STC : {formatMoneyAr(Math.max(0, Number(dossier.netBulletinMensuel || 0) - Number(montantBulletinDejaPaye || 0)))}
+                                </p>
+                            </Card>
+                        )}
+
                         {/* STC scellé si existant */}
-                        {dossier?.idStc && (
+                        {dossier?.idStc && !pageMode && (
                             <div className="p-4 bg-[var(--color-success-50)] border border-[var(--color-success-200)] text-[var(--color-success-950)] flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <BadgeCheck size={24} className="text-[var(--color-success-700)] shrink-0" />
@@ -758,15 +816,15 @@ export default function DossierSortieModal({
                 {/* CONTENU ONGLET 2 : Checklist dynamique */}
                 {activeTab === 'checklist' && (
                     <div id="panel-checklist" role="tabpanel" aria-labelledby="tab-checklist" className="space-y-3">
-                        <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)] px-1">
-                            <span>Évaluation automatique en temps réel des règles légales et internes.</span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)] px-1">
+                            <span>Contrôles du départ · les points à traiter apparaissent en priorité.</span>
                             <span className="font-medium text-[var(--color-fg)]">
                                 {dossier?.checklist?.filter(c => c.statut === 'CONFORME').length || 0} / {dossier?.checklist?.length || 0} conformes
                             </span>
                         </div>
 
                         <div className="space-y-2">
-                            {dossier?.checklist?.map((item, idx) => {
+                            {[...(dossier?.checklist || [])].sort((a, b) => (a.statut === 'CONFORME') - (b.statut === 'CONFORME')).map((item, idx) => {
                                 const st = getBadgeStatut(item.statut);
                                 const src = getBadgeSource(item.sourceNorme);
                                 const IconComp = st.icon;
@@ -781,7 +839,7 @@ export default function DossierSortieModal({
                                 return (
                                     <div
                                         key={item.code || idx}
-                                        className={`p-3 border flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
+                                        className={`px-3 py-2.5 border flex flex-col sm:flex-row sm:items-start justify-between gap-2 ${
                                             item.statut === 'NON_CONFORME' && item.niveau === 'BLOQUANT'
                                                 ? 'bg-[var(--color-surface)] border-[var(--color-danger-500)] border-l-4'
                                                 : item.statut !== 'CONFORME'
@@ -795,19 +853,19 @@ export default function DossierSortieModal({
                                                 st.variant === 'warning' ? 'text-[var(--color-warning-600)]' : 'text-[var(--color-success-600)]'
                                             }`} />
                                             <div>
-                                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                <div className="flex items-center gap-2 flex-wrap mb-0.5">
                                                     <h4 className="text-xs font-bold text-[var(--color-fg)]">
                                                         {item.titre}
                                                     </h4>
-                                                    <Badge variant={src.variant} size="xs">{src.label}</Badge>
-                                                    <Badge variant={getBadgeSeverity(item.niveau)} size="xs">
-                                                        {item.niveau}
-                                                    </Badge>
+                                                    {item.statut !== 'CONFORME' && <>
+                                                        <Badge variant={src.variant} size="xs">{src.label}</Badge>
+                                                        <Badge variant={getBadgeSeverity(item.niveau)} size="xs">{item.niveau}</Badge>
+                                                    </>}
                                                 </div>
                                                 <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
                                                     {item.message}
                                                 </p>
-                                                {item.actionRecommandee && (
+                                                {item.statut !== 'CONFORME' && item.actionRecommandee && (
                                                     <p className="text-[11px] text-[var(--color-fg)] font-medium mt-1">
                                                         → Action recommandée : {item.actionRecommandee}
                                                     </p>
@@ -910,10 +968,7 @@ export default function DossierSortieModal({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] text-xs flex items-center gap-2">
-                                    <CheckCircle2 size={16} className="text-[var(--color-success-600)]" />
-                                    <span>Aucun prêt d'entreprise en cours pour ce collaborateur.</span>
-                                </div>
+                                <Alert type="success" title="Aucun prêt en cours" message="Aucune décision de remboursement n'est nécessaire pour ce départ." />
                             )}
                         </div>
                     </div>
@@ -1015,7 +1070,7 @@ export default function DossierSortieModal({
                                             </span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                             {/* Pilier 1 : Bulletin du mois clôturé */}
                                             <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-1">
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
@@ -1055,23 +1110,6 @@ export default function DossierSortieModal({
                                                 </p>
                                             </div>
 
-                                            {/* Pilier 4 : Total Net Final */}
-                                            <div className="p-3 bg-[var(--color-success-50)] border-2 border-[var(--color-success-500)] space-y-1">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-success-900)]">
-                                                        Net Final STC à Verser
-                                                    </span>
-                                                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 bg-[var(--color-success-600)] text-white">
-                                                        Total Net
-                                                    </span>
-                                                </div>
-                                                <div className="font-data text-lg font-black text-[var(--color-success-800)]">
-                                                    {formatMoneyAr(netFinal)}
-                                                </div>
-                                                <p className="text-[11px] text-[var(--color-success-800)] font-medium">
-                                                    Montant total exigible au départ du salarié.
-                                                </p>
-                                            </div>
                                         </div>
                                     </div>
 

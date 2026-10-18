@@ -24,8 +24,15 @@ public class StcReglementDTO {
     private Timestamp dateAnnulation;
     private String motifAnnulation;
     private String cleIdempotence;
+    private BigDecimal partBulletinMensuel;
+    private String nomJustificatif;
 
     public StcReglementDTO() {}
+
+    public BigDecimal getPartBulletinMensuel() { return partBulletinMensuel; }
+    public void setPartBulletinMensuel(BigDecimal value) { this.partBulletinMensuel = value; }
+    public String getNomJustificatif() { return nomJustificatif; }
+    public void setNomJustificatif(String value) { this.nomJustificatif = value; }
 
     public Integer getIdReglement() { return idReglement; }
     public void setIdReglement(Integer idReglement) { this.idReglement = idReglement; }

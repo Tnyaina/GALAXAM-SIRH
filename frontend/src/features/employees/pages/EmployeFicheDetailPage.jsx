@@ -538,7 +538,7 @@ export default function EmployeFicheDetailPage() {
                     {/* Onglet 7: Paie & Rémunération */}
                     {activeTab === 'paie' && (
                         <Suspense fallback={<TabLoader label="Chargement du dossier paie de l'employé..." />}>
-                            <EmployePaieTab idEmploye={id} employe={emp} canWrite={canWritePaie} />
+                            <EmployePaieTab idEmploye={id} employe={emp} canRead={canReadPaie} canWrite={canWritePaie} />
                         </Suspense>
                     )}
 

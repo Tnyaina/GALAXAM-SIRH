@@ -93,11 +93,36 @@ export const dossierSortieService = {
         return response.data;
     },
 
-    enregistrerReglement: async (id, payload, idempotencyKey) => {
-        const response = await apiClient.post(`paie/dossier-sortie/${id}/reglement`, payload, {
-            headers: { 'X-Idempotency-Key': idempotencyKey },
+    enregistrerReglement: async (id, payload, idempotencyKey, file) => {
+        const form = new FormData();
+        Object.entries(payload).forEach(([key, value]) => { if (value !== undefined && value !== null) form.append(key, value); });
+        if (file) {
+            form.append('file', file);
+        }
+        const response = await apiClient.post(`paie/dossier-sortie/${id}/reglement-justifie`, form, {
+            headers: { 'X-Idempotency-Key': idempotencyKey, 'Content-Type': 'multipart/form-data' },
         });
         return response.data;
+    },
+
+    affecterReglementHistorique: async (id, idReglement, partBulletinMensuel, file) => {
+        const form = new FormData();
+        form.append('partBulletinMensuel', partBulletinMensuel);
+        if (file) form.append('file', file);
+        const response = await apiClient.post(`paie/dossier-sortie/${id}/reglement/${idReglement}/affectation`, form,
+            { headers: { 'Content-Type': 'multipart/form-data' } });
+        return response.data;
+    },
+
+    telechargerPreuveReglement: async (id, idReglement) => {
+        const response = await apiClient.get(`paie/dossier-sortie/${id}/reglement/${idReglement}/preuve`, { responseType: 'blob' });
+        const extension = response.data.type === 'application/pdf' ? 'pdf' : response.data.type === 'image/png' ? 'png' : 'jpg';
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `preuve-stc-${idReglement}.${extension}`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
 
     annulerReglement: async (id, idReglement, motifAnnulation) => {

@@ -58,8 +58,13 @@ export const stcService = {
         return response.data;
     },
 
-    enregistrerReglement: async (idStc, payload) => {
-        await apiClient.post(`paie/stc/${idStc}/regler`, payload);
+    enregistrerReglement: async (idStc, payload, file, idempotencyKey = crypto.randomUUID()) => {
+        const form = new FormData();
+        Object.entries(payload).forEach(([key, value]) => { if (value !== undefined && value !== null) form.append(key, value); });
+        if (file) form.append('file', file);
+        const response = await apiClient.post(`paie/stc/${idStc}/reglement-justifie`, form,
+            { headers: { 'X-Idempotency-Key': idempotencyKey, 'Content-Type': 'multipart/form-data' } });
+        return response.data;
     },
 
     /**
