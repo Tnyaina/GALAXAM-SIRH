@@ -62,6 +62,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const [refreshError, setRefreshError] = useState(false);
     const requestIdRef = useRef(0);
     const [typesMouvements, setTypesMouvements] = useState([]);
+    const [correctionsConges, setCorrectionsConges] = useState([]);
+    const [correctionId, setCorrectionId] = useState('');
+    const [correctionsError, setCorrectionsError] = useState('');
     const [eligibleEmployees, setEligibleEmployees] = useState([]);
     const [populationError, setPopulationError] = useState('');
     const [filterSens, setFilterSens] = useState('ALL');
@@ -180,6 +183,18 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     useEffect(() => {
         let cancelled = false;
+        setCorrectionsConges([]);
+        setCorrectionId('');
+        setCorrectionsError('');
+        if (!isModalOpen || form.typeMouvement !== 'REGULARISATION_CONGE' || !form.idEmploye) return undefined;
+        paieService.listerCorrectionsConges(Number(form.idEmploye))
+            .then(items => { if (!cancelled) setCorrectionsConges(Array.isArray(items) ? items : []); })
+            .catch(error => { if (!cancelled) setCorrectionsError(getErrorMessage(error, 'Corrections de congé indisponibles.')); });
+        return () => { cancelled = true; };
+    }, [isModalOpen, form.typeMouvement, form.idEmploye]);
+
+    useEffect(() => {
+        let cancelled = false;
         if (!isModalOpen || !form.idEmploye || !idPeriodeActive) {
             setBulletinPreview(null);
             setPreviewError('');
@@ -235,8 +250,13 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             setFormError('Veuillez sélectionner un type configuré.');
             return;
         }
+        const sourceCorrection = correctionsConges.find(item => String(item.idCorrection) === String(correctionId) && !item.idAjustement);
+        if (form.typeMouvement === 'REGULARISATION_CONGE' && !sourceCorrection) {
+            setFormError('Sélectionnez une correction de reliquat disponible.');
+            return;
+        }
         let valuePayload;
-        try { valuePayload = manualValuePayload(selectedType, form); }
+        try { valuePayload = sourceCorrection ? { montant: sourceCorrection.montant } : manualValuePayload(selectedType, form); }
         catch (cause) { setFormError(cause.message); return; }
         if (!form.motif || form.motif.trim().length < 8) {
             setFormError('Ajoutez une justification précise (au moins 8 caractères) pour conserver la trace de cette variable.');
@@ -259,7 +279,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 typeMouvement: form.typeMouvement,
                 sens: form.sens,
                 ...valuePayload,
-                motif: form.motif || 'Variable de paie'
+                motif: sourceCorrection
+                    ? `CORRECTION_CUTOVER#${sourceCorrection.idCorrection} ${form.motif.trim()}`
+                    : form.motif || 'Variable de paie'
             });
             if (selectedType?.code === 'NOTE_DE_FRAIS') {
                 try {
@@ -270,6 +292,14 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     setFormError(`La note de frais est enregistrée en attente, mais la pièce n’a pas été jointe : ${getErrorMessage(uploadError, 'Réessayez depuis la liste.')}`);
                     return;
                 }
+            }
+
+            if (sourceCorrection) {
+                setCorrectionsConges(previous => previous.map(item =>
+                    item.idCorrection === sourceCorrection.idCorrection
+                        ? { ...item, idAjustement: created.idAvance, statutAjustement: 'EN_ATTENTE' }
+                        : item));
+                setCorrectionId('');
             }
 
             if (keepOpen) {
@@ -435,6 +465,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         return `${imposable ? 'IRSA' : 'Hors IRSA'} · ${cotisable ? 'Cotisations' : 'Hors cotisations'}`;
     };
     const selectedType = typesMouvements.find(type => type.code === form.typeMouvement);
+    const selectedCorrection = correctionsConges.find(item => String(item.idCorrection) === String(correctionId) && !item.idAjustement);
     const previewBulletin = bulletinPreview?.bulletin;
     const previewNet = previewBulletin?.netAPayer ?? previewBulletin?.net_a_payer;
     const previewGross = previewBulletin?.totalGainsBruts ?? previewBulletin?.total_gains_bruts;
@@ -476,7 +507,8 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     );
     const previewEmployee = eligibleEmployees.find(emp => Number(emp.idEmploye ?? emp.id_employe) === Number(form.idEmploye));
     let hasValidMontant = false;
-    try { manualValuePayload(selectedType, form); hasValidMontant = true; } catch { /* Saisie incomplète. */ }
+    if (selectedType?.code === 'REGULARISATION_CONGE') hasValidMontant = Boolean(selectedCorrection);
+    else try { manualValuePayload(selectedType, form); hasValidMontant = true; } catch { /* Saisie incomplète. */ }
     const amountEmployeeId = form.idEmploye;
     const amountInput = form.montant;
     const amountQuantity = form.quantiteSaisie;
@@ -484,6 +516,12 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     useEffect(() => {
         let cancelled = false;
+        if (selectedType?.code === 'REGULARISATION_CONGE') {
+            setAmountPreview(selectedCorrection ? { montant: selectedCorrection.montant } : null);
+            setAmountPreviewLoading(false);
+            setAmountPreviewError('');
+            return undefined;
+        }
         let value;
         try {
             value = manualValuePayload(selectedType, {
@@ -516,7 +554,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         }, 300);
         return () => { cancelled = true; window.clearTimeout(timer); };
     }, [isModalOpen, idPeriodeActive, amountEmployeeId, amountInput,
-        amountQuantity, amountRate, selectedType]);
+        amountQuantity, amountRate, selectedType, selectedCorrection]);
 
     // Rendu
     return (
@@ -829,10 +867,26 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         <p className="text-[var(--color-fg-muted)]">Traitement : {regimeLabel(selectedType.sens, selectedType.imposable, selectedType.cotisable)}</p>
                         </div>}
                         {selectedType?.code === 'NOTE_DE_FRAIS' && <div className="space-y-2 border border-[var(--color-border-subtle)] p-3"><label htmlFor="note-frais-file" className="block font-semibold text-[var(--color-fg)]">Justificatif de frais obligatoire</label><SharedInput plain id="note-frais-file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={event => setJustificatifFrais(event.target.files?.[0] || null)} className="block w-full text-xs" /><p className="text-[var(--color-fg-muted)]">Facture ou reçu PDF, PNG ou JPEG, 5 Mo maximum. La note reste en attente jusqu’à son approbation.</p></div>}
+                        {selectedType?.code === 'REGULARISATION_CONGE' && <div className="space-y-2">
+                            <SearchSelect
+                                label="Correction de reliquat à régulariser"
+                                required
+                                value={correctionId}
+                                onChange={setCorrectionId}
+                                options={correctionsConges.filter(item => !item.idAjustement).map(item => ({
+                                    value: String(item.idCorrection),
+                                    label: `Correction n° ${item.idCorrection} · ${formatAr(item.montant)}`
+                                }))}
+                            />
+                            {correctionsError && <Alert type="error" title="Sources indisponibles" message={correctionsError} />}
+                            {!correctionsError && correctionsConges.length === 0 && <Alert type="info" title="Aucune correction positive" message="Corrigez d’abord le reliquat dans la fiche Congés du salarié." />}
+                            {!correctionsError && correctionsConges.length > 0 && correctionsConges.every(item => item.idAjustement) && <Alert type="info" title="Corrections déjà régularisées" message="Toutes les corrections positives de ce salarié sont déjà liées à une variable de paie." />}
+                            {selectedCorrection && <p className="text-xs text-[var(--color-fg-muted)]">Montant calculé par la correction : <strong>{formatAr(selectedCorrection.montant)}</strong>. {selectedCorrection.motif}</p>}
+                        </div>}
 
                         {selectedType && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <ManualVariableValueFields type={selectedType} form={form} onChange={handleFormChange} />
-                        {manualMethod(selectedType) === 'MONTANT' && <MoneyInput
+                        {selectedType.code !== 'REGULARISATION_CONGE' && <ManualVariableValueFields type={selectedType} form={form} onChange={handleFormChange} />}
+                        {selectedType.code !== 'REGULARISATION_CONGE' && manualMethod(selectedType) === 'MONTANT' && <MoneyInput
                             label="Montant en Ariary"
                             required
                             placeholder="Ex. 1 250,50"
@@ -848,7 +902,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             type="text"
                             required
                             minLength={8}
-                            placeholder="Ex: Prime transport – mission projet"
+                            placeholder={selectedType.code === 'REGULARISATION_CONGE' ? 'Justification DAF de la régularisation' : 'Ex: Prime transport – mission projet'}
                             value={form.motif}
                             onChange={(e) => handleFormChange('motif', e.target.value)}
                         />

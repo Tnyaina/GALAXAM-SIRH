@@ -230,6 +230,9 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-10-16-sp80-pointage-jour-periode-integrite.sql` | Contrainte et index de cohérence entre date de pointage et période de rattachement | `05_schema_pointage.sql` |
 | `26-10-16-sp81-derogation-decision-gouvernance.sql` | Autorité, référence de protocole et date d'acte pour clôture par dérogation avec solde restant | `06_schema_paie.sql` |
 | `26-10-17-sp82-menu-dossiers-sortie.sql` | Entrée de menu dédiée aux dossiers de sortie pour les rôles ayant `PAIE_READ` | `01_schema_core_securite.sql` |
+| `26-10-17-sp83-fractionnement-conge-15j.sql` | Paramètre de fractionnement des congés de 15 jours | `01_schema_core_securite.sql` |
+| `26-10-18-sp84-bulletin-reglements.sql` | Règlements individuels et lots de virements des bulletins | `06_schema_paie.sql` |
+| `26-10-19-sp85-regularisation-conge-source.sql` | Source unique des régularisations positives de reliquat de congé | `06_schema_paie.sql` |
 
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 91 tables et 9 vues cohérentes.

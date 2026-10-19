@@ -27,6 +27,11 @@ export const dossierSortieService = {
         return response.data;
     },
 
+    obtenirPaieFinale: async (id) => (await apiClient.get(`paie/dossier-sortie/${id}/paie-finale`)).data,
+    gelerPointageFinal: async (id) => (await apiClient.post(`paie/dossier-sortie/${id}/paie-finale/geler-pointage`)).data,
+    calculerBulletinFinal: async (id) => (await apiClient.post(`paie/dossier-sortie/${id}/paie-finale/calculer-bulletin`)).data,
+    validerBulletinFinal: async (id) => (await apiClient.post(`paie/dossier-sortie/${id}/paie-finale/valider-bulletin`)).data,
+
     /**
      * Récupère ou prépare la vue du dossier de sortie d'un salarié.
      *

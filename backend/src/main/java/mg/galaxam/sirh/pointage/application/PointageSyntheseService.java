@@ -1623,7 +1623,18 @@ public class PointageSyntheseService {
      * Gèle le cumul de période, les journées sources et les buckets temporels pour Paie.
      */
     public void gelerPeriode(int idPeriode, Integer userId, Connection c) throws SQLException {
+        gelerPeriode(idPeriode, null, userId, c);
+    }
+
+    /** Fige seulement le pointage d'un salarié sorti, sans fermer la campagne des autres. */
+    public void gelerEmploye(int idPeriode, int idEmploye, Integer userId, Connection c) throws SQLException {
+        gelerPeriode(idPeriode, idEmploye, userId, c);
+    }
+
+    private void gelerPeriode(int idPeriode, Integer idEmploye, Integer userId, Connection c) throws SQLException {
         var vacationsChevauchantes = vacationsSurDeuxCampagnes(idPeriode, c);
+        if (idEmploye != null) vacationsChevauchantes = vacationsChevauchantes.stream()
+                .filter(vacation -> vacation.idEmploye() == idEmploye).toList();
         if (!vacationsChevauchantes.isEmpty()) {
             throw new IllegalStateException("POINTAGE_CROSS_PERIOD_SHIFT: scinder la vacation "
                     + vacationsChevauchantes.get(0).idPointage() + " du "
@@ -1631,7 +1642,27 @@ public class PointageSyntheseService {
                     + " avant le gel de la période.");
         }
         // Calculer la synthèse via notre logique métier pure
-        List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c);
+        List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c).stream()
+                .filter(dto -> idEmploye == null || dto.getIdEmploye() == idEmploye).toList();
+        if (idEmploye != null && synthese.isEmpty())
+            throw new IllegalStateException("POINTAGE_EMPLOYEE_NOT_IN_PERIOD: salarié absent de la campagne.");
+        if (idEmploye != null) {
+            var manquantes = journeesOuvrablesSansStatut(idPeriode, synthese, c);
+            if (!manquantes.isEmpty()) throw new IllegalStateException(
+                    "POINTAGE_JOURNEES_MANQUANTES: " + manquantes.size()
+                    + " journée(s) à compléter avant le gel individuel.");
+            try (PreparedStatement anomalie = c.prepareStatement(
+                    "SELECT 1 FROM pointage_jour pj JOIN ref_statut_pointage_jour s "
+                    + "ON s.id_statut_jour=pj.id_statut_jour "
+                    + "WHERE pj.id_periode_paie=? AND pj.id_employe=? AND s.code='ANOMALIE_SAISIE' LIMIT 1")) {
+                anomalie.setInt(1, idPeriode);
+                anomalie.setInt(2, idEmploye);
+                try (ResultSet result = anomalie.executeQuery()) {
+                    if (result.next()) throw new IllegalStateException(
+                            "POINTAGE_ANOMALIE_SAISIE: corrigez le pointage avant le gel individuel.");
+                }
+            }
+        }
         var changementsEligibilite = changementsEligibiliteHs(idPeriode, synthese, c);
         if (!changementsEligibilite.isEmpty()) {
             var changement = changementsEligibilite.get(0);
@@ -1655,6 +1686,22 @@ public class PointageSyntheseService {
 
         try (PreparedStatement ps = c.prepareStatement(sqlCumul)) {
             for (PointageSyntheseMensuelleDTO dto : synthese) {
+                // Un bulletin final validé conserve sa provenance. Le gel collectif
+                // ne remplace jamais le snapshot déjà consommé pour ce salarié.
+                try (PreparedStatement protectedBulletin = c.prepareStatement(
+                        "SELECT 1 FROM bulletin_paie WHERE id_periode_paie=? AND id_employe=? "
+                        + "AND COALESCE(type_bulletin,'MENSUEL')='MENSUEL' "
+                        + "AND statut IN ('VALIDE','CLOTURE') LIMIT 1")) {
+                    protectedBulletin.setInt(1, idPeriode);
+                    protectedBulletin.setInt(2, dto.getIdEmploye());
+                    try (ResultSet existing = protectedBulletin.executeQuery()) {
+                        if (existing.next()) {
+                            if (idEmploye != null) throw new IllegalStateException(
+                                    "BULLETIN_VALIDE_IMMUABLE: le pointage du salarié est déjà lié à un bulletin validé.");
+                            continue;
+                        }
+                    }
+                }
                 try (PreparedStatement replace = c.prepareStatement(
                         "UPDATE pointage_cumul_periode SET statut_snapshot = 'REMPLACE' " +
                         "WHERE id_employe = ? AND id_periode_paie = ? AND statut_snapshot = 'GELE'")) {

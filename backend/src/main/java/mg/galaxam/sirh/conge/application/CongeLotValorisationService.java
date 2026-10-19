@@ -46,7 +46,7 @@ public class CongeLotValorisationService {
         }
     }
 
-    public record CorrectionCutover(BigDecimal ancienReliquatJours, BigDecimal nouveauReliquatJours,
+    public record CorrectionCutover(int idCorrection, BigDecimal ancienReliquatJours, BigDecimal nouveauReliquatJours,
             BigDecimal ancienneValeur, BigDecimal nouvelleValeur, BigDecimal regularisationAExaminer) {}
 
     /** Corrige seulement le reliquat de reprise. L'écart sur les prises antérieures reste à examiner en paie. */
@@ -123,19 +123,20 @@ public class CongeLotValorisationService {
             ps.setString(4, "Correction DAF du reliquat de reprise : " + motif.trim()); ps.setInt(5, auteur);
             try (ResultSet rs = ps.executeQuery()) { rs.next(); ajustement = rs.getInt(1); }
         }
+        int idCorrection;
         try (PreparedStatement ps = c.prepareStatement("INSERT INTO conge_cutover_correction "
                 + "(id_employe, id_mouvement_reprise, id_mouvement_ajustement, ancien_reliquat_jours, "
                 + "nouveau_reliquat_jours, ancien_reliquat_valeur, nouveau_reliquat_valeur, "
                 + "ancien_taux, nouveau_taux, regularisation_a_examiner, motif, corrige_par) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_correction")) {
             ps.setInt(1, employe); ps.setInt(2, reprise); ps.setInt(3, ajustement);
             ps.setBigDecimal(4, anciensJours); ps.setBigDecimal(5, nouveauxJours);
             ps.setBigDecimal(6, ancienneValeur); ps.setBigDecimal(7, nouvelleValeur);
             ps.setBigDecimal(8, ancienTaux); ps.setBigDecimal(9, nouveauTaux);
             ps.setBigDecimal(10, ecart); ps.setString(11, motif.trim()); ps.setInt(12, auteur);
-            ps.executeUpdate();
+            try (ResultSet rs = ps.executeQuery()) { rs.next(); idCorrection = rs.getInt(1); }
         }
-        return new CorrectionCutover(anciensJours, nouveauxJours, ancienneValeur, nouvelleValeur, ecart);
+        return new CorrectionCutover(idCorrection, anciensJours, nouveauxJours, ancienneValeur, nouvelleValeur, ecart);
     }
 
     public CongeLotValorisationEngine.Situation situation(int idEmploye, LocalDate date, Connection c)

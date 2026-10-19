@@ -639,12 +639,24 @@ export default function MouvementsSoldeTable({
                 <p className="text-xs text-[var(--color-fg-muted)] mt-1.5">
                   Différence constatée sur les congés déjà consommés avant correction.
                 </p>
-                <Link
-                  to="/paie?tab=periodes"
-                  className="inline-block mt-2 border border-[var(--color-border)] px-3 py-1.5 text-xs font-bold text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors"
-                >
-                  Campagnes de paie →
-                </Link>
+                {Number(correctionResult.regularisationAExaminer) > 0 && correctionResult.idCorrection && (
+                  <p className="text-xs text-[var(--color-fg-muted)] mt-1.5">
+                    Référence à saisir dans le motif de la régularisation Paie : <strong>CORRECTION_CUTOVER#{correctionResult.idCorrection}</strong>
+                  </p>
+                )}
+                {Number(correctionResult.regularisationAExaminer) < 0 && (
+                  <p className="text-xs text-[var(--color-fg-muted)] mt-1.5">
+                    Écart conservé pour examen DAF. Aucune retenue automatique sur la paie.
+                  </p>
+                )}
+                {Number(correctionResult.regularisationAExaminer) > 0 && (
+                  <Link
+                    to="/paie?tab=periodes"
+                    className="inline-block mt-2 border border-[var(--color-border)] px-3 py-1.5 text-xs font-bold text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                  >
+                    Campagnes de paie →
+                  </Link>
+                )}
               </div>
             )}
           </div>

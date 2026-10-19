@@ -383,6 +383,14 @@ public class PayrollService {
         for (Integer idEmp : idsEmployes) {
             Savepoint employeeSavepoint = c.getAutoCommit() ? null : c.setSavepoint("payroll_employee_" + idEmp);
             try {
+                BulletinPaie dejaValide = BulletinPaie.trouverParPeriodeEtEmployeEtType(
+                        idPeriodePaie, idEmp, "MENSUEL", c);
+                if (dejaValide != null && java.util.Set.of("VALIDE", "CLOTURE").contains(dejaValide.getStatut())) {
+                    verifierBulletinNonObsolete(dejaValide.getIdBulletin(), c);
+                    batch.ajouterBulletin(obtenirBulletinComplet(dejaValide.getIdBulletin(), c));
+                    if (employeeSavepoint != null) c.releaseSavepoint(employeeSavepoint);
+                    continue;
+                }
                 BulletinPaieComplet bpc = calculerBulletinEmploye(idEmp, idPeriodePaie, simulation, idUtilisateur, c);
                 batch.ajouterBulletin(bpc);
                 if (employeeSavepoint != null) c.releaseSavepoint(employeeSavepoint);
@@ -558,6 +566,11 @@ public class PayrollService {
                 employerSnapshotService.capture(b.getIdBulletin(), c);
                 marquerSnapshotConsomme(b.getIdBulletin(), c);
                 batch.ajouterBulletin(obtenirBulletinComplet(b.getIdBulletin(), c));
+            } else {
+                // Le bulletin individuel validé avant la campagne reste visible dans
+                // les totaux de validation, sans nouvelle écriture ni nouveau paiement.
+                verifierBulletinNonObsolete(b.getIdBulletin(), c);
+                batch.ajouterBulletin(obtenirBulletinComplet(b.getIdBulletin(), c));
             }
         }
 
@@ -573,6 +586,26 @@ public class PayrollService {
         }
 
         return batch;
+    }
+
+    /** Valide un bulletin final de sortie sans changer le statut de la campagne entière. */
+    public BulletinPaieComplet validerBulletinSortie(int periodeId, int employeId, Integer utilisateurId,
+                                                     Connection c) throws Exception {
+        BulletinPaie bulletin = BulletinPaie.trouverParPeriodeEtEmployeEtType(periodeId, employeId, "MENSUEL", c);
+        if (bulletin == null || !"CALCULE".equals(bulletin.getStatut()))
+            throw new IllegalStateException("BULLETIN_SORTIE_NON_CALCULE: calculez le bulletin individuel avant validation.");
+        verifierBulletinNonObsolete(bulletin.getIdBulletin(), c);
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE bulletin_paie SET statut='VALIDE', valide_par=?, date_validation=CURRENT_TIMESTAMP, "
+                + "updated_at=CURRENT_TIMESTAMP WHERE id_bulletin=? AND statut='CALCULE'")) {
+            if (utilisateurId == null) ps.setNull(1, java.sql.Types.INTEGER);
+            else ps.setInt(1, utilisateurId);
+            ps.setInt(2, bulletin.getIdBulletin());
+            if (ps.executeUpdate() != 1) throw new IllegalStateException("Le bulletin a changé pendant sa validation.");
+        }
+        employerSnapshotService.capture(bulletin.getIdBulletin(), c);
+        marquerSnapshotConsomme(bulletin.getIdBulletin(), c);
+        return obtenirBulletinComplet(bulletin.getIdBulletin(), c);
     }
 
     public PayrollBatchResult validerPaiePeriode(Integer idPeriodePaie, Integer idUtilisateur) {
@@ -613,6 +646,19 @@ public class PayrollService {
         if (motif == null || motif.trim().length() < 5) {
             throw new IllegalArgumentException("Le motif de réouverture est obligatoire (min 5 caractères).");
         }
+        // Même verrou que l'enregistrement des règlements : empêche qu'un
+        // paiement arrive entre le contrôle et la réouverture du bulletin.
+        try (PreparedStatement lock = c.prepareStatement(
+                "SELECT id_bulletin FROM bulletin_paie WHERE id_periode_paie=? "
+                + "AND COALESCE(type_bulletin,'MENSUEL')='MENSUEL' ORDER BY id_bulletin FOR UPDATE")) {
+            lock.setInt(1, idPeriodePaie);
+            try (ResultSet ignored = lock.executeQuery()) { while (ignored.next()) { /* verrouiller chaque ligne */ } }
+        }
+        Integer bloque = bulletinBloquantReouverture(idPeriodePaie, c);
+        if (bloque != null) throw new IllegalStateException(
+                "PERIODE_REOUVERTURE_REGLEMENT: le bulletin " + bloque
+                + " possède un règlement, un virement en attente ou un STC actif. "
+                + "Utilisez une régularisation auditée sur une autre période.");
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
         for (BulletinPaie bp : bulletins) {
             if ("STC".equalsIgnoreCase(bp.getTypeBulletin())) {
@@ -630,6 +676,25 @@ public class PayrollService {
             }
         }
 
+    }
+
+    /** Bulletin dont la dette est déjà engagée par un règlement, un lot ou un STC. */
+    public Integer bulletinBloquantReouverture(Integer idPeriodePaie, Connection c) throws SQLException {
+        // Un règlement ou un virement préparé se réfère au montant figé du
+        // bulletin. Le recalculer en place ferait diverger dette, preuve et solde.
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT b.id_bulletin FROM bulletin_paie b WHERE b.id_periode_paie=? "
+                + "AND COALESCE(b.type_bulletin,'MENSUEL')='MENSUEL' AND ("
+                + "EXISTS (SELECT 1 FROM paie_bulletin_reglement r WHERE r.id_bulletin=b.id_bulletin "
+                + "AND r.annule_at IS NULL) OR EXISTS (SELECT 1 FROM paie_bulletin_virement_ligne l "
+                + "WHERE l.id_bulletin=b.id_bulletin AND l.statut='EN_ATTENTE') OR EXISTS ("
+                + "SELECT 1 FROM paie_stc s WHERE s.id_bulletin_mensuel=b.id_bulletin "
+                + "AND s.statut IN ('VALIDE','REGLE'))) LIMIT 1")) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : null;
+            }
+        }
     }
 
     /**

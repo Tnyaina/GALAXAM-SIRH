@@ -144,8 +144,8 @@ class PayrollLongTermGrhLifecycleIntegrationTest {
                 for (var l : lignesEmp2) {
                     System.out.println("DEBUG LIGNE EMP2: " + l.getCodeRubrique() + " = " + l.getMontantSalarial() + " (sens=" + l.getSens() + ")");
                 }
-                // Brut = 450k base + 50k prime + éventuellement indemnités
-                assertEquals(new BigDecimal("550000.00"), bp1Emp2.getTotalGainsBruts());
+                // Brut = 450k de base + 50k de prime.
+                assertEquals(new BigDecimal("500000.00"), bp1Emp2.getTotalGainsBruts());
 
                 // GRH Etape 6 & 7 : Validation DAF et Clôture Période P1
                 var pop = payrollPopulationResolver.resolve(p1Id, c);

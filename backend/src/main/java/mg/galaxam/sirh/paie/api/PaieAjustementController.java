@@ -163,6 +163,7 @@ public class PaieAjustementController {
                         map.put("nomComplet", rs.getString("nom_complet"));
                         map.put("idPeriodePaie", rs.getObject("id_periode_paie"));
                         map.put("idTypeMouvement", rs.getObject("id_type_mouvement"));
+                        map.put("idCongeCutoverCorrection", rs.getObject("id_conge_cutover_correction"));
                         map.put("typeMouvement", rs.getString("type_code"));
                         map.put("typeLibelle", rs.getString("type_libelle"));
                         map.put("sens", rs.getString("type_sens"));
@@ -242,6 +243,34 @@ public class PaieAjustementController {
     /**
      * Liste les types de mouvements de paie actifs (primes, déductions, acomptes).
      */
+    @GetMapping("/conge-cutover-sources")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerCorrectionsConges(@RequestParam int idEmploye) throws Exception {
+        List<Map<String, Object>> sources = new ArrayList<>();
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "SELECT cc.id_correction, cc.date_correction, cc.regularisation_a_examiner, cc.motif, "
+                        + "a.id_avance, a.statut FROM conge_cutover_correction cc "
+                        + "LEFT JOIN paie_avance_acompte a ON a.id_conge_cutover_correction=cc.id_correction "
+                        + "AND a.statut NOT IN ('REJETE','ANNULE') "
+                        + "WHERE cc.id_employe=? AND cc.regularisation_a_examiner > 0 "
+                        + "ORDER BY cc.date_correction DESC, cc.id_correction DESC")) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> source = new HashMap<>();
+                    source.put("idCorrection", rs.getInt("id_correction"));
+                    source.put("dateCorrection", rs.getTimestamp("date_correction"));
+                    source.put("montant", rs.getBigDecimal("regularisation_a_examiner"));
+                    source.put("motif", rs.getString("motif"));
+                    source.put("idAjustement", rs.getObject("id_avance"));
+                    source.put("statutAjustement", rs.getString("statut"));
+                    sources.add(source);
+                }
+            }
+        }
+        return ResponseEntity.ok(sources);
+    }
+
     @GetMapping("/types-mouvements")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerTypesMouvements(

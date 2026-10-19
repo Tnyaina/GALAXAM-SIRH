@@ -160,6 +160,8 @@ export const paieService = {
         });
         return response.data;
     },
+    listerCorrectionsConges: async (idEmploye) =>
+        (await apiClient.get('paie/ajustements/conge-cutover-sources', { params: { idEmploye } })).data,
 
     getConfigurationCatalogue: async (params, signal) => (await apiClient.get('referentiel/types-mouvement-paie/configuration', { params, signal })).data,
     getRubriqueCyclePreview: async (start, end, signal) => (await apiClient.get('paie/rubriques/cycle-preview', {

@@ -7,6 +7,23 @@ métier ne sont pas interchangeables avec celles du contrat.
 
 Ce dossier regroupe le moteur de paie, la préparation et le calcul des bulletins, les campagnes de paie, le solde de tout compte (STC) et les exports fiscaux/sociaux.
 
+## Paie finale d'un salarié sortant pendant la campagne
+
+Le dossier de sortie expose un parcours individuel : constater la fin effective du
+contrat et de l'affectation, compléter les journées de pointage jusqu'au départ,
+figer le pointage du seul salarié, calculer son bulletin mensuel final, puis le
+valider. La campagne des autres salariés reste ouverte. Le calcul individuel
+réutilise le moteur mensuel et son snapshot de pointage ; le STC reste un calcul
+et un document distincts. La validation du bulletin ne constate aucun paiement.
+
+Lors de l'approbation du pointage collectif, le snapshot déjà consommé par ce
+bulletin validé est conservé. Le calcul collectif reprend le même bulletin dans
+ses totaux sans recalcul ni doublon. La validation collective le compte également
+sans enregistrer une deuxième validation ou un règlement. Le salarié sorti reste
+dans la population de la campagne qui recouvre sa présence passée, même si sa
+fiche est maintenant inactive. Les contrôles de population, d'obsolescence et de
+cohérence du dossier continuent de s'appliquer avant la clôture de période.
+
 ## Règlements des bulletins mensuels
 
 Le statut du bulletin (`VALIDE`, `CLOTURE`) décrit la validation de la paie ;
@@ -48,6 +65,26 @@ L'annulation du versement STC annule également l'affectation liée. Les verseme
 STC historiques sans preuve peuvent être rapprochés avec une pièce réelle et
 une part mensuelle explicite. Un bulletin inclus dans un STC actif est exclu des
 nouveaux paiements directs et des lots de virements afin d'éviter un doublon.
+La réouverture d'une campagne est refusée si un de ses bulletins mensuels porte
+un règlement actif, un virement en attente ou un STC actif. Une correction
+ultérieure doit être enregistrée dans une période distincte pour préserver
+la preuve de paiement et le montant historique du bulletin.
+
+Une régularisation de congé positive issue d'une correction DAF du reliquat
+référence `CORRECTION_CUTOVER#id` dans son motif. Le serveur reprend l'écart
+`regularisation_a_examiner` de cette correction, vérifie le salarié et empêche
+deux mouvements actifs de consommer la même source. Une ligne rejetée ou annulée
+reste historique et peut être remplacée. Les anciennes régularisations sans
+source liée ne sont pas réécrites. Le reliquat en jours corrigé ne peut pas être
+négatif. Un écart monétaire négatif est conservé dans la correction pour examen
+DAF, sans retenue automatique sur la paie. Une correction concernant un ancien
+salarié ne passe pas par un bulletin futur de salarié actif ; son éventuel
+paiement nécessite un circuit distinct.
+Dans l'écran Variables de la campagne, le type « Régularisation de congé antérieur »
+charge les corrections positives du salarié, indique celles déjà liées à un
+mouvement et affiche le montant source sans saisie libre. Le serveur reconstruit
+la référence et le montant lors de l'enregistrement ; l'approbation de la
+variable reste une étape distincte avant le calcul réel du bulletin.
 
 ## Contexte d'un bulletin
 

@@ -50,6 +50,7 @@ export default function ValidationStepPage() {
     const actions = context?.availableActions || {};
     const canValidate = actions.VALIDATE?.allowed === true;
     const canReopen = actions.REOPEN?.allowed === true;
+    const reopenBlockedByPayment = actions.REOPEN?.reasonCodes?.includes('PAYMENT_OR_STC_ALREADY_RECORDED') === true;
     const periode = context?.selectedPeriod || context?.currentPeriod;
     const payrollStatus = periode?.workflowStatuses?.paie;
     const isValidee = ['VALIDEE', 'CLOTUREE'].includes(payrollStatus?.code);
@@ -248,7 +249,7 @@ export default function ValidationStepPage() {
                     </CardBody>
                 </Card>
 
-                {canReopen && isValidee && !isCloturee && (
+                {canReopen && isCloturee && (
                     <div className="flex justify-end">
                         <Button
                             variant="secondary"
@@ -259,6 +260,10 @@ export default function ValidationStepPage() {
                             Rouvrir la période
                         </Button>
                     </div>
+                )}
+                {isCloturee && reopenBlockedByPayment && (
+                    <Alert type="info" title="Réouverture indisponible"
+                        message="Un bulletin possède déjà un règlement, un virement préparé ou un STC actif. Conservez cette période et saisissez la correction dans une campagne ultérieure." />
                 )}
             </div>
 

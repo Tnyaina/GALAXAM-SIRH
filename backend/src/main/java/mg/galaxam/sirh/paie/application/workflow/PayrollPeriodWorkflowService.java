@@ -533,13 +533,19 @@ public class PayrollPeriodWorkflowService {
                         stale.next();
                         int staleAttendance = stale.getInt(1);
                         int changedEmployment = count(connection,
-                                "SELECT COUNT(*) FROM bulletin_paie b WHERE b.id_periode_paie = ? "
+                                "SELECT COUNT(*) FROM bulletin_paie b "
+                                + "JOIN periode_paie periode ON periode.id_periode_paie=b.id_periode_paie "
+                                + "WHERE b.id_periode_paie = ? "
                                 + "AND COALESCE(b.type_bulletin,'MENSUEL') = 'MENSUEL' "
                                 + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') AND b.date_calcul IS NOT NULL "
                                 + "AND (EXISTS (SELECT 1 FROM employe_affectation_carriere a "
-                                + "WHERE a.id_employe = b.id_employe AND a.updated_at > b.date_calcul) "
+                                + "WHERE a.id_employe = b.id_employe AND a.updated_at > b.date_calcul "
+                                + "AND a.date_debut<=periode.date_fin "
+                                + "AND (a.date_fin IS NULL OR a.date_fin>=periode.date_debut)) "
                                 + "OR EXISTS (SELECT 1 FROM contrat_travail ct "
-                                + "WHERE ct.id_employe = b.id_employe AND ct.updated_at > b.date_calcul))", periodId);
+                                + "WHERE ct.id_employe = b.id_employe AND ct.updated_at > b.date_calcul "
+                                + "AND ct.date_debut<=periode.date_fin "
+                                + "AND (ct.date_fin IS NULL OR ct.date_fin>=periode.date_debut)))", periodId);
                         return changedVariables + staleAttendance + changedEmployment;
                     }
                 }
@@ -817,6 +823,10 @@ public class PayrollPeriodWorkflowService {
             }
             if (command == PayrollPeriodCommand.CLOSE && capability.allowed()) {
                 capability = closeCapability(periodId, state, periodEndDate(periodId, connection), connection);
+            }
+            if (command == PayrollPeriodCommand.REOPEN && capability.allowed()
+                    && payrollService.bulletinBloquantReouverture(periodId, connection) != null) {
+                capability = ActionCapability.denied("PAYMENT_OR_STC_ALREADY_RECORDED");
             }
             actions.put(command.name(), capability);
         }

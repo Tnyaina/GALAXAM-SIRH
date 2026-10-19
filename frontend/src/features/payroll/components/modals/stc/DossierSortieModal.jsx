@@ -41,6 +41,7 @@ import { formatStcAnciennete } from '@/features/payroll/utils/stcDisplay';
 import { fmtDate, getTodayDateString } from '@/utils/dateUtils';
 import dossierSortieService from '@/features/payroll/api/dossierSortieService';
 import DossierSortieSuiviPanel from './DossierSortieSuiviPanel';
+import DeparturePayrollPanel from './DeparturePayrollPanel';
 import DossierSortieWorkspaceShell from './DossierSortieWorkspaceShell';
 import HasPermission from '@/features/auth/components/HasPermission';
 import { useAuth } from '@/context/AuthContext';
@@ -372,6 +373,7 @@ export default function DossierSortieModal({
     const dossierTabs = [
         { id: 'synthese', label: 'Situation', icon: FileSpreadsheet },
         { id: 'checklist', label: 'Points à traiter', icon: ShieldAlert, ...(nbBloquants > 0 ? { count: nbBloquants } : {}) },
+        { id: 'paie-finale', label: 'Paie finale', icon: Calculator },
         { id: 'pret', label: 'Prêts', icon: Banknote },
         { id: 'decompte', label: 'Calcul STC', icon: Calculator },
         { id: 'suivi', label: 'Suivi et documents', icon: FileText },
@@ -1445,6 +1447,8 @@ export default function DossierSortieModal({
                 )}
 
                 {activeTab === 'suivi' && <div id="panel-suivi" role="tabpanel" aria-labelledby="tab-suivi"><DossierSortieSuiviPanel dossier={dossier} onDossierChange={updated => { setDossier(updated); onSaved?.(updated); }} /></div>}
+                {activeTab === 'paie-finale' && <DeparturePayrollPanel dossier={dossier}
+                    onDossierChange={updated => { setDossier(updated); onSaved?.(updated); }} />}
             </div>
             <ConfirmDialog isOpen={confirmScellement} onClose={() => setConfirmScellement(false)}
                 onConfirm={() => { setConfirmScellement(false); handleScellerStc(); }}

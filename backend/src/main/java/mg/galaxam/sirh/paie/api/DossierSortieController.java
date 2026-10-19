@@ -21,6 +21,7 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcSituationReglementDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.AnnulationReglementRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.ClotureDossierRequest;
 import mg.galaxam.sirh.paie.application.DossierSortieService;
+import mg.galaxam.sirh.paie.application.DeparturePayrollService;
 import mg.galaxam.sirh.paie.application.PaymentEvidence;
 import mg.galaxam.sirh.paie.application.StcPaymentReconciliationService;
 import mg.galaxam.sirh.paie.application.export.StcDocumentService;
@@ -46,14 +47,17 @@ public class DossierSortieController {
 
     private final DataSource dataSource;
     private final DossierSortieService dossierSortieService;
+    private final DeparturePayrollService departurePayrollService;
     private final StcDocumentService stcDocumentService;
     private final StcPaymentReconciliationService reconciliation;
 
     public DossierSortieController(DataSource dataSource, DossierSortieService dossierSortieService,
+                                  DeparturePayrollService departurePayrollService,
                                   StcDocumentService stcDocumentService,
                                   StcPaymentReconciliationService reconciliation) {
         this.dataSource = dataSource;
         this.dossierSortieService = dossierSortieService;
+        this.departurePayrollService = departurePayrollService;
         this.stcDocumentService = stcDocumentService;
         this.reconciliation = reconciliation;
     }
@@ -103,6 +107,30 @@ public class DossierSortieController {
             }
             return ResponseEntity.ok(dto);
         }
+    }
+
+    @GetMapping("/{id}/paie-finale")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<DeparturePayrollService.Situation> situationPaieFinale(@PathVariable Integer id) throws Exception {
+        return ResponseEntity.ok(departurePayrollService.situation(id));
+    }
+
+    @PostMapping("/{id}/paie-finale/geler-pointage")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<DeparturePayrollService.Situation> gelerPointageFinal(@PathVariable Integer id) throws Exception {
+        return ResponseEntity.ok(departurePayrollService.gelerPointage(id, getCurrentUserId()));
+    }
+
+    @PostMapping("/{id}/paie-finale/calculer-bulletin")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<DeparturePayrollService.Situation> calculerBulletinFinal(@PathVariable Integer id) throws Exception {
+        return ResponseEntity.ok(departurePayrollService.calculerBulletin(id, getCurrentUserId()));
+    }
+
+    @PostMapping("/{id}/paie-finale/valider-bulletin")
+    @PreAuthorize("hasAuthority('PAIE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<DeparturePayrollService.Situation> validerBulletinFinal(@PathVariable Integer id) throws Exception {
+        return ResponseEntity.ok(departurePayrollService.validerBulletin(id, getCurrentUserId()));
     }
 
     /**

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
@@ -92,23 +93,35 @@ public class PayrollAdjustmentCreationService {
                 }
 
                 String codeType = typeMvt.getCode();
+                Integer cutoverCorrectionId = null;
+                BigDecimal cutoverAmount = null;
                 if ("REGULARISATION_CONGE".equals(codeType)) {
                     if (req.getIdEmploye() == null) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                             "Le salarié est obligatoire pour une régularisation Congés.");
                     String motif = req.getMotif() != null ? req.getMotif() : "";
-                    var reference = java.util.regex.Pattern.compile("(?:^|\\s)JOURNAL_CONGE#(\\d+)(?:\\s|$)")
+                    var reference = java.util.regex.Pattern.compile("(?:^|\\s)CORRECTION_CUTOVER#(\\d+)(?:\\s|$)")
                             .matcher(motif);
                     if (!reference.find()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                            "Régularisation Congés : indiquez JOURNAL_CONGE#<id> dans le motif et justifiez le calcul DAF.");
-                    int idJournal = Integer.parseInt(reference.group(1));
+                            "Régularisation Congés : indiquez CORRECTION_CUTOVER#<id> dans le motif.");
+                    cutoverCorrectionId = Integer.parseInt(reference.group(1));
                     try (PreparedStatement preuve = c.prepareStatement(
-                            "SELECT 1 FROM conge_journal_droit WHERE id_journal=? AND id_employe=?")) {
-                        preuve.setInt(1, idJournal);
+                            "SELECT regularisation_a_examiner FROM conge_cutover_correction "
+                                    + "WHERE id_correction=? AND id_employe=?")) {
+                        preuve.setInt(1, cutoverCorrectionId);
                         preuve.setInt(2, req.getIdEmploye());
                         try (ResultSet rs = preuve.executeQuery()) {
                             if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                                    "Le journal Congés cité n'appartient pas au salarié de la régularisation.");
+                                    "La correction de reliquat citée n'appartient pas au salarié.");
+                            cutoverAmount = rs.getBigDecimal(1);
                         }
+                    }
+                    if (cutoverAmount == null || cutoverAmount.signum() <= 0) {
+                        throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                "Cette correction ne constitue pas un complément positif. Un écart négatif exige un traitement distinct.");
+                    }
+                    if (req.getMontant() != null && req.getMontant().compareTo(cutoverAmount) != 0) {
+                        throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                "Le montant doit correspondre exactement à l'écart calculé par la correction de reliquat.");
                     }
                 }
                 String sens = typeMvt.getSens();
@@ -118,6 +131,7 @@ public class PayrollAdjustmentCreationService {
                 if ("VARIABLE_DAF".equals(typeMvt.getNature())) {
                     resolvedAmount = manualVariableAmountService.calculate(req, typeMvt, c).montant();
                 }
+                if (cutoverAmount != null) resolvedAmount = cutoverAmount;
                 if(resolvedAmount==null || resolvedAmount.signum()<=0)
                     throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Le montant doit être positif.");
                 PaieAvanceAcompte entity = new PaieAvanceAcompte();
@@ -142,6 +156,20 @@ public class PayrollAdjustmentCreationService {
                 entity.setCreePar(userId);
 
                 entity.save(c);
+                if (cutoverCorrectionId != null) {
+                    try (PreparedStatement link = c.prepareStatement(
+                            "UPDATE paie_avance_acompte SET id_conge_cutover_correction=? WHERE id_avance=?")) {
+                        link.setInt(1, cutoverCorrectionId);
+                        link.setInt(2, entity.getIdAvance());
+                        link.executeUpdate();
+                    } catch (SQLException duplicate) {
+                        if ("23505".equals(duplicate.getSQLState())) {
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "Cette correction de reliquat est déjà liée à une régularisation de paie.");
+                        }
+                        throw duplicate;
+                    }
+                }
                 AuditLog.audit(c, "CREATION", "paie_avance_acompte", String.valueOf(entity.getIdAvance()), null,
                         entity);
 
@@ -168,6 +196,7 @@ public class PayrollAdjustmentCreationService {
                 resp.put("typeMouvement", codeType);
                 resp.put("sens", sens);
                 resp.put("montant", entity.getMontant());
+                if (cutoverCorrectionId != null) resp.put("idCongeCutoverCorrection", cutoverCorrectionId);
                 resp.put("statut", entity.getStatut());
                 resp.put("version", version);
 

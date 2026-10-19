@@ -16,6 +16,8 @@ import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +30,90 @@ class PayrollPointageToBulletinIntegrationTest {
     @Autowired DataSource dataSource;
     @Autowired PointageSyntheseService pointageSyntheseService;
     @Autowired PayrollService payrollService;
+    @Autowired PayrollPeriodWorkflowService workflowService;
+
+    @Test
+    void bulletinDeSortieValideEstConserveAuGelEtCalculCollectifs() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            assertTestDatabase(c);
+            c.setAutoCommit(false);
+            try {
+                CongeTestFixtureHelper.cleanDatabase(c);
+                int employeeId = CongeTestFixtureHelper.createEmploye(c,
+                        "EXIT-" + Long.toString(System.nanoTime(), 36), "Sortie", "Anticipee");
+                try (PreparedStatement ps = c.prepareStatement("UPDATE employe SET est_actif=FALSE WHERE id_employe<>?")) {
+                    ps.setInt(1, employeeId); ps.executeUpdate();
+                }
+                LocalDate start = LocalDate.of(2026, 10, 1);
+                LocalDate departure = LocalDate.of(2026, 10, 9);
+                int contractId = CongeTestFixtureHelper.createContratActif(c, employeeId, start);
+                CongeTestFixtureHelper.createAffectation(c, employeeId, contractId, start, new BigDecimal("350000"));
+                try (PreparedStatement ps = c.prepareStatement("UPDATE contrat_travail SET date_fin=? WHERE id_contrat=?")) {
+                    ps.setDate(1, Date.valueOf(departure)); ps.setInt(2, contractId); ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE employe_affectation_carriere SET date_fin=? WHERE id_contrat=?")) {
+                    ps.setDate(1, Date.valueOf(departure)); ps.setInt(2, contractId); ps.executeUpdate();
+                }
+                int periodId = CongeTestFixtureHelper.createPeriodePaie(c, "EXIT-" + employeeId,
+                        start, LocalDate.of(2026, 10, 25), "EN_COURS");
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO pointage_jour (id_employe,id_periode_paie,id_site,date_pointage,id_statut_jour,"
+                        + "heure_entree_matin,heure_sortie_matin,heure_entree_am,heure_sortie_am,"
+                        + "heure_entree_matin_effective,total_heures,version) VALUES (?,?,1,?,"
+                        + "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code='PRESENT'),"
+                        + "'08:00','12:00','13:00','17:00','08:00',8,1)")) {
+                    for (LocalDate day = start; !day.isAfter(departure); day = day.plusDays(1)) {
+                        if (day.getDayOfWeek().getValue() > 5) continue;
+                        ps.setInt(1, employeeId); ps.setInt(2, periodId); ps.setDate(3, Date.valueOf(day));
+                        ps.executeUpdate();
+                    }
+                }
+                pointageSyntheseService.gelerEmploye(periodId, employeeId, null, c);
+                var calculated = payrollService.calculerBulletinEmploye(employeeId, periodId, false, null, c);
+                int bulletinId = calculated.getBulletin().getIdBulletin();
+                int snapshotId = calculated.getBulletin().getIdSnapshotPointage();
+                payrollService.validerBulletinSortie(periodId, employeeId, null, c);
+                pointageSyntheseService.gelerPeriode(periodId, null, c);
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE periode_paie SET id_statut_periode=(SELECT id_statut_periode "
+                        + "FROM ref_statut_periode_paie WHERE code='VALIDEE') WHERE id_periode_paie=?")) {
+                    ps.setInt(1, periodId); ps.executeUpdate();
+                }
+                var batch = payrollService.calculerPaiePeriode(periodId, false, null, c);
+                assertEquals(1, batch.getNbBulletinsCalcules());
+                var validatedBatch = payrollService.validerPaiePeriode(periodId, null, c);
+                assertEquals(1, validatedBatch.getNbBulletinsCalcules());
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT statut,id_snapshot_pointage FROM bulletin_paie WHERE id_bulletin=?")) {
+                    ps.setInt(1, bulletinId);
+                    try (ResultSet rows = ps.executeQuery()) {
+                        assertTrue(rows.next());
+                        assertEquals("VALIDE", rows.getString(1));
+                        assertEquals(snapshotId, rows.getInt(2));
+                    }
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie=? AND id_employe=? "
+                        + "AND COALESCE(type_bulletin,'MENSUEL')='MENSUEL'")) {
+                    ps.setInt(1, periodId); ps.setInt(2, employeeId);
+                    try (ResultSet rows = ps.executeQuery()) { rows.next(); assertEquals(1, rows.getInt(1)); }
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO paie_bulletin_reglement(id_bulletin,montant,mode_reglement,date_reglement,"
+                        + "reference_reglement,nom_justificatif,mime_justificatif,contenu_justificatif,taille_justificatif)"
+                        + " VALUES (?,100,'VIREMENT','2026-10-19','TEST-PAYMENT','preuve.pdf',"
+                        + "'application/pdf',?,8)")) {
+                    ps.setInt(1, bulletinId); ps.setBytes(2, "%PDF-1.7".getBytes()); ps.executeUpdate();
+                }
+                var reopen = workflowService.describeActions(periodId, "CLOTUREE",
+                        new PayrollPeriodUserContext(null, java.util.Set.of("ROLE_ADMIN")), c).get("REOPEN");
+                assertTrue(reopen.reasonCodes().contains("PAYMENT_OR_STC_ALREADY_RECORDED"));
+                assertThrows(IllegalStateException.class, () -> payrollService.rouvrirDonneesPaie(
+                        periodId, "Correction après paiement", null, c));
+            } finally { c.rollback(); }
+        }
+    }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
