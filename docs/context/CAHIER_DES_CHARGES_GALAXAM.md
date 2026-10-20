@@ -131,7 +131,7 @@ Développer une application web unique et centralisée pour :
 
 ### **4.2 Environnements de Déploiement**
 
-* **Serveur de Production (GALAXAM) :** Installation locale dans les bureaux de l'entreprise sur une machine dédiée via Docker.
+* **Cible de déploiement (GALAXAM) :** Installation locale envisagée sur un ordinateur de l'entreprise via Docker Compose ; l'installation et la recette sur ce poste restent à confirmer.
 
 ## 
 

@@ -1,16 +1,9 @@
-# React + Vite
+# Frontend GALAXAM SIRH
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application React construite avec Vite. La configuration Docker principale se trouve à la racine du dépôt dans `docker-compose.yml` ; consulter le README racine pour la préparation de `.env`, les volumes et le démarrage.
 
-Currently, two official plugins are available:
+En mode intégré, le Dockerfile construit les fichiers statiques puis Nginx les sert sur `http://localhost:8088`. Nginx transmet les requêtes `/api/` au service backend sur le réseau Docker. Le navigateur n'accède pas directement au port du backend.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Le mode de développement reste indépendant : depuis `frontend/`, exécuter `npm install` puis `npm run dev`. Vite utilise son port de développement habituel (`5173` si disponible). Le backend local et sa base doivent être configurés séparément ; les variables du `.env` racine sont destinées à Docker Compose.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Commandes de contrôle : `npm run lint`, `npm test` et `npm run build`. Elles ne sont pas exécutées par ce document.

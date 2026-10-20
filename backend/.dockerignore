@@ -4,4 +4,4 @@ target
 uploads
 docs/boky
 *.pdf
-*.xlsx
+src/main/resources/application-local.properties

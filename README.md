@@ -128,7 +128,7 @@ GALAXAM-SIRH/
 │   ├── TEMPORAL_RULES.md                    # Référentiel central des règles temporelles
 │   ├── TEMPORAL_DURABILITY_AUDIT.md         # Rapport d'audit de durabilité temporelle
 │   └── CAHIER_DES_CHARGES_GALAXAM.md        # Spécifications initiales du projet
-├── docker-compose.yml                       # Définition des conteneurs locaux (PostgreSQL)
+├── docker-compose.yml                       # PostgreSQL, backend et frontend Nginx
 └── README.md                                # Document principal de présentation
 ```
 
@@ -148,16 +148,31 @@ Les règles de gestion, protocoles de calcul et spécifications techniques sont 
 
 ## 6. Environnement et Commandes d'Exploitation
 
-### Prérequis
-- Java Development Kit (JDK) 17 ou supérieur.
-- Node.js version 18 ou supérieure avec npm.
-- Docker et Docker Compose.
+### Installation locale avec Docker
 
-### Commandes Backend
+Docker Desktop avec Docker Compose est nécessaire. Java, Maven et Node.js sont fournis par les images pendant la construction. Le seul fichier d'orchestration est `docker-compose.yml`.
+
+1. Copier `.env.example` vers `.env` et renseigner `GALAXAM_DB_PASSWORD`, `GALAXAM_JWT_SECRET` et les paramètres du premier administrateur. `.env` est local et ignoré par Git ; ne pas le publier. Le secret JWT doit contenir au moins 64 octets aléatoires. Le mot de passe administrateur doit comporter au moins huit caractères, une majuscule, une minuscule et un chiffre.
+2. Vérifier la configuration sans afficher les valeurs : `docker compose config --quiet`.
+3. Démarrer les trois services :
 
 ```bash
-# Démarrage de l'instance PostgreSQL
-docker compose up -d
+docker compose up -d --build
+```
+
+Ouvrir `http://localhost:8088` pour l'application. Seul le frontend Nginx est accessible par ce port local ; il sert React et relaie `/api/` au backend. PostgreSQL est également publié **sur ce poste uniquement** pour pgAdmin : hôte `127.0.0.1`, port `5433`, base `sirh_galaxam`, utilisateur `galaxam_admin`, mot de passe `GALAXAM_DB_PASSWORD` de `.env`. Dans le réseau Docker, le backend se connecte à `postgres:5432` ; le port `5433` concerne uniquement les outils installés sur l'hôte.
+
+Sur un volume PostgreSQL neuf, le script d'initialisation charge les six scripts SQL canoniques. Ce script ne se rejoue pas sur un volume déjà initialisé. Si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`, le backend crée le compte indiqué dans `.env` seulement si aucun administrateur actif n'existe ; il ne change pas le mot de passe d'un administrateur existant. Une fois le premier compte créé, désactiver ce paramètre et recréer le backend avec `docker compose up -d --no-deps backend`.
+
+Les volumes `galaxam_local_pg_data` et `galaxam_local_business_files` conservent respectivement la base et les fichiers métier. Le volume historique `galaxam_pg_data` n'est pas utilisé. `docker compose stop` ou `docker compose down` conservent les volumes ; **ne pas exécuter `docker compose down -v`**, qui supprime les volumes déclarés par ce projet et leurs données. Sauvegarder les volumes avant toute opération de remise à zéro.
+
+Pour consulter l'état : `docker compose ps`. Pour les journaux : `docker compose logs --tail=100 postgres backend frontend`. La configuration a déjà été démarrée et vérifiée une première fois, mais l'état des conteneurs et volumes doit être contrôlé avant chaque nouvelle utilisation ; leur présence n'est pas garantie par ce guide.
+
+### Développement et tests hors Docker
+
+Java 17, Maven et Node.js/npm sont nécessaires pour lancer directement le backend et le frontend. Le profil Spring `local` utilise actuellement `localhost:5432` et ses propres valeurs de développement dans `application-local.properties`. Il ne pointe pas automatiquement vers le PostgreSQL Docker exposé sur `5433` ; adapter la configuration locale si ce dernier doit servir au développement hors Docker.
+
+```bash
 
 # Compilation complète du backend
 mvn -f backend/pom.xml clean compile

@@ -11,7 +11,9 @@ Les routes publiques restent sous `/auth/*` et `/utilisateurs/*`.
 
 ## Bootstrap du premier administrateur
 
-Le bootstrap est désactivé par défaut. Pour provisionner explicitement le premier compte, fournir `BOOTSTRAP_ADMIN_ENABLED=true`, `GALAXAM_DEFAULT_ADMIN_NAME`, `GALAXAM_DEFAULT_ADMIN_EMAIL` et `GALAXAM_DEFAULT_ADMIN_PASSWORD` par l'environnement du serveur ou un gestionnaire de secrets. Ne pas ajouter ces secrets aux fichiers suivis par Git.
+Le bootstrap Spring est désactivé par défaut dans `application.properties`. En mode Docker intégré, `docker-compose.yml` transmet les valeurs du `.env` racine : `GALAXAM_BOOTSTRAP_ADMIN_ENABLED`, `GALAXAM_DEFAULT_ADMIN_NAME`, `GALAXAM_DEFAULT_ADMIN_EMAIL` et `GALAXAM_DEFAULT_ADMIN_PASSWORD`. Ce fichier local est ignoré par Git ; ne pas ajouter les secrets aux documents ou fichiers suivis.
+
+Lorsque le bootstrap est activé, `AdminAccountSeeder` crée le compte seulement si aucun administrateur actif n'existe. Un administrateur déjà actif conserve son identité et son mot de passe. Après l'initialisation, désactiver le bootstrap dans `.env` et recréer le backend pour appliquer la variable. Le mode de développement hors Docker possède ses propres paramètres dans `application-local.properties`.
 
 ## Cycle de vie du compte et sessions
 

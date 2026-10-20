@@ -1,7 +1,9 @@
 # Dossier de Contexte — Stage de Fin d'Études & PFE SIRH GALAXAM Logistics
 ## Système d'Information des Ressources Humaines Centralisé, Sécurisé et Conforme au Droit Malagasy
 ### Référence Académique (IT University) & Spécification Opérationnelle de Terrain
-### **Mis à jour Octobre 2026 — Version Alignée sur la Réalité Terrain & le Code Source Réel**
+### **Document de contexte historique — à confronter au dépôt actuel**
+
+> **État de l'infrastructure (octobre 2026)** : La cible actuelle est un seul `docker-compose.yml` avec PostgreSQL 15, backend Spring Boot 4.1.0 et frontend React servi par Nginx. L'accès prévu est `http://localhost:8088` ; pgAdmin peut utiliser `127.0.0.1:5433` lorsque les conteneurs fonctionnent. Le premier démarrage technique ne démontre pas une installation ou une recette validée dans l'entreprise. Les dates, métriques et validations de ce dossier historique demandent des preuves indépendantes avant insertion dans le mémoire.
 
 ---
 
@@ -25,7 +27,7 @@
 | **Période Conventionnée Initiale** | Du **06 juillet 2026 au 06 octobre 2026** (3 mois conventionnels indiqués sur la fiche de stage) |
 | **Période Réelle Prolongée** | Du **06 juillet 2026 au 06 novembre 2026** (Prolongation formelle d'un mois accordée) |
 | **Rattachement Interne** | Directement rattaché au **Département Logistics** (absence de service informatique interne propre) |
-| **Dépôt & Branches Git** | Monolithe Git : `feature/* → develop → staging → main` (déploiement Docker sur Render) |
+| **Dépôt & Branches Git** | Dépôt Git du projet ; la stratégie de branches et un déploiement opérationnel demandent une vérification séparée. La cible retenue est une installation locale par Docker Compose. |
 
 ### 1.1 Chronologie Réelle du Projet & Courriel Officiel de Prolongation
 
@@ -56,7 +58,7 @@ Le document de planification de référence de l'entreprise (`docs/context/Todo 
 - **Sprint III : Module Pointage & Suivi des Présences** : 10 jours ouvrés.
 - **Sprint IV : Module Congés & Absences (FIFO & Décompte Fériés)** : 11 jours ouvrés.
 - **Sprint V : Moteur de Paie, Déclarations Fiscales & STC** : 15 jours ouvrés.
-- **Sprint VI : Tests d'Intégration, Recette DAF & Déploiement Render** : 8 jours ouvrés.
+- **Sprint VI : Tests d'intégration, recette et préparation de l'installation locale** : 8 jours ouvrés.
 
 $$\text{Total Réalisation Technique} = 14 + 8 + 10 + 11 + 15 + 8 = \mathbf{66\text{ jours ouvrés}}$$
 $$\text{Total Global Stage (Immersion + Dév)} = 15 + 66 = \mathbf{81\text{ jours ouvrés (du 06/07/2026 au 06/11/2026)}}$$
@@ -238,7 +240,7 @@ L'impôt sur les Revenus Salariaux et Assimilés (IRSA) est calculé par tranche
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                        │
 │   CLIENT / FRONTEND                                                                    │
-│   ├── Framework : React 18 / 19 avec Single Page Application (SPA)                     │
+│   ├── Framework : React 19 avec Single Page Application (SPA)                          │
 │   ├── Build Tool : Vite.js (HMR ultra-rapide, bundle optimisé)                         │
 │   ├── Design System : Vanilla CSS tokens + Tailwind CSS v4 (palette Navy / Professionnelle)│
 │   ├── Composants UI : Tableaux paginés, Modales transactionnelles, Lucide React Icons  │
@@ -246,7 +248,7 @@ L'impôt sur les Revenus Salariaux et Assimilés (IRSA) est calculé par tranche
 │                                                                                        │
 │   SERVEUR / BACKEND                                                                    │
 │   ├── Langage & Runtime : Java 17 LTS (OpenSDK)                                        │
-│   ├── Framework Applicatif : Spring Boot 3.x (Spring MVC, Spring Security 6)           │
+│   ├── Framework Applicatif : Spring Boot 4.1.0 (voir backend/pom.xml)                   │
 │   ├── Architecture Métier : Monolithe modulaire orienté Domaine (DDD léger)            │
 │   ├── Sécurité IAM : Authentification Stateless JWT HS512 (HMAC-SHA512)                │
 │   ├── Accès aux Données : Couche Active Record JDBC pure (bean.ClassMere) + HikariCP   │
@@ -254,15 +256,15 @@ L'impôt sur les Revenus Salariaux et Assimilés (IRSA) est calculé par tranche
 │   └── Moteur Documentaire : Apache POI (génération dynamique de contrats et fiches)   │
 │                                                                                        │
 │   BASE DE DONNÉES                                                                      │
-│   ├── Système : PostgreSQL 16 (Hébergé managé)                                         │
+│   ├── Système : PostgreSQL 15 (conteneur Docker local)                                         │
 │   ├── Structure : 6 scripts canoniques séquentiels (01 à 06) sans ALTER circulaire     │
 │   ├── Intégrité Temporelle : Extension btree_gist avec contraintes d'exclusion EXCLUDE  │
 │   └── Traçabilité : Table immuable audit_log stockant les deltas JSONB                 │
 │                                                                                        │
 │   INFRASTRUCTURE & DÉPLOIEMENT                                                         │
 │   ├── Conteneurisation : Dockerfile multi-stage build (Maven packaging + Eclipse Temurin)│
-│   ├── Hébergement Cloud : Plateforme Render (Web Service + PostgreSQL managé)          │
-│   └── URL de Recette / Staging : https://galaxam-sirh.onrender.com                    │
+│   ├── Cible actuelle : installation locale sur un seul poste avec Docker Compose          │
+│   └── Accès prévu sur le poste local : http://localhost:8088                    │
 │                                                                                        │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -288,7 +290,7 @@ Dans le document final du Mémoire de Fin d'Études destiné au jury universitai
 1. **L'Analyse et la Conception Formelle** : Les modèles conceptuels, diagrammes de classes UML, modèles relationnels normalisés (3NF/BCNF) et diagrammes d'états-transitions.
 2. **Les Réalisations Techniques Effectives** : Le code source Java 17 testé, les API REST documentées, les vues et contraintes PostgreSQL opérationnelles.
 3. **La Validation par les Tests Automatisés** : La suite complète de tests unitaires et d'intégration JUnit 5 couvrant les règles métier critiques (calculs de paie, compensation d'heures, transitions de contrat, décompte de congés).
-4. **Le Déploiement Opérationnel** : L'environnement Dockerisé déployé sur Render et accessible à la direction de GALAXAM.
+4. **Le Déploiement Opérationnel** : L'installation locale par Docker Compose reste à confirmer en conditions réelles d'utilisation par GALAXAM.
 5. **Les Perspectives et Dette Technique Assumée** : Les points réservés pour de futurs développements (authentification biométrique directe par pointeuse physique ZKTeco, portail mobile pour les chauffeurs en déplacement).
 
 ---

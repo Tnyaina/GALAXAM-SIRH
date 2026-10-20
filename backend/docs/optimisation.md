@@ -124,11 +124,8 @@ L'application compilée s'ouvre sur `http://localhost:4173` et communique avec l
 ## 🔬 6. Diagnostic & Explications des Alertes de Performance (Lighthouse)
 
 ### 6.1. Latence de première requête / TTFB (~1000 ms)
-* **Constat** : Lighthouse indique *"Le serveur a répondu lentement (1006 ms observées)"*.
-* **Explication** : Sur l'hébergement Render (version gratuite), les conteneurs se mettent en veille après 15 minutes d'inactivité. La première requête subit donc un **Cold Start** (démarrage à froid) du serveur backend Java/Spring Boot.
-* **Solution Production** : 
-  * Activer une instance permanente (*Paid Instance*) ou un service de ping/heartbeat (ex: UptimeRobot) pour éviter la mise en veille du serveur.
-  * Mettre en place un CDN (ex: Cloudflare) pour servir les fichiers statiques HTML/CSS/JS directement au plus près des utilisateurs.
+* **Note historique** : La mesure de 1006 ms est historique et non vérifiée ; elle ne décrit pas les performances de l’installation locale actuelle.
+* **Configuration actuelle** : L'exécution intégrée utilise Docker Compose sur un seul poste, avec React servi par Nginx sur `localhost:8088`, le backend Spring Boot et PostgreSQL 15. Une nouvelle mesure locale avec protocole reproductible est nécessaire avant toute conclusion sur la latence.
 
 ### 6.2. Ressources JavaScript non utilisées (~28 Ko sur vendor-react)
 * **Constat** : Lighthouse signale des ressources JS inutilisées sur `vendor-react-xxx.js`.
