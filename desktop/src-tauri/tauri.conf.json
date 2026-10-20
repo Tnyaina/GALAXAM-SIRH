@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GALAXAM SIRH",
+  "version": "0.1.0",
+  "identifier": "mg.galaxam.sirh.desktop",
+  "build": {
+    "frontendDist": "../../frontend/dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "nsis"],
+    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
+    "resources": {
+      "../bundle/backend.jar": "backend/backend.jar",
+      "../bundle/runtime/bin/": "backend/runtime/bin/",
+      "../bundle/runtime/conf/": "backend/runtime/conf/",
+      "../bundle/runtime/lib/": "backend/runtime/lib/",
+      "../bundle/runtime/release": "backend/runtime/release",
+      "../bundle/runtime-licenses.zip": "backend/runtime-licenses.zip"
+    }
+  }
+}

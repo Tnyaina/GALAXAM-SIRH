@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import apiClient, { getAccessToken } from '@/api/apiClient';
+import { API_BASE_URL } from '@/api/apiBaseUrl';
 
 // Cache mémoire de courte durée : les photos privées évitent les téléchargements
 // répétés pendant la navigation, puis leurs URL sont libérées à expiration.
@@ -29,14 +30,12 @@ function getCachedImage(path) {
     return entry.url;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/';
-
 function apiAssetPath(source) {
     if (!source) return null;
     if (source.startsWith('blob:') || source.startsWith('data:')) return source;
 
     try {
-        const apiBase = new URL(API_BASE_URL);
+        const apiBase = new URL(API_BASE_URL, window.location.href);
         const asset = new URL(source, apiBase);
         if (asset.origin !== apiBase.origin) return null;
 

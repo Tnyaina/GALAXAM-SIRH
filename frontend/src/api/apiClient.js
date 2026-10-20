@@ -1,7 +1,6 @@
 // apiClient.js
 import axios from 'axios';
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/';
+import { API_BASE_URL as BASE_URL } from './apiBaseUrl';
 
 let _accessToken = null;
 let refreshPromise = null;

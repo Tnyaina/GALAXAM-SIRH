@@ -8,9 +8,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vite.dev/config/
 export default defineConfig({
-  test: {
-    exclude: ['e2e/**', 'playwright/**', 'node_modules/**', 'dist/**'],
-  },
   plugins: [
     react(),
     tailwindcss(),

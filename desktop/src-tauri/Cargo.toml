@@ -1,0 +1,18 @@
+[package]
+name = "galaxam-sirh-desktop"
+version = "0.1.0"
+description = "GALAXAM SIRH desktop prototype"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+axum = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["net", "signal"] }
+include_dir = "0.7"
+mime_guess = "2"
+percent-encoding = "2"
+libc = "0.2"
