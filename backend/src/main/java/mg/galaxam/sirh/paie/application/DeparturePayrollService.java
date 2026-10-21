@@ -95,8 +95,7 @@ public class DeparturePayrollService {
                 || dossier.getIdContrat() == null)
             throw new IllegalStateException("DOSSIER_SORTIE_INCOMPLET: enregistrez la date de départ.");
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT p.id_periode_paie,s.code FROM periode_paie p "
-                + "JOIN ref_statut_periode_paie s ON s.id_statut_periode=p.id_statut_periode "
+                "SELECT p.id_periode_paie, p.statut FROM periode_paie p "
                 + "WHERE ? BETWEEN p.date_debut AND p.date_fin")) {
             ps.setDate(1, dossier.getDateDepart());
             try (ResultSet rs = ps.executeQuery()) {

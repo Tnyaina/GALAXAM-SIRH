@@ -1,0 +1,24 @@
+# Production : image backend empaquetée, sans sources montées ni compilation Maven.
+# Définir GALAXAM_CORS_ORIGIN sur l'origine HTTPS publique avant le démarrage.
+name: galaxam-sirh-prod
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: galaxam-sirh-backend:prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DEVTOOLS_RESTART_ENABLED: "false"
+      JWT_SECRET: ${GALAXAM_JWT_SECRET:?Définir GALAXAM_JWT_SECRET dans .env}
+      CORS_ORIGIN: ${GALAXAM_CORS_ORIGIN:?Définir GALAXAM_CORS_ORIGIN dans .env, ex. https://sirh.example.com}
+    command: ["java", "-jar", "/app/app.jar"]
+    volumes: !override
+      - galaxam_local_business_files:/app/uploads
+
+volumes:
+  galaxam_local_pg_data:
+    name: galaxam_prod_pg_data
+  galaxam_local_business_files:
+    name: galaxam_prod_business_files

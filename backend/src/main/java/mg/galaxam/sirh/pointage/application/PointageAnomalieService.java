@@ -126,8 +126,8 @@ public class PointageAnomalieService {
             String statutPeriodeLibelle = "Ouverte";
 
             if (effectivePeriodeId != null && effectivePeriodeId > 0) {
-                String sqlPer = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code, s.libelle AS statut_libelle " +
-                                "FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ?";
+                String sqlPer = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, p.statut " +
+                                "FROM periode_paie p WHERE p.id_periode_paie = ?";
                 try (PreparedStatement psP = c.prepareStatement(sqlPer)) {
                     psP.setInt(1, effectivePeriodeId);
                     try (ResultSet rsP = psP.executeQuery()) {
@@ -138,8 +138,8 @@ public class PointageAnomalieService {
                             if (dFin != null) periodeFin = dFin.toLocalDate();
                             periodeCode = rsP.getString("code");
                             periodeLibelle = rsP.getString("libelle");
-                            statutPeriodeCode = rsP.getString("statut_code");
-                            statutPeriodeLibelle = rsP.getString("statut_libelle");
+                            statutPeriodeCode = rsP.getString("statut");
+                            statutPeriodeLibelle = mg.galaxam.sirh.pointage.domain.PayrollPeriodStatus.getLibelle(statutPeriodeCode);
                         }
                     }
                 }
@@ -176,7 +176,7 @@ public class PointageAnomalieService {
                 "ltr_valide.id_demande_conge AS demande_validee_id, p.montant_total_indemnites, " +
                 "pij_repas.accorde AS repas_accorde, pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction, " +
                 "ltr_conge.libelle_conge AS demande_en_attente_libelle, " +
-                "p.id_periode_paie, per.code AS periode_code, per.libelle AS periode_libelle, per_st.code AS statut_periode_code, " +
+                "p.id_periode_paie, per.code AS periode_code, per.libelle AS periode_libelle, per.statut AS statut_periode_code, " +
                 "COALESCE(p.version, 1) AS version, " +
                 "COALESCE(vsc.solde_actuel, 0.0) AS solde_restant, " +
                 "COALESCE(vsc.total_acquis, 0.0) AS solde_acquis, " +
@@ -186,7 +186,6 @@ public class PointageAnomalieService {
                 "LEFT JOIN ref_site s ON p.id_site = s.id_site " +
                 "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
                 "LEFT JOIN periode_paie per ON p.id_periode_paie = per.id_periode_paie " +
-                "LEFT JOIN ref_statut_periode_paie per_st ON per.id_statut_periode = per_st.id_statut_periode " +
                 "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage " +
                 "    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1) " +
                 "LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage " +
@@ -722,7 +721,7 @@ public class PointageAnomalieService {
             }
 
             if (idPer != null && idPer > 0) {
-                String sqlCheckPer = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR SHARE";
+                String sqlCheckPer = "SELECT p.statut AS code FROM periode_paie p WHERE p.id_periode_paie = ? FOR SHARE";
                 try (PreparedStatement psCP = c.prepareStatement(sqlCheckPer)) {
                     psCP.setInt(1, idPer);
                     try (ResultSet rsCP = psCP.executeQuery()) {
@@ -934,8 +933,7 @@ public class PointageAnomalieService {
 
             int periodId;
             try (PreparedStatement period = c.prepareStatement(
-                    "SELECT p.id_periode_paie, s.code FROM periode_paie p " +
-                    "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode " +
+                    "SELECT p.id_periode_paie, p.statut FROM periode_paie p " +
                     "WHERE ? BETWEEN p.date_debut AND p.date_fin FOR SHARE OF p")) {
                 period.setDate(1, Date.valueOf(day));
                 try (ResultSet result = period.executeQuery()) {

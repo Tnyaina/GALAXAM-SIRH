@@ -193,7 +193,7 @@ public class PayrollPeriodWorkflowService {
     }
 
     private PeriodState load(int periodId, Connection connection, boolean forUpdate) throws SQLException {
-        String sql = "SELECT id_periode_paie, code, libelle, date_debut, date_fin, version, id_statut_periode "
+        String sql = "SELECT id_periode_paie, code, libelle, date_debut, date_fin, version, statut "
                 + "FROM periode_paie WHERE id_periode_paie = ?" + (forUpdate ? " FOR UPDATE" : "");
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, periodId);
@@ -202,15 +202,13 @@ public class PayrollPeriodWorkflowService {
                     throw failure(SirhErrorCode.PAYROLL_PERIOD_NOT_FOUND,
                             "Période de paie introuvable : " + periodId + ".", Map.of("periodId", periodId));
                 }
-                int statusId = result.getInt("id_statut_periode");
                 return new PeriodState(
                         result.getInt("id_periode_paie"),
                         result.getString("code"),
                         result.getString("libelle"),
                         result.getDate("date_debut").toLocalDate(),
                         result.getDate("date_fin").toLocalDate(),
-                        statusId,
-                        loadStatusCode(statusId, connection),
+                        result.getString("statut"),
                         result.getInt("version"));
             }
         }
@@ -218,8 +216,7 @@ public class PayrollPeriodWorkflowService {
 
     private PeriodState loadAtDate(LocalDate date, Connection connection) throws SQLException {
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, p.version, "
-                + "p.id_statut_periode, s.code AS state FROM periode_paie p "
-                + "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode "
+                + "p.statut AS state FROM periode_paie p "
                 + "WHERE ? BETWEEN p.date_debut AND p.date_fin ORDER BY p.date_debut DESC LIMIT 2";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setDate(1, java.sql.Date.valueOf(date));
@@ -228,7 +225,7 @@ public class PayrollPeriodWorkflowService {
                 PeriodState period = new PeriodState(
                         result.getInt("id_periode_paie"), result.getString("code"), result.getString("libelle"),
                         result.getDate("date_debut").toLocalDate(), result.getDate("date_fin").toLocalDate(),
-                        result.getInt("id_statut_periode"), result.getString("state"), result.getInt("version"));
+                        result.getString("state"), result.getInt("version"));
                 if (result.next()) {
                     throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
                             "Plusieurs périodes couvrent la date métier " + date + ".",
@@ -237,17 +234,6 @@ public class PayrollPeriodWorkflowService {
                 return period;
             }
         }
-    }
-
-    private String loadStatusCode(int statusId, Connection connection) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT code FROM ref_statut_periode_paie WHERE id_statut_periode = ?")) {
-            statement.setInt(1, statusId);
-            try (ResultSet result = statement.executeQuery()) {
-                if (result.next()) return result.getString(1);
-            }
-        }
-        throw new IllegalStateException("Statut de période inconnu : " + statusId + ".");
     }
 
     /**
@@ -713,7 +699,7 @@ public class PayrollPeriodWorkflowService {
             PayrollPeriodUserContext user,
             Connection connection) throws SQLException {
         String sql = "UPDATE periode_paie SET "
-                + "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), "
+                + "statut = ?, "
                 + "version = version + 1, updated_at = CURRENT_TIMESTAMP, "
                 + "date_transmission = CASE WHEN ? = 'SUBMIT' THEN CURRENT_TIMESTAMP ELSE date_transmission END, "
                 + "transmis_par = CASE WHEN ? = 'SUBMIT' THEN ? ELSE transmis_par END, "
@@ -723,7 +709,7 @@ public class PayrollPeriodWorkflowService {
                 + "WHEN ? IN ('REJECT', 'REOPEN') THEN NULL ELSE valide_par END, "
                 + "motif_rejet = CASE WHEN ? = 'REJECT' THEN ? "
                 + "WHEN ? IN ('OPEN', 'SUBMIT', 'APPROVE') THEN NULL ELSE motif_rejet END "
-                + "WHERE id_periode_paie = ? AND version = ? AND id_statut_periode = ?";
+                + "WHERE id_periode_paie = ? AND version = ? AND statut = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             String commandName = command.name();
             statement.setString(1, targetState);
@@ -740,7 +726,7 @@ public class PayrollPeriodWorkflowService {
             statement.setString(12, commandName);
             statement.setInt(13, current.id());
             statement.setInt(14, current.version());
-            statement.setInt(15, current.statusId());
+            statement.setString(15, current.state());
             if (statement.executeUpdate() != 1) {
                 throw failure(SirhErrorCode.PAYROLL_PERIOD_VERSION_CONFLICT,
                         "Conflit de modification concurrente sur la période. Rechargez les données.",
@@ -758,20 +744,16 @@ public class PayrollPeriodWorkflowService {
             PayrollPeriodCommandRequest request,
             PayrollPeriodUserContext user,
             Connection connection) throws SQLException {
-        String sql = "INSERT INTO periode_paie_transition "
-                + "(id_periode_paie, commande, statut_source, statut_cible, version_source, version_cible, "
-                + "id_utilisateur, motif) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, current.id());
-            statement.setString(2, command.name());
-            statement.setString(3, current.state());
-            statement.setString(4, targetState);
-            statement.setInt(5, current.version());
-            statement.setInt(6, targetVersion);
-            setNullableInteger(statement, 7, user.userId());
-            statement.setString(8, request.getMotif() == null ? null : request.getMotif().trim());
-            statement.executeUpdate();
-        }
+        PayrollPeriodTransitionLogger.log(
+                connection,
+                current.id(),
+                command.name(),
+                current.state(),
+                targetState,
+                current.version(),
+                targetVersion,
+                user.userId(),
+                request.getMotif());
     }
 
     private void notifyWorkflow(
@@ -1142,7 +1124,6 @@ public class PayrollPeriodWorkflowService {
             String label,
             LocalDate startDate,
             LocalDate endDate,
-            int statusId,
             String state,
             int version) {
     }

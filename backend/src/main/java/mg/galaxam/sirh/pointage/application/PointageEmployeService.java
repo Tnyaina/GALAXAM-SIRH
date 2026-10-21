@@ -93,9 +93,8 @@ public class PointageEmployeService {
         String resolvedStatutPeriode = null;
 
         if (idPeriode != null && idPeriode > 0) {
-            String sqlP = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
+            String sqlP = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, p.statut AS statut_code " +
                           "FROM periode_paie p " +
-                          "LEFT JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                           "WHERE p.id_periode_paie = ?";
             try (Connection c = dataSource.getConnection();
                  PreparedStatement psP = c.prepareStatement(sqlP)) {
@@ -114,9 +113,8 @@ public class PointageEmployeService {
                 log.warn("[PointageEmployeService] Erreur récupération période par id {}: {}", idPeriode, e.getMessage());
             }
         } else if ("periode".equalsIgnoreCase(period)) {
-            String sqlP = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
+            String sqlP = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, p.statut AS statut_code " +
                           "FROM periode_paie p " +
-                          "LEFT JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                           "WHERE ? BETWEEN p.date_debut AND p.date_fin " +
                           "ORDER BY p.date_debut DESC LIMIT 1";
             try (Connection c = dataSource.getConnection();

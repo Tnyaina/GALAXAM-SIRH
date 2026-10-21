@@ -534,9 +534,8 @@ public class PointageService {
             // 1. Informations de la Période de Paie correspondante
             Integer idPeriode = null;
             Map<String, Object> periodeInfo = null;
-            String sqlPeriode = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code, s.libelle AS statut_libelle " +
+            String sqlPeriode = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, p.statut " +
                                 "FROM periode_paie p " +
-                                "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                                 "WHERE ? BETWEEN p.date_debut AND p.date_fin";
             try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
                 psP.setDate(1, date);
@@ -551,8 +550,9 @@ public class PointageService {
                         java.sql.Date dFin = rsP.getDate("date_fin");
                         periodeInfo.put("date_debut", dDeb != null ? dDeb.toString() : null);
                         periodeInfo.put("date_fin", dFin != null ? dFin.toString() : null);
-                        periodeInfo.put("statut_code", rsP.getString("statut_code"));
-                        periodeInfo.put("statut_libelle", rsP.getString("statut_libelle"));
+                        String statut = rsP.getString("statut");
+                        periodeInfo.put("statut_code", statut);
+                        periodeInfo.put("statut_libelle", mg.galaxam.sirh.pointage.domain.PayrollPeriodStatus.getLibelle(statut));
                         int ouvrables = 0;
                         if (dDeb != null && dFin != null) {
                             ouvrables = calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), idSite > 0 ? idSite : null, c);
@@ -1529,7 +1529,7 @@ public class PointageService {
 
         String sqlFindPer = "SELECT id_periode_paie, date_debut, date_fin FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin";
         String sqlPerById = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
-        String sqlCheckPer = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR SHARE";
+        String sqlCheckPer = "SELECT p.statut FROM periode_paie p WHERE p.id_periode_paie = ? FOR SHARE";
         String sqlCheckRow = "SELECT id_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?";
 
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +

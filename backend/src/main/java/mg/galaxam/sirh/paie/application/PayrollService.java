@@ -29,6 +29,7 @@ import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.paie.api.dto.PayrollPopulationMember;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import mg.galaxam.sirh.paie.application.export.PayrollEmployerSnapshotService;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodTransitionLogger;
 
 /**
  * Service d'orchestration de paie.
@@ -369,13 +370,24 @@ public class PayrollService {
         if (!simulation) {
             // Si la période était en PAIE_VALIDEE, un recalcul la replace en VALIDEE (bulletins en attente d'approbation)
             String sqlReset = "UPDATE periode_paie SET " +
-                    "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE'), " +
+                    "statut = 'VALIDEE', " +
                     "version = version + 1, " +
                     "updated_at = CURRENT_TIMESTAMP " +
-                    "WHERE id_periode_paie = ? AND id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'PAIE_VALIDEE')";
+                    "WHERE id_periode_paie = ? AND statut = 'PAIE_VALIDEE' " +
+                    "RETURNING version - 1 AS version_source, version AS version_cible";
             try (PreparedStatement psReset = c.prepareStatement(sqlReset)) {
                 psReset.setInt(1, idPeriodePaie);
-                psReset.executeUpdate();
+                try (ResultSet rsReset = psReset.executeQuery()) {
+                    if (rsReset.next()) {
+                        int vSource = rsReset.getInt("version_source");
+                        int vCible = rsReset.getInt("version_cible");
+                        PayrollPeriodTransitionLogger.log(
+                                c, idPeriodePaie, "RECALCULATE_PAYROLL",
+                                "PAIE_VALIDEE", "VALIDEE", vSource, vCible,
+                                resolveUserId(idUtilisateur),
+                                "Recalcul de paie : remise en validation");
+                    }
+                }
             }
         }
 
@@ -443,13 +455,24 @@ public class PayrollService {
 
         // Transition du statut de la période vers PAIE_VALIDEE (Paie Validée & Approuvée)
         String sqlPeriode = "UPDATE periode_paie SET " +
-                "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'PAIE_VALIDEE'), " +
+                "statut = 'PAIE_VALIDEE', " +
                 "version = version + 1, " +
                 "updated_at = CURRENT_TIMESTAMP " +
-                "WHERE id_periode_paie = ? AND id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE')";
+                "WHERE id_periode_paie = ? AND statut = 'VALIDEE' " +
+                "RETURNING version - 1 AS version_source, version AS version_cible";
         try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
             psP.setInt(1, idPeriodePaie);
-            psP.executeUpdate();
+            try (ResultSet rsP = psP.executeQuery()) {
+                if (rsP.next()) {
+                    int vSource = rsP.getInt("version_source");
+                    int vCible = rsP.getInt("version_cible");
+                    PayrollPeriodTransitionLogger.log(
+                            c, idPeriodePaie, "VALIDATE_PAYROLL",
+                            "VALIDEE", "PAIE_VALIDEE", vSource, vCible,
+                            resolveUserId(idUtilisateur),
+                            "Validation globale des bulletins de paie");
+                }
+            }
         }
 
         return batch;
@@ -797,5 +820,16 @@ public class PayrollService {
 
     public Map<String, Object> obtenirSynthesePaieEmploye(Integer idEmploye, Connection c) throws Exception {
         return payrollEmployeeReadService.obtenirSynthesePaieEmploye(idEmploye, c);
+    }
+
+    private Integer resolveUserId(Integer explicitUserId) {
+        if (explicitUserId != null) return explicitUserId;
+        try {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof mg.galaxam.sirh.securite.CustomUserDetails cud) {
+                return cud.getIdUtilisateur();
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

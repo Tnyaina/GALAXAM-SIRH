@@ -30,8 +30,7 @@ public final class PayrollExportEligibility {
     }
 
     public static void requireFinalPeriod(Integer periodId, Connection connection) throws Exception {
-        String sql = "SELECT p.code, s.code AS statut FROM periode_paie p "
-                + "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode "
+        String sql = "SELECT p.code, p.statut FROM periode_paie p "
                 + "WHERE p.id_periode_paie = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, periodId);

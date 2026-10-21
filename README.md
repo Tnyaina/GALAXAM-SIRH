@@ -150,21 +150,33 @@ Les règles de gestion, protocoles de calcul et spécifications techniques sont 
 
 ### Installation locale avec Docker
 
-Docker Desktop avec Docker Compose est nécessaire. Java, Maven et Node.js sont fournis par les images pendant la construction. Le seul fichier d'orchestration est `docker-compose.yml`.
+Docker Desktop avec Docker Compose est nécessaire. En mode local, Java et Maven s'exécutent dans le conteneur backend.
 
 1. Copier `.env.example` vers `.env` et renseigner `GALAXAM_DB_PASSWORD`, `GALAXAM_JWT_SECRET` et les paramètres du premier administrateur. `.env` est local et ignoré par Git ; ne pas le publier. Le secret JWT doit contenir au moins 64 octets aléatoires. Le mot de passe administrateur doit comporter au moins huit caractères, une majuscule, une minuscule et un chiffre.
 2. Vérifier la configuration sans afficher les valeurs : `docker compose config --quiet`.
-3. Démarrer les trois services :
+3. Démarrer les trois services en mode développement local :
 
 ```bash
-docker compose up -d --build
+docker compose up --build
 ```
+
+Cette commande active le profil Spring `local`, monte le code du backend et active Spring DevTools. Maven compile dans Docker ; les modifications Java redémarrent l'API après compilation. Si tu utilises IntelliJ, active la compilation automatique pour que les classes soient recompilées à chaque modification. Au premier démarrage, Maven télécharge les dépendances dans le volume `galaxam_local_maven_repo`, donc l'API peut prendre plusieurs minutes à démarrer ; Compose attend que son port soit prêt avant de démarrer le frontend. Les démarrages suivants réutilisent ce cache.
+
+Pour le mode production, définir `GALAXAM_CORS_ORIGIN` dans `.env` avec l'origine publique exacte, par exemple `https://sirh.exemple.mg`. Ce mode construit une image backend autonome, active le profil Spring `prod`, désactive DevTools et utilise des volumes PostgreSQL et fichiers métier distincts de ceux du mode local.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Le frontend est publié sur `127.0.0.1:8088` ; le domaine public doit être acheminé vers ce port par le reverse proxy HTTPS de l'installation.
 
 Ouvrir `http://localhost:8088` pour l'application. Seul le frontend Nginx est accessible par ce port local ; il sert React et relaie `/api/` au backend. PostgreSQL est également publié **sur ce poste uniquement** pour pgAdmin : hôte `127.0.0.1`, port `5433`, base `sirh_galaxam`, utilisateur `galaxam_admin`, mot de passe `GALAXAM_DB_PASSWORD` de `.env`. Dans le réseau Docker, le backend se connecte à `postgres:5432` ; le port `5433` concerne uniquement les outils installés sur l'hôte.
 
-Sur un volume PostgreSQL neuf, le script d'initialisation charge les six scripts SQL canoniques. Ce script ne se rejoue pas sur un volume déjà initialisé. Si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`, le backend crée le compte indiqué dans `.env` seulement si aucun administrateur actif n'existe ; il ne change pas le mot de passe d'un administrateur existant. Une fois le premier compte créé, désactiver ce paramètre et recréer le backend avec `docker compose up -d --no-deps backend`.
+Sur un volume PostgreSQL neuf, le script d'initialisation charge les six scripts SQL canoniques. Ce script ne se rejoue pas sur un volume déjà initialisé. Si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`, le backend crée le compte indiqué dans `.env` seulement si aucun administrateur actif n'existe ; il ne change pas le mot de passe d'un administrateur existant. Une fois le premier compte créé, désactiver ce paramètre puis recréer le backend avec la commande correspondant au mode choisi (`docker compose up -d --no-deps backend` en local ; ajouter `-f docker-compose.prod.yml` avant `up` en production).
 
-Les volumes `galaxam_local_pg_data` et `galaxam_local_business_files` conservent respectivement la base et les fichiers métier. Le volume historique `galaxam_pg_data` n'est pas utilisé. `docker compose stop` ou `docker compose down` conservent les volumes ; **ne pas exécuter `docker compose down -v`**, qui supprime les volumes déclarés par ce projet et leurs données. Sauvegarder les volumes avant toute opération de remise à zéro.
+
+Les volumes locaux `galaxam_local_pg_data` et `galaxam_local_business_files` conservent la base et les fichiers métier. Le mode production utilise `galaxam_prod_pg_data` et `galaxam_prod_business_files` pour isoler ses données. Le volume historique `galaxam_pg_data` n'est pas utilisé. `docker compose stop` ou `docker compose down` conservent les volumes ; **ne pas exécuter `docker compose down -v`**, qui supprime les volumes déclarés par la configuration sélectionnée et leurs données. Sauvegarder les volumes avant toute opération de remise à zéro.
 
 Pour consulter l'état : `docker compose ps`. Pour les journaux : `docker compose logs --tail=100 postgres backend frontend`. La configuration a déjà été démarrée et vérifiée une première fois, mais l'état des conteneurs et volumes doit être contrôlé avant chaque nouvelle utilisation ; leur présence n'est pas garantie par ce guide.
 

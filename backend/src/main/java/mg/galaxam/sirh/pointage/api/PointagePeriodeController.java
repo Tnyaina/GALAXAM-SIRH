@@ -73,9 +73,8 @@ public class PointagePeriodeController {
             @RequestParam(defaultValue = "false") boolean includePayrollStatus) throws SQLException {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
-                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
+                     "p.statut, p.motif_rejet, p.version " +
                      "FROM periode_paie p " +
-                     "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                      "ORDER BY p.date_debut DESC";
 
         try (Connection c = dataSource.getConnection();
@@ -91,9 +90,9 @@ public class PointagePeriodeController {
                 java.sql.Date dFin = rs.getDate("date_fin");
                 dto.setDateDebut(dDeb != null ? dDeb.toString() : null);
                 dto.setDateFin(dFin != null ? dFin.toString() : null);
-                dto.setIdStatutPeriode(rs.getInt("id_statut_periode"));
-                dto.setStatutCode(rs.getString("statut_code"));
-                dto.setStatutLibelle(rs.getString("statut_libelle"));
+                String statut = rs.getString("statut");
+                dto.setStatutCode(statut);
+                dto.setStatutLibelle(mg.galaxam.sirh.pointage.domain.PayrollPeriodStatus.getLibelle(statut));
                 dto.setMotifRejet(rs.getString("motif_rejet"));
                 dto.setVersion(rs.getInt("version"));
                 if (lightweight && includePayrollStatus) {
@@ -130,9 +129,8 @@ public class PointagePeriodeController {
         String targetDate = (date != null && !date.trim().isEmpty()) ? date
                 : java.time.LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).toString();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
-                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
+                     "p.statut, p.motif_rejet, p.version " +
                      "FROM periode_paie p " +
-                     "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                      "WHERE ? BETWEEN p.date_debut AND p.date_fin " +
                      "ORDER BY p.date_debut DESC LIMIT 2";
 
@@ -149,9 +147,9 @@ public class PointagePeriodeController {
                     java.sql.Date dFin = rs.getDate("date_fin");
                     dto.setDateDebut(dDeb != null ? dDeb.toString() : null);
                     dto.setDateFin(dFin != null ? dFin.toString() : null);
-                    dto.setIdStatutPeriode(rs.getInt("id_statut_periode"));
-                    dto.setStatutCode(rs.getString("statut_code"));
-                    dto.setStatutLibelle(rs.getString("statut_libelle"));
+                    String statut = rs.getString("statut");
+                    dto.setStatutCode(statut);
+                    dto.setStatutLibelle(mg.galaxam.sirh.pointage.domain.PayrollPeriodStatus.getLibelle(statut));
                     dto.setMotifRejet(rs.getString("motif_rejet"));
                     dto.setVersion(rs.getInt("version"));
                     dto.setWorkflowStatuses(payrollPeriodWorkflowService.describeWorkflowStatuses(
@@ -257,8 +255,8 @@ public class PointagePeriodeController {
                 SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
                 "La période doit être créée en brouillon puis ouverte par la commande OPEN.");
 
-        String sql = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
-                     "VALUES (?, ?, ?, ?, (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?))";
+        String sql = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, statut) " +
+                     "VALUES (?, ?, ?, ?, ?)";
 
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {

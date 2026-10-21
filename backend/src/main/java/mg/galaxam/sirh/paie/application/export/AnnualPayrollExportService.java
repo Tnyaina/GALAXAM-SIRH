@@ -96,8 +96,7 @@ public class AnnualPayrollExportService {
     private List<Period> validatedPeriods(int year, Connection connection) throws Exception {
         if (year < 2000 || year > 2100) throw new IllegalArgumentException("Année invalide.");
         List<Period> periods = new ArrayList<>();
-        String sql = "SELECT p.id_periode_paie, p.code, s.code AS statut FROM periode_paie p " +
-                "JOIN ref_statut_periode_paie s ON s.id_statut_periode=p.id_statut_periode " +
+        String sql = "SELECT p.id_periode_paie, p.code, p.statut FROM periode_paie p " +
                 "WHERE p.code LIKE ? ORDER BY p.code";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, year + "-%");

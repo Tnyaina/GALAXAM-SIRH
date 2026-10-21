@@ -64,10 +64,9 @@ public class CongeService {
                 && demande.getDateDebut().toLocalDate().isAfter(LocalDate.now());
         boolean periodeFermee = false;
         if (demande.getDateDebut() != null && demande.getDateFin() != null) {
-            String sql = "SELECT 1 FROM periode_paie p JOIN ref_statut_periode_paie s " +
-                    "ON p.id_statut_periode = s.id_statut_periode " +
+            String sql = "SELECT 1 FROM periode_paie p " +
                     "WHERE p.date_debut <= ? AND p.date_fin >= ? " +
-                    "AND s.code IN ('CLOTUREE', 'PAIE_VALIDEE') LIMIT 1";
+                    "AND p.statut IN ('CLOTUREE', 'PAIE_VALIDEE') LIMIT 1";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setDate(1, demande.getDateFin());
                 ps.setDate(2, demande.getDateDebut());
@@ -848,8 +847,7 @@ public class CongeService {
         // Sécurisation Phase 2A-2C (RG-CONGE) : Interdire la modification sur une période de paie clôturée ou payée
         if (etaitValide && d.getDateDebut() != null && d.getDateFin() != null) {
             String sqlCheckPeriode = "SELECT p.code FROM periode_paie p " +
-                    "JOIN ref_statut_periode_paie r ON p.id_statut_periode = r.id_statut_periode " +
-                    "WHERE p.date_debut <= ? AND p.date_fin >= ? AND r.code IN ('CLOTUREE', 'PAIE_VALIDEE')";
+                    "WHERE p.date_debut <= ? AND p.date_fin >= ? AND p.statut IN ('CLOTUREE', 'PAIE_VALIDEE')";
             try (PreparedStatement psP = c.prepareStatement(sqlCheckPeriode)) {
                 psP.setDate(1, d.getDateFin());
                 psP.setDate(2, d.getDateDebut());
@@ -896,10 +894,9 @@ public class CongeService {
 
         if (etaitValide) {
             try (PreparedStatement psP = c.prepareStatement(
-                    "SELECT p.code FROM periode_paie p JOIN ref_statut_periode_paie r "
-                            + "ON p.id_statut_periode = r.id_statut_periode "
+                    "SELECT p.code FROM periode_paie p "
                             + "WHERE p.date_debut <= ? AND p.date_fin >= ? "
-                            + "AND r.code IN ('CLOTUREE', 'PAIE_VALIDEE') LIMIT 1")) {
+                            + "AND p.statut IN ('CLOTUREE', 'PAIE_VALIDEE') LIMIT 1")) {
                 psP.setDate(1, d.getDateFin());
                 psP.setDate(2, d.getDateDebut());
                 try (ResultSet rs = psP.executeQuery()) {
@@ -1161,9 +1158,9 @@ public class CongeService {
 
     private void verifierPeriodePaieModifiable(Integer idEmploye, Date debut, Date fin, Connection c) throws Exception {
         if (debut == null || fin == null) return;
-        String periodeSql = "SELECT p.code FROM periode_paie p JOIN ref_statut_periode_paie s " +
-                "ON p.id_statut_periode = s.id_statut_periode WHERE p.date_debut <= ? AND p.date_fin >= ? " +
-                "AND s.code IN ('CLOTUREE', 'PAIE_VALIDEE') LIMIT 1";
+        String periodeSql = "SELECT p.code FROM periode_paie p " +
+                "WHERE p.date_debut <= ? AND p.date_fin >= ? " +
+                "AND p.statut IN ('CLOTUREE', 'PAIE_VALIDEE') LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(periodeSql)) {
             ps.setDate(1, fin);
             ps.setDate(2, debut);

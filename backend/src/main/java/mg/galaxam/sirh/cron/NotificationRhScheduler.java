@@ -420,10 +420,9 @@ public class NotificationRhScheduler {
         String sql = "SELECT pp.id_periode_paie, pp.code, pp.libelle, pp.date_fin, " +
                      "COUNT(p.id_pointage) AS nb_anomalies " +
                      "FROM periode_paie pp " +
-                     "JOIN ref_statut_periode_paie rsp ON pp.id_statut_periode = rsp.id_statut_periode " +
                      "JOIN pointage_jour p ON pp.id_periode_paie = p.id_periode_paie " +
                      "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
-                     "WHERE rsp.code = 'EN_COURS' " +
+                     "WHERE pp.statut = 'EN_COURS' " +
                      "AND (st.code = 'ANOMALIE_SAISIE' OR (p.heure_entree_matin IS NOT NULL AND p.heure_sortie_matin IS NULL) OR st.code = 'ABSENCE_NON_JUSTIFIEE') " +
                      "GROUP BY pp.id_periode_paie, pp.code, pp.libelle, pp.date_fin " +
                      "HAVING COUNT(p.id_pointage) > 0";

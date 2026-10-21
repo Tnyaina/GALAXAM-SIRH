@@ -197,7 +197,7 @@ public class IdleSessionService {
         String sql = "SELECT s.session_id, s.refresh_token, (s.previous_refresh_token=? AND s.rotated_at>? ) AS already_rotated "
                 + "FROM utilisateur_session s JOIN utilisateur u ON u.id_utilisateur=s.id_utilisateur AND u.est_actif=TRUE "
                 + "WHERE (s.refresh_token=? OR s.previous_refresh_token=?) AND s.revoked_at IS NULL "
-                + "AND last_activity_at>? AND refresh_token_expiration>? FOR UPDATE";
+                + "AND s.last_activity_at>? AND s.refresh_token_expiration>? FOR UPDATE";
         Instant now = clock.instant();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, token);

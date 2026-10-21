@@ -81,6 +81,14 @@ public class PeriodePaieDTO {
         this.statutCode = statutCode;
     }
 
+    public String getStatut() {
+        return statutCode;
+    }
+
+    public void setStatut(String statut) {
+        this.statutCode = statut;
+    }
+
     public String getStatutLibelle() {
         return statutLibelle;
     }

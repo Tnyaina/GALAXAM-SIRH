@@ -128,8 +128,7 @@ public class PointageAjustementPeriodeService {
 
     private void verrouillerPeriodeModifiable(int periodeId, Connection c) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT s.code FROM periode_paie p " +
-                "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode " +
+                "SELECT p.statut FROM periode_paie p " +
                 "WHERE p.id_periode_paie = ? FOR UPDATE OF p")) {
             ps.setInt(1, periodeId);
             try (ResultSet rs = ps.executeQuery()) {

@@ -29,22 +29,15 @@ DROP TABLE IF EXISTS ref_indemnite CASCADE;
 DROP TABLE IF EXISTS ref_statut_pointage_jour CASCADE;
 DROP TABLE IF EXISTS periode_paie_transition CASCADE;
 DROP TABLE IF EXISTS periode_paie CASCADE;
-DROP TABLE IF EXISTS ref_statut_periode_paie CASCADE;
 
--- 2. Périodes de Paie & Statuts
-CREATE TABLE ref_statut_periode_paie (
-    id_statut_periode SERIAL PRIMARY KEY,
-    code VARCHAR(20) NOT NULL UNIQUE,
-    libelle VARCHAR(100) NOT NULL
-);
-
+-- 2. Périodes de Paie
 CREATE TABLE periode_paie (
     id_periode_paie SERIAL PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
     date_debut DATE NOT NULL,
     date_fin DATE NOT NULL,
-    id_statut_periode INTEGER NOT NULL REFERENCES ref_statut_periode_paie(id_statut_periode),
+    statut VARCHAR(20) NOT NULL DEFAULT 'BROUILLON' CHECK (statut IN ('BROUILLON', 'EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF', 'VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE')),
     date_transmission TIMESTAMP,
     transmis_par INTEGER REFERENCES utilisateur(id_utilisateur),
     date_validation TIMESTAMP,
@@ -57,7 +50,7 @@ CREATE TABLE periode_paie (
     CONSTRAINT ex_periode_paie_dates EXCLUDE USING gist (daterange(date_debut, date_fin, '[]') WITH &&)
 );
 
-CREATE INDEX idx_periode_paie_statut ON periode_paie(id_statut_periode);
+CREATE INDEX idx_periode_paie_statut ON periode_paie(statut);
 CREATE INDEX idx_periode_paie_valide_par ON periode_paie(valide_par);
 
 -- Les bornes définissent définitivement la campagne. Les états restent modifiables.
@@ -375,26 +368,15 @@ JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite;
 -- DONNÉES DE RÉFÉRENCE DE BASE (INITIAL SEEDS DES ARCHIVES)
 -- =====================================================================
 
--- Statuts Période de Paie
-INSERT INTO ref_statut_periode_paie (id_statut_periode, code, libelle) VALUES
-(1, 'BROUILLON', 'Période créée, non ouverte'),
-(2, 'EN_COURS', 'Saisie en cours'),
-(3, 'A_VALIDER', 'Terminée, en attente de validation'),
-(4, 'TRANSMIS_DAF', 'Transmise pour arbitrage'),
-(5, 'VALIDEE', 'Pointage Scellé & Figé — Prêt pour calcul Paie'),
-(6, 'CLOTUREE', 'Clôturée — archivée, immuable'),
-(7, 'PAIE_VALIDEE', 'Paie Validée & Approuvée — Prête pour virement et clôture');
-SELECT setval('ref_statut_periode_paie_id_statut_periode_seq', (SELECT GREATEST(MAX(id_statut_periode), 7) FROM ref_statut_periode_paie));
-
 -- Première période de paie : août 2026, du 26 juillet au 25 août.
-INSERT INTO periode_paie (id_periode_paie, code, libelle, date_debut, date_fin, id_statut_periode)
+INSERT INTO periode_paie (id_periode_paie, code, libelle, date_debut, date_fin, statut)
 VALUES (
     1,
     '2026-08',
     'Août 2026 (26/07/2026 - 25/08/2026)',
     DATE '2026-07-26',
     DATE '2026-08-25',
-    (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS')
+    'EN_COURS'
 );
 SELECT setval('periode_paie_id_periode_paie_seq', (SELECT GREATEST(MAX(id_periode_paie), 1) FROM periode_paie));
 

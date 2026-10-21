@@ -54,9 +54,8 @@ public class PayrollCockpitService {
         Map<String, Object> cockpit = new HashMap<>();
 
         // 1. Informations de la période
-        String sqlPeriode = "SELECT p.*, r.code AS code_statut, r.libelle AS libelle_statut " +
+        String sqlPeriode = "SELECT p.* " +
                 "FROM periode_paie p " +
-                "LEFT JOIN ref_statut_periode_paie r ON p.id_statut_periode = r.id_statut_periode " +
                 "WHERE p.id_periode_paie = ?";
         Map<String, Object> perMap = new HashMap<>();
         Date dateDebut = null;
@@ -72,8 +71,9 @@ public class PayrollCockpitService {
                     dateFin = rs.getDate("date_fin");
                     perMap.put("dateDebut", dateDebut != null ? dateDebut.toString() : null);
                     perMap.put("dateFin", dateFin != null ? dateFin.toString() : null);
-                    perMap.put("statut", rs.getString("code_statut"));
-                    perMap.put("libelleStatut", rs.getString("libelle_statut"));
+                    String statutCode = rs.getString("statut");
+                    perMap.put("statut", statutCode);
+                    perMap.put("libelleStatut", mg.galaxam.sirh.pointage.domain.PayrollPeriodStatus.getLibelle(statutCode));
                     perMap.put("version", rs.getInt("version"));
                 } else {
                     throw new IllegalArgumentException("Période de paie introuvable (ID " + idPeriodePaie + ")");

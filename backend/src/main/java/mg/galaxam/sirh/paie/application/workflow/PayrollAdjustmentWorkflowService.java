@@ -56,12 +56,11 @@ public class PayrollAdjustmentWorkflowService {
     public boolean canCancelImputedVariable(Connection connection, int adjustmentId, int periodId, int bulletinId,
             boolean lock) throws Exception {
         String sql = "SELECT 1 FROM periode_paie p "
-                + "JOIN ref_statut_periode_paie s ON s.id_statut_periode=p.id_statut_periode "
                 + "JOIN bulletin_paie b ON b.id_periode_paie=p.id_periode_paie "
                 + "JOIN paie_avance_acompte a ON a.id_bulletin=b.id_bulletin "
                 + "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement=a.id_type_mouvement "
                 + "WHERE p.id_periode_paie=? AND b.id_bulletin=? AND a.id_avance=? "
-                + "AND s.code='VALIDEE' AND b.statut='CALCULE' AND t.owner_code='DAF_PAIE' "
+                + "AND p.statut='VALIDEE' AND b.statut='CALCULE' AND t.owner_code='DAF_PAIE' "
                 + "AND a.provenance='VARIABLE_DAF'" + (lock ? " FOR UPDATE OF p, b" : "");
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, periodId); statement.setInt(2, bulletinId); statement.setInt(3, adjustmentId);

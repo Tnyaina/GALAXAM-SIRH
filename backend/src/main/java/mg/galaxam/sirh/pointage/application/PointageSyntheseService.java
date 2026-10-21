@@ -1215,9 +1215,8 @@ public class PointageSyntheseService {
         String libellePeriode = null;
         String statutPeriode = null;
 
-        String sqlPeriode = "SELECT p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
+        String sqlPeriode = "SELECT p.code, p.libelle, p.date_debut, p.date_fin, p.statut AS statut_code " +
                             "FROM periode_paie p " +
-                            "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                             "WHERE p.id_periode_paie = ?";
         try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
             psP.setInt(1, idPeriode);

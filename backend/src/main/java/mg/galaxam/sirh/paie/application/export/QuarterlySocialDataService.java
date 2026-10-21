@@ -169,8 +169,8 @@ public class QuarterlySocialDataService {
         String[] months = new String[3];
         for (int i = 0; i < 3; i++) months[i] = "%04d-%02d".formatted(year, (quarter - 1) * 3 + i + 1);
         Map<String, Period> periods = new LinkedHashMap<>();
-        String sql = "SELECT p.id_periode_paie, p.code, p.date_debut, p.date_fin, s.code AS statut " +
-                "FROM periode_paie p JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode " +
+        String sql = "SELECT p.id_periode_paie, p.code, p.date_debut, p.date_fin, p.statut " +
+                "FROM periode_paie p " +
                 "WHERE p.code IN (?, ?, ?)";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             for (int i = 0; i < 3; i++) ps.setString(i + 1, months[i]);
