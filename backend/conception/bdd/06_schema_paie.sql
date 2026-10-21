@@ -15,7 +15,6 @@
 DROP VIEW IF EXISTS v_config_legale_active CASCADE;
 
 DROP TABLE IF EXISTS ref_mode_paiement CASCADE;
-DROP TABLE IF EXISTS ref_type_bulletin CASCADE;
 DROP TABLE IF EXISTS conge_journal_droit CASCADE;
 DROP TABLE IF EXISTS paie_stc CASCADE;
 DROP TABLE IF EXISTS prestataire_facture CASCADE;
@@ -175,28 +174,6 @@ CREATE INDEX idx_ref_type_mvt_sens ON ref_type_mouvement_paie(sens);
 CREATE INDEX idx_ref_type_mouvement_paie_rubrique ON ref_type_mouvement_paie(id_rubrique);
 
 -- 4b. Référentiels Typologiques de Paie & Règlements
-CREATE TABLE ref_type_bulletin (
-    id_type_bulletin SERIAL PRIMARY KEY,
-    code VARCHAR(30) UNIQUE NOT NULL,
-    libelle VARCHAR(100) NOT NULL,
-    prefixe_reference VARCHAR(10) DEFAULT 'BP',
-    est_reouvrable BOOLEAN DEFAULT TRUE,
-    exige_pointage_scelle BOOLEAN DEFAULT TRUE,
-    est_inclus_dnts BOOLEAN DEFAULT TRUE,
-    est_inclus_safi BOOLEAN DEFAULT TRUE,
-    actif BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-INSERT INTO ref_type_bulletin (code, libelle, prefixe_reference, est_reouvrable, exige_pointage_scelle, est_inclus_dnts, est_inclus_safi, actif)
-VALUES
-    ('MENSUEL', 'Bulletin Mensuel Ordinaire', 'BP', TRUE, TRUE, TRUE, TRUE, TRUE),
-    ('STC', 'Bulletin de sortie et décompte STC', 'STC', FALSE, FALSE, TRUE, TRUE, TRUE),
-    ('COMPLEMENTAIRE', 'Bulletin Complémentaire', 'BPC', TRUE, FALSE, TRUE, TRUE, TRUE),
-    ('RAPPEL', 'Rappel de Salaire / Régularisation', 'BPR', TRUE, FALSE, TRUE, TRUE, TRUE),
-    ('GRATIFICATION', 'Gratification / 13ème Mois', 'BPG', FALSE, FALSE, TRUE, TRUE, TRUE)
-ON CONFLICT (code) DO NOTHING;
-
 CREATE TABLE ref_mode_paiement (
     id_mode_paiement SERIAL PRIMARY KEY,
     code VARCHAR(30) UNIQUE NOT NULL,
@@ -224,7 +201,6 @@ CREATE TABLE bulletin_paie (
     id_snapshot_pointage INT REFERENCES pointage_cumul_periode(id_cumul),
     version_snapshot_pointage INT CHECK (version_snapshot_pointage IS NULL OR version_snapshot_pointage > 0),
     type_bulletin VARCHAR(20) NOT NULL DEFAULT 'MENSUEL',
-    id_type_bulletin INT REFERENCES ref_type_bulletin(id_type_bulletin),
     reference_bulletin VARCHAR(60) NOT NULL UNIQUE,
     matricule VARCHAR(20) NOT NULL,
     nom_prenom VARCHAR(150) NOT NULL,
@@ -284,6 +260,7 @@ CREATE TABLE bulletin_paie (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_bulletin_statut CHECK (statut IN ('CALCULE', 'VALIDE', 'CLOTURE', 'ROUVERT', 'ANNULE')),
+    CONSTRAINT chk_bulletin_type_bulletin CHECK (type_bulletin IN ('MENSUEL', 'STC', 'COMPLEMENTAIRE', 'RAPPEL', 'GRATIFICATION')),
     CONSTRAINT uk_bulletin_employe_periode_type UNIQUE (id_periode_paie, id_employe, type_bulletin)
 );
 

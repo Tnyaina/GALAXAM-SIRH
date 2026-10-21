@@ -370,4 +370,8 @@ ancien sans identité employeur figée reste consultable, mais non imprimable.
    - Table `paie_honoraire_prestation` supprimée du schéma et de la base de données (0 dépendance, 0 ligne).
    - Retrait de l'entité `PaieHonorairePrestation`, du service `EdiIsiExportService` et de la méthode `genererHonorairesPeriode`.
    - Remplacement complet et pérenne par le sous-domaine autonome des prestataires indépendants hors paie (`prestataire_independant`, `prestataire_contrat`, `prestataire_facture`).
-
+3. **Simplification du référentiel des types de bulletins :**
+   - Table `ref_type_bulletin` et colonne redondante `bulletin_paie.id_type_bulletin` supprimées du schéma et de la base de données (total ramené à 90 tables).
+   - Conservation de la colonne métier unique `bulletin_paie.type_bulletin VARCHAR(20) NOT NULL DEFAULT 'MENSUEL'`, sécurisée par la contrainte SQL `chk_bulletin_type_bulletin` (`MENSUEL`, `STC`, `COMPLEMENTAIRE`, `RAPPEL`, `GRATIFICATION`).
+   - Maintien de la contrainte d'unicité `uk_bulletin_employe_periode_type (id_periode_paie, id_employe, type_bulletin)`.
+   - Suppression des lookups SQL résiduels dans `PayrollService` et `StcService`.

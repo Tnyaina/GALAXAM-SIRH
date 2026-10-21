@@ -288,4 +288,38 @@ public class PayrollCalculationTargetedTest {
         assertNotNull(pdfBytes);
         assertTrue(pdfBytes.length > 0);
     }
+
+    @Test
+    @DisplayName("6. Validation des types de bulletin et absence de redondance id_type_bulletin")
+    void testTypeBulletinEtAbsenceRedondance() {
+        // Bulletin par défaut
+        BulletinPaie bpMensuel = new BulletinPaie();
+        assertEquals("MENSUEL", bpMensuel.getTypeBulletin(), "Le type de bulletin par défaut doit être MENSUEL");
+
+        // Types autorisés
+        List<String> typesValides = List.of("MENSUEL", "STC", "COMPLEMENTAIRE", "RAPPEL", "GRATIFICATION");
+        for (String type : typesValides) {
+            bpMensuel.setTypeBulletin(type);
+            assertEquals(type, bpMensuel.getTypeBulletin());
+        }
+
+        // Vérification moteur de calcul avec typeBulletin STC
+        PayrollCalculationInput inputStc = buildStandardInput(new BigDecimal("1200000.00"));
+        inputStc.setTypeBulletin("STC");
+        BulletinPaieComplet resultatStc = engine.calculer(inputStc);
+        assertNotNull(resultatStc);
+        assertEquals("STC", resultatStc.getBulletin().getTypeBulletin());
+        assertTrue(resultatStc.getBulletin().getReferenceBulletin().startsWith("STC-"),
+                "Le bulletin STC doit avoir une référence préfixée par STC-");
+
+        // Vérification moteur de calcul avec typeBulletin MENSUEL
+        PayrollCalculationInput inputMensuel = buildStandardInput(new BigDecimal("1200000.00"));
+        inputMensuel.setTypeBulletin("MENSUEL");
+        BulletinPaieComplet resultatMensuel = engine.calculer(inputMensuel);
+        assertNotNull(resultatMensuel);
+        assertEquals("MENSUEL", resultatMensuel.getBulletin().getTypeBulletin());
+        assertTrue(resultatMensuel.getBulletin().getReferenceBulletin().startsWith("BP-"),
+                "Le bulletin ordinaire doit avoir une référence préfixée par BP-");
+    }
 }
+

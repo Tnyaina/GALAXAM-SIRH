@@ -1066,13 +1066,7 @@ public class StcService {
         bpStc.setIdEmploye(entity.getIdEmploye());
         bpStc.setTypeBulletin("STC");
 
-        // Résolution dynamique id_type_bulletin et id_mode_paiement
-        try (PreparedStatement psTb = c.prepareStatement("SELECT id_type_bulletin FROM ref_type_bulletin WHERE code = 'STC' LIMIT 1");
-             ResultSet rsTb = psTb.executeQuery()) {
-            if (rsTb.next()) {
-                bpStc.setIdTypeBulletin(rsTb.getInt(1));
-            }
-        } catch (Exception ignored) {}
+        // Résolution dynamique id_mode_paiement
         if (entity.getIdModeReglement() != null) {
             bpStc.setIdModePaiement(entity.getIdModeReglement());
         }

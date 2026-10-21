@@ -23,7 +23,6 @@ public class BulletinPaie extends ClassMere {
     private Integer idSnapshotPointage;
     private Integer versionSnapshotPointage;
     private String typeBulletin = "MENSUEL";
-    private Integer idTypeBulletin;
     private String referenceBulletin;
 
     // Snapshot Employé & Organisation
@@ -117,7 +116,7 @@ public class BulletinPaie extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO bulletin_paie (" +
-                "id_periode_paie, id_employe, id_config_legale, type_bulletin, id_type_bulletin, reference_bulletin, matricule, nom_prenom, " +
+                "id_periode_paie, id_employe, id_config_legale, type_bulletin, reference_bulletin, matricule, nom_prenom, " +
                 "cin_numero, cin_date_delivrance, cin_lieu_delivrance, numero_cnaps, intitule_poste, " +
                 "nom_departement, nom_site, regime_intervenant, categorie_professionnelle, mode_calcul_paie, " +
                 "date_embauche, anciennete_mois, nb_enfants_charge, mode_paiement, id_mode_paiement, banque_nom, banque_rib, " +
@@ -128,7 +127,7 @@ public class BulletinPaie extends ClassMere {
                 "total_indemnites_non_imposables, total_retenues_avances_acomptes, net_avant_arrondi, " +
                 "net_a_payer, cout_global_employeur, statut, commentaire, date_calcul, calcule_par" +
                 ") VALUES (" +
-                "?, ?, ?, ?, ?, ?, ?, ?, " +
+                "?, ?, ?, ?, ?, ?, ?, " +
                 "?, ?, ?, ?, ?, " +
                 "?, ?, ?, ?, ?, " +
                 "?, ?, ?, ?, ?, ?, ?, " +
@@ -150,11 +149,6 @@ public class BulletinPaie extends ClassMere {
                 ps.setNull(p++, java.sql.Types.INTEGER);
             }
             ps.setString(p++, typeBulletin != null ? typeBulletin : "MENSUEL");
-            if (idTypeBulletin != null) {
-                ps.setInt(p++, idTypeBulletin);
-            } else {
-                ps.setNull(p++, java.sql.Types.INTEGER);
-            }
             ps.setString(p++, referenceBulletin);
             ps.setString(p++, matricule);
             ps.setString(p++, nomPrenom);
@@ -233,7 +227,7 @@ public class BulletinPaie extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE bulletin_paie SET " +
-                "id_periode_paie = ?, id_employe = ?, id_config_legale = ?, type_bulletin = ?, id_type_bulletin = ?, reference_bulletin = ?, matricule = ?, nom_prenom = ?, " +
+                "id_periode_paie = ?, id_employe = ?, id_config_legale = ?, type_bulletin = ?, reference_bulletin = ?, matricule = ?, nom_prenom = ?, " +
                 "cin_numero = ?, cin_date_delivrance = ?, cin_lieu_delivrance = ?, numero_cnaps = ?, intitule_poste = ?, " +
                 "nom_departement = ?, nom_site = ?, regime_intervenant = ?, categorie_professionnelle = ?, mode_calcul_paie = ?, " +
                 "date_embauche = ?, anciennete_mois = ?, nb_enfants_charge = ?, mode_paiement = ?, id_mode_paiement = ?, banque_nom = ?, banque_rib = ?, " +
@@ -257,11 +251,6 @@ public class BulletinPaie extends ClassMere {
                 ps.setNull(p++, java.sql.Types.INTEGER);
             }
             ps.setString(p++, typeBulletin != null ? typeBulletin : "MENSUEL");
-            if (idTypeBulletin != null) {
-                ps.setInt(p++, idTypeBulletin);
-            } else {
-                ps.setNull(p++, java.sql.Types.INTEGER);
-            }
             ps.setString(p++, referenceBulletin);
             ps.setString(p++, matricule);
             ps.setString(p++, nomPrenom);
@@ -478,8 +467,6 @@ public class BulletinPaie extends ClassMere {
             int snapshotVersion = rs.getInt("version_snapshot_pointage");
             b.setVersionSnapshotPointage(rs.wasNull() ? null : snapshotVersion);
             b.setTypeBulletin(rs.getString("type_bulletin") != null ? rs.getString("type_bulletin") : "MENSUEL");
-            int idTb = rs.getInt("id_type_bulletin");
-            b.setIdTypeBulletin(rs.wasNull() ? null : idTb);
             int idMp = rs.getInt("id_mode_paiement");
             b.setIdModePaiement(rs.wasNull() ? null : idMp);
         } catch (Exception ignored) {}
@@ -768,9 +755,6 @@ public class BulletinPaie extends ClassMere {
 
     public String getTypeBulletin() { return typeBulletin; }
     public void setTypeBulletin(String typeBulletin) { this.typeBulletin = typeBulletin; }
-
-    public Integer getIdTypeBulletin() { return idTypeBulletin; }
-    public void setIdTypeBulletin(Integer idTypeBulletin) { this.idTypeBulletin = idTypeBulletin; }
 
     public Integer getIdModePaiement() { return idModePaiement; }
     public void setIdModePaiement(Integer idModePaiement) { this.idModePaiement = idModePaiement; }

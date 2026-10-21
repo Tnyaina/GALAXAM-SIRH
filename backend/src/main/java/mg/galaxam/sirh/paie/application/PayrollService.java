@@ -644,15 +644,6 @@ public class PayrollService {
 
         // 1. Vérifier si un bulletin de même type existe déjà pour cette période et cet employé
         String typeBulletin = bp.getTypeBulletin() != null ? bp.getTypeBulletin() : "MENSUEL";
-        if (bp.getIdTypeBulletin() == null && bp.getTypeBulletin() != null) {
-            String sqlTb = "SELECT id_type_bulletin FROM ref_type_bulletin WHERE code = ?";
-            try (PreparedStatement psTb = c.prepareStatement(sqlTb)) {
-                psTb.setString(1, bp.getTypeBulletin());
-                try (ResultSet rsTb = psTb.executeQuery()) {
-                    if (rsTb.next()) bp.setIdTypeBulletin(rsTb.getInt(1));
-                }
-            }
-        }
         if (bp.getIdModePaiement() == null && bp.getModePaiement() != null) {
             String sqlMp = "SELECT id_mode_paiement FROM ref_mode_paiement WHERE code = ?";
             try (PreparedStatement psMp = c.prepareStatement(sqlMp)) {
