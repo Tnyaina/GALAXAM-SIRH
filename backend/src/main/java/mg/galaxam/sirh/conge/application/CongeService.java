@@ -1216,7 +1216,7 @@ public class CongeService {
         int nbOuvres = 0;
         int nbFeries = 0;
 
-        java.util.Set<java.time.LocalDate> feries = calendrierOuvrableEngine.getDatesFeriesEtChomeesEmploye(cur, end, idEmploye, c);
+        java.util.Set<java.time.LocalDate> feries = calendrierOuvrableEngine.getDatesFeriesChomeesEmploye(cur, end, idEmploye, c);
         while (!cur.isAfter(end)) {
             boolean isWe = CalendrierOuvrableEngine.isWeekend(cur);
             boolean isFerie = feries.contains(cur);

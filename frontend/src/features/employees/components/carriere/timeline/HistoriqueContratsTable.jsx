@@ -229,7 +229,6 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenAttestation(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        className="min-h-[44px] inline-flex items-center justify-center"
                                                         iconLeft={<FileCheck size={14} />}
                                                         aria-label={`Générer l'attestation de travail pour le contrat ${ct.numeroContrat || ''}`}
                                                     >
@@ -241,7 +240,6 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="ghost"
                                                         size="xs"
-                                                        className="min-h-[44px] inline-flex items-center justify-center"
                                                         iconLeft={<FileText size={14} />}
                                                         aria-label={`Consulter le contrat ${ct.numeroContrat || ''}`}
                                                     >

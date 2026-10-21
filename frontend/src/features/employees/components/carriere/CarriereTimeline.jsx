@@ -5,6 +5,7 @@ import ContratActifSection from './timeline/ContratActifSection';
 import ParcoursChronologique from './timeline/ParcoursChronologique';
 import HistoriqueWorkflowsTable from './timeline/HistoriqueWorkflowsTable';
 import HistoriqueContratsTable from './timeline/HistoriqueContratsTable';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 export default function CarriereTimeline({
     contratActif,
@@ -85,39 +86,18 @@ export default function CarriereTimeline({
                         Historique de carrière et contrats
                     </h3>
 
-                    <div className="inline-flex border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-0.5" role="group" aria-label="Mode d'affichage de l'historique">
-                        <button
-                            type="button"
-                            onClick={() => setModeAffichage('parcours')}
-                            aria-pressed={modeAffichage === 'parcours'}
-                            className={`
-                                min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
-                                ${modeAffichage === 'parcours'
-                                    ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
-                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                }
-                            `}
-                        >
-                            <GitCommit size={14} />
-                            <span>Parcours chronologique</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setModeAffichage('tables')}
-                            aria-pressed={modeAffichage === 'tables'}
-                            className={`
-                                min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
-                                ${modeAffichage === 'tables'
-                                    ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
-                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                }
-                            `}
-                        >
-                            <Table size={14} />
-                            <span>Tableaux détaillés</span>
-                        </button>
-                    </div>
+                    <Tabs
+                        tabs={[
+                            { id: 'parcours', label: 'Parcours chronologique', icon: <GitCommit size={15} /> },
+                            { id: 'tables', label: 'Tableaux détaillés', icon: <Table size={15} /> },
+                        ]}
+                        activeTab={modeAffichage}
+                        onChange={setModeAffichage}
+                        variant="pills"
+                        bg="surface"
+                        ariaLabel="Mode d'affichage de l'historique"
+                        className="flex-nowrap border border-[var(--color-border-subtle)] p-0.5 gap-0.5"
+                    />
                 </div>
 
                 {/* Vue 1 : Parcours Chronologique narratif */}

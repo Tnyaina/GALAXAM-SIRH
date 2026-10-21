@@ -924,7 +924,7 @@ public class PointageAnomalieService {
 
     private List<LeavePointageDay> verifierIntervalleRegularisation(Connection c, int employeeId,
             LocalDate start, LocalDate end) throws SQLException {
-        var holidays = calendrierOuvrableEngine.getDatesFeriesEtChomeesEmploye(start, end, employeeId, c);
+        var holidays = calendrierOuvrableEngine.getDatesFeriesChomeesEmploye(start, end, employeeId, c);
         List<LeavePointageDay> days = new ArrayList<>();
         for (LocalDate day = start.plusDays(1); !day.isAfter(end); day = day.plusDays(1)) {
             if (CalendrierOuvrableEngine.isWeekend(day) || holidays.contains(day)) continue;

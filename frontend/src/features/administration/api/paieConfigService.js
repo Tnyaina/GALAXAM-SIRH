@@ -234,13 +234,7 @@ const paieConfigService = {
         return cachedPointageRead('calendrier-feries-sites', () => apiClient.get('/referentiel/calendrier-ferie/site-config'));
     },
     createSiteFerie: async (data) => writePointageReference(apiClient.post('/referentiel/calendrier-ferie/site-config', data)),
-    deleteSiteFerie: async (id) => writePointageReference(apiClient.delete(`/referentiel/calendrier-ferie/site-config/${id}`)),
-    getPeriodesChomees: async () => {
-        return cachedPointageRead('periodes-chomees', () => apiClient.get('/referentiel/calendrier-ferie/periodes'));
-    },
-    createPeriodeChomee: async (data) => writePointageReference(apiClient.post('/referentiel/calendrier-ferie/periodes', data)),
-    updatePeriodeChomee: async (id, data) => writePointageReference(apiClient.put(`/referentiel/calendrier-ferie/periodes/${id}`, data)),
-    deletePeriodeChomee: async (id) => writePointageReference(apiClient.delete(`/referentiel/calendrier-ferie/periodes/${id}`))
+    deleteSiteFerie: async (id) => writePointageReference(apiClient.delete(`/referentiel/calendrier-ferie/site-config/${id}`))
 };
 
 export default paieConfigService;

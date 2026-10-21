@@ -203,8 +203,8 @@ public class PointagePeriodeController {
 
         try (Connection c = dataSource.getConnection()) {
                 // Délégation à CalendrierOuvrableEngine : source unique de vérité pour les jours ouvrables.
-                // Inclut weekends + fériés nationaux + fériés par site + périodes chômées exceptionnelles.
-                // Ancienne logique inline supprimée car incomplète (sans site, sans périodes chômées).
+                // Inclut weekends + fériés nationaux + fériés par site.
+                // Ancienne logique inline supprimée car incomplète (sans site).
                 int nbJoursOuvrables = calendrierEngine.compterJoursOuvrables(start, end, null, c);
                 int calendaires = calendrierEngine.compterJoursCalendaires(start, end);
                 int nbWeekends = (int) start.datesUntil(end.plusDays(1))

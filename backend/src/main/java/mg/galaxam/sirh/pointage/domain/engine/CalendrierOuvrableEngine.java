@@ -22,7 +22,7 @@ import mg.galaxam.sirh.common.exception.SirhErrorCode;
  * Garantit l'uniformité absolue des règles de gestion des jours ouvrables, fériés et proratas.
  *
  * Règle d'or SIRH :
- * Jours Ouvrables Réels = Jours du Lundi au Vendredi - (Jours Fériés Chômés + Périodes Exceptionnelles Chômées)
+ * Jours Ouvrables Réels = Jours du Lundi au Vendredi - (Jours Fériés Chômés)
  */
 @Component
 public class CalendrierOuvrableEngine {
@@ -30,9 +30,9 @@ public class CalendrierOuvrableEngine {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CalendrierOuvrableEngine.class);
 
     /**
-     * Récupère l'ensemble des dates fériées ou exceptionnellement chômées pour une période et un site.
+     * Récupère l'ensemble des dates fériées chômées pour une période et un site.
      */
-    public Set<LocalDate> getDatesFeriesEtChomees(LocalDate debut, LocalDate fin, Integer idSite, Connection c) {
+    public Set<LocalDate> getDatesFeriesChomees(LocalDate debut, LocalDate fin, Integer idSite, Connection c) {
         Set<LocalDate> datesChomees = new HashSet<>();
         if (debut == null || fin == null || c == null) return datesChomees;
 
@@ -70,54 +70,20 @@ public class CalendrierOuvrableEngine {
             log.warn("[CalendrierOuvrableEngine] Impossible de récupérer les jours fériés pour le site {}: {}", idSite, e.getMessage(), e);
         }
 
-        // 2. Périodes exceptionnellement chômées (intempéries, cyclone, fermeture administrative)
-        StringBuilder sqlChomee = new StringBuilder(
-            "SELECT date_debut, COALESCE(date_fin, date_debut) AS date_fin FROM ref_periode_chomee " +
-            "WHERE date_debut <= ? AND COALESCE(date_fin, date_debut) >= ? "
-        );
-        if (idSite != null && idSite > 0) {
-            sqlChomee.append("AND (id_site IS NULL OR id_site = ?) ");
-        } else {
-            sqlChomee.append("AND id_site IS NULL ");
-        }
-
-        try (PreparedStatement ps = c.prepareStatement(sqlChomee.toString())) {
-            ps.setDate(1, java.sql.Date.valueOf(fin));
-            ps.setDate(2, java.sql.Date.valueOf(debut));
-            if (idSite != null && idSite > 0) {
-                ps.setInt(3, idSite);
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    java.sql.Date dStart = rs.getDate("date_debut");
-                    java.sql.Date dEnd = rs.getDate("date_fin");
-                    if (dStart != null && dEnd != null) {
-                        LocalDate start = dStart.toLocalDate().isBefore(debut) ? debut : dStart.toLocalDate();
-                        LocalDate end = dEnd.toLocalDate().isAfter(fin) ? fin : dEnd.toLocalDate();
-                        for (LocalDate cur = start; !cur.isAfter(end); cur = cur.plusDays(1)) {
-                            datesChomees.add(cur);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[CalendrierOuvrableEngine] Impossible de récupérer les périodes chômées pour le site {}: {}", idSite, e.getMessage(), e);
-        }
-
         return datesChomees;
     }
 
     /**
-     * Information sur le caractère chômé d'une date (férié ou période exceptionnelle).
+     * Information sur le caractère chômé d'une date (férié).
      */
     public record JourChomeInfo(boolean estChome, String libelle) {
         public static final JourChomeInfo NON_CHOME = new JourChomeInfo(false, null);
     }
 
     /**
-     * Détermine si une date donnée est chômée (férié chômé ou fermeture exceptionnelle) pour un site donné.
+     * Détermine si une date donnée est chômée (férié chômé) pour un site donné.
      */
-    public JourChomeInfo getJourChomeInfo(LocalDate date, Integer idSite, Connection c) {
+    public JourChomeInfo getJourFerieChomeInfo(LocalDate date, Integer idSite, Connection c) {
         if (date == null || c == null) return JourChomeInfo.NON_CHOME;
 
         // 1. Jour férié chômé légal (national ou spécifique au site)
@@ -152,40 +118,14 @@ public class CalendrierOuvrableEngine {
             log.warn("[CalendrierOuvrableEngine] Erreur recherche férié pour date {}: {}", date, e.getMessage());
         }
 
-        // 2. Période chômée exceptionnelle
-        StringBuilder sqlChomee = new StringBuilder(
-            "SELECT libelle FROM ref_periode_chomee " +
-            "WHERE ? BETWEEN date_debut AND COALESCE(date_fin, date_debut) "
-        );
-        if (idSite != null && idSite > 0) {
-            sqlChomee.append("AND (id_site IS NULL OR id_site = ?) ");
-        } else {
-            sqlChomee.append("AND id_site IS NULL ");
-        }
-        sqlChomee.append("LIMIT 1");
-
-        try (PreparedStatement ps = c.prepareStatement(sqlChomee.toString())) {
-            ps.setDate(1, java.sql.Date.valueOf(date));
-            if (idSite != null && idSite > 0) {
-                ps.setInt(2, idSite);
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return new JourChomeInfo(true, rs.getString("libelle"));
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[CalendrierOuvrableEngine] Erreur recherche période chômée pour date {}: {}", date, e.getMessage());
-        }
-
         return JourChomeInfo.NON_CHOME;
     }
 
     /**
-     * Récupère l'ensemble des dates fériées ou exceptionnellement chômées pour un employé en fonction de son site actif.
+     * Récupère l'ensemble des dates fériées chômées pour un employé en fonction de son site actif.
      * Ignore silencieusement les jours où l'employé n'est pas sous contrat / affecté.
      */
-    public Set<LocalDate> getDatesFeriesEtChomeesEmploye(LocalDate debut, LocalDate fin, Integer idEmploye, Connection c) {
+    public Set<LocalDate> getDatesFeriesChomeesEmploye(LocalDate debut, LocalDate fin, Integer idEmploye, Connection c) {
         if (debut == null || fin == null || fin.isBefore(debut) || idEmploye == null || c == null) {
             return Set.of();
         }
@@ -197,7 +137,7 @@ public class CalendrierOuvrableEngine {
                 continue;
             }
             Set<LocalDate> chomes = chomesParSite.computeIfAbsent(
-                    idSite, site -> getDatesFeriesEtChomees(debut, fin, site, c));
+                    idSite, site -> getDatesFeriesChomees(debut, fin, site, c));
             if (chomes.contains(date)) result.add(date);
         }
         return result;
@@ -287,7 +227,7 @@ public class CalendrierOuvrableEngine {
      */
     public int compterJoursOuvrables(LocalDate debut, LocalDate fin, Integer idSite, Connection c) {
         if (debut == null || fin == null) return 0;
-        Set<LocalDate> feries = getDatesFeriesEtChomees(debut, fin, idSite, c);
+        Set<LocalDate> feries = getDatesFeriesChomees(debut, fin, idSite, c);
 
         int count = 0;
         for (LocalDate cur = debut; !cur.isAfter(fin); cur = cur.plusDays(1)) {
@@ -305,7 +245,7 @@ public class CalendrierOuvrableEngine {
      */
     public int compterJoursFeriesChomes(LocalDate debut, LocalDate fin, Integer idSite, Connection c) {
         if (debut == null || fin == null) return 0;
-        Set<LocalDate> feries = getDatesFeriesEtChomees(debut, fin, idSite, c);
+        Set<LocalDate> feries = getDatesFeriesChomees(debut, fin, idSite, c);
         return feries.size();
     }
 

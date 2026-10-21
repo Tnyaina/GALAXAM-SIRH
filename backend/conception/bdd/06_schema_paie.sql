@@ -1,6 +1,6 @@
 -- =====================================================================
 -- GALAXAM SIRH — MODULE 06 : MOTEUR DE PAIE & QUITTANCES
--- Script canonique final (Zéro ALTER TABLE, Zéro OWNER, Zéro public.)
+-- Script canonique final (ALTER TABLE pour les dépendances différées, Zéro OWNER, Zéro public.)
 -- Précision Ar : montants NUMERIC(20,2), taux horaires NUMERIC(20,8)
 -- (NUMERIC(20,4) pour le taux STC), bases de ligne NUMERIC(20,8).
 -- Les durées et pourcentages gardent leur précision propre.
@@ -15,7 +15,6 @@
 DROP VIEW IF EXISTS v_config_legale_active CASCADE;
 
 DROP TABLE IF EXISTS ref_mode_paiement CASCADE;
-DROP TABLE IF EXISTS conge_journal_droit CASCADE;
 DROP TABLE IF EXISTS paie_stc CASCADE;
 DROP TABLE IF EXISTS prestataire_facture CASCADE;
 DROP TABLE IF EXISTS prestataire_contrat CASCADE;
@@ -31,8 +30,100 @@ DROP TABLE IF EXISTS bareme_irsa CASCADE;
 DROP TABLE IF EXISTS site_cotisation CASCADE;
 DROP TABLE IF EXISTS ref_type_cotisation CASCADE;
 DROP TABLE IF EXISTS ref_organisme_social CASCADE;
+DROP TABLE IF EXISTS paie_config_legale CASCADE;
 
 DROP SEQUENCE IF EXISTS seq_numero_recu_stc;
+
+-- Configuration Légale & Fiscale (Millésimes annuels de paie)
+CREATE TABLE paie_config_legale (
+    id_config_legale SERIAL PRIMARY KEY,
+    code_version VARCHAR(30) NOT NULL UNIQUE,
+    libelle VARCHAR(200) NOT NULL,
+    date_debut DATE NOT NULL,
+    date_fin DATE,
+    sme_national NUMERIC(20,2) NOT NULL,
+    sme_agricole NUMERIC(20,2) NOT NULL,
+    plafond_cotisation_nb_sme NUMERIC(4,2) NOT NULL DEFAULT 8.00,
+    plafond_avance_employeur_pct NUMERIC(9,6) NOT NULL DEFAULT 10.000000,
+    quotite_cessible_pct NUMERIC(20,6) NOT NULL DEFAULT 33.33,
+    seuil_exoneration_irsa NUMERIC(20,2) NOT NULL,
+    minimum_perception_irsa NUMERIC(20,2) NOT NULL,
+    deduction_charge_famille NUMERIC(20,2) NOT NULL,
+    arrondi_base_irsa VARCHAR(20) NOT NULL DEFAULT 'CENTAINE_INF',
+    duree_hebdo_legale NUMERIC(5,2) NOT NULL DEFAULT 40.00,
+    diviseur_mensuel_heures NUMERIC(7,4) NOT NULL DEFAULT 173.33,
+    seuil_hs_tranche1 NUMERIC(5,2) NOT NULL DEFAULT 8.00,
+    plafond_hs_hebdo NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+    acquisition_conge_mensuel_jours NUMERIC(4,2) NOT NULL DEFAULT 2.50,
+    exoneration_hs_irsa_active BOOLEAN NOT NULL DEFAULT FALSE,
+    plafond_mensuel_hs_exonerees NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+    source_type VARCHAR(50) DEFAULT 'CGI_MADAGASCAR',
+    source_reference VARCHAR(255),
+    article_reference VARCHAR(80) DEFAULT '01.03.16',
+    publication_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_dates_config CHECK (date_fin IS NULL OR date_fin > date_debut),
+    CONSTRAINT chk_plafond_avance_pct CHECK (plafond_avance_employeur_pct BETWEEN 0 AND 100),
+    CONSTRAINT chk_quotite_cessible_pct CHECK (quotite_cessible_pct BETWEEN 0 AND 100),
+    CONSTRAINT uk_config_legale_temporal_overlap EXCLUDE USING gist (
+        daterange(date_debut, COALESCE(date_fin, 'infinity'::date), '[]') WITH &&
+    )
+);
+
+CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin) WHERE date_fin IS NULL;
+
+-- Configuration Légale de Paie :
+-- 1. LF_2024_2025 (applicable du 01/01/2024 au 31/12/2025) : SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar, Barème 5 tranches (couvre les tests déc 2025 : 26 nov - 25 déc)
+-- 2. LF_2026_JAN_FEB (applicable du 01/01/2026 au 28/02/2026) : Décret CNaPS SME 262 680 Ar maintenu jusqu'au 28/02/2026, Barème IRSA 6 tranches LF 2026 (Min IRSA 3 000 Ar, tranche 25%)
+-- 3. LF_2026 (en vigueur depuis le 01/03/2026) : Revalorisation effective SME 300 000 Ar (agricole 304 300 Ar), Plafond CNaPS 2 400 000 Ar, Barème 6 tranches (25%), Min IRSA 3 000 Ar
+INSERT INTO paie_config_legale (
+    id_config_legale, code_version, libelle, date_debut, date_fin,
+    sme_national, sme_agricole, plafond_cotisation_nb_sme,
+    seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa,
+    duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo,
+    acquisition_conge_mensuel_jours,
+    exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees,
+    source_type, source_reference, article_reference, publication_date
+) VALUES
+(
+    1,
+    'LF_2024_2025',
+    'Loi de Finances / Réglementation 2022-2025 — SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar',
+    '2001-07-01', '2025-12-31',
+    262680.00, 266500.00, 8.00,
+    350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
+    40.00, 173.33, 8.00, 20.00,
+    2.50,
+    FALSE, 20.00,
+    'CGI_MADAGASCAR', 'Code des impôts 2025', '01.03.16', '2024-01-01'
+),
+(
+    3,
+    'LF_2026_JAN_FEB',
+    'Loi de Finances 2026 (Janv-Févr 2026) — IRSA 6 Tranches, SME CNaPS 262 680 Ar',
+    '2026-01-01', '2026-02-28',
+    262680.00, 266500.00, 8.00,
+    350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
+    40.00, 173.33, 8.00, 20.00,
+    2.50,
+    FALSE, 20.00,
+    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2025-12-31'
+),
+(
+    2,
+    'LF_2026',
+    'Loi de Finances 2026 — Revalorisation SME 300 000 Ar, Plafond CNaPS 2 400 000 Ar, Min IRSA 3 000 Ar',
+    '2026-03-01', NULL,
+    300000.00, 304300.00, 8.00,
+    350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
+    40.00, 173.33, 8.00, 20.00,
+    2.50,
+    FALSE, 20.00,
+    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2026-02-15'
+);
+SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 3) FROM paie_config_legale));
+
 
 -- 2. Organismes Sociaux & Cotisations Sociales
 CREATE TABLE ref_organisme_social (
@@ -669,35 +760,6 @@ CREATE INDEX idx_stc_reglement_stc ON paie_stc_reglement(id_stc);
 CREATE INDEX idx_stc_reglement_date ON paie_stc_reglement(date_reglement);
 CREATE UNIQUE INDEX uk_stc_reglement_stc_ref_active ON paie_stc_reglement(id_stc, reference_reglement) WHERE est_annule = FALSE;
 CREATE UNIQUE INDEX uk_stc_reglement_idempotence ON paie_stc_reglement(id_stc, cle_idempotence) WHERE cle_idempotence IS NOT NULL;
-
--- 12. Grand-Livre de Valorisation des Droits à Congés
-CREATE TABLE conge_journal_droit (
-    id_journal SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL REFERENCES employe(id_employe),
-    id_periode_paie INT REFERENCES periode_paie(id_periode_paie),
-    id_periode_reference INT REFERENCES conge_periode_reference(id_periode_reference),
-    numero_mois_reference INT,
-    annee INT NOT NULL,
-    mois INT NOT NULL,
-    salaire_base NUMERIC(20,2) NOT NULL,
-    jours_travailles_formule NUMERIC(5,2) NOT NULL DEFAULT 30.0,
-    jours_droit_acquis NUMERIC(6,4) NOT NULL DEFAULT 2.5000,
-    base_valorisation NUMERIC(20,2) NOT NULL,
-    valorisation_mensuelle NUMERIC(20,2) NOT NULL,
-    cumul_jours_droit NUMERIC(8,4) NOT NULL,
-    cumul_valorisation NUMERIC(20,2) NOT NULL,
-    taux_journalier_conge NUMERIC(20,2) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_conge_journal_emp_annee_mois UNIQUE (id_employe, annee, mois)
-);
-
-CREATE INDEX idx_conge_journal_emp ON conge_journal_droit(id_employe);
-CREATE INDEX idx_conge_journal_periode ON conge_journal_droit(id_periode_paie);
-CREATE INDEX idx_conge_journal_ref ON conge_journal_droit(id_periode_reference);
-
-ALTER TABLE conge_valorisation_mensuelle_correction
-    ADD CONSTRAINT fk_conge_valorisation_correction_journal
-    FOREIGN KEY (id_journal) REFERENCES conge_journal_droit(id_journal);
 
 -- =====================================================================
 -- TRIGGERS DE SÉCURITÉ : IMMUTABILITÉ POST-CLÔTURE

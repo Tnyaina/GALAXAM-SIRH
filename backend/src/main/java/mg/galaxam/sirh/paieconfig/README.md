@@ -12,7 +12,7 @@ Ce dossier regroupe l'ensemble des règles de configuration légale, des barème
   - `ParametreGlobalController` (`/referentiel/parametres-globaux`)
   - `RefTypeMouvementPaieController` (`/referentiel/types-mouvement-paie`)
 - `api/dto/` : contrats DTO pour chaque écran de configuration
-- `persistence/` : modèles Active Record et tables de configuration (`BaremeIrsa`, `PaieConfigLegale`, `ParametreGlobal`, `RefTypeCotisation`, `SiteCotisation`, `RefIndemnite`, `SiteIndemniteConfig`, `RefCalendrierFerie`, `SiteCalendrierFerie`, `RefPeriodeChomee`, `RefTauxMajoration`, `RefTypeMouvementPaie`)
+- `persistence/` : modèles Active Record et tables de configuration (`BaremeIrsa`, `PaieConfigLegale`, `ParametreGlobal`, `RefTypeCotisation`, `SiteCotisation`, `RefIndemnite`, `SiteIndemniteConfig`, `RefCalendrierFerie`, `SiteCalendrierFerie`, `RefTauxMajoration`, `RefTypeMouvementPaie`)
 - `application/` : cas d'usage transactionnels
 - `domain/` : invariants métier
 

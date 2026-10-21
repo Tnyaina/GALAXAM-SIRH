@@ -17,8 +17,6 @@ import useConfirm from '@/hooks/useConfirm';
 import JoursFeriesList from './feries/JoursFeriesList';
 import SiteFeriesList from './feries/SiteFeriesList';
 import SiteFerieFormModal from './feries/SiteFerieFormModal';
-import PeriodeChomeeList from './feries/PeriodeChomeeList';
-import PeriodeChomeeFormModal from './feries/PeriodeChomeeFormModal';
 
 function JoursFerieFormModal({ isOpen, onClose, onSubmit, editingFerie, formData, setFormData, actionError, fieldErrors = {}, setFieldErrors, submitting = false }) {
     return (
@@ -73,7 +71,7 @@ export default function CalendrierFerieTab() {
     // Contexte, navigation et confirmation
     const [searchParams, setSearchParams] = useSearchParams();
     const requestedSubSection = searchParams.get('subtab');
-    const subSection = ['feries', 'site_feries', 'periodes'].includes(requestedSubSection) ? requestedSubSection : 'feries';
+    const subSection = ['feries', 'site_feries'].includes(requestedSubSection) ? requestedSubSection : 'feries';
 
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
@@ -89,7 +87,6 @@ export default function CalendrierFerieTab() {
     // État local : données, filtres et modales.
     const [feries, setFeries] = useState([]);
     const [siteFeries, setSiteFeries] = useState([]);
-    const [periodes, setPeriodes] = useState([]);
     const [sites, setSites] = useState([]);
 
     const [loading, setLoading] = useState(true);
@@ -100,7 +97,6 @@ export default function CalendrierFerieTab() {
 
     const [ferieFieldErrors, setFerieFieldErrors] = useState({});
     const [siteFerieFieldErrors, setSiteFerieFieldErrors] = useState({});
-    const [periodeFieldErrors, setPeriodeFieldErrors] = useState({});
 
     // Filtres
     const [search, setSearch] = useState('');
@@ -141,13 +137,6 @@ export default function CalendrierFerieTab() {
     });
     const [submitting, setSubmitting] = useState(false);
 
-    // Modale Période
-    const [showPeriodeModal, setShowPeriodeModal] = useState(false);
-    const [editingPeriode, setEditingPeriode] = useState(null);
-    const [periodeFormData, setPeriodeFormData] = useState({
-        libelle: '', idSite: '', dateDebut: todayStr, dateFin: '', estPaye: true, tauxPaiement: 100
-    });
-
     // Modale Site Férié
     const [showSiteFerieModal, setShowSiteFerieModal] = useState(false);
     const [siteFerieFormData, setSiteFerieFormData] = useState({
@@ -158,16 +147,14 @@ export default function CalendrierFerieTab() {
         setLoading(true);
         setError(null);
         try {
-            const [feriesData, sfData, sitesData, periodesData] = await Promise.all([
+            const [feriesData, sfData, sitesData] = await Promise.all([
                 paieConfigService.getCalendrierFerie(),
                 paieConfigService.getSiteFeries(),
-                organisationService.getSites(),
-                paieConfigService.getPeriodesChomees()
+                organisationService.getSites()
             ]);
             setFeries(feriesData);
             setSiteFeries(sfData);
             setSites(sitesData);
-            setPeriodes(periodesData);
         } catch (err) {
             setError("Erreur lors du chargement du calendrier des jours fériés.");
             console.error(err);
@@ -327,85 +314,6 @@ export default function CalendrierFerieTab() {
         }
     };
 
-    // Handlers Périodes Chômées
-    const handleOpenCreatePeriode = () => {
-        setEditingPeriode(null);
-        setPeriodeFormData({ libelle: '', idSite: '', dateDebut: todayStr, dateFin: '', estPaye: true, tauxPaiement: 100 });
-        setPeriodeFieldErrors({});
-        setActionError(null);
-        setShowPeriodeModal(true);
-    };
-
-    const handleOpenEditPeriode = (p) => {
-        setEditingPeriode(p);
-        setPeriodeFormData({
-            libelle: p.libelle,
-            idSite: p.idSite || '',
-            dateDebut: fmtDateInput(p.dateDebut),
-            dateFin: p.dateFin ? fmtDateInput(p.dateFin) : '',
-            estPaye: p.estPaye,
-            tauxPaiement: p.tauxPaiement
-        });
-        setPeriodeFieldErrors({});
-        setActionError(null);
-        setShowPeriodeModal(true);
-    };
-
-    const handleSavePeriode = async (e) => {
-        e.preventDefault();
-        if (submitting) return;
-        setActionError(null);
-
-        const errors = {};
-        if (!periodeFormData.libelle.trim()) {
-            errors.libelle = "L'intitulé de l'événement est obligatoire.";
-        }
-        if (!periodeFormData.dateDebut) {
-            errors.dateDebut = "La date de début de suspension est obligatoire.";
-        }
-
-        if (Object.keys(errors).length > 0) {
-            setPeriodeFieldErrors(errors);
-            return;
-        }
-        setPeriodeFieldErrors({});
-
-        setSubmitting(true);
-        try {
-            const payload = {
-                ...periodeFormData,
-                idSite: periodeFormData.idSite ? parseInt(periodeFormData.idSite) : null,
-                dateFin: periodeFormData.dateFin || null
-            };
-
-            if (editingPeriode) {
-                await paieConfigService.updatePeriodeChomee(editingPeriode.idPeriode, payload);
-                toast({ title: 'Succès', message: `Période "${periodeFormData.libelle}" modifiée.`, type: 'success' });
-            } else {
-                await paieConfigService.createPeriodeChomee(payload);
-                toast({ title: 'Succès', message: `Période "${periodeFormData.libelle}" ajoutée.`, type: 'success' });
-            }
-            setShowPeriodeModal(false);
-            loadData();
-        } catch (err) {
-            setActionError(getErrorMessage(err, "Erreur lors de la sauvegarde de la période."));
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleDeletePeriode = async (id) => {
-        setActionError(null);
-        try {
-            await paieConfigService.deletePeriodeChomee(id);
-            toast({ title: 'Succès', message: "Période supprimée.", type: 'success' });
-            setPeriodes(prev => prev.filter(p => p.idPeriode !== id));
-        } catch (err) {
-            setActionError("Erreur lors de la suppression.");
-            console.error(err);
-        }
-    };
-
     const filteredFeries = feries.filter(f => {
         const matchesYear = selectedYear === 'tous' || (f.dateFerie && f.dateFerie.startsWith(selectedYear));
         const matchesSearch = !search || f.libelle.toLowerCase().includes(search.toLowerCase());
@@ -418,12 +326,6 @@ export default function CalendrierFerieTab() {
         const matchesSearch = !search || (sf.ferieLibelle && sf.ferieLibelle.toLowerCase().includes(search.toLowerCase())) ||
             (sf.siteLibelle && sf.siteLibelle.toLowerCase().includes(search.toLowerCase()));
         return matchesYear && matchesSite && matchesSearch;
-    });
-
-    const filteredPeriodes = periodes.filter(p => {
-        const matchesSite = !selectedSiteFilter || String(p.idSite) === String(selectedSiteFilter);
-        const matchesSearch = !search || p.libelle.toLowerCase().includes(search.toLowerCase());
-        return matchesSite && matchesSearch;
     });
 
     if (loading) {
@@ -439,8 +341,7 @@ export default function CalendrierFerieTab() {
         <SideTabs
             tabs={[
                 { id: 'feries', label: 'Jours fériés nationaux', icon: <Calendar size={16} />, count: filteredFeries.length },
-                { id: 'site_feries', label: 'Fériés spécifiques par site', icon: <MapPin size={16} />, count: filteredSiteFeries.length },
-                { id: 'periodes', label: 'Périodes exceptionnelles', icon: <Calendar size={16} />, count: filteredPeriodes.length }
+                { id: 'site_feries', label: 'Fériés spécifiques par site', icon: <MapPin size={16} />, count: filteredSiteFeries.length }
             ]}
             activeTab={subSection}
             onChange={setSubSection}
@@ -515,16 +416,6 @@ export default function CalendrierFerieTab() {
                 />
             )}
 
-            {subSection === 'periodes' && (
-                <PeriodeChomeeList
-                    periodes={filteredPeriodes}
-                    sites={sites}
-                    onOpenCreate={handleOpenCreatePeriode}
-                    onOpenEdit={handleOpenEditPeriode}
-                    onDelete={handleDeletePeriode}
-                />
-            )}
-
             <JoursFerieFormModal
                 isOpen={showFerieModal}
                 onClose={() => setShowFerieModal(false)}
@@ -549,20 +440,6 @@ export default function CalendrierFerieTab() {
                 actionError={actionError}
                 fieldErrors={siteFerieFieldErrors}
                 setFieldErrors={setSiteFerieFieldErrors}
-                submitting={submitting}
-            />
-
-            <PeriodeChomeeFormModal
-                isOpen={showPeriodeModal}
-                onClose={() => setShowPeriodeModal(false)}
-                onSubmit={handleSavePeriode}
-                editingPeriode={editingPeriode}
-                formData={periodeFormData}
-                setFormData={setPeriodeFormData}
-                sites={sites}
-                actionError={actionError}
-                fieldErrors={periodeFieldErrors}
-                setFieldErrors={setPeriodeFieldErrors}
                 submitting={submitting}
             />
 

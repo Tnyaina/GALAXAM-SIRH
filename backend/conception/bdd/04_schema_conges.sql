@@ -1,6 +1,6 @@
 -- =====================================================================
 -- GALAXAM SIRH — MODULE 04 : CONGÉS & ABSENCES
--- Script canonique final (Zéro ALTER TABLE, Zéro OWNER, Zéro public.)
+-- Script canonique final (ALTER TABLE pour une FK interne différée, Zéro OWNER, Zéro public.)
 -- Sources : 26-08-13-sp2-conges.sql, 26-09-16-sp8-indexes-foreign-keys.sql
 -- =====================================================================
 
@@ -12,6 +12,7 @@ DROP VIEW IF EXISTS v_pool_conge_annuel_consommation CASCADE;
 DROP VIEW IF EXISTS v_solde_conge_employe CASCADE;
 
 DROP TABLE IF EXISTS conge_taux_applicable CASCADE;
+DROP TABLE IF EXISTS conge_journal_droit CASCADE;
 DROP TABLE IF EXISTS conge_periode_reference CASCADE;
 DROP TABLE IF EXISTS conge_expiration_examen CASCADE;
 DROP TABLE IF EXISTS mouvement_solde_conge CASCADE;
@@ -211,6 +212,35 @@ CREATE TABLE conge_periode_reference (
     )
 );
 CREATE INDEX idx_conge_ref_emp_dates ON conge_periode_reference(id_employe, date_debut, date_fin);
+
+-- Grand-Livre de Valorisation des Droits à Congés
+CREATE TABLE conge_journal_droit (
+    id_journal SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_periode_paie INT,
+    id_periode_reference INT REFERENCES conge_periode_reference(id_periode_reference),
+    numero_mois_reference INT,
+    annee INT NOT NULL,
+    mois INT NOT NULL,
+    salaire_base NUMERIC(20,2) NOT NULL,
+    jours_travailles_formule NUMERIC(5,2) NOT NULL DEFAULT 30.0,
+    jours_droit_acquis NUMERIC(6,4) NOT NULL DEFAULT 2.5000,
+    base_valorisation NUMERIC(20,2) NOT NULL,
+    valorisation_mensuelle NUMERIC(20,2) NOT NULL,
+    cumul_jours_droit NUMERIC(8,4) NOT NULL,
+    cumul_valorisation NUMERIC(20,2) NOT NULL,
+    taux_journalier_conge NUMERIC(20,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_conge_journal_emp_annee_mois UNIQUE (id_employe, annee, mois)
+);
+
+CREATE INDEX idx_conge_journal_emp ON conge_journal_droit(id_employe);
+CREATE INDEX idx_conge_journal_periode ON conge_journal_droit(id_periode_paie);
+CREATE INDEX idx_conge_journal_ref ON conge_journal_droit(id_periode_reference);
+
+ALTER TABLE conge_valorisation_mensuelle_correction
+    ADD CONSTRAINT fk_conge_valorisation_correction_journal
+    FOREIGN KEY (id_journal) REFERENCES conge_journal_droit(id_journal);
 
 CREATE TABLE conge_taux_applicable (
     id_taux_applicable SERIAL PRIMARY KEY,

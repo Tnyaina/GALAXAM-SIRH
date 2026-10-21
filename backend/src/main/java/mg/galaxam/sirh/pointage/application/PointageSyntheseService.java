@@ -457,7 +457,7 @@ public class PointageSyntheseService {
         Set<LocalDate> joursChomesEmploye = new HashSet<>();
         for (var contexte : contextesJournaliers.entrySet()) {
             Set<LocalDate> joursChomesSite = joursChomesParSite.computeIfAbsent(contexte.getValue().siteId(),
-                    site -> calendrierEngine.getDatesFeriesEtChomees(dateDebut, dateFin, site, c));
+                    site -> calendrierEngine.getDatesFeriesChomees(dateDebut, dateFin, site, c));
             if (joursChomesSite.contains(contexte.getKey())) joursChomesEmploye.add(contexte.getKey());
         }
         int joursOuvrablesReels = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
@@ -775,7 +775,7 @@ public class PointageSyntheseService {
                         || CalendrierOuvrableEngine.isWeekend(day)) continue;
                 var contexteJour = contextesJournaliers.get(day);
                 if (contexteJour == null || !contexteJour.dispensePointage()) continue;
-                boolean isPublicHoliday = calendrierEngine.getJourChomeInfo(day, contexteJour.siteId(), c).estChome();
+                boolean isPublicHoliday = calendrierEngine.getJourFerieChomeInfo(day, contexteJour.siteId(), c).estChome();
                 if (isPublicHoliday) continue;
                 int dailySite = contexteJour.siteId();
                 var allowanceStates = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(day), c);
@@ -1924,7 +1924,7 @@ public class PointageSyntheseService {
                 if (emploiDuJour == null || emploiDuJour.dispensePointage()) continue;
                 Set<LocalDate> feries = feriesParSite.get(emploiDuJour.siteId());
                 if (feries == null) {
-                    feries = calendrierEngine.getDatesFeriesEtChomees(debut, fin, emploiDuJour.siteId(), c);
+                    feries = calendrierEngine.getDatesFeriesChomees(debut, fin, emploiDuJour.siteId(), c);
                     feriesParSite.put(emploiDuJour.siteId(), feries);
                 }
                 if (!feries.contains(jour)) manquantes.add(new PointagePreflight.JourneeManquante(
@@ -2146,7 +2146,7 @@ public class PointageSyntheseService {
             var contexte = contextes.get(day);
             if (contexte != null) {
                 Set<LocalDate> datesFeries = feriesParSite.computeIfAbsent(contexte.siteId(),
-                        site -> calendrierEngine.getDatesFeriesEtChomees(debutCalendrier, finCalendrier, site, c));
+                        site -> calendrierEngine.getDatesFeriesChomees(debutCalendrier, finCalendrier, site, c));
                 if (datesFeries.contains(day)) feries.add(day);
             }
             var plageNuit = PointageService.resolveNightWindowAt(c, day);

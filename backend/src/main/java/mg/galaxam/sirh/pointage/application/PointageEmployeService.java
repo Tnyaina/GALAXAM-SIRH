@@ -284,7 +284,7 @@ public class PointageEmployeService {
         // 1.5 Récupération des jours fériés/chômés sur la période via CalendrierOuvrableEngine
         Set<LocalDate> feriesChomes = null;
         try (Connection c = dataSource.getConnection()) {
-            feriesChomes = calendrierEngine.getDatesFeriesEtChomeesEmploye(startDate, endDate, idEmploye, c);
+            feriesChomes = calendrierEngine.getDatesFeriesChomeesEmploye(startDate, endDate, idEmploye, c);
         } catch (Exception e) {
             log.warn("[PointageEmployeService] Erreur récupération jours fériés pour employé {}: {}", idEmploye, e.getMessage());
         }
@@ -302,7 +302,7 @@ public class PointageEmployeService {
                 for (LocalDate dateFerie : feriesChomes) {
                     EmploymentContextResolver.PointageDay contexte = pointageByDate.get(dateFerie);
                     if (contexte == null) continue;
-                    String libelle = calendrierEngine.getJourChomeInfo(dateFerie, contexte.siteId(), c).libelle();
+                    String libelle = calendrierEngine.getJourFerieChomeInfo(dateFerie, contexte.siteId(), c).libelle();
                     if (libelle != null && !libelle.isBlank()) libellesFeries.put(dateFerie, libelle);
                 }
             } catch (SQLException error) {

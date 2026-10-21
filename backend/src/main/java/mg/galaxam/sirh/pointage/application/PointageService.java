@@ -564,8 +564,8 @@ public class PointageService {
             }
             result.put("periodeInfo", periodeInfo);
 
-            // 2. Vérification du Jour Férié Chômé / Période chômée via le moteur canonique
-            CalendrierOuvrableEngine.JourChomeInfo chomeInfo = calendrierEngine.getJourChomeInfo(date != null ? date.toLocalDate() : null, idSite > 0 ? idSite : null, c);
+            // 2. Vérification du Jour Férié Chômé via le moteur canonique
+            CalendrierOuvrableEngine.JourChomeInfo chomeInfo = calendrierEngine.getJourFerieChomeInfo(date != null ? date.toLocalDate() : null, idSite > 0 ? idSite : null, c);
             boolean isFerie = chomeInfo.estChome();
             String libelleFerie = chomeInfo.libelle();
             result.put("isFerie", isFerie);

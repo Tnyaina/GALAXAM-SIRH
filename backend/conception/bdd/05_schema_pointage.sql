@@ -1,6 +1,6 @@
 -- =====================================================================
 -- GALAXAM SIRH — MODULE 05 : POINTAGE & SUIVI DU TEMPS DE TRAVAIL
--- Script canonique final (Zéro ALTER TABLE, Zéro OWNER, Zéro public.)
+-- Script canonique final (ALTER TABLE pour une FK intermodule différée, Zéro OWNER, Zéro public.)
 -- Schéma purifié : pointage_indemnite_jour source de vérité unique
 -- Sources : 26-08-05-sp0-ref.sql, 26-08-20-sp3-pointage.sql,
 --           26-09-16-sp8-indexes-foreign-keys.sql, 26-09-19-sp11-workflow-pointage-alter.sql
@@ -52,6 +52,11 @@ CREATE TABLE periode_paie (
 
 CREATE INDEX idx_periode_paie_statut ON periode_paie(statut);
 CREATE INDEX idx_periode_paie_valide_par ON periode_paie(valide_par);
+
+-- Le journal des droits est défini dans le module Congés (04).
+ALTER TABLE conge_journal_droit
+    ADD CONSTRAINT conge_journal_droit_id_periode_paie_fkey
+    FOREIGN KEY (id_periode_paie) REFERENCES periode_paie(id_periode_paie);
 
 -- Les bornes définissent définitivement la campagne. Les états restent modifiables.
 CREATE OR REPLACE FUNCTION interdire_modification_bornes_periode_paie()
