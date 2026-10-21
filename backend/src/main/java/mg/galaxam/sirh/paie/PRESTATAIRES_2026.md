@@ -102,6 +102,5 @@ prestataire, engagement contractuel réutilisable, puis factures successives et
 état de leur règlement. Aucun besoin de table « taux ISI éligible » ou de table
 de paiement distincte tant qu'une facture n'a qu'un règlement enregistré.
 
-L'ancien export EDI ISI répond HTTP 410 et n'est plus affiché. Le bordereau
-`paie_honoraire_prestation` reste en base pour lecture historique mais n'est
-plus généré par une campagne 2026. Le taux ISI n'est plus un prérequis de paie.
+L'ancien export EDI ISI et la table `paie_honoraire_prestation` ont été définitivement
+supprimés du schéma de référence et du backend. Le taux ISI n'est plus un prérequis de paie.

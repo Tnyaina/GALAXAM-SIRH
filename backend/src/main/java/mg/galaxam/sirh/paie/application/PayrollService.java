@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
-import mg.galaxam.sirh.paie.persistence.PaieHonorairePrestation;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.paie.domain.dto.PayrollBatchResult;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
@@ -383,96 +382,7 @@ public class PayrollService {
         return batch;
     }
 
-    /**
-     * Compatibilité historique avant 2026 uniquement. Les prestations nouvelles
-     * passent par le dossier prestataire et la facture hors paie.
-     * pour tous les intervenants externes / consultants de la période.
-     */
-    public List<PaieHonorairePrestation> genererHonorairesPeriode(Integer idPeriodePaie, Integer idUtilisateur, Connection c) throws Exception {
-        try (PreparedStatement periode = c.prepareStatement("SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
-            periode.setInt(1, idPeriodePaie);
-            try (ResultSet rs = periode.executeQuery()) {
-                if (!rs.next()) throw new IllegalArgumentException("Période de paie introuvable.");
-                if (!rs.getDate(1).toLocalDate().isBefore(java.time.LocalDate.of(2026, 1, 1))) {
-                    throw new IllegalStateException("Les honoraires ISI ne sont plus générés pour les périodes 2026. Utilisez le parcours fournisseur.");
-                }
-            }
-        }
-        String sql = "SELECT DISTINCT e.id_employe, e.nom, e.prenom, e.cin_numero, e.adresse, e.ville, " +
-                "eac.salaire_base, f.libelle AS fonction_libelle, p.date_fin " +
-                "FROM employe e " +
-                "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
-                "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
-                "JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
-                "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
-                "CROSS JOIN periode_paie p " +
-                "WHERE e.est_actif = true " +
-                "AND eac.date_debut <= p.date_fin AND (eac.date_fin IS NULL OR eac.date_fin >= p.date_debut) " +
-                "AND (ct.id_contrat IS NULL OR (ct.date_debut <= p.date_fin AND (ct.date_fin IS NULL OR ct.date_fin >= p.date_debut))) " +
-                "AND tri.code IN ('CONSULTANT', 'PRESTATAIRE', 'ISI_5') " +
-                "AND p.id_periode_paie = ?";
 
-        List<PaieHonorairePrestation> honoraires = new ArrayList<>();
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idPeriodePaie);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    int idEmp = rs.getInt("id_employe");
-                    String nom = rs.getString("nom");
-                    String prenom = rs.getString("prenom");
-                    String cin = rs.getString("cin_numero");
-                    String adr = rs.getString("adresse");
-                    String ville = rs.getString("ville");
-                    BigDecimal brut = rs.getBigDecimal("salaire_base");
-                    String fonction = rs.getString("fonction_libelle");
-                    Date dateFin = rs.getDate("date_fin");
-
-                    // Vérifier si un enregistrement existe déjà pour cet intervenant et cette période
-                    String checkSql = "SELECT id_prestation FROM paie_honoraire_prestation WHERE id_periode_paie = ? AND id_intervenant = ?";
-                    Integer existId = null;
-                    try (PreparedStatement psChk = c.prepareStatement(checkSql)) {
-                        psChk.setInt(1, idPeriodePaie);
-                        psChk.setInt(2, idEmp);
-                        try (ResultSet rsChk = psChk.executeQuery()) {
-                            if (rsChk.next()) {
-                                existId = rsChk.getInt("id_prestation");
-                            }
-                        }
-                    }
-
-                    PaieHonorairePrestation hono = existId != null ? PaieHonorairePrestation.trouverParId(existId, c) : new PaieHonorairePrestation();
-                    hono.setIdPeriodePaie(idPeriodePaie);
-                    hono.setIdIntervenant(idEmp);
-                    hono.setNomComplet(((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim());
-                    hono.setCinOuNif(cin != null ? cin : "NIF-A-PRECISER");
-                    hono.setIntitulePrestation(fonction != null ? fonction : "Prestation de Conseil / Expertise");
-                    hono.setNatureService("PRESTATIONS DE SERVICES");
-                    if (dateFin == null) throw new IllegalStateException("La date de fin de période est obligatoire.");
-                    hono.setDatePrestation(dateFin);
-                    hono.setDatePaiement(dateFin);
-                    hono.setMontantBrut(brut != null ? brut : BigDecimal.ZERO);
-                    BigDecimal tauxIsi = PayrollFiscalRulesResolver.resolveIsiRate(dateFin.toLocalDate(), c);
-                    hono.setTauxIsi(tauxIsi);
-                    hono.setAdresse(adr != null ? adr : "Antananarivo");
-                    hono.setCommune(ville != null ? ville : "ANTANANARIVO RENIVOHITRA C.U");
-                    hono.calculerMontants();
-
-                    if (existId != null) {
-                        hono.update(c);
-                    } else {
-                        hono.save(c);
-                    }
-                    honoraires.add(hono);
-                }
-            }
-        }
-        return honoraires;
-    }
-
-    public List<PaieHonorairePrestation> genererHonorairesPeriode(Integer idPeriodePaie, Integer idUtilisateur) throws Exception {
-        return transactionRunner.required(c -> genererHonorairesPeriode(idPeriodePaie, idUtilisateur, c));
-    }
 
     /**
      * Surcharge sans Connection pour calcul collectif autonome.

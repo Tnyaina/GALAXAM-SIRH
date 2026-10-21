@@ -251,7 +251,7 @@ public class PaieController {
     }
 
     // =========================================================================
-    // RESTITUTIONS & EXPORTS OFFICIELS (SAFI 25 COL, EDI ISI XML, DNTS, VIREMENT)
+    // RESTITUTIONS & EXPORTS OFFICIELS (SAFI 25 COL, DNTS, VIREMENT)
     // =========================================================================
 
     @GetMapping("/exports/catalog")
@@ -396,11 +396,7 @@ public class PaieController {
         return ResponseEntity.ok(paieExportService.obtenirDonneesSafi(idPeriode));
     }
 
-    @GetMapping("/periode/{idPeriode}/export/edi-isi")
-    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> telechargerEdiIsiXml(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
-        return ResponseEntity.status(410).body("L'export ISI est retiré du parcours de paie 2026.");
-    }
+
 
     @GetMapping("/periode/{idPeriode}/export/dnts")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")

@@ -6,7 +6,7 @@
 -- Les durées et pourcentages gardent leur précision propre.
 -- Sources : 26-09-02-sp4-paie.sql, 26-09-08-sp4-paie-bulletin.sql,
 --           26-09-10-sp4-paie-ajustements-audit.sql,
---           26-09-11-sp4-paie-honoraires-ajustements.sql, 26-09-11-sp4-paie-stc.sql,
+--           26-09-11-sp4-paie-stc.sql,
 --           26-09-12-sp4-paie-variables-dynamiques.sql, 26-09-13-sp4-conge-valorisation-droits.sql,
 --           26-09-15-sp7-regularisation-conge-mouvement.sql, 26-09-16-sp8-indexes-foreign-keys.sql
 -- =====================================================================
@@ -21,7 +21,6 @@ DROP TABLE IF EXISTS paie_stc CASCADE;
 DROP TABLE IF EXISTS prestataire_facture CASCADE;
 DROP TABLE IF EXISTS prestataire_contrat CASCADE;
 DROP TABLE IF EXISTS prestataire_independant CASCADE;
-DROP TABLE IF EXISTS paie_honoraire_prestation CASCADE;
 DROP TABLE IF EXISTS paie_mouvement_imputation CASCADE;
 DROP TABLE IF EXISTS paie_avance_acompte CASCADE;
 DROP TABLE IF EXISTS ref_type_mouvement_paie CASCADE;
@@ -504,35 +503,6 @@ CREATE INDEX idx_paie_avance_statut ON paie_avance_acompte(statut);
 CREATE INDEX idx_paie_avance_acompte_cree_par ON paie_avance_acompte(cree_par);
 CREATE INDEX idx_paie_avance_acompte_approuve_par ON paie_avance_acompte(approuve_par);
 CREATE INDEX idx_paie_avance_acompte_bulletin ON paie_avance_acompte(id_bulletin);
-
--- Ancien bordereau ISI conservé pour lecture historique ; non alimenté en 2026.
-CREATE TABLE paie_honoraire_prestation (
-    id_prestation SERIAL PRIMARY KEY,
-    id_periode_paie INTEGER REFERENCES periode_paie(id_periode_paie) ON DELETE SET NULL,
-    id_intervenant INTEGER REFERENCES employe(id_employe) ON DELETE SET NULL,
-    nom_complet VARCHAR(150) NOT NULL,
-    cin_ou_nif VARCHAR(30) NOT NULL,
-    intitule_prestation VARCHAR(150) NOT NULL,
-    nature_service VARCHAR(100) DEFAULT 'SERVICE SYSTEMATIQUE',
-    date_prestation DATE NOT NULL,
-    date_paiement DATE,
-    montant_brut NUMERIC(12, 2) NOT NULL,
-    taux_isi NUMERIC(5, 2) DEFAULT 5.00,
-    montant_retenue_isi NUMERIC(12, 2) NOT NULL,
-    montant_net_paye NUMERIC(12, 2) NOT NULL,
-    adresse VARCHAR(200),
-    commune VARCHAR(100) DEFAULT 'ANTANANARIVO RENIVOHITRA C.U',
-    region VARCHAR(100) DEFAULT 'ANALAMANGA',
-    district VARCHAR(100) DEFAULT 'ANTANANARIVO RENIVOHITRA',
-    province VARCHAR(100) DEFAULT 'ANTANANARIVO',
-    reference_facture VARCHAR(50),
-    statut VARCHAR(30) DEFAULT 'VALIDE' CHECK (statut IN ('BROUILLON', 'VALIDE', 'PAYE', 'ANNULE')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_honoraire_periode ON paie_honoraire_prestation(id_periode_paie);
-CREATE INDEX idx_honoraire_intervenant ON paie_honoraire_prestation(id_intervenant);
 
 -- Prestataires indépendants : circuit contractuel et factures hors paie.
 CREATE TABLE prestataire_independant (

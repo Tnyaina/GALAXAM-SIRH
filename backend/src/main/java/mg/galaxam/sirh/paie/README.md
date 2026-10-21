@@ -357,3 +357,17 @@ résolution par contrat daté, qui peut refléter une correction ultérieure de 
 fiche filiale. Aucun ancien instantané n'est inventé ou rempli automatiquement.
 Le bulletin STC capture aussi cette identité lors de sa validation ; son reçu
 ancien sans identité employeur figée reste consultable, mais non imprimable.
+
+### Assainissement du domaine Paie (Octobre 2026)
+
+1. **Suppression définitive de la gestion des prêts :**
+   - Tables `paie_pret` et `paie_pret_echeance` retirées du schéma de référence et de la base de données.
+   - Suppression du code mort associé dans le moteur d'exécution et le STC.
+   - Renommage de la colonne partagée `bulletin_paie.total_retenues_acompte_pret` en `total_retenues_avances_acomptes`.
+   - Conservation intégrale des avances et des acomptes (`paie_avance_acompte`), de leur imputation et de leur restauration.
+
+2. **Suppression de l'ancienne gestion des honoraires ISI :**
+   - Table `paie_honoraire_prestation` supprimée du schéma et de la base de données (0 dépendance, 0 ligne).
+   - Retrait de l'entité `PaieHonorairePrestation`, du service `EdiIsiExportService` et de la méthode `genererHonorairesPeriode`.
+   - Remplacement complet et pérenne par le sous-domaine autonome des prestataires indépendants hors paie (`prestataire_independant`, `prestataire_contrat`, `prestataire_facture`).
+

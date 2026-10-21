@@ -19,20 +19,17 @@ public class PaieExportService {
     private final DataSource dataSource;
     private final SafiExportService safiExportService;
     private final SafiXlsExportService safiXlsExportService;
-    private final EdiIsiExportService ediIsiExportService;
     private final DntsExportService dntsExportService;
     private final VirementBancaireExportService virementBancaireExportService;
 
     public PaieExportService(DataSource dataSource,
                              SafiExportService safiExportService,
                              SafiXlsExportService safiXlsExportService,
-                             EdiIsiExportService ediIsiExportService,
                              DntsExportService dntsExportService,
                              VirementBancaireExportService virementBancaireExportService) {
         this.dataSource = dataSource;
         this.safiExportService = safiExportService;
         this.safiXlsExportService = safiXlsExportService;
-        this.ediIsiExportService = ediIsiExportService;
         this.dntsExportService = dntsExportService;
         this.virementBancaireExportService = virementBancaireExportService;
     }
@@ -55,11 +52,7 @@ public class PaieExportService {
         }
     }
 
-    public String exporterEdiXml(Integer idPeriode) throws Exception {
-        try (Connection c = dataSource.getConnection()) {
-            return ediIsiExportService.exporterEdiXml(idPeriode, c);
-        }
-    }
+
 
     public List<DntsRowDto> obtenirDonneesDnts(Integer idPeriode) throws Exception {
         try (Connection c = dataSource.getConnection()) {
