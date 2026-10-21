@@ -24,9 +24,6 @@ public class PaieDossierSortie extends ClassMere {
     private String motifRupture;
     private String statutDossier = "EN_PREPARATION";
     private String donneesPreparation;
-    private String decisionPret;
-    private String justificationDecisionPret;
-    private BigDecimal montantPretRetenu = BigDecimal.ZERO;
     private Boolean certificatDelivre = Boolean.FALSE;
     private Date dateDelivranceCertificat;
     private String modeRemiseCertificat;
@@ -141,14 +138,14 @@ public class PaieDossierSortie extends ClassMere {
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO paie_dossier_sortie (" +
                 "id_employe, id_contrat, date_depart, motif_rupture, statut_dossier, " +
-                "donnees_preparation, decision_pret, justification_decision_pret, montant_pret_retenu, " +
+                "donnees_preparation, " +
                 "certificat_delivre, date_delivrance_certificat, mode_remise_certificat, " +
                 "recu_stc_remis, date_remise_recu, id_stc, " +
                 "cree_par, cloture_par, date_cloture, motif_cloture, derogation_reglement, justification_derogation, " +
                 "autorite_decision_derogation, reference_decision_derogation, date_decision_derogation, " +
                 "version, reference_simulation, snapshot_simulation, " +
                 "created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
                 "RETURNING id_dossier_sortie, version, created_at, updated_at";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -157,27 +154,24 @@ public class PaieDossierSortie extends ClassMere {
             ps.setString(4, motifRupture != null ? motifRupture : "DEMISSION");
             ps.setString(5, statutDossier != null ? statutDossier : "EN_PREPARATION");
             ps.setString(6, donneesPreparation != null ? donneesPreparation : "{}");
-            ps.setString(7, decisionPret);
-            ps.setString(8, justificationDecisionPret);
-            ps.setBigDecimal(9, montantPretRetenu != null ? montantPretRetenu : BigDecimal.ZERO);
-            ps.setBoolean(10, Boolean.TRUE.equals(certificatDelivre));
-            ps.setDate(11, dateDelivranceCertificat);
-            ps.setString(12, modeRemiseCertificat);
-            ps.setBoolean(13, Boolean.TRUE.equals(recuStcRemis));
-            ps.setDate(14, dateRemiseRecu);
-            if (idStc != null) ps.setInt(15, idStc); else ps.setNull(15, java.sql.Types.INTEGER);
-            if (creePar != null) ps.setInt(16, creePar); else ps.setNull(16, java.sql.Types.INTEGER);
-            if (cloturePar != null) ps.setInt(17, cloturePar); else ps.setNull(17, java.sql.Types.INTEGER);
-            ps.setTimestamp(18, dateCloture);
-            ps.setString(19, motifCloture);
-            ps.setBoolean(20, Boolean.TRUE.equals(derogationReglement));
-            ps.setString(21, justificationDerogation);
-            ps.setString(22, autoriteDecisionDerogation);
-            ps.setString(23, referenceDecisionDerogation);
-            ps.setDate(24, dateDecisionDerogation);
-            ps.setInt(25, version != null ? version : 1);
-            ps.setString(26, referenceSimulation);
-            ps.setString(27, snapshotSimulation != null ? snapshotSimulation : "{}");
+            ps.setBoolean(7, Boolean.TRUE.equals(certificatDelivre));
+            ps.setDate(8, dateDelivranceCertificat);
+            ps.setString(9, modeRemiseCertificat);
+            ps.setBoolean(10, Boolean.TRUE.equals(recuStcRemis));
+            ps.setDate(11, dateRemiseRecu);
+            if (idStc != null) ps.setInt(12, idStc); else ps.setNull(12, java.sql.Types.INTEGER);
+            if (creePar != null) ps.setInt(13, creePar); else ps.setNull(13, java.sql.Types.INTEGER);
+            if (cloturePar != null) ps.setInt(14, cloturePar); else ps.setNull(14, java.sql.Types.INTEGER);
+            ps.setTimestamp(15, dateCloture);
+            ps.setString(16, motifCloture);
+            ps.setBoolean(17, Boolean.TRUE.equals(derogationReglement));
+            ps.setString(18, justificationDerogation);
+            ps.setString(19, autoriteDecisionDerogation);
+            ps.setString(20, referenceDecisionDerogation);
+            ps.setDate(21, dateDecisionDerogation);
+            ps.setInt(22, version != null ? version : 1);
+            ps.setString(23, referenceSimulation);
+            ps.setString(24, snapshotSimulation != null ? snapshotSimulation : "{}");
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -195,8 +189,8 @@ public class PaieDossierSortie extends ClassMere {
     public ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE paie_dossier_sortie SET " +
                 "id_contrat = ?, date_depart = ?, motif_rupture = ?, statut_dossier = ?, " +
-                "donnees_preparation = ?::jsonb, decision_pret = ?, justification_decision_pret = ?, " +
-                "montant_pret_retenu = ?, certificat_delivre = ?, date_delivrance_certificat = ?, " +
+                "donnees_preparation = ?::jsonb, " +
+                "certificat_delivre = ?, date_delivrance_certificat = ?, " +
                 "mode_remise_certificat = ?, recu_stc_remis = ?, date_remise_recu = ?, " +
                 "id_stc = ?, cloture_par = ?, date_cloture = ?, " +
                 "motif_cloture = ?, derogation_reglement = ?, justification_derogation = ?, " +
@@ -210,28 +204,25 @@ public class PaieDossierSortie extends ClassMere {
             ps.setString(3, motifRupture);
             ps.setString(4, statutDossier);
             ps.setString(5, donneesPreparation != null ? donneesPreparation : "{}");
-            ps.setString(6, decisionPret);
-            ps.setString(7, justificationDecisionPret);
-            ps.setBigDecimal(8, montantPretRetenu != null ? montantPretRetenu : BigDecimal.ZERO);
-            ps.setBoolean(9, Boolean.TRUE.equals(certificatDelivre));
-            ps.setDate(10, dateDelivranceCertificat);
-            ps.setString(11, modeRemiseCertificat);
-            ps.setBoolean(12, Boolean.TRUE.equals(recuStcRemis));
-            ps.setDate(13, dateRemiseRecu);
-            if (idStc != null) ps.setInt(14, idStc); else ps.setNull(14, java.sql.Types.INTEGER);
-            if (cloturePar != null) ps.setInt(15, cloturePar); else ps.setNull(15, java.sql.Types.INTEGER);
-            ps.setTimestamp(16, dateCloture);
-            ps.setString(17, motifCloture);
-            ps.setBoolean(18, Boolean.TRUE.equals(derogationReglement));
-            ps.setString(19, justificationDerogation);
-            ps.setString(20, autoriteDecisionDerogation);
-            ps.setString(21, referenceDecisionDerogation);
-            ps.setDate(22, dateDecisionDerogation);
-            ps.setString(23, referenceSimulation);
-            ps.setString(24, snapshotSimulation != null ? snapshotSimulation : "{}");
-            ps.setInt(25, idDossierSortie);
+            ps.setBoolean(6, Boolean.TRUE.equals(certificatDelivre));
+            ps.setDate(7, dateDelivranceCertificat);
+            ps.setString(8, modeRemiseCertificat);
+            ps.setBoolean(9, Boolean.TRUE.equals(recuStcRemis));
+            ps.setDate(10, dateRemiseRecu);
+            if (idStc != null) ps.setInt(11, idStc); else ps.setNull(11, java.sql.Types.INTEGER);
+            if (cloturePar != null) ps.setInt(12, cloturePar); else ps.setNull(12, java.sql.Types.INTEGER);
+            ps.setTimestamp(13, dateCloture);
+            ps.setString(14, motifCloture);
+            ps.setBoolean(15, Boolean.TRUE.equals(derogationReglement));
+            ps.setString(16, justificationDerogation);
+            ps.setString(17, autoriteDecisionDerogation);
+            ps.setString(18, referenceDecisionDerogation);
+            ps.setDate(19, dateDecisionDerogation);
+            ps.setString(20, referenceSimulation);
+            ps.setString(21, snapshotSimulation != null ? snapshotSimulation : "{}");
+            ps.setInt(22, idDossierSortie);
             int currentVersion = this.version != null ? this.version : 1;
-            ps.setInt(26, currentVersion);
+            ps.setInt(23, currentVersion);
             int rows = ps.executeUpdate();
             if (rows == 0) {
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
@@ -272,9 +263,6 @@ public class PaieDossierSortie extends ClassMere {
         d.setMotifRupture(rs.getString("motif_rupture"));
         d.setStatutDossier(rs.getString("statut_dossier"));
         d.setDonneesPreparation(rs.getString("donnees_preparation"));
-        d.setDecisionPret(rs.getString("decision_pret"));
-        d.setJustificationDecisionPret(rs.getString("justification_decision_pret"));
-        d.setMontantPretRetenu(rs.getBigDecimal("montant_pret_retenu"));
         d.setCertificatDelivre(rs.getBoolean("certificat_delivre"));
         d.setDateDelivranceCertificat(rs.getDate("date_delivrance_certificat"));
         d.setModeRemiseCertificat(rs.getString("mode_remise_certificat"));
@@ -326,14 +314,6 @@ public class PaieDossierSortie extends ClassMere {
     public String getDonneesPreparation() { return donneesPreparation; }
     public void setDonneesPreparation(String donneesPreparation) { this.donneesPreparation = donneesPreparation; }
 
-    public String getDecisionPret() { return decisionPret; }
-    public void setDecisionPret(String decisionPret) { this.decisionPret = decisionPret; }
-
-    public String getJustificationDecisionPret() { return justificationDecisionPret; }
-    public void setJustificationDecisionPret(String justificationDecisionPret) { this.justificationDecisionPret = justificationDecisionPret; }
-
-    public BigDecimal getMontantPretRetenu() { return montantPretRetenu; }
-    public void setMontantPretRetenu(BigDecimal montantPretRetenu) { this.montantPretRetenu = montantPretRetenu; }
 
     public Boolean getCertificatDelivre() { return certificatDelivre; }
     public void setCertificatDelivre(Boolean certificatDelivre) { this.certificatDelivre = certificatDelivre; }

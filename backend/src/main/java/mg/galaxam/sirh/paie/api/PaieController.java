@@ -250,15 +250,6 @@ public class PaieController {
         }
     }
 
-    @GetMapping("/employe/{idEmploye}/prets")
-    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> listerPretsEmploye(@PathVariable("idEmploye") Integer idEmploye) throws Exception {
-        try (Connection c = dataSource.getConnection()) {
-            List<mg.galaxam.sirh.paie.persistence.PaiePret> list = mg.galaxam.sirh.paie.persistence.PaiePret.listerParEmploye(idEmploye, c);
-            return ResponseEntity.ok(list);
-        }
-    }
-
     // =========================================================================
     // RESTITUTIONS & EXPORTS OFFICIELS (SAFI 25 COL, EDI ISI XML, DNTS, VIREMENT)
     // =========================================================================

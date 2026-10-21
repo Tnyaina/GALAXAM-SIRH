@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -14,6 +15,7 @@ import DesktopConnectionChooser from '@/features/desktop/DesktopConnectionChoose
 export default function Login() {
     // Contexte et navigation
     const navigate = useNavigate();
+    const location = useLocation();
     const { login, isAuthenticated, user, getDefaultHomeRoute } = useAuth();
 
     // État local
@@ -24,7 +26,11 @@ export default function Login() {
     const isDesktop = typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__);
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(() => {
+        const message = location.state?.message || localStorage.getItem('galaxam-auth-message') || '';
+        localStorage.removeItem('galaxam-auth-message');
+        return message;
+    });
 
     // Effets
     useEffect(() => {

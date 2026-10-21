@@ -176,7 +176,6 @@ public class StcDocumentService {
                 lines.add("Cotisations sociales : " + money(rs.getBigDecimal("total_cotisations_sociales")));
                 lines.add("IRSA : " + money(rs.getBigDecimal("total_irsa")));
                 lines.add("Avances déduites : " + money(rs.getBigDecimal("solde_avances_deduit")));
-                lines.add("Prêts déduits : " + money(rs.getBigDecimal("solde_prets_deduit")));
                 lines.add("Autres déductions : " + money(rs.getBigDecimal("autres_deductions")));
                 if (rs.getString("motif_autres_deductions") != null)
                     lines.add("Motif des autres déductions : " + rs.getString("motif_autres_deductions"));

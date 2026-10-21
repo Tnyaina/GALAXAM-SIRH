@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import mg.galaxam.sirh.paie.persistence.PaiePret;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
 import org.slf4j.Logger;
@@ -237,11 +236,6 @@ public class PayrollEmployeeReadService {
                 }
             }
         }
-
-        // 6. Prêts d'entreprise : capital restant dû
-        BigDecimal capitalPrets = PaiePret.calculerCapitalRestantTotal(idEmploye, c);
-        synthese.put("capitalRestantPrets", capitalPrets != null ? capitalPrets : BigDecimal.ZERO);
-
         return synthese;
     }
 }

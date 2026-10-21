@@ -26,7 +26,6 @@ import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.paie.domain.engine.PayrollOvertimeSettlement;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
-import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.DaySpecialType;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
@@ -66,7 +65,6 @@ final class PayrollCalculationContextAssembler {
         chargerConges(in, idEmploye, c);
         chargerReglesLegales(in, c);
         chargerMouvements(in, idEmploye, idPeriodePaie, simulation, c);
-        chargerPret(in, idEmploye, c);
         verifierContexteAssemble(in);
         return in;
     }
@@ -502,35 +500,6 @@ final class PayrollCalculationContextAssembler {
         }
         in.setAvancesAcomptes(avances);
         in.setIdsMouvementsGains(idsGains);
-    }
-
-    private void chargerPret(PayrollCalculationInput in, Integer idEmploye, Connection c) throws Exception {
-        // 8. Échéance de prêt active
-        String sqlPret = "SELECT e.* FROM paie_pret_echeance e " +
-                "JOIN paie_pret p ON e.id_pret = p.id_pret " +
-                "WHERE p.id_employe = ? AND p.statut = 'EN_COURS' " +
-                "AND e.statut IN ('A_ECHOIR', 'PRELEVEE_PARTIELLEMENT') " +
-                "AND e.date_echeance <= ? " +
-                "ORDER BY e.date_echeance ASC, e.id_pret ASC, e.numero_echeance ASC LIMIT 1";
-
-        try (PreparedStatement ps = c.prepareStatement(sqlPret)) {
-            ps.setInt(1, idEmploye);
-            ps.setDate(2, in.getDateFinPeriode());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    PaiePretEcheance ech = new PaiePretEcheance();
-                    ech.setIdEcheance(rs.getInt("id_echeance"));
-                    ech.setIdPret(rs.getInt("id_pret"));
-                    ech.setNumeroEcheance(rs.getInt("numero_echeance"));
-                    ech.setMontantEcheance(rs.getBigDecimal("montant_echeance"));
-                    ech.setCapitalRestantApres(rs.getBigDecimal("capital_restant_apres"));
-                    ech.setMontantPreleve(rs.getBigDecimal("montant_preleve"));
-                    ech.setMontantRestantEcheance(rs.getBigDecimal("montant_restant_echeance"));
-                    ech.setStatut(rs.getString("statut"));
-                    in.setEcheancePretActive(ech);
-                }
-            }
-        }
     }
 
     private void chargerIndemnitesSnapshot(PayrollCalculationInput input, int snapshotId, Connection connection)

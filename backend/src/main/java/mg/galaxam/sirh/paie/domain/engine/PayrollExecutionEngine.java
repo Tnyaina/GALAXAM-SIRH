@@ -10,9 +10,7 @@ import org.springframework.stereotype.Component;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
-import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet.ImpactPret;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet.MouvementImputation;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 
@@ -36,7 +34,7 @@ public class PayrollExecutionEngine {
 
     public record CotisationsResult(BigDecimal totalCotisationsSalariales, BigDecimal totalCotisationsPatronales) {}
     public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi, PayrollTaxCalculations.Result detailIrsa) {}
-    public record RetenuesResult(BigDecimal totalRetenues, ImpactPret impactPret, List<MouvementImputation> imputations) {}
+    public record RetenuesResult(BigDecimal totalRetenues, List<MouvementImputation> imputations) {}
 
     public PayrollExecutionEngine() { }
 
@@ -99,7 +97,6 @@ public class PayrollExecutionEngine {
         }
 
         BulletinPaieComplet complet = new BulletinPaieComplet(bp, lignes);
-        complet.setImpactPret(retenues.impactPret());
         complet.setIdsAvancesImputees(idsAvancesImputees);
         complet.setImputationsMouvements(retenues.imputations());
 
@@ -919,49 +916,9 @@ public class PayrollExecutionEngine {
             }
         }
 
-        // Quotité cessible configurée pour la période, appliquée au net après acompte.
-        BigDecimal plafondTiers = MoneyRoundingPolicy.amount(netApresAcompte.multiply(input.getQuotiteCessible()));
-        BigDecimal capaciteRestantePret = plafondTiers.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
-
-        ImpactPret impactPret = null;
-        PaiePretEcheance echeanceActive = input.getEcheancePretActive();
-        BigDecimal montantPrelevePret = BigDecimal.ZERO;
-
-        if (echeanceActive != null) {
-            BigDecimal mensualiteTheorique = echeanceActive.getMontantRestantEcheance() != null
-                    ? echeanceActive.getMontantRestantEcheance()
-                    : echeanceActive.getMontantEcheance();
-
-            montantPrelevePret = MoneyRoundingPolicy.amount(mensualiteTheorique.min(capaciteRestantePret));
-            BigDecimal reliquatEcheance = mensualiteTheorique.subtract(montantPrelevePret).max(BigDecimal.ZERO);
-
-            String nouveauStatut = reliquatEcheance.compareTo(BigDecimal.ZERO) == 0
-                    ? "PRELEVEE_EN_PAIE"
-                    : "PRELEVEE_PARTIELLEMENT";
-
-            if (montantPrelevePret.compareTo(BigDecimal.ZERO) > 0) {
-                lignes.add(creerLigne(bp, "RETENUE_ECHEANCE_PRET", "Échéance Prêt N° " + echeanceActive.getNumeroEcheance(),
-                        "RETENUE", "RETENUE_DIVERSE", mensualiteTheorique, null, montantPrelevePret, null, 620));
-            }
-
-            BigDecimal capitalPretRestantApres = echeanceActive.getCapitalRestantApres() != null
-                    ? echeanceActive.getCapitalRestantApres().add(reliquatEcheance)
-                    : BigDecimal.ZERO;
-
-            impactPret = new ImpactPret(
-                    echeanceActive.getIdEcheance(),
-                    echeanceActive.getIdPret(),
-                    echeanceActive.getMontantEcheance(),
-                    montantPrelevePret,
-                    reliquatEcheance,
-                    nouveauStatut,
-                    capitalPretRestantApres
-            );
-        }
-
         // Autres retenues directes sur salaire (CALL PERSO, RETENUE DIVERSE)
         BigDecimal totalAutresRetenues = BigDecimal.ZERO;
-        BigDecimal netApresPret = netApresAcompte.subtract(totalAvancesSpeciales).subtract(montantPrelevePret).max(BigDecimal.ZERO);
+        BigDecimal netApresAvance = netApresAcompte.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
 
         if (input.getAvancesAcomptes() != null) {
             for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
@@ -979,7 +936,7 @@ public class PayrollExecutionEngine {
                             : "Retenue Diverse sur Salaire";
                     String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : libelleDefaut;
 
-                    BigDecimal soldeDisponible = netApresPret.subtract(totalAutresRetenues).max(BigDecimal.ZERO);
+                    BigDecimal soldeDisponible = netApresAvance.subtract(totalAutresRetenues).max(BigDecimal.ZERO);
                     BigDecimal mntRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponible));
 
                     if (mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
@@ -998,10 +955,10 @@ public class PayrollExecutionEngine {
             }
         }
 
-        BigDecimal totalRetenuesTresorerie = totalAcomptesQuinzaine.add(totalAvancesSpeciales).add(montantPrelevePret).add(totalAutresRetenues);
-        bp.setTotalRetenuesAcomptePret(totalRetenuesTresorerie);
+        BigDecimal totalRetenuesTresorerie = totalAcomptesQuinzaine.add(totalAvancesSpeciales).add(totalAutresRetenues);
+        bp.setTotalRetenuesAvancesAcomptes(totalRetenuesTresorerie);
 
-        return new RetenuesResult(totalRetenuesTresorerie, impactPret, imputations);
+        return new RetenuesResult(totalRetenuesTresorerie, imputations);
     }
 
     // =========================================================================
@@ -1082,7 +1039,6 @@ public class PayrollExecutionEngine {
         return switch (type) {
             case "AVANCE_SPECIALE" -> "RETENUE_AVANCE_SPECIALE";
             case "CALL_PERSO" -> "RETENUE_CALL_PERSO";
-            case "ECHEANCE_PRET" -> "RETENUE_ECHEANCE_PRET";
             case "RETENUE_DIVERSE" -> "RETENUE_DIVERSE";
             default -> "RETENUE_ACOMPTE_15";
         };

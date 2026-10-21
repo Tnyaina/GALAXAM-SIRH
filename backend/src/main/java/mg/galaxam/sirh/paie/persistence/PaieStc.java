@@ -52,7 +52,6 @@ public class PaieStc extends ClassMere {
     private BigDecimal netImposable = BigDecimal.ZERO;
 
     // 5. Apurements et Déductions
-    private BigDecimal soldePretsDeduit = BigDecimal.ZERO;
     private BigDecimal soldeAvancesDeduit = BigDecimal.ZERO;
     private BigDecimal autresDeductions = BigDecimal.ZERO;
     private String motifAutresDeductions;
@@ -102,10 +101,10 @@ public class PaieStc extends ClassMere {
                 "salaire_base, taux_horaire, anciennete_mois, jours_travailles_dernier_mois, salaire_prorata, " +
                 "solde_conges_restant, taux_journalier_conge, indemnite_conges_payes, mois_preavis, indemnite_preavis, " +
                 "indemnite_licenciement, autres_indemnites, motif_autres_indemnites, total_brut_stc, " +
-                "total_cotisations_sociales, total_irsa, net_imposable, solde_prets_deduit, solde_avances_deduit, " +
+                "total_cotisations_sociales, total_irsa, net_imposable, solde_avances_deduit, " +
                 "autres_deductions, motif_autres_deductions, net_a_payer_stc, statut, mode_reglement, commentaire, " +
                 "cree_par, valide_par, date_validation, id_mode_reglement, id_motif_sortie) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                 "RETURNING id_stc";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -137,7 +136,6 @@ public class PaieStc extends ClassMere {
             ps.setBigDecimal(p++, this.totalCotisationsSociales);
             ps.setBigDecimal(p++, this.totalIrsa);
             ps.setBigDecimal(p++, this.netImposable);
-            ps.setBigDecimal(p++, this.soldePretsDeduit);
             ps.setBigDecimal(p++, this.soldeAvancesDeduit);
 
             ps.setBigDecimal(p++, this.autresDeductions);
@@ -170,7 +168,7 @@ public class PaieStc extends ClassMere {
                 "solde_conges_restant = ?, taux_journalier_conge = ?, indemnite_conges_payes = ?, " +
                 "mois_preavis = ?, indemnite_preavis = ?, indemnite_licenciement = ?, autres_indemnites = ?, " +
                 "motif_autres_indemnites = ?, total_brut_stc = ?, total_cotisations_sociales = ?, " +
-                "total_irsa = ?, net_imposable = ?, solde_prets_deduit = ?, solde_avances_deduit = ?, " +
+                "total_irsa = ?, net_imposable = ?, solde_avances_deduit = ?, " +
                 "autres_deductions = ?, motif_autres_deductions = ?, net_a_payer_stc = ?, " +
                 "statut = ?, mode_reglement = ?, commentaire = ?, valide_par = ?, date_validation = ?, " +
                 "id_mode_reglement = ?, id_motif_sortie = ?, " +
@@ -203,7 +201,6 @@ public class PaieStc extends ClassMere {
 
             ps.setBigDecimal(p++, this.totalIrsa);
             ps.setBigDecimal(p++, this.netImposable);
-            ps.setBigDecimal(p++, this.soldePretsDeduit);
             ps.setBigDecimal(p++, this.soldeAvancesDeduit);
 
             ps.setBigDecimal(p++, this.autresDeductions);
@@ -343,7 +340,6 @@ public class PaieStc extends ClassMere {
         s.totalIrsa = rs.getBigDecimal("total_irsa");
         s.netImposable = rs.getBigDecimal("net_imposable");
 
-        s.soldePretsDeduit = rs.getBigDecimal("solde_prets_deduit");
         s.soldeAvancesDeduit = rs.getBigDecimal("solde_avances_deduit");
         s.autresDeductions = rs.getBigDecimal("autres_deductions");
         s.motifAutresDeductions = rs.getString("motif_autres_deductions");
@@ -441,8 +437,6 @@ public class PaieStc extends ClassMere {
     public BigDecimal getNetImposable() { return netImposable; }
     public void setNetImposable(BigDecimal netImposable) { this.netImposable = netImposable; }
 
-    public BigDecimal getSoldePretsDeduit() { return soldePretsDeduit; }
-    public void setSoldePretsDeduit(BigDecimal soldePretsDeduit) { this.soldePretsDeduit = soldePretsDeduit; }
 
     public BigDecimal getSoldeAvancesDeduit() { return soldeAvancesDeduit; }
     public void setSoldeAvancesDeduit(BigDecimal soldeAvancesDeduit) { this.soldeAvancesDeduit = soldeAvancesDeduit; }

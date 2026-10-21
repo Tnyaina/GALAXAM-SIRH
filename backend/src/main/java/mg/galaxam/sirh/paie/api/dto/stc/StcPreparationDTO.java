@@ -52,7 +52,6 @@ public class StcPreparationDTO {
     private BigDecimal indemniteLicenciementEstimee = BigDecimal.ZERO;
 
     // Engagements financiers à apurer
-    private BigDecimal capitalRestantPrets = BigDecimal.ZERO;
     private BigDecimal avancesEnAttente = BigDecimal.ZERO;
 
     // Période de paie de rattachement
@@ -143,9 +142,6 @@ public class StcPreparationDTO {
 
     public BigDecimal getIndemniteLicenciementEstimee() { return indemniteLicenciementEstimee; }
     public void setIndemniteLicenciementEstimee(BigDecimal indemniteLicenciementEstimee) { this.indemniteLicenciementEstimee = indemniteLicenciementEstimee; }
-
-    public BigDecimal getCapitalRestantPrets() { return capitalRestantPrets; }
-    public void setCapitalRestantPrets(BigDecimal capitalRestantPrets) { this.capitalRestantPrets = capitalRestantPrets; }
 
     public BigDecimal getAvancesEnAttente() { return avancesEnAttente; }
     public void setAvancesEnAttente(BigDecimal avancesEnAttente) { this.avancesEnAttente = avancesEnAttente; }

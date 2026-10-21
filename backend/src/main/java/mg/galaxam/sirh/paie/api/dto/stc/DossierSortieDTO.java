@@ -60,13 +60,7 @@ public class DossierSortieDTO {
     private BigDecimal montantBulletinDejaPaye;
     private BigDecimal soldeBulletinARegler;
     private BigDecimal avancesEnAttente;
-    private BigDecimal capitalRestantPrets;
     private int primesOuVariablesEnAttente;
-
-    // Décision sur le prêt
-    private String decisionPret; // MAINTIEN_ECHEANCIER, REMBOURSEMENT_SEPARE, RETENUE_STC_AUTORISEE, CONTENTIEUX_RECOUVREMENT
-    private String justificationDecisionPret;
-    private BigDecimal montantPretRetenu;
 
     // Documents et délivrances
     private boolean certificatDelivre;
@@ -221,20 +215,8 @@ public class DossierSortieDTO {
     public BigDecimal getAvancesEnAttente() { return avancesEnAttente; }
     public void setAvancesEnAttente(BigDecimal avancesEnAttente) { this.avancesEnAttente = avancesEnAttente; }
 
-    public BigDecimal getCapitalRestantPrets() { return capitalRestantPrets; }
-    public void setCapitalRestantPrets(BigDecimal capitalRestantPrets) { this.capitalRestantPrets = capitalRestantPrets; }
-
     public int getPrimesOuVariablesEnAttente() { return primesOuVariablesEnAttente; }
     public void setPrimesOuVariablesEnAttente(int primesOuVariablesEnAttente) { this.primesOuVariablesEnAttente = primesOuVariablesEnAttente; }
-
-    public String getDecisionPret() { return decisionPret; }
-    public void setDecisionPret(String decisionPret) { this.decisionPret = decisionPret; }
-
-    public String getJustificationDecisionPret() { return justificationDecisionPret; }
-    public void setJustificationDecisionPret(String justificationDecisionPret) { this.justificationDecisionPret = justificationDecisionPret; }
-
-    public BigDecimal getMontantPretRetenu() { return montantPretRetenu; }
-    public void setMontantPretRetenu(BigDecimal montantPretRetenu) { this.montantPretRetenu = montantPretRetenu; }
 
     public boolean isCertificatDelivre() { return certificatDelivre; }
     public void setCertificatDelivre(boolean certificatDelivre) { this.certificatDelivre = certificatDelivre; }

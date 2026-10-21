@@ -22,6 +22,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
+    @Autowired
+    private IdleSessionService idleSessionService;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -41,11 +44,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
         try {
             username = jwtService.extractValidUsername(jwt);
+            String sessionId = jwtService.extractSessionId(jwt);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
-                if (username.equals(userDetails.getUsername()) && userDetails.isEnabled()) {
+                if (username.equals(userDetails.getUsername()) && userDetails.isEnabled()
+                        && idleSessionService.isActive(sessionId, username)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,

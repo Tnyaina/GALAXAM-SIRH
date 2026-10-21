@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import apiClient, { setAccessToken, getAccessToken, getErrorMessage } from '@/api/apiClient';
+import { IDLE_ACTIVITY_STORAGE_KEY, USER_ACTIVITY_EVENTS } from '@/context/idleSession';
 
 const AuthContext = createContext(null);
 
@@ -100,7 +101,7 @@ export const AuthProvider = ({ children }) => {
         scheduleTokenRefreshRef.current = scheduleTokenRefresh;
     }, [scheduleTokenRefresh]);
 
-    const handleTokenUpdate = useCallback((token) => {
+    const handleTokenUpdate = useCallback((token, idleExpiresAt = null) => {
         setAccessToken(token);
         if (token) {
             const decoded = parseJwt(token);
@@ -114,6 +115,9 @@ export const AuthProvider = ({ children }) => {
                 };
                 setUser(loggedUser);
                 localStorage.setItem('galaxam-user', JSON.stringify(loggedUser));
+                if (Number.isFinite(Number(idleExpiresAt)) && Number(idleExpiresAt) > 0) {
+                    localStorage.setItem(IDLE_ACTIVITY_STORAGE_KEY, String(Number(idleExpiresAt)));
+                }
                 scheduleTokenRefresh(token);
             } else {
                 setUser(null);
@@ -123,6 +127,7 @@ export const AuthProvider = ({ children }) => {
         } else {
             setUser(null);
             localStorage.removeItem('galaxam-user');
+            localStorage.removeItem(IDLE_ACTIVITY_STORAGE_KEY);
             clearRefreshTimer();
         }
     }, [scheduleTokenRefresh, clearRefreshTimer]);
@@ -168,8 +173,8 @@ export const AuthProvider = ({ children }) => {
                 email,
                 motDePasse: password,
             });
-            const { accessToken } = response.data;
-            handleTokenUpdate(accessToken);
+            const { accessToken, idleExpiresAt } = response.data;
+            handleTokenUpdate(accessToken, idleExpiresAt);
             return { success: true };
         } catch (error) {
             let message = "E-mail ou mot de passe incorrect. Veuillez vérifier votre saisie.";
@@ -194,6 +199,7 @@ export const AuthProvider = ({ children }) => {
 
     // Déconnexion utilisateur
     const logout = async () => {
+        localStorage.removeItem('galaxam-auth-message');
         handleTokenUpdate(null);
         try {
             await apiClient.post('/auth/logout');
@@ -201,6 +207,12 @@ export const AuthProvider = ({ children }) => {
             console.error("Erreur lors de la déconnexion sur le serveur", error);
         }
     };
+
+    const expireIdleSession = useCallback(async () => {
+        localStorage.setItem('galaxam-auth-message', 'Votre session a expiré après 15 minutes d’inactivité. Veuillez vous reconnecter.');
+        handleTokenUpdate(null);
+        try { await apiClient.post('/auth/logout'); } catch { /* la session peut déjà être révoquée */ }
+    }, [handleTokenUpdate]);
 
     // Verification initiale + ecouteurs d'evenements
     useEffect(() => {
@@ -213,11 +225,14 @@ export const AuthProvider = ({ children }) => {
 
             try {
                 const response = await apiClient.post('/auth/refresh');
-                const { accessToken } = response.data;
-                handleTokenUpdate(accessToken);
+                const { accessToken, idleExpiresAt } = response.data;
+                handleTokenUpdate(accessToken, idleExpiresAt);
             } catch (error) {
                 // Déconnecter seulement si la session est expirée/invalide
                 if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                    if (error.response.data?.code === 'IDLE_SESSION_EXPIRED') {
+                        localStorage.setItem('galaxam-auth-message', 'Votre session a expiré après 15 minutes d’inactivité. Veuillez vous reconnecter.');
+                    }
                     handleTokenUpdate(null);
                 } else {
                     // Sinon (erreur réseau), on garde la session locale
@@ -233,13 +248,16 @@ export const AuthProvider = ({ children }) => {
 
         verifySession();
 
-        const handleAuthExpired = () => {
+        const handleAuthExpired = (event) => {
+            if (event.detail?.code === 'IDLE_SESSION_EXPIRED') {
+                localStorage.setItem('galaxam-auth-message', 'Votre session a expiré après 15 minutes d’inactivité. Veuillez vous reconnecter.');
+            }
             handleTokenUpdate(null);
         };
 
         const handleTokenRefreshed = (e) => {
-            if (e.detail) {
-                handleTokenUpdate(e.detail);
+            if (e.detail?.accessToken) {
+                handleTokenUpdate(e.detail.accessToken, e.detail.idleExpiresAt);
             }
         };
 
@@ -277,6 +295,74 @@ export const AuthProvider = ({ children }) => {
             window.removeEventListener('focus', handleFocusOrVisibility);
         };
     }, [handleTokenUpdate, clearRefreshTimer, scheduleTokenRefresh, silentRefresh]);
+
+    // Only explicit human input is reported to the backend. No mousemove, API, timer or refresh activity counts.
+    useEffect(() => {
+        if (!user) return undefined;
+        let pendingActivity = null;
+        let lastSignalAt = 0;
+        let ending = false;
+
+        const currentExpiry = () => Number(localStorage.getItem(IDLE_ACTIVITY_STORAGE_KEY));
+        const checkIdle = () => {
+            const expiresAt = currentExpiry();
+            if (Number.isFinite(expiresAt) && expiresAt > 0 && Date.now() >= expiresAt && !ending) {
+                ending = true;
+                expireIdleSession();
+            }
+        };
+        const sendActivity = async () => {
+            pendingActivity = null;
+            if (ending || !getAccessToken()) return;
+            try {
+                const response = await apiClient.post('/auth/activity');
+                const expiry = Number(response.data?.idleExpiresAt);
+                if (expiry > 0) localStorage.setItem(IDLE_ACTIVITY_STORAGE_KEY, String(expiry));
+            } catch (error) {
+                if (error.response?.status === 401 || error.response?.status === 403) {
+                    ending = true;
+                    expireIdleSession();
+                }
+            }
+        };
+        const onUserActivity = () => {
+            const now = Date.now();
+            if (now - lastSignalAt >= 2000) {
+                lastSignalAt = now;
+                sendActivity();
+            } else if (!pendingActivity) {
+                pendingActivity = setTimeout(() => {
+                    lastSignalAt = Date.now();
+                    sendActivity();
+                }, 2000 - (now - lastSignalAt));
+            }
+        };
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible') checkIdle();
+        };
+        const onStorage = (event) => {
+            if (event.key === IDLE_ACTIVITY_STORAGE_KEY) checkIdle();
+            if (event.key === 'galaxam-user' && !event.newValue) handleTokenUpdate(null);
+        };
+
+        USER_ACTIVITY_EVENTS.forEach((eventName) => window.addEventListener(eventName, onUserActivity, { passive: true }));
+        window.addEventListener('pageshow', checkIdle);
+        window.addEventListener('focus', checkIdle);
+        window.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('storage', onStorage);
+        const interval = setInterval(checkIdle, 1000);
+        checkIdle();
+
+        return () => {
+            USER_ACTIVITY_EVENTS.forEach((eventName) => window.removeEventListener(eventName, onUserActivity));
+            window.removeEventListener('pageshow', checkIdle);
+            window.removeEventListener('focus', checkIdle);
+            window.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('storage', onStorage);
+            clearInterval(interval);
+            if (pendingActivity) clearTimeout(pendingActivity);
+        };
+    }, [user, expireIdleSession, handleTokenUpdate]);
 
     const getDefaultHomeRoute = useCallback(() => {
         if (!user) return '/';

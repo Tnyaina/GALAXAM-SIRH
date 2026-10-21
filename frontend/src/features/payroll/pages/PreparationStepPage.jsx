@@ -65,7 +65,6 @@ export default function PreparationStepPage() {
             action: { label: 'Ouvrir calendrier', destination: '/admin/parametres?module=paie&tab=calendrier' } },
         CONGES: { label: 'Congés & TCONGE', source: 'Congés & Absences',
             action: { label: 'Ouvrir Congés', destination: '/conges' } },
-        PRETS: { label: 'Prêts', source: 'Contrats & Prêts' },
         INDEMNITES: { label: 'Indemnités automatiques', source: 'Pointage / Configuration' },
     };
     const checklistItems = readiness

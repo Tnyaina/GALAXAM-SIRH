@@ -105,7 +105,7 @@ public class PayrollCockpitService {
                 "COALESCE(SUM(salaire_net_imposable), 0) AS total_net_imposable, " +
                 "COALESCE(SUM(irsa_net), 0) AS total_irsa, " +
                 "COALESCE(SUM(net_a_payer), 0) AS total_net_a_payer, " +
-                "COALESCE(SUM(total_retenues_acompte_pret), 0) AS total_retenues " +
+                "COALESCE(SUM(total_retenues_avances_acomptes), 0) AS total_retenues " +
                 "FROM bulletin_paie WHERE id_periode_paie = ? AND COALESCE(type_bulletin, 'MENSUEL') = 'MENSUEL'";
 
         Map<String, Object> kpis = new HashMap<>();

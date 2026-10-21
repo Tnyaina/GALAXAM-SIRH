@@ -235,11 +235,10 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                     </div>
                     {(synthese.demandesAcompteAvanceEnAttente ?? 0) > 0 && <p className="text-xs text-[var(--color-fg-muted)]">{synthese.demandesAcompteAvanceEnAttente} demande(s) en attente d’approbation · détail dans les mouvements ci-dessous.</p>}
                 </Card>
-                <AccordionSection id="paie-parametres" icon={<Calculator size={15} />} title="Paramètres de calcul et prêts" defaultOpen={false}>
+                <AccordionSection id="paie-parametres" icon={<Calculator size={15} />} title="Paramètres de calcul" defaultOpen={false}>
                     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 text-xs">
                         <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux horaire</dt><dd className="font-semibold text-right">{formatMoneyAr(synthese.tauxHoraire)} / h{synthese.diviseurHeures ? ` · base ${synthese.diviseurHeures} h` : ''}</dd></div>
                         <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux congé journalier</dt><dd className="font-semibold text-right" title={synthese.tauxJournalierCongeErreur || undefined}>{synthese.tauxJournalierConge == null ? 'À régulariser' : formatMoneyAr(synthese.tauxJournalierConge)}</dd></div>
-                        <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Capital restant des prêts</dt><dd className="font-semibold text-right">{formatMoneyAr(synthese.capitalRestantPrets)}</dd></div>
                     </dl>
                 </AccordionSection>
             </>}
@@ -479,7 +478,6 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                                         <Th>Date Depart</Th>
                                         <Th>Motif</Th>
                                         <Th className="text-right">Total Brut</Th>
-                                        <Th className="text-right">Prets Apures</Th>
                                         <Th className="text-right">Net STC</Th>
                                         <Th>Statut</Th>
                                         <Th className="text-right">Action</Th>
@@ -487,18 +485,17 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                                 </Thead>
                                 <Tbody>
                                     {stcList.map((s) => (
-                                        <Tr key={s.idStc}>
-                                            <Td className="font-data font-bold text-[var(--color-fg)]">{s.numeroRecu || `STC-#${s.idStc}`}</Td>
-                                            <Td>{fmtDate(s.dateDepart)}</Td>
-                                            <Td className="text-[var(--color-fg-muted)]">{s.motifRupture}</Td>
-                                            <Td className="text-right font-data">{formatMoneyAr(s.totalBrutStc)}</Td>
-                                            <Td className="text-right font-data text-[var(--color-danger-600)]">{formatMoneyAr(s.soldePretsDeduit)}</Td>
-                                            <Td className="text-right font-data font-bold text-[var(--color-fg)]">{formatMoneyAr(s.netAPayerStc)}</Td>
-                                            <Td><Badge variant={s.statut === 'REGLE' ? 'success' : 'warning'} size="xs">{s.statut === 'VALIDE' ? 'À régler' : s.statut}</Badge></Td>
-                                            <Td className="text-right">
-                                                <Button type="button" variant="outline" size="xs" iconLeft={<FileText size={12} />} onClick={() => setSelectedStcRecuId(s.idStc)}>Décompte</Button>
-                                            </Td>
-                                        </Tr>
+                                         <Tr key={s.idStc}>
+                                             <Td className="font-data font-bold text-[var(--color-fg)]">{s.numeroRecu || `STC-#${s.idStc}`}</Td>
+                                             <Td>{fmtDate(s.dateDepart)}</Td>
+                                             <Td className="text-[var(--color-fg-muted)]">{s.motifRupture}</Td>
+                                             <Td className="text-right font-data">{formatMoneyAr(s.totalBrutStc)}</Td>
+                                             <Td className="text-right font-data font-bold text-[var(--color-fg)]">{formatMoneyAr(s.netAPayerStc)}</Td>
+                                             <Td><Badge variant={s.statut === 'REGLE' ? 'success' : 'warning'} size="xs">{s.statut === 'VALIDE' ? 'À régler' : s.statut}</Badge></Td>
+                                             <Td className="text-right">
+                                                 <Button type="button" variant="outline" size="xs" iconLeft={<FileText size={12} />} onClick={() => setSelectedStcRecuId(s.idStc)}>Décompte</Button>
+                                             </Td>
+                                         </Tr>
                                     ))}
                                 </Tbody>
                             </Table>

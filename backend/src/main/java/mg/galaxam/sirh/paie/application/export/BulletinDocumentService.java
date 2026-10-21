@@ -150,7 +150,7 @@ public class BulletinDocumentService {
             cell(sheet, r, 0, "Net imposable", label); numeric(sheet, r++, 3, b.getRevenuNetImposable(), total);
             cell(sheet, r, 0, "IRSA", label); numeric(sheet, r++, 4, impot(b), total);
             cell(sheet, r, 0, "Ajouts au net", label); numeric(sheet, r++, 3, b.getTotalIndemnitesNonImposables(), total);
-            cell(sheet, r, 0, "Avances et prêts", label); numeric(sheet, r++, 4, b.getTotalRetenuesAcomptePret(), total);
+            cell(sheet, r, 0, "Avances et acomptes", label); numeric(sheet, r++, 4, b.getTotalRetenuesAvancesAcomptes(), total);
             r++;
             cell(sheet, r, 0, "NET À PAYER", netLabel);
             for (int col = 1; col < 5; col++) cell(sheet, r, col, "", net);
@@ -266,7 +266,7 @@ public class BulletinDocumentService {
             summary("Net imposable", b.getRevenuNetImposable());
             summary("IRSA", impot(b));
             summary("Ajouts au net", b.getTotalIndemnitesNonImposables());
-            summary("Avances et prêts", b.getTotalRetenuesAcomptePret());
+            summary("Avances et acomptes", b.getTotalRetenuesAvancesAcomptes());
             y -= 7;
             fill(LEFT, y + 12, RIGHT - LEFT, 36, BRAND_NAVY);
             text(LEFT + 12, y - 10, "NET À PAYER", 12, true, 0xFFFFFF);

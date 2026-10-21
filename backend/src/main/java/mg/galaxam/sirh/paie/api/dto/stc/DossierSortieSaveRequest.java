@@ -39,17 +39,6 @@ public class DossierSortieSaveRequest {
     // Données de saisie du formulaire (mémorisées au format JSON)
     private Map<String, Object> donneesPreparation;
 
-    // Décision documentée sur le prêt
-    @Pattern(regexp = "^(MAINTIEN_ECHEANCIER|REMBOURSEMENT_SEPARE|RETENUE_STC_AUTORISEE|CONTENTIEUX_RECOUVREMENT)?$",
-            message = "Décision de prêt invalide.")
-    private String decisionPret;
-
-    @Size(max = 2000, message = "La justification de la décision de prêt ne peut pas dépasser 2000 caractères.")
-    private String justificationDecisionPret;
-
-    @PositiveOrZero(message = "Le montant de prêt retenu doit être positif ou nul.")
-    private BigDecimal montantPretRetenu;
-
     // Certificat de travail
     private Boolean certificatDelivre;
     private Date dateDelivranceCertificat;
@@ -87,15 +76,6 @@ public class DossierSortieSaveRequest {
 
     public Map<String, Object> getDonneesPreparation() { return donneesPreparation; }
     public void setDonneesPreparation(Map<String, Object> donneesPreparation) { this.donneesPreparation = donneesPreparation; }
-
-    public String getDecisionPret() { return decisionPret; }
-    public void setDecisionPret(String decisionPret) { this.decisionPret = decisionPret; }
-
-    public String getJustificationDecisionPret() { return justificationDecisionPret; }
-    public void setJustificationDecisionPret(String justificationDecisionPret) { this.justificationDecisionPret = justificationDecisionPret; }
-
-    public BigDecimal getMontantPretRetenu() { return montantPretRetenu; }
-    public void setMontantPretRetenu(BigDecimal montantPretRetenu) { this.montantPretRetenu = montantPretRetenu; }
 
     public Boolean getCertificatDelivre() { return certificatDelivre; }
     public void setCertificatDelivre(Boolean certificatDelivre) { this.certificatDelivre = certificatDelivre; }

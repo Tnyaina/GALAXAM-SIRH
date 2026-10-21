@@ -39,6 +39,9 @@ public class AuthController {
     private JwtService jwtService;
 
     @Autowired
+    private mg.galaxam.sirh.securite.IdleSessionService idleSessionService;
+
+    @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
     @Autowired
@@ -105,12 +108,12 @@ public class AuthController {
                         
                         // Génération des tokens JWT
                         UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getEmail());
-                        String accessToken = jwtService.generateAccessToken(userDetails);
                         String refreshToken = jwtService.generateRefreshToken(userDetails);
 
                         // Persistance du refresh token en base de données
                         java.sql.Timestamp expirationTs = new java.sql.Timestamp(System.currentTimeMillis() + jwtService.getRefreshTokenExpirationMs());
-                        Utilisateur.enregistrerRefreshToken(u.getIdUtilisateur(), refreshToken, expirationTs, c);
+                        String sessionId = idleSessionService.create(u.getIdUtilisateur(), refreshToken, expirationTs, c);
+                        String accessToken = jwtService.generateAccessToken(userDetails, sessionId);
                         c.commit();
 
                         // Création du cookie HTTP-Only pour le Refresh Token
@@ -120,6 +123,7 @@ public class AuthController {
                         Map<String, Object> responseBody = new HashMap<>();
                         responseBody.put("accessToken", accessToken);
                         responseBody.put("expiresIn", jwtService.getAccessTokenExpirationMs() / 1000);
+                        responseBody.put("idleExpiresAt", System.currentTimeMillis() + jwtService.getIdleTimeoutSeconds() * 1000);
                         responseBody.put("identifiant", u.getIdentifiant());
                         responseBody.put("email", u.getEmail());
                         responseBody.put("role", userDetails.getAuthorities().stream()
@@ -176,27 +180,32 @@ public class AuthController {
             }
 
             try (Connection c = dataSource.getConnection()) {
-                Utilisateur u = Utilisateur.rechercherParRefreshToken(refreshToken, c);
-                if (u == null) {
+                c.setAutoCommit(false);
+                mg.galaxam.sirh.securite.IdleSessionService.SessionTokens tokens = idleSessionService.findTokensByRefreshToken(refreshToken, c);
+                if (tokens == null) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                             mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,
-                            "Session révoquée ou introuvable.");
+                            "Session expirée, révoquée ou introuvable.");
                 }
-
-                UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getEmail());
-
-                String newAccessToken = jwtService.generateAccessToken(userDetails);
-                String newRefreshToken = jwtService.generateRefreshToken(userDetails);
-
-                // Rotation du refresh token en base
-                java.sql.Timestamp expirationTs = new java.sql.Timestamp(System.currentTimeMillis() + jwtService.getRefreshTokenExpirationMs());
-                Utilisateur.enregistrerRefreshToken(u.getIdUtilisateur(), newRefreshToken, expirationTs, c);
+                String username = jwtService.extractUsername(refreshToken);
+                UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+                String newRefreshToken = tokens.currentRefreshToken();
+                if (!tokens.alreadyRotated()) {
+                    newRefreshToken = jwtService.generateRefreshToken(userDetails);
+                    java.sql.Timestamp expirationTs = new java.sql.Timestamp(System.currentTimeMillis() + jwtService.getRefreshTokenExpirationMs());
+                    if (!idleSessionService.rotate(tokens.sessionId(), refreshToken, newRefreshToken, expirationTs, c)) {
+                        throw new IllegalArgumentException("Session expirée ou déjà renouvelée.");
+                    }
+                }
+                String newAccessToken = jwtService.generateAccessToken(userDetails, tokens.sessionId());
+                c.commit();
 
                 boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
                 ResponseCookie refreshCookie = createRefreshCookie(newRefreshToken, isSecure, jwtService.getRefreshTokenExpirationMs() / 1000);
 
                 Map<String, Object> responseBody = new HashMap<>();
                 responseBody.put("accessToken", newAccessToken);
+                responseBody.put("idleExpiresAt", idleSessionService.getIdleExpiresAt(tokens.sessionId(), username));
 
                 if (rattrapageAutomatiqueService != null) {
                     rattrapageAutomatiqueService.verifierEtExecuterRattrapageAsync();
@@ -207,9 +216,12 @@ public class AuthController {
                         .body(responseBody);
             }
         } catch (Exception e) {
-            if (e instanceof mg.galaxam.sirh.common.exception.SirhBusinessException business) throw business;
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
-                    mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED);
+            boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
+            boolean idleExpired = jwtService.isRefreshTokenValid(refreshToken) && idleSessionService.expireIfIdle(refreshToken);
+            Map<String, String> errorBody = Map.of("code", idleExpired ? "IDLE_SESSION_EXPIRED" : "AUTHENTICATION_REQUIRED");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, createRefreshCookie("", isSecure, 0).toString())
+                    .body(errorBody);
         }
     }
 
@@ -220,10 +232,7 @@ public class AuthController {
     ) {
         if (refreshToken != null && !refreshToken.isBlank()) {
             try (Connection c = dataSource.getConnection()) {
-                Utilisateur u = Utilisateur.rechercherParRefreshToken(refreshToken, c);
-                if (u != null) {
-                    Utilisateur.revoquerRefreshToken(u.getIdUtilisateur(), c);
-                }
+                idleSessionService.revoke(null, refreshToken, c);
             } catch (Exception ignored) {
             }
         }
@@ -234,6 +243,25 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
                 .body("Déconnexion réussie.");
+    }
+
+    @PostMapping("/activity")
+    public ResponseEntity<?> recordActivity(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        CustomUserDetails principal = (CustomUserDetails) authentication.getPrincipal();
+        try {
+            String sessionId = authorization != null && authorization.startsWith("Bearer ")
+                    ? jwtService.extractSessionId(authorization.substring(7)) : null;
+            if (!idleSessionService.touch(sessionId, principal.getUsername())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            return ResponseEntity.ok(Map.of("idleExpiresAt", idleSessionService.getIdleExpiresAt(sessionId, principal.getUsername())));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
     @GetMapping("/menu")

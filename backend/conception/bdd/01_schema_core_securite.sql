@@ -64,6 +64,20 @@ CREATE UNIQUE INDEX idx_utilisateur_email_lower ON utilisateur (LOWER(email));
 CREATE INDEX idx_utilisateur_identifiant_lower ON utilisateur (LOWER(identifiant));
 CREATE INDEX idx_utilisateur_refresh_token ON utilisateur (refresh_token) WHERE refresh_token IS NOT NULL;
 
+-- Une famille de refresh token par utilisateur (compatibilité avec le modèle actuel),
+-- avec un état d'inactivité contrôlé côté serveur.
+CREATE TABLE utilisateur_session (
+    session_id UUID PRIMARY KEY,
+    id_utilisateur INTEGER NOT NULL REFERENCES utilisateur(id_utilisateur) ON DELETE CASCADE,
+    refresh_token VARCHAR(500) UNIQUE,
+    previous_refresh_token VARCHAR(500),
+    rotated_at TIMESTAMP,
+    refresh_token_expiration TIMESTAMP NOT NULL,
+    last_activity_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP
+);
+CREATE INDEX idx_utilisateur_session_idle ON utilisateur_session(last_activity_at) WHERE revoked_at IS NULL;
+
 -- 6. Journal des Connexions
 CREATE TABLE journal_connexion (
     id_journal SERIAL PRIMARY KEY,

@@ -63,7 +63,6 @@ public class StcCalculResultDTO {
     private BigDecimal irsaNet = BigDecimal.ZERO;
 
     // 5. Apurements et Déductions
-    private BigDecimal soldePretsDeduit = BigDecimal.ZERO;
     private BigDecimal soldeAvancesDeduit = BigDecimal.ZERO;
     private BigDecimal autresDeductions = BigDecimal.ZERO;
     private String motifAutresDeductions;
@@ -239,9 +238,6 @@ public class StcCalculResultDTO {
 
     public BigDecimal getIrsaNet() { return irsaNet; }
     public void setIrsaNet(BigDecimal irsaNet) { this.irsaNet = irsaNet; }
-
-    public BigDecimal getSoldePretsDeduit() { return soldePretsDeduit; }
-    public void setSoldePretsDeduit(BigDecimal soldePretsDeduit) { this.soldePretsDeduit = soldePretsDeduit; }
 
     public BigDecimal getSoldeAvancesDeduit() { return soldeAvancesDeduit; }
     public void setSoldeAvancesDeduit(BigDecimal soldeAvancesDeduit) { this.soldeAvancesDeduit = soldeAvancesDeduit; }

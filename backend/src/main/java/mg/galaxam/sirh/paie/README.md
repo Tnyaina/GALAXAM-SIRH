@@ -151,7 +151,7 @@ des données d'émission avant toute migration de schéma.
 - `api/dto/` : contrats DTO (`PayrollCampaignStep`, `CalculPeriodeRequest`, `stc/*`, etc.)
 - `application/` : services applicatifs (`PayrollService`, `StcService`, `workflow/`, `export/`)
 - `domain/` : moteurs de calculs purs et invariants fiscaux (`engine/`, `dto/`)
-- `persistence/` : entités de paie et tables historiques (`BulletinPaie`, `BulletinPaieLigne`, `PaiePret`, `PaieAvanceAcompte`, `PaieStc`, etc.)
+- `persistence/` : entités de paie et tables historiques (`BulletinPaie`, `BulletinPaieLigne`, `PaieAvanceAcompte`, `PaieStc`, etc.)
 
 Toutes les routes d'origine restent préservées sous `/paie/*`, `/stc/*`, `/api/paie/*`.
 

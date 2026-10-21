@@ -20,7 +20,8 @@ export default function ProtectedRoute({ allowedRoles, requiredPermission, child
 
     // Redirige vers la page de connexion si non authentifié
     if (!isAuthenticated) {
-        return <Navigate to="/" replace />;
+        const message = typeof window !== 'undefined' ? localStorage.getItem('galaxam-auth-message') : null;
+        return <Navigate to="/" replace state={message ? { message } : undefined} />;
     }
 
     // Redirige vers la page non autorisée si le rôle est insuffisant

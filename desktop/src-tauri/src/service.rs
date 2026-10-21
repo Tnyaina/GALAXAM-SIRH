@@ -8,7 +8,7 @@ use std::process::Command;
 use std::sync::Arc;
 use tauri::AppHandle;
 
-const SERVICE_VERSION: &str = "0.1.1";
+const SERVICE_VERSION: &str = "0.1.3";
 
 /// Cross-process ownership marker shared by a temporary Tauri PostgreSQL
 /// owner and the long-lived LaunchAgent supervisor. The lock is released only
@@ -191,10 +191,19 @@ fn inspect_agent(home: &Path, id: &str) -> Result<Option<bool>, String> {
         .join("service/versions")
         .join(SERVICE_VERSION)
         .join("galaxam-service.sh");
-    let expected_script = expected_script.to_string_lossy().into_owned();
+    let expected_script_text = expected_script.to_string_lossy().into_owned();
+    let script_is_regular = fs::symlink_metadata(&expected_script)
+        .is_ok_and(|meta| meta.file_type().is_file());
+    let staged_marker = expected_script
+        .parent()
+        .map(|dir| dir.join(".staged"))
+        .is_some_and(|marker| marker.is_file());
     let valid = text.contains(id)
-        && text.contains(&expected_script)
-        && fs::read_to_string(plist).is_ok_and(|p| p.contains(id) && p.contains(&expected_script));
+        && text.contains(&expected_script_text)
+        && script_is_regular
+        && staged_marker
+        && fs::read_to_string(plist)
+            .is_ok_and(|p| p.contains(id) && p.contains(&expected_script_text));
     Ok(Some(valid))
 }
 
@@ -447,7 +456,7 @@ fn install_agent(
     let body = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict><key>Label</key><string>{}</string><key>ProgramArguments</key><array><string>/bin/sh</string><string>{}</string><string>{}</string><string>{}</string><string>{}</string><string>{}</string><string>{}</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>10</integer><key>ExitTimeOut</key><integer>45</integer><key>StandardOutPath</key><string>{}</string><key>StandardErrorPath</key><string>{}</string></dict></plist>
+<plist version="1.0"><dict><key>Label</key><string>{}</string><key>ProgramArguments</key><array><string>/bin/sh</string><string>{}</string><string>{}</string><string>{}</string><string>{}</string><string>{}</string><string>{}</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>PathState</key><dict><key>{}</key><true/></dict></dict><key>ThrottleInterval</key><integer>30</integer><key>ExitTimeOut</key><integer>45</integer><key>StandardOutPath</key><string>{}</string><key>StandardErrorPath</key><string>{}</string></dict></plist>
 "#,
         label(id),
         xml(&script.to_string_lossy()),
@@ -456,6 +465,7 @@ fn install_agent(
         id,
         api,
         pg,
+        xml(&script.to_string_lossy()),
         xml(&home.join("logs/service.log").to_string_lossy()),
         xml(&home.join("logs/service.log").to_string_lossy())
     );
@@ -536,7 +546,7 @@ schema=canonical-01-06" ]; then echo 'Cluster GALAXAM incomplet; aucune initiali
 validate_pg() { [ "$("$PG/pg_ctl" -D "$CLUSTER" status >/dev/null 2>&1; echo $?)" = 0 ] || return 1; actual=$(PGPASSWORD="$ADMIN_PASS" "$PG/psql" -X -A -t -w -h 127.0.0.1 -p "$PG_PORT" -U galaxam_cluster_admin -d postgres -c 'show data_directory' 2>/dev/null || true); [ "$(cd "$actual" 2>/dev/null && pwd -P)" = "$(cd "$CLUSTER" && pwd -P)" ]; }
 if ! validate_pg; then
   if "$PG/pg_isready" -h 127.0.0.1 -p "$PG_PORT" -q; then echo 'Port PostgreSQL occupé par un service non vérifié.'; exit 73; fi
-  "$PG/pg_ctl" -D "$CLUSTER" -l "$HOME_DIR/data/postgresql/logs/postgres.log" -o "-c config_file=$CONFIG/postgresql.conf" -w -t 30 start || { echo 'Démarrage PostgreSQL impossible.'; exit 70; }
+  "$PG/pg_ctl" -D "$CLUSTER" -l "$HOME_DIR/data/postgresql/logs/postgres.log" -o "-c config_file=\"$CONFIG/postgresql.conf\"" -w -t 30 start || { echo 'Démarrage PostgreSQL impossible.'; exit 70; }
   PG_OWNED=1
   validate_pg || { echo 'Identité du cluster PostgreSQL non confirmée.'; shutdown; }
 fi
@@ -592,6 +602,7 @@ mod tests {
         assert!(SERVICE_SCRIPT.contains("shlock -f"));
         assert!(SERVICE_SCRIPT.contains("show data_directory"));
         assert!(SERVICE_SCRIPT.contains("Processus backend ambigu"));
+        assert!(SERVICE_SCRIPT.contains("config_file=\\\"$CONFIG/postgresql.conf\\\""));
         assert!(!SERVICE_SCRIPT.contains("--spring.datasource.password"));
         let path =
             std::env::temp_dir().join(format!("galaxam-service-script-{}.sh", std::process::id()));

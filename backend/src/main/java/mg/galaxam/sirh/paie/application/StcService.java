@@ -21,7 +21,6 @@ import mg.galaxam.sirh.contrat.domain.AncienneteEngine;
 import mg.galaxam.sirh.contrat.persistence.EmployeEnfant;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
-import mg.galaxam.sirh.paie.persistence.PaiePret;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
 import mg.galaxam.sirh.paie.application.export.PayrollEmployerSnapshotService;
 import mg.galaxam.sirh.paie.domain.engine.SocialContributionCalculator;
@@ -368,9 +367,7 @@ public class StcService {
         prep.setIndemnitePreavisEstimee(BigDecimal.ZERO);
         prep.setIndemniteLicenciementEstimee(BigDecimal.ZERO);
 
-        // 7. Engagements financiers (Prêts & Avances)
-        BigDecimal totalPrets = PaiePret.calculerCapitalRestantTotal(idEmploye, c);
-        prep.setCapitalRestantPrets(totalPrets);
+        // 7. Engagements financiers (Avances & Acomptes)
 
         String sqlAvances = "SELECT COALESCE(SUM(a.solde_restant), 0) FROM paie_avance_acompte a " +
                 "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement " +
@@ -791,22 +788,13 @@ public class StcService {
 
         BigDecimal netApresAvances = netAvantEngagements.subtract(avancesADeduire).max(BigDecimal.ZERO);
 
-        // Apurement optionnel des prêts d'entreprise au STC (accord/solde libératoire)
-        BigDecimal pretsADeduire = BigDecimal.ZERO;
-        if (req.isApurerPretDansStc() || (req.getSoldePretsADeduire() != null && req.getSoldePretsADeduire().signum() > 0)) {
-            throw new IllegalArgumentException("Une retenue de prêt exige une cession ou un titre vérifié dans le dossier. L'apurement automatique du STC est indisponible.");
-        }
-        res.setSoldePretsDeduit(pretsADeduire);
-
-        BigDecimal netApresPrets = netApresAvances.subtract(pretsADeduire).max(BigDecimal.ZERO);
-
         // Les retenues diverses ne sont plus acceptées par ce moteur.
         BigDecimal autresADeduire = BigDecimal.ZERO;
         res.setAutresDeductions(autresADeduire);
         res.setMotifAutresDeductions(null);
 
         // 6. Net Final à Payer (arrondi bancaire officiel Ariary à la dizaine la plus proche)
-        BigDecimal netFinalNonArrondi = netApresPrets.subtract(autresADeduire)
+        BigDecimal netFinalNonArrondi = netApresAvances.subtract(autresADeduire)
                 .add(res.getSoldeBulletinARegler()).max(BigDecimal.ZERO);
         BigDecimal netFinal = BulletinPaie.arrondirDizaineAriary(netFinalNonArrondi);
         BigDecimal ecartArrondi = netFinal.subtract(netFinalNonArrondi);
@@ -1015,7 +1003,6 @@ public class StcService {
         entity.setTotalIrsa(simulation.getIrsaNet());
         entity.setNetImposable(simulation.getNetImposable());
 
-        entity.setSoldePretsDeduit(simulation.getSoldePretsDeduit());
         entity.setSoldeAvancesDeduit(simulation.getSoldeAvancesDeduit());
         entity.setAutresDeductions(simulation.getAutresDeductions());
         entity.setMotifAutresDeductions(simulation.getMotifAutresDeductions());
@@ -1118,10 +1105,9 @@ public class StcService {
         }
         bpStc.setSalaireNetImposable(simulation.getNetImposable());
         bpStc.setIrsaNet(simulation.getIrsaNet());
-        BigDecimal totalRetenuesStc = zeroIfNull(simulation.getSoldePretsDeduit())
-                .add(zeroIfNull(simulation.getSoldeAvancesDeduit()))
+        BigDecimal totalRetenuesStc = zeroIfNull(simulation.getSoldeAvancesDeduit())
                 .add(zeroIfNull(simulation.getAutresDeductions()));
-        bpStc.setTotalRetenuesAcomptePret(totalRetenuesStc);
+        bpStc.setTotalRetenuesAvancesAcomptes(totalRetenuesStc);
         bpStc.setNetAvantArrondi(simulation.getNetAPayerStc());
         bpStc.setNetAPayer(simulation.getNetAPayerStc());
         bpStc.setStatut("VALIDE");
@@ -1239,16 +1225,6 @@ public class StcService {
                 psCloseRef.executeUpdate();
             } catch (Exception eRef) {
                 log.warn("[StcService] Clôture conge_periode_reference ignorée: {}", eRef.getMessage());
-            }
-        }
-
-        // 4.2 Apurement des prêts d'entreprise déduits au STC
-        BigDecimal pretDeduit = simulation.getSoldePretsDeduit();
-        if (pretDeduit != null && pretDeduit.signum() > 0) {
-            try {
-                PaiePret.solderPretsPourStc(req.getIdEmploye(), pretDeduit, bpStc.getIdBulletin(), c);
-            } catch (Exception ePret) {
-                throw new IllegalStateException("L'apurement du prêt a échoué : validation du STC annulée.", ePret);
             }
         }
 
@@ -1994,10 +1970,9 @@ public class StcService {
         r.setRetenueIrsa(s.getTotalIrsa());
         r.setNetImposable(s.getNetImposable());
 
-        r.setSoldePretsApure(s.getSoldePretsDeduit());
         r.setSoldeAvancesApure(s.getSoldeAvancesDeduit());
         BigDecimal totalRetenues = s.getTotalCotisationsSociales().add(s.getTotalIrsa())
-                .add(s.getSoldePretsDeduit()).add(s.getSoldeAvancesDeduit()).add(r.getAutresDeductions());
+                .add(s.getSoldeAvancesDeduit()).add(r.getAutresDeductions());
 
         // Réconciliation de l'arrondi à la dizaine d'Ariary pour le décompte imprimé.
         BigDecimal deltaArrondi = s.getNetAPayerStc().subtract(
@@ -2152,7 +2127,6 @@ public class StcService {
             Integer idOstiePat = cache.get("COTISATION_OSTIE_PAT");
             return idOstiePat != null ? idOstiePat : cache.get("COTISATION_OMSI_PAT");
         }
-        if ("SOLDE_PRET_STC".equalsIgnoreCase(codeRubrique)) return cache.get("RETENUE_ECHEANCE_PRET");
         if ("SOLDE_AVANCES_STC".equalsIgnoreCase(codeRubrique)) return cache.get("RETENUE_AVANCE_SPECIALE");
         if ("AUTRES_RETENUES_STC".equalsIgnoreCase(codeRubrique)) return cache.get("RETENUE_DIVERSE");
         if ("AUTRES_INDEMNITES_DEPART".equalsIgnoreCase(codeRubrique)) return cache.get("AUTIMP");

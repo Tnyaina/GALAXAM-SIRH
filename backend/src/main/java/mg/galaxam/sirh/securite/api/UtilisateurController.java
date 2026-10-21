@@ -29,6 +29,9 @@ public class UtilisateurController {
     @Autowired
     private TransactionRunner transactionRunner;
 
+    @Autowired
+    private mg.galaxam.sirh.securite.IdleSessionService idleSessionService;
+
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllUsers() {
@@ -256,6 +259,8 @@ public class UtilisateurController {
             existing.setDateDesactivation(new Timestamp(System.currentTimeMillis()));
             existing.setMotifDesactivation(motif);
             existing.effacerRefreshToken();
+
+            idleSessionService.revokeAllForUser(id, c);
 
             existing.update(c);
             AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);

@@ -477,7 +477,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const previewIrsa = previewBulletin?.irsaNet ?? previewBulletin?.irsa_net;
     const previewIsi = previewBulletin?.retenueIsi5 ?? previewBulletin?.retenue_isi_5;
     const previewIndemnitesNet = previewBulletin?.totalIndemnitesNonImposables ?? previewBulletin?.total_indemnites_non_imposables;
-    const previewRetenues = previewBulletin?.totalRetenuesAcomptePret ?? previewBulletin?.total_retenues_acompte_pret;
+    const previewRetenues = previewBulletin?.totalRetenuesAvancesAcomptes ?? previewBulletin?.total_retenues_avances_acomptes;
     const previewAvantArrondi = previewBulletin?.netAvantArrondi ?? previewBulletin?.net_avant_arrondi;
     const previewLines = Array.isArray(bulletinPreview?.lignes) ? bulletinPreview.lignes : [];
     const previewFiscalite = bulletinPreview?.explicationFiscalite;
@@ -497,7 +497,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         previewIsIrsa && Number(previewIrsa || 0) > 0 && ['IRSA prélevé', previewIrsa, '−', 'text-[var(--color-danger-600)] font-semibold'],
         Number(previewIsi || 0) > 0 && ['ISI prélevé', previewIsi, '−', 'text-[var(--color-danger-600)] font-semibold'],
         Number(previewIndemnitesNet || 0) > 0 && ['Indemnités et remboursements non imposables', previewIndemnitesNet, '+', 'text-[var(--color-success-700)] font-semibold'],
-        Number(previewRetenues || 0) > 0 && ['Acomptes, prêts et autres retenues', previewRetenues, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        Number(previewRetenues || 0) > 0 && ['Acomptes, avances et autres retenues', previewRetenues, '−', 'text-[var(--color-danger-600)] font-semibold'],
         ['Net avant arrondi', previewAvantArrondi, '', 'text-[var(--color-fg)] font-medium'],
         previewAjustement !== 0 && ['Ajustement à la dizaine d’ariary', Math.abs(previewAjustement), previewAjustement > 0 ? '+' : '−', 'text-[var(--color-fg)]'],
     ].filter(Boolean);

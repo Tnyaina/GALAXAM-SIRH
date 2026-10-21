@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
-import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
 import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
@@ -182,11 +181,10 @@ public class PayrollCalculationInput {
     private boolean soumisIrsa = true;
     private boolean soumisIsi5 = false;
 
-    // 8. Trésorerie & Prêts
+    // 8. Trésorerie
     private List<PaieAvanceAcompte> avancesAcomptes = new ArrayList<>();
     private List<Integer> idsMouvementsGains = new ArrayList<>();
     private List<GainVariable> gainsVariablesDynamiques = new ArrayList<>();
-    private PaiePretEcheance echeancePretActive;
 
     public static class GainVariable {
         private Integer idAvance;
@@ -661,9 +659,6 @@ public class PayrollCalculationInput {
 
     public List<Integer> getIdsMouvementsGains() { return idsMouvementsGains; }
     public void setIdsMouvementsGains(List<Integer> idsMouvementsGains) { this.idsMouvementsGains = idsMouvementsGains; }
-
-    public PaiePretEcheance getEcheancePretActive() { return echeancePretActive; }
-    public void setEcheancePretActive(PaiePretEcheance echeancePretActive) { this.echeancePretActive = echeancePretActive; }
 
     public boolean isEntreeSortieEnCoursDeMois() { return entreeSortieEnCoursDeMois; }
     public void setEntreeSortieEnCoursDeMois(boolean entreeSortieEnCoursDeMois) { this.entreeSortieEnCoursDeMois = entreeSortieEnCoursDeMois; }

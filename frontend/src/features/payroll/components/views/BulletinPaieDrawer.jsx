@@ -111,7 +111,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const netAvantImpot = bulletin?.salaireNetImposable;
     const retenueIsi = Number(bulletin?.retenueIsi5 || 0);
     const indemniteNet = Number(bulletin?.totalIndemnitesNonImposables || 0);
-    const retenuesTresorerie = Number(bulletin?.totalRetenuesAcomptePret || 0);
+    const retenuesTresorerie = Number(bulletin?.totalRetenuesAvancesAcomptes || 0);
     const compositionBrut = data?.compositionBrut;
     const ajustementArrondi = compositionBrut?.ecartArrondiNet ?? null;
     const estIrsa = !retenueIsi && lignes.some(l => l.codeRubrique === 'IMPOT_IRSA_NET' || l.codeRubrique === 'IMPOT_IRSA_BRUT');
@@ -402,8 +402,8 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                         )}
                                         {retenuesTresorerie > 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
-                                                <span className="text-[var(--color-fg-muted)]">Acomptes, prêts et autres retenues</span>
-                                                <span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.totalRetenuesAcomptePret)}</span>
+                                                <span className="text-[var(--color-fg-muted)]">Acomptes, avances et autres retenues</span>
+                                                <span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.totalRetenuesAvancesAcomptes)}</span>
                                             </div>
                                         )}
                                         {bulletin.netAvantArrondi != null && (

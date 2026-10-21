@@ -349,12 +349,6 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                 <Td className="font-sans text-[var(--color-fg-muted)]">- Retenue fiscale IRSA</Td>
                                 <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(recu.retenueIrsa)}</Td>
                             </Tr>
-                            {Number(recu.soldePretsApure) > 0 && (
-                                <Tr>
-                                    <Td className="font-sans text-[var(--color-fg-muted)]">- Remboursement et apurement intégral des prêts d'entreprise</Td>
-                                    <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(recu.soldePretsApure)}</Td>
-                                </Tr>
-                            )}
                             {Number(recu.soldeAvancesApure) > 0 && (
                                 <Tr>
                                     <Td className="font-sans text-[var(--color-fg-muted)]">- Déduction des avances et acomptes en cours</Td>

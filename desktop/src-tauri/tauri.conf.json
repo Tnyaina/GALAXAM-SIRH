@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "GALAXAM SIRH",
+  "productName": "GRH",
   "version": "0.1.0",
   "identifier": "mg.galaxam.sirh.desktop",
   "build": {

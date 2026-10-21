@@ -40,11 +40,12 @@ public class SessionSecurityScheduler {
         try (Connection c = dataSource.getConnection()) {
             Timestamp now = Timestamp.valueOf(LocalDateTime.now());
 
-            // Révocation des Refresh Tokens expirés
-            String sqlPurgeTokens = "UPDATE utilisateur SET refresh_token = NULL, refresh_token_expiration = NULL " +
-                    "WHERE refresh_token_expiration IS NOT NULL AND refresh_token_expiration < ?";
+            // Révocation des refresh tokens de session expirés.
+            String sqlPurgeTokens = "UPDATE utilisateur_session SET refresh_token = NULL, previous_refresh_token = NULL, revoked_at = ? " +
+                    "WHERE refresh_token_expiration < ? AND revoked_at IS NULL";
             try (PreparedStatement ps = c.prepareStatement(sqlPurgeTokens)) {
                 ps.setTimestamp(1, now);
+                ps.setTimestamp(2, now);
                 int countTokens = ps.executeUpdate();
                 if (countTokens > 0) {
                     log.info("[SessionSecurityScheduler] Nettoyage des refresh tokens expirés : {} révoqués.", countTokens);

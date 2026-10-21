@@ -49,12 +49,6 @@ import contratService from '@/features/employees/api/contratService';
 import { optionsMotifsSortie } from '@/features/employees/utils/motifsSortie';
 import { getErrorMessage } from '@/api/apiClient';
 
-const OPTIONS_DECISION_PRET = [
-    { value: 'MAINTIEN_ECHEANCIER', label: '1. Maintien de l’échéancier (Virement personnel du salarié)' },
-    { value: 'REMBOURSEMENT_SEPARE', label: '2. Remboursement séparé direct (Chèque ou virement dédié)' },
-    { value: 'RETENUE_STC_AUTORISEE', label: '3. Retenue sur STC (Dans la limite de la quotité saisissable légale)' },
-    { value: 'CONTENTIEUX_RECOUVREMENT', label: '4. Dossier transmis au service recouvrement / contentieux' },
-];
 
 export default function DossierSortieModal({
     isOpen,
@@ -83,15 +77,12 @@ export default function DossierSortieModal({
     const [errorMsg, setErrorMsg] = useState(null);
     const [dossier, setDossier] = useState(null);
     const [motifsSortie, setMotifsSortie] = useState([]);
-    const [activeTab, setActiveTab] = useState('synthese'); // 'synthese' | 'checklist' | 'pret' | 'decompte' | 'suivi'
+    const [activeTab, setActiveTab] = useState('synthese'); // 'synthese' | 'checklist' | 'decompte' | 'suivi'
     const initialViewRef = useRef(false);
 
     // Formulaire de saisie éditable
     const [dateDepart, setDateDepart] = useState('');
     const [motifRupture, setMotifRupture] = useState('DEMISSION');
-    const [decisionPret, setDecisionPret] = useState('MAINTIEN_ECHEANCIER');
-    const [justificationDecisionPret, setJustificationDecisionPret] = useState('');
-    const [montantPretRetenu, setMontantPretRetenu] = useState(0);
     const [montantBulletinDejaPaye, setMontantBulletinDejaPaye] = useState('0');
     const [datePaiementBulletin, setDatePaiementBulletin] = useState('');
     const [referencePaiementBulletin, setReferencePaiementBulletin] = useState('');
@@ -130,9 +121,6 @@ export default function DossierSortieModal({
                 setSimulationNeedsRefresh(Boolean(data.referenceSimulation && !data.idStc && !data.snapshotSimulation));
                 setDateDepart(String(data.dateDepart || dateDepartInitiale || getTodayDateString()).slice(0, 10));
                 setMotifRupture(data.motifRupture || motifInitial || 'DEMISSION');
-                setDecisionPret(data.decisionPret || 'MAINTIEN_ECHEANCIER');
-                setJustificationDecisionPret(data.justificationDecisionPret || '');
-                setMontantPretRetenu(data.montantPretRetenu || 0);
                 setMontantBulletinDejaPaye(String(data.donneesPreparation?.montantBulletinDejaPaye ?? data.montantBulletinDejaPaye ?? 0));
                 setDatePaiementBulletin(String(data.donneesPreparation?.datePaiementBulletin || data.datePaiementBulletin || '').slice(0, 10));
                 setReferencePaiementBulletin(data.donneesPreparation?.referencePaiementBulletin || data.referencePaiementBulletin || '');
@@ -184,9 +172,6 @@ export default function DossierSortieModal({
                 dateDepart: dateDepart,
                 motifRupture: motifRupture,
                 statutDossier: dossier.statutDossier || 'EN_PREPARATION',
-                decisionPret: (dossier.capitalRestantPrets && Number(dossier.capitalRestantPrets) > 0) ? decisionPret : null,
-                justificationDecisionPret: justificationDecisionPret || null,
-                montantPretRetenu: montantPretRetenu ? Number(montantPretRetenu) : 0,
                 donneesPreparation: {
                     dateDepart,
                     motifRupture,
@@ -230,9 +215,6 @@ export default function DossierSortieModal({
                     dateDepart: dateDepart,
                     motifRupture: motifRupture,
                     statutDossier: currentDossier.statutDossier || 'EN_PREPARATION',
-                    decisionPret: (currentDossier.capitalRestantPrets && Number(currentDossier.capitalRestantPrets) > 0) ? decisionPret : null,
-                    justificationDecisionPret: justificationDecisionPret || null,
-                    montantPretRetenu: montantPretRetenu ? Number(montantPretRetenu) : 0,
                     donneesPreparation: {
                         dateDepart,
                         motifRupture,
@@ -340,7 +322,6 @@ export default function DossierSortieModal({
         }
     };
 
-    const hasLoans = dossier?.capitalRestantPrets && Number(dossier.capitalRestantPrets) > 0;
     const nbBloquants = dossier?.checklist?.filter(c => c.niveau === 'BLOQUANT' && c.statut === 'NON_CONFORME').length || 0;
     const bulletinValide = ['VALIDE', 'CLOTURE'].includes(dossier?.statutBulletinMensuel);
     const bulletinEnAttente = Boolean(dossier?.idBulletinMensuel) && !bulletinValide;
@@ -351,11 +332,6 @@ export default function DossierSortieModal({
         || (Number(montantBulletinDejaPaye || 0) > 0 && (
             datePaiementBulletin !== String(dossier.donneesPreparation?.datePaiementBulletin || '').slice(0, 10)
             || referencePaiementBulletin.trim() !== (dossier.donneesPreparation?.referencePaiementBulletin || '')
-        ))
-        || (Boolean(hasLoans) && (
-            decisionPret !== (dossier.decisionPret || 'MAINTIEN_ECHEANCIER')
-            || justificationDecisionPret !== (dossier.justificationDecisionPret || '')
-            || Number(montantPretRetenu || 0) !== Number(dossier.montantPretRetenu || 0)
         ))
     );
     const prochaineEtape = !dossier?.idDossierSortie
@@ -374,7 +350,6 @@ export default function DossierSortieModal({
         { id: 'synthese', label: 'Situation', icon: FileSpreadsheet },
         { id: 'checklist', label: 'Points à traiter', icon: ShieldAlert, ...(nbBloquants > 0 ? { count: nbBloquants } : {}) },
         { id: 'paie-finale', label: 'Paie finale', icon: Calculator },
-        { id: 'pret', label: 'Prêts', icon: Banknote },
         { id: 'decompte', label: 'Calcul STC', icon: Calculator },
         { id: 'suivi', label: 'Suivi et documents', icon: FileText },
     ];
@@ -903,78 +878,6 @@ export default function DossierSortieModal({
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 3 : Prêts & Règlements */}
-                {activeTab === 'pret' && (
-                    <div id="panel-pret" role="tabpanel" aria-labelledby="tab-pret" className="space-y-4">
-                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
-                            <h4 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Banknote size={16} className="text-[var(--color-brand-600)]" />
-                                État des prêts & avances en cours
-                            </h4>
-
-                            {hasLoans ? (
-                                <div className="space-y-3">
-                                    <div className="p-3 bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] text-[var(--color-warning-900)] text-xs rounded-none flex items-start gap-2.5">
-                                        <AlertTriangle size={18} className="text-[var(--color-warning-700)] shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="font-bold">Prêt d'entreprise en cours de remboursement</p>
-                                            <p className="mt-0.5">
-                                                Capital restant dû au départ : <strong className="font-data text-sm text-[var(--color-warning-950)]">{formatMoneyAr(dossier.capitalRestantPrets)}</strong>.
-                                            </p>
-                                            <p className="text-[11px] mt-1 text-[var(--color-warning-800)]">
-                                                Règle juridique impérative : le solde d'un prêt ne peut pas être déduit d'office sans décision documentée et respect de la quotité saisissable légale.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 pt-2">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
-                                                Décision de gestion du prêt au départ du salarié *
-                                            </label>
-                                            <SearchSelect
-                                                options={OPTIONS_DECISION_PRET}
-                                                value={decisionPret}
-                                                onChange={(val) => setDecisionPret(val)}
-                                                disabled={!canWrite || saving}
-                                            />
-                                        </div>
-
-                                        {decisionPret === 'RETENUE_STC_AUTORISEE' && (
-                                            <div>
-                                                <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
-                                                    Montant de retenue convenu sur le STC (dans la limite de la quotité légale) *
-                                                </label>
-                                                <Input
-                                                    type="number"
-                                                    value={montantPretRetenu}
-                                                    onChange={(e) => setMontantPretRetenu(e.target.value)}
-                                                    placeholder="Montant en Ariary"
-                                                    disabled={!canWrite || saving}
-                                                />
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
-                                                Justification écrite & traçabilité de la décision *
-                                            </label>
-                                            <Textarea
-                                                rows={3}
-                                                placeholder="Indiquez les accords avec le collaborateur, les références de chèque de remboursement ou les termes de maintien..."
-                                                value={justificationDecisionPret}
-                                                onChange={(e) => setJustificationDecisionPret(e.target.value)}
-                                                disabled={!canWrite || saving}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <Alert type="success" title="Aucun prêt en cours" message="Aucune décision de remboursement n'est nécessaire pour ce départ." />
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* CONTENU ONGLET 4 : Décompte & Scellement STC */}
                 {activeTab === 'decompte' && (
@@ -1049,7 +952,7 @@ export default function DossierSortieModal({
 
                             const soldeBulletin = Number(decompte.soldeBulletinARegler || 0);
                             const netFinal = Number(decompte.netAPayerStc || 0);
-                            const totalDed = Number(decompte.soldeAvancesDeduit || 0) + Number(decompte.soldePretsDeduit || 0);
+                            const totalDed = Number(decompte.soldeAvancesDeduit || 0);
                             const netIndemnites = Math.max(0, netFinal - soldeBulletin + totalDed);
 
                             // Séparation des rubriques salariales et patronales (comme dans le Bulletin de Paie)
@@ -1211,12 +1114,6 @@ export default function DossierSortieModal({
                                                         <span className="text-[var(--color-fg-muted)]">Avances déduites :</span>
                                                         <span className="font-data font-semibold text-[var(--color-danger-600)]">
                                                             {Number(decompte.soldeAvancesDeduit || 0) > 0 ? `-${formatMoneyAr(decompte.soldeAvancesDeduit)}` : '0 Ar'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[var(--color-fg-muted)]">Prêts déduits :</span>
-                                                        <span className="font-data text-[var(--color-fg-muted)]">
-                                                            {Number(decompte.soldePretsDeduit || 0) > 0 ? `-${formatMoneyAr(decompte.soldePretsDeduit)}` : '0 Ar (Maintien séparé)'}
                                                         </span>
                                                     </div>
                                                 </div>

@@ -16,7 +16,6 @@ public class BulletinPaieComplet {
 
     private BulletinPaie bulletin;
     private List<BulletinPaieLigne> lignes = new ArrayList<>();
-    private ImpactPret impactPret;
     private List<Integer> idsAvancesImputees = new ArrayList<>();
     private List<MouvementImputation> imputationsMouvements = new ArrayList<>();
     private ExplicationPaieDTO explication;
@@ -26,15 +25,6 @@ public class BulletinPaieComplet {
     public static record CompositionBrutDTO(List<BulletinPaieLigne> lignes, BigDecimal totalLignes,
             BigDecimal gainsExoneresIrsa, BigDecimal ecartAvecTotalEnregistre, BigDecimal ecartArrondiNet) {}
 
-    public static record ImpactPret(
-            Integer idEcheance,
-            Integer idPret,
-            BigDecimal montantEcheanceInitiale,
-            BigDecimal montantPreleve,
-            BigDecimal montantRestantEcheance,
-            String nouveauStatut,
-            BigDecimal capitalRestantPretApres
-    ) {}
 
     public static record MouvementImputation(Integer idMouvement, BigDecimal montantImpute) {}
 
@@ -147,9 +137,6 @@ public class BulletinPaieComplet {
 
     public List<BulletinPaieLigne> getLignes() { return lignes; }
     public void setLignes(List<BulletinPaieLigne> lignes) { this.lignes = lignes == null ? new ArrayList<>() : lignes; this.compositionBrut = composeBrut(this.bulletin, this.lignes); }
-
-    public ImpactPret getImpactPret() { return impactPret; }
-    public void setImpactPret(ImpactPret impactPret) { this.impactPret = impactPret; }
 
     public List<Integer> getIdsAvancesImputees() { return idsAvancesImputees; }
     public void setIdsAvancesImputees(List<Integer> idsAvancesImputees) { this.idsAvancesImputees = idsAvancesImputees; }

@@ -26,6 +26,9 @@ public class JwtService {
     @Value("${app.security.jwt.refresh-token-expiration-ms}")
     private long refreshTokenExpirationMs;
 
+    @Value("${app.security.session.idle-timeout-seconds:900}")
+    private long idleTimeoutSeconds;
+
     /**
      * Valide le secret JWT au démarrage (FAIL FAST).
      * HS512 requiert au minimum 512 bits = 64 bytes selon NIST SP 800-107.
@@ -83,6 +86,10 @@ public class JwtService {
     }
 
     public String generateAccessToken(UserDetails userDetails) {
+        return generateAccessToken(userDetails, null);
+    }
+
+    public String generateAccessToken(UserDetails userDetails, String sessionId) {
         Map<String, Object> extraClaims = new HashMap<>();
         String role = userDetails.getAuthorities().stream()
                 .map(auth -> auth.getAuthority())
@@ -96,6 +103,7 @@ public class JwtService {
 
         extraClaims.put("role", role);
         extraClaims.put("permissions", permissions);
+        if (sessionId != null && !sessionId.isBlank()) extraClaims.put("sid", sessionId);
         if (userDetails instanceof CustomUserDetails custom) extraClaims.put("identifiant", custom.getDisplayName());
         return generateAccessToken(extraClaims, userDetails);
     }
@@ -108,6 +116,10 @@ public class JwtService {
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpirationMs))
                 .signWith(getSigningKey(), Jwts.SIG.HS512)
                 .compact();
+    }
+
+    public String extractSessionId(String token) {
+        return extractClaim(token, claims -> claims.get("sid", String.class));
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
@@ -158,5 +170,9 @@ public class JwtService {
 
     public long getAccessTokenExpirationMs() {
         return accessTokenExpirationMs;
+    }
+
+    public long getIdleTimeoutSeconds() {
+        return idleTimeoutSeconds;
     }
 }

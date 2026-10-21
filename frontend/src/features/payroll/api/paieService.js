@@ -136,11 +136,6 @@ export const paieService = {
         return response.data;
     },
 
-    listerPretsEmploye: async (idEmploye) => {
-        const response = await apiClient.get(`paie/employe/${idEmploye}/prets`);
-        return response.data;
-    },
-
     // --- Variables & Ajustements (Primes, Acomptes, Retenues) ---
     listerAjustements: async (idPeriode = null, idEmploye = null, domaine = null) => {
         const params = {};

@@ -713,23 +713,17 @@ export default function StcPreparationModal({
                                 </details>
 
                                 {/* Créances à examiner et acomptes à imputer */}
-                                {(Number(prepData.capitalRestantPrets) > 0 || Number(prepData.avancesEnAttente) > 0) && (
+                                {Number(prepData.avancesEnAttente) > 0 && (
                                     <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 text-xs text-[var(--color-fg)] space-y-1">
                                         <p className="font-bold text-[var(--color-warning-600)] flex items-center gap-1.5">
                                             <AlertTriangle size={14} /> Engagements Financiers en cours détectés
                                         </p>
                                         <p className="text-[11px] text-[var(--color-fg-muted)]">
-                                            Acomptes versés et créances financières pour ce collaborateur :
+                                            Acomptes versés et avances pour ce collaborateur :
                                         </p>
                                         <ul className="list-disc pl-5 space-y-0.5 text-[11px] font-data">
-                                            {Number(prepData.capitalRestantPrets) > 0 && (
-                                                <li>Prêt(s) d'entreprise en cours : <strong>{formatMoneyAr(prepData.capitalRestantPrets)}</strong></li>
-                                            )}
-                                            {Number(prepData.avancesEnAttente) > 0 && (
-                                                <li>Avance(s) et acompte(s) non imputés : <strong>{formatMoneyAr(prepData.avancesEnAttente)}</strong></li>
-                                            )}
+                                            <li>Avance(s) et acompte(s) non imputés : <strong>{formatMoneyAr(prepData.avancesEnAttente)}</strong></li>
                                         </ul>
-                                        {Number(prepData.capitalRestantPrets) > 0 && <p>Le prêt reste une créance distincte. Toute retenue exige un titre ou une cession vérifiée.</p>}
                                     </div>
                                 )}
                             </form>
@@ -864,12 +858,6 @@ export default function StcPreparationModal({
                                             <Td className="font-sans text-[var(--color-fg-muted)]">- Retenue Fiscale IRSA</Td>
                                             <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.irsaNet)}</Td>
                                         </Tr>
-                                        {Number(calculResult.soldePretsDeduit) > 0 && (
-                                            <Tr>
-                                                <Td className="font-sans text-[var(--color-fg-muted)]">- Apurement Prêts d'Entreprise</Td>
-                                                <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.soldePretsDeduit)}</Td>
-                                            </Tr>
-                                        )}
                                         {Number(calculResult.soldeAvancesDeduit) > 0 && (
                                             <Tr>
                                                 <Td className="font-sans text-[var(--color-fg-muted)]">- Solde Avances / Acomptes en attente</Td>

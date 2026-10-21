@@ -43,10 +43,6 @@ public class StcCalculRequest {
     private boolean simulation = true;
     private boolean desactiverEmploye = false;
 
-    // Apurement optionnel des prêts d'entreprise au STC
-    private boolean apurerPretDansStc = false;
-    private BigDecimal soldePretsADeduire;
-
     public StcCalculRequest() {}
 
     // Getters & Setters
@@ -112,10 +108,4 @@ public class StcCalculRequest {
 
     public boolean isDesactiverEmploye() { return desactiverEmploye; }
     public void setDesactiverEmploye(boolean desactiverEmploye) { this.desactiverEmploye = desactiverEmploye; }
-
-    public boolean isApurerPretDansStc() { return apurerPretDansStc; }
-    public void setApurerPretDansStc(boolean apurerPretDansStc) { this.apurerPretDansStc = apurerPretDansStc; }
-
-    public BigDecimal getSoldePretsADeduire() { return soldePretsADeduire; }
-    public void setSoldePretsADeduire(BigDecimal soldePretsADeduire) { this.soldePretsADeduire = soldePretsADeduire; }
 }

@@ -27,7 +27,7 @@ public class GrandLivrePaieExportService {
             "Matricule", "Nom & prénom", "Filiale", "Site", "Poste", "Type contrat",
             "Salaire de base", "Absence (h)", "Retenue absence", "Congés (j)", "Indemnité congé",
             "Heures sup.", "Indemnités / primes", "Salaire brut", "CNaPS salarié", "Santé salarié",
-            "Net imposable", "IRSA", "Avance / acompte", "Prêt", "Autres retenues",
+            "Net imposable", "IRSA", "Avances et acomptes", "Autres retenues",
             "Net à payer", "Cotisations patronales", "Coût employeur"
     };
     private static final String[] DETAIL_COLUMNS = {
@@ -135,14 +135,13 @@ public class GrandLivrePaieExportService {
                 && !isLeaveGain(l) && !"HEURES_SUP".equals(l.getCategorie()) && !isRounding(l));
         BigDecimal cnaps = sum(lines, l -> "RETENUE".equals(l.getSens()) && isCnaps(l));
         BigDecimal health = sum(lines, l -> "RETENUE".equals(l.getSens()) && isHealth(l));
-        BigDecimal advances = sum(lines, l -> "RETENUE".equals(l.getSens()) && "ACOMPTE_AVANCE".equals(l.getCategorie()) && !isLoan(l));
-        BigDecimal loans = sum(lines, l -> "RETENUE".equals(l.getSens()) && isLoan(l));
+        BigDecimal advances = sum(lines, l -> "RETENUE".equals(l.getSens()) && "ACOMPTE_AVANCE".equals(l.getCategorie()));
         BigDecimal others = sum(lines, l -> "RETENUE".equals(l.getSens()) && !"SALAIRE_BASE".equals(l.getCategorie())
-                && !isCnaps(l) && !isHealth(l) && !isLoan(l) && !"ACOMPTE_AVANCE".equals(l.getCategorie())
+                && !isCnaps(l) && !isHealth(l) && !"ACOMPTE_AVANCE".equals(l.getCategorie())
                 && !"IMPOT".equals(l.getCategorie()) && !"RETENUE_ABSENCE".equals(code(l)) && !isRounding(l));
         BigDecimal[] values = {b.getSalaireBase(), absenceHours, amount(lines, "RETENUE_ABSENCE"), b.getJoursConges(), congéGain,
                 zero(b.getHeuresHs30()).add(zero(b.getHeuresHs50())), otherGains.add(hsGain), b.getTotalGainsBruts(), cnaps, health,
-                b.getRevenuNetImposable(), zero(b.getIrsaNet()).add(zero(b.getRetenueIsi5())), advances, loans, others,
+                b.getRevenuNetImposable(), zero(b.getIrsaNet()).add(zero(b.getRetenueIsi5())), advances, others,
                 b.getNetAPayer(), b.getTotalCotisationsPatronales(), b.getCoutGlobalEmployeur()};
         return values;
     }
@@ -167,9 +166,7 @@ public class GrandLivrePaieExportService {
         }
         return false;
     }
-    private static boolean isLoan(BulletinPaieLigne line) {
-        return java.util.Set.of("RETENUE_PRET", "RETENUE_ECHEANCE_PRET").contains(code(line));
-    }
+
     private static void writeDetail(Sheet sheet, int rowIndex, BulletinPaie b, BulletinPaieLigne l, Styles s) {
         String[] fields = {b.getReferenceBulletin(), b.getMatricule(), b.getNomPrenom(), l.getCodeRubrique(),
                 l.getLibelleRubrique(), l.getSens(), l.getCategorie()};
@@ -192,7 +189,7 @@ public class GrandLivrePaieExportService {
         cell(sheet, 3, 0, s.header).setCellValue("Indicateur");
         cell(sheet, 3, 1, s.header).setCellValue("Valeur");
         String[] labels = {"Nombre de bulletins", "Nombre de lignes de rubrique", "Salaire brut total", "Net imposable total", "IRSA total", "Net à payer total", "Cotisations patronales totales"};
-        int[] cols = {-1, -1, 13, 16, 17, 21, 22};
+        int[] cols = {-1, -1, 13, 16, 17, 19, 20};
         for (int i = 0; i < labels.length; i++) {
             cell(sheet, 4 + i, 0, s.text).setCellValue(labels[i]);
             Cell value = cell(sheet, 4 + i, 1, s.money);

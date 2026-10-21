@@ -32,16 +32,21 @@ export const setAccessToken = (token) => {
 // Fonction de refresh verrouillée (évite les appels multiples simultanés)
 export const refreshTokenOnce = () => {
     if (!refreshPromise) {
-        refreshPromise = axios.post(`${BASE_URL}auth/refresh`, {}, { withCredentials: true })
+        const performRefresh = () => axios.post(`${BASE_URL}auth/refresh`, {}, { withCredentials: true });
+        const crossTabRefresh = typeof navigator !== 'undefined' && navigator.locks?.request
+            ? navigator.locks.request('galaxam-auth-refresh', performRefresh)
+            : performRefresh();
+        refreshPromise = crossTabRefresh
             .then((response) => {
-                const { accessToken } = response.data;
+                const { accessToken, idleExpiresAt } = response.data;
                 setAccessToken(accessToken);
-                window.dispatchEvent(new CustomEvent('auth-token-refreshed', { detail: accessToken }));
+                window.dispatchEvent(new CustomEvent('auth-token-refreshed', { detail: { accessToken, idleExpiresAt } }));
                 return accessToken;
             })
             .catch((err) => {
                 setAccessToken(null);
-                window.dispatchEvent(new Event('auth-expired'));
+                const code = err.response?.data?.code;
+                window.dispatchEvent(new CustomEvent('auth-expired', { detail: { code } }));
                 throw err;
             })
             .finally(() => {

@@ -62,7 +62,6 @@ public class StcRecuDTO {
     private BigDecimal retenueIrsa = BigDecimal.ZERO;
     private BigDecimal netImposable = BigDecimal.ZERO;
 
-    private BigDecimal soldePretsApure = BigDecimal.ZERO;
     private BigDecimal soldeAvancesApure = BigDecimal.ZERO;
     private BigDecimal autresDeductions = BigDecimal.ZERO;
     private BigDecimal totalRetenues = BigDecimal.ZERO;
@@ -207,9 +206,6 @@ public class StcRecuDTO {
 
     public BigDecimal getNetImposable() { return netImposable; }
     public void setNetImposable(BigDecimal netImposable) { this.netImposable = netImposable; }
-
-    public BigDecimal getSoldePretsApure() { return soldePretsApure; }
-    public void setSoldePretsApure(BigDecimal soldePretsApure) { this.soldePretsApure = soldePretsApure; }
 
     public BigDecimal getSoldeAvancesApure() { return soldeAvancesApure; }
     public void setSoldeAvancesApure(BigDecimal soldeAvancesApure) { this.soldeAvancesApure = soldeAvancesApure; }

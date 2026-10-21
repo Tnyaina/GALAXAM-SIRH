@@ -9,7 +9,7 @@ public final class PayrollCalculatorRegistry {
     private static final Set<String> LEAVE=Set.of("RETENUE_CONGE","INDEMNITE_CONGE","DEDUCTION_CONGE_BASE","INDEMNITE_CONGE_PAYE",
             "INDEMNITE_COMPENSATRICE_CONGE","INDEMNITE_PREAVIS","INDEMNITE_LICENCIEMENT");
     private static final Set<String> PREMIUM=Set.of("PRIME_PERFORMANCE","PRIME_ASSIDUITE","PRIME_ANCIENNETE");
-    private static final Set<String> CASH=Set.of("RETENUE_ACOMPTE_15","RETENUE_AVANCE_SPECIALE","RETENUE_PRET","RETENUE_ECHEANCE_PRET","RETENUE_CALL_PERSO");
+    private static final Set<String> CASH=Set.of("RETENUE_ACOMPTE_15","RETENUE_AVANCE_SPECIALE","RETENUE_CALL_PERSO");
     public record Capability(String niveau,String calculateur,String phase,String source,String arrondi) {}
     /** Ordre des paliers effectivement exécutés par PayrollExecutionEngine. */
     public record Phase(String code, String libelle, String description) {}
@@ -20,7 +20,7 @@ public final class PayrollCalculatorRegistry {
                 new Phase("NET_IMPOSABLE", "Net imposable", "Résultat du brut et des cotisations salariales"),
                 new Phase("IMPOT", "Fiscalité", "Impôt calculé selon le régime applicable"),
                 new Phase("GAIN_NET", "Ajouts au net", "Gains intervenant après la fiscalité"),
-                new Phase("RETENUE_NET", "Retenues sur le net", "Acomptes, avances, prêts et retenues nettes"),
+                new Phase("RETENUE_NET", "Retenues sur le net", "Acomptes, avances et retenues nettes"),
                 new Phase("NET_FINAL", "Net à payer", "Résultat final et arrondi monétaire"));
     }
     public static Capability describe(String code, String category, boolean fixed, String stage) {

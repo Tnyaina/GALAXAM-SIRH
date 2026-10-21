@@ -21,9 +21,7 @@ import org.springframework.stereotype.Service;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paie.persistence.PaieHonorairePrestation;
-import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet.ImpactPret;
 import mg.galaxam.sirh.paie.domain.dto.PayrollBatchResult;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
@@ -245,7 +243,7 @@ public class PayrollService {
                 bp.setIdSnapshotPointage(input.getAttendanceInput().snapshotId());
                 bp.setVersionSnapshotPointage(input.getAttendanceInput().snapshotVersion());
             }
-            imputerAvancesEtPrets(complet, idPeriodePaie, c);
+            imputerAvances(complet, idPeriodePaie, c);
         }
 
         if (simulation) c.rollback(recalculation);
@@ -266,7 +264,6 @@ public class PayrollService {
         }
         int bulletinId = precedent.getIdBulletin();
         restaurerImputationsMouvements(bulletinId, employeId, periodeId, c);
-        restaurerImputationsPrets(bulletinId, periodeId, c);
     }
 
     private void restaurerImputationsMouvements(int bulletinId, int employeId, int periodeId, Connection c) throws Exception {
@@ -313,46 +310,6 @@ public class PayrollService {
         }
     }
 
-    private void restaurerPretsBulletin(int bulletinId, int periodeId, Connection c) throws Exception {
-        restaurerImputationsPrets(bulletinId, periodeId, c);
-    }
-
-    private void restaurerImputationsPrets(int bulletinId, int periodeId, Connection c) throws Exception {
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT e.id_echeance, e.id_pret, e.montant_preleve "
-                + "FROM paie_pret_echeance e WHERE e.id_bulletin = ? AND e.id_periode_paie = ? FOR UPDATE")) {
-            ps.setInt(1, bulletinId);
-            ps.setInt(2, periodeId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    BigDecimal montant = rs.getBigDecimal("montant_preleve");
-                    if (montant == null || montant.signum() <= 0) continue;
-                    try (PreparedStatement pret = c.prepareStatement(
-                            "UPDATE paie_pret SET capital_rembourse = capital_rembourse - ?, "
-                            + "capital_restant_du = capital_restant_du + ?, "
-                            + "statut = CASE WHEN statut = 'SOLDE' THEN 'EN_COURS' ELSE statut END "
-                            + "WHERE id_pret = ? AND capital_rembourse >= ?")) {
-                        pret.setBigDecimal(1, montant);
-                        pret.setBigDecimal(2, montant);
-                        pret.setInt(3, rs.getInt("id_pret"));
-                        pret.setBigDecimal(4, montant);
-                        if (pret.executeUpdate() != 1) {
-                            throw new IllegalStateException("PRET_IMPUTATION_INCOHERENTE: capital remboursé insuffisant.");
-                        }
-                    }
-                    try (PreparedStatement echeance = c.prepareStatement(
-                            "UPDATE paie_pret_echeance SET montant_preleve = 0, "
-                            + "montant_restant_echeance = LEAST(montant_echeance, montant_restant_echeance + ?), statut = 'A_ECHOIR', "
-                            + "id_bulletin = NULL, id_periode_paie = NULL, date_prelevement = NULL "
-                            + "WHERE id_echeance = ?")) {
-                        echeance.setBigDecimal(1, montant);
-                        echeance.setInt(2, rs.getInt("id_echeance"));
-                        echeance.executeUpdate();
-                    }
-                }
-            }
-        }
-    }
 
     /**
      * Surcharge sans Connection pour appel de service autonome (gère sa propre transaction).
@@ -672,7 +629,6 @@ public class PayrollService {
         for (BulletinPaie bp : bulletins) {
             if (!"STC".equalsIgnoreCase(bp.getTypeBulletin())) {
                 restaurerImputationsMouvements(bp.getIdBulletin(), bp.getIdEmploye(), idPeriodePaie, c);
-                restaurerImputationsPrets(bp.getIdBulletin(), idPeriodePaie, c);
             }
         }
 
@@ -842,7 +798,7 @@ public class PayrollService {
         }
     }
 
-    private void imputerAvancesEtPrets(BulletinPaieComplet complet, Integer idPeriodePaie, Connection c) throws Exception {
+    private void imputerAvances(BulletinPaieComplet complet, Integer idPeriodePaie, Connection c) throws Exception {
         BulletinPaie bp = complet.getBulletin();
 
         // 1. Imputation des avances et acomptes
@@ -893,15 +849,6 @@ public class PayrollService {
                     ps.addBatch();
                 }
                 ps.executeBatch();
-            }
-        }
-
-        // 2. Prélèvement de l'échéance de prêt
-        ImpactPret impact = complet.getImpactPret();
-        if (impact != null && impact.montantPreleve() != null && impact.montantPreleve().compareTo(BigDecimal.ZERO) > 0) {
-            PaiePretEcheance ech = PaiePretEcheance.trouverParId(impact.idEcheance(), c);
-            if (ech != null) {
-                ech.preleverEnPaie(impact.montantPreleve(), bp.getIdBulletin(), idPeriodePaie, c);
             }
         }
     }

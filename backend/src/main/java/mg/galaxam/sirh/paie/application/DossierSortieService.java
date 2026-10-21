@@ -25,7 +25,6 @@ import mg.galaxam.sirh.paie.api.dto.stc.DossierSortieDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.DossierSortieSaveRequest;
 import mg.galaxam.sirh.paie.domain.PayrollBusinessTime;
 import mg.galaxam.sirh.paie.persistence.PaieDossierSortie;
-import mg.galaxam.sirh.paie.persistence.PaiePret;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -140,9 +139,6 @@ public class DossierSortieService {
         if (req.getDonneesPreparation() != null) {
             entity.setDonneesPreparation(objectMapper.writeValueAsString(req.getDonneesPreparation()));
         }
-        entity.setDecisionPret(req.getDecisionPret());
-        entity.setJustificationDecisionPret(req.getJustificationDecisionPret());
-        entity.setMontantPretRetenu(req.getMontantPretRetenu() != null ? req.getMontantPretRetenu() : BigDecimal.ZERO);
 
         if (req.getCertificatDelivre() != null) {
             entity.setCertificatDelivre(req.getCertificatDelivre());
@@ -380,15 +376,6 @@ public class DossierSortieService {
 
         // 5. Contrôle des formalités administratives et checklist
         DossierSortieDTO currentDto = assemblerDossierDTO(entity, c);
-
-        // Décision obligatoire sur prêt en cours
-        if (currentDto.getCapitalRestantPrets() != null && currentDto.getCapitalRestantPrets().signum() > 0) {
-            if (entity.getDecisionPret() == null || entity.getDecisionPret().trim().isBlank()) {
-                throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
-                        "Clôture impossible : une créance de prêt d'entreprise subsiste (" + currentDto.getCapitalRestantPrets()
-                        + " Ar) et aucune décision formelle d'arbitrage n'a été consignée.");
-            }
-        }
 
         // Contrôle des points bloquants de la checklist
         boolean aControlesBloquants = currentDto.getChecklist().stream()
@@ -642,9 +629,6 @@ public class DossierSortieService {
         calcReq.setMotifRupture(entity.getMotifRupture());
         calcReq.setSimulation(isSimulation);
 
-        // Phase 2 : Aucune retenue automatique sur prêt autorisée (apurement désactivé)
-        calcReq.setApurerPretDansStc(false);
-        calcReq.setSoldePretsADeduire(BigDecimal.ZERO);
         calcReq.setAutresDeductions(BigDecimal.ZERO);
         calcReq.setMotifAutresDeductions(null);
 
@@ -723,14 +707,12 @@ public class DossierSortieService {
         map.put("statutBulletinMensuel", dto.getStatutBulletinMensuel());
         map.put("netBulletinMensuel", dto.getNetBulletinMensuel() != null ? dto.getNetBulletinMensuel().toPlainString() : "0");
         map.put("soldeAvances", dto.getAvancesEnAttente() != null ? dto.getAvancesEnAttente().toPlainString() : "0");
-        map.put("capitalRestantPrets", dto.getCapitalRestantPrets() != null ? dto.getCapitalRestantPrets().toPlainString() : "0");
 
         map.put("totalBrutStc", simRes.getTotalBrutStc() != null ? simRes.getTotalBrutStc().toPlainString() : "0");
         map.put("totalCotisationsSociales", simRes.getTotalCotisationsSociales() != null ? simRes.getTotalCotisationsSociales().toPlainString() : "0");
         map.put("irsaNet", simRes.getIrsaNet() != null ? simRes.getIrsaNet().toPlainString() : "0");
         map.put("joursSousContrat", dto.getJoursSousContrat() != null ? dto.getJoursSousContrat().toPlainString() : "0");
         map.put("soldeAvancesDeduit", simRes.getSoldeAvancesDeduit() != null ? simRes.getSoldeAvancesDeduit().toPlainString() : "0");
-        map.put("soldePretsDeduit", "0");
         map.put("soldeBulletinARegler", simRes.getSoldeBulletinARegler() != null ? simRes.getSoldeBulletinARegler().toPlainString() : "0");
         map.put("netAPayerStc", simRes.getNetAPayerStc() != null ? simRes.getNetAPayerStc().toPlainString() : "0");
         return map;
@@ -849,14 +831,6 @@ public class DossierSortieService {
             throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
                     "Contrôle de fraîcheur échoué : le solde des acomptes versés a changé (simulé : " + snapAv + ", actuel : " + curAv + "). Relancez la simulation.");
         }
-
-        // 7. Prêts
-        BigDecimal snapPret = new BigDecimal(snap.getOrDefault("capitalRestantPrets", "0").toString());
-        BigDecimal curPret = current.getCapitalRestantPrets() != null ? current.getCapitalRestantPrets() : BigDecimal.ZERO;
-        if (curPret.compareTo(snapPret) != 0) {
-            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
-                    "Contrôle de fraîcheur échoué : le capital restant des prêts a changé (simulé : " + snapPret + ", actuel : " + curPret + "). Relancez la simulation.");
-        }
     }
 
     // =========================================================================
@@ -870,9 +844,6 @@ public class DossierSortieService {
         dto.setDateDepart(entity.getDateDepart());
         dto.setMotifRupture(entity.getMotifRupture());
         dto.setStatutDossier(entity.getStatutDossier());
-        dto.setDecisionPret(entity.getDecisionPret());
-        dto.setJustificationDecisionPret(entity.getJustificationDecisionPret());
-        dto.setMontantPretRetenu(entity.getMontantPretRetenu());
         dto.setCertificatDelivre(Boolean.TRUE.equals(entity.getCertificatDelivre()));
         dto.setDateDelivranceCertificat(entity.getDateDelivranceCertificat());
         dto.setModeRemiseCertificat(entity.getModeRemiseCertificat());
@@ -1231,9 +1202,6 @@ public class DossierSortieService {
             }
         }
 
-        // Capital restant des prêts
-        dto.setCapitalRestantPrets(PaiePret.calculerCapitalRestantTotal(dto.getIdEmploye(), c));
-
         // Variables de paie en attente sur la période
         String sqlVar = "SELECT COUNT(*) FROM paie_avance_acompte a " +
                 "LEFT JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement " +
@@ -1298,22 +1266,6 @@ public class DossierSortieService {
                                        : "Certificat à délivrer obligatoirement dès la cessation du contrat (Art. 50).",
                 d.isCertificatDelivre() ? "Obligation légale satisfaite." : "Télécharger et remettre le certificat au salarié.",
                 "documents"
-        ));
-
-        // 4. G-01 : Décision formelle sur le prêt actif (Règle GALAXAM)
-        boolean hasPret = d.getCapitalRestantPrets() != null && d.getCapitalRestantPrets().signum() > 0;
-        boolean hasDecisionPret = d.getDecisionPret() != null && !d.getDecisionPret().isBlank();
-        list.add(new ChecklistItemDTO(
-                "G-01_DECISION_PRET",
-                "Créance de prêt d'entreprise en cours",
-                hasPret ? Niveau.BLOQUANT : Niveau.INFO,
-                SourceNorme.REGLE_INTERNE_GALAXAM,
-                (!hasPret || hasDecisionPret) ? StatutCheck.CONFORME : StatutCheck.NON_CONFORME,
-                hasPret ? (hasDecisionPret ? "Décision enregistrée : " + d.getDecisionPret() + " (Capital restant : " + d.getCapitalRestantPrets() + " Ar)."
-                                           : "Prêt actif détecté (" + d.getCapitalRestantPrets() + " Ar) : une décision formelle est requise (aucun prélèvement sauvage).")
-                        : "Aucun prêt d'entreprise en cours.",
-                hasPret && !hasDecisionPret ? "Renseigner l'option dans l'onglet Décision Prêt (maintien échéancier, chèque externe, ou accord signé)." : null,
-                null
         ));
 
         // 5. G-02 : Variables ou primes en attente (Règle GALAXAM)

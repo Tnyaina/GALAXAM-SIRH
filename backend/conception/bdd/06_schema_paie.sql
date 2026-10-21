@@ -1,11 +1,11 @@
 -- =====================================================================
--- GALAXAM SIRH — MODULE 06 : MOTEUR DE PAIE, PRÊTS & QUITTANCES
+-- GALAXAM SIRH — MODULE 06 : MOTEUR DE PAIE & QUITTANCES
 -- Script canonique final (Zéro ALTER TABLE, Zéro OWNER, Zéro public.)
 -- Précision Ar : montants NUMERIC(20,2), taux horaires NUMERIC(20,8)
 -- (NUMERIC(20,4) pour le taux STC), bases de ligne NUMERIC(20,8).
 -- Les durées et pourcentages gardent leur précision propre.
 -- Sources : 26-09-02-sp4-paie.sql, 26-09-08-sp4-paie-bulletin.sql,
---           26-09-09-sp4-paie-prets.sql, 26-09-10-sp4-paie-ajustements-audit.sql,
+--           26-09-10-sp4-paie-ajustements-audit.sql,
 --           26-09-11-sp4-paie-honoraires-ajustements.sql, 26-09-11-sp4-paie-stc.sql,
 --           26-09-12-sp4-paie-variables-dynamiques.sql, 26-09-13-sp4-conge-valorisation-droits.sql,
 --           26-09-15-sp7-regularisation-conge-mouvement.sql, 26-09-16-sp8-indexes-foreign-keys.sql
@@ -22,8 +22,6 @@ DROP TABLE IF EXISTS prestataire_facture CASCADE;
 DROP TABLE IF EXISTS prestataire_contrat CASCADE;
 DROP TABLE IF EXISTS prestataire_independant CASCADE;
 DROP TABLE IF EXISTS paie_honoraire_prestation CASCADE;
-DROP TABLE IF EXISTS paie_pret_echeance CASCADE;
-DROP TABLE IF EXISTS paie_pret CASCADE;
 DROP TABLE IF EXISTS paie_mouvement_imputation CASCADE;
 DROP TABLE IF EXISTS paie_avance_acompte CASCADE;
 DROP TABLE IF EXISTS ref_type_mouvement_paie CASCADE;
@@ -269,7 +267,7 @@ CREATE TABLE bulletin_paie (
     irsa_net NUMERIC(20,2) NOT NULL DEFAULT 0,
     retenue_isi_5 NUMERIC(20,2) NOT NULL DEFAULT 0,
     total_indemnites_non_imposables NUMERIC(20,2) NOT NULL DEFAULT 0,
-    total_retenues_acompte_pret NUMERIC(20,2) NOT NULL DEFAULT 0,
+    total_retenues_avances_acomptes NUMERIC(20,2) NOT NULL DEFAULT 0,
     net_avant_arrondi NUMERIC(20,2) NOT NULL DEFAULT 0,
     net_a_payer NUMERIC(20,2) NOT NULL DEFAULT 0,
     cout_global_employeur NUMERIC(20,2) NOT NULL DEFAULT 0,
@@ -507,58 +505,6 @@ CREATE INDEX idx_paie_avance_acompte_cree_par ON paie_avance_acompte(cree_par);
 CREATE INDEX idx_paie_avance_acompte_approuve_par ON paie_avance_acompte(approuve_par);
 CREATE INDEX idx_paie_avance_acompte_bulletin ON paie_avance_acompte(id_bulletin);
 
--- 8. Prêts d'Entreprise & Échéanciers
-CREATE TABLE paie_pret (
-    id_pret SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL REFERENCES employe(id_employe),
-    reference_pret VARCHAR(50) NOT NULL UNIQUE,
-    montant_total NUMERIC(20,2) NOT NULL CHECK (montant_total > 0),
-    montant_mensualite NUMERIC(20,2) NOT NULL CHECK (montant_mensualite > 0),
-    nb_echeances INT NOT NULL CHECK (nb_echeances > 0),
-    date_accord DATE NOT NULL DEFAULT CURRENT_DATE,
-    date_deblocage DATE,
-    date_premiere_echeance DATE NOT NULL,
-    capital_rembourse NUMERIC(20,2) NOT NULL DEFAULT 0 CHECK (capital_rembourse >= 0),
-    capital_restant_du NUMERIC(20,2) NOT NULL CHECK (capital_restant_du >= 0),
-    statut VARCHAR(20) NOT NULL DEFAULT 'EN_COURS',
-    motif VARCHAR(255) NOT NULL,
-    accorde_par INT REFERENCES utilisateur(id_utilisateur),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_pret_statut CHECK (statut IN ('DEMANDE', 'APPROUVE', 'EN_COURS', 'SOLDE', 'SUSPENDU', 'ANNULE')),
-    CONSTRAINT chk_pret_coherence_capital CHECK (capital_rembourse + capital_restant_du <= montant_total + 1.00)
-);
-
-CREATE INDEX idx_paie_pret_employe ON paie_pret(id_employe);
-CREATE INDEX idx_paie_pret_statut ON paie_pret(statut);
-CREATE INDEX idx_paie_pret_accorde_par ON paie_pret(accorde_par);
-
-CREATE TABLE paie_pret_echeance (
-    id_echeance SERIAL PRIMARY KEY,
-    id_pret INT NOT NULL REFERENCES paie_pret(id_pret) ON DELETE CASCADE,
-    numero_echeance INT NOT NULL CHECK (numero_echeance > 0),
-    id_periode_paie INT REFERENCES periode_paie(id_periode_paie),
-    date_echeance DATE NOT NULL,
-    montant_echeance NUMERIC(20,2) NOT NULL CHECK (montant_echeance > 0),
-    capital_restant_apres NUMERIC(20,2) NOT NULL CHECK (capital_restant_apres >= 0),
-    montant_preleve NUMERIC(20,2) DEFAULT 0,
-    montant_restant_echeance NUMERIC(20,2),
-    statut VARCHAR(25) NOT NULL DEFAULT 'A_ECHOIR',
-    id_bulletin INT REFERENCES bulletin_paie(id_bulletin) ON DELETE SET NULL,
-    date_prelevement TIMESTAMP WITH TIME ZONE,
-    commentaire VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_echeance_statut CHECK (statut IN (
-        'A_ECHOIR', 'PRELEVEE_EN_PAIE', 'PRELEVEE_PARTIELLEMENT', 'REMBOURSEE_ANTICIPEE', 'REPORTEE', 'ANNULEE'
-    )),
-    CONSTRAINT uk_pret_echeance UNIQUE (id_pret, numero_echeance)
-);
-
-CREATE INDEX idx_pret_echeance_pret ON paie_pret_echeance(id_pret);
-CREATE INDEX idx_pret_echeance_periode ON paie_pret_echeance(id_periode_paie);
-CREATE INDEX idx_pret_echeance_statut ON paie_pret_echeance(statut);
-CREATE INDEX idx_paie_pret_echeance_bulletin ON paie_pret_echeance(id_bulletin);
-
 -- Ancien bordereau ISI conservé pour lecture historique ; non alimenté en 2026.
 CREATE TABLE paie_honoraire_prestation (
     id_prestation SERIAL PRIMARY KEY,
@@ -674,7 +620,6 @@ CREATE TABLE paie_stc (
     total_cotisations_sociales NUMERIC(20,2) NOT NULL DEFAULT 0,
     total_irsa NUMERIC(20,2) NOT NULL DEFAULT 0,
     net_imposable NUMERIC(20,2) NOT NULL DEFAULT 0,
-    solde_prets_deduit NUMERIC(20,2) NOT NULL DEFAULT 0,
     solde_avances_deduit NUMERIC(20,2) NOT NULL DEFAULT 0,
     autres_deductions NUMERIC(20,2) NOT NULL DEFAULT 0,
     motif_autres_deductions VARCHAR(255),
@@ -713,9 +658,6 @@ CREATE TABLE paie_dossier_sortie (
     motif_rupture VARCHAR(50) NOT NULL,
     statut_dossier VARCHAR(30) NOT NULL DEFAULT 'EN_PREPARATION',
     donnees_preparation JSONB,
-    decision_pret VARCHAR(40),
-    justification_decision_pret TEXT,
-    montant_pret_retenu NUMERIC(20,2) DEFAULT 0,
     certificat_delivre BOOLEAN DEFAULT FALSE,
     date_delivrance_certificat DATE,
     mode_remise_certificat VARCHAR(30),
@@ -969,7 +911,6 @@ INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, s
 (26, 'REMBOURSEMENT_NOTE_FRAIS', 'Remboursement Notes de Frais Validées', 'INDEMNITE_NON_IMPOSABLE', 'MONTANT', 'GAIN', FALSE, FALSE, FALSE, FALSE, 520, 'Remboursement des frais professionnels avancés'),
 (27, 'RETENUE_ACOMPTE_15', 'Acompte de Quinzaine (du 15)', 'ACOMPTE_AVANCE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 600, 'Acompte versé en milieu de mois'),
 (28, 'RETENUE_AVANCE_SPECIALE', 'Avance Exceptionnelle sur Salaire', 'ACOMPTE_AVANCE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 610, 'Avance ponctuelle accordée par la direction'),
-(29, 'RETENUE_ECHEANCE_PRET', 'Échéance Remboursement Prêt Entreprise', 'RETENUE_DIVERSE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 620, 'Mensualité de prêt interne accordé au salarié'),
 (30, 'RETENUE_CALL_PERSO', 'Retenue Télécommunications Privées (Call)', 'RETENUE_DIVERSE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 630, 'Facturation flotte mobile communications personnelles'),
 (31, 'INDEMNITE_COMPENSATRICE_CONGE', 'Indemnité Compensatrice de Congés Payés (ICCP)', 'SALAIRE_BASE', 'JOURS', 'GAIN', TRUE, TRUE, TRUE, FALSE, 700, 'Indemnité de solde de congés non pris à la rupture'),
 (32, 'INDEMNITE_PREAVIS', 'Indemnité Compensatrice de Préavis', 'SALAIRE_BASE', 'MONTANT', 'GAIN', TRUE, TRUE, TRUE, FALSE, 710, 'Indemnité de préavis non exécuté'),

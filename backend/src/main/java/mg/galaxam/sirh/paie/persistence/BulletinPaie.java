@@ -72,7 +72,7 @@ public class BulletinPaie extends ClassMere {
     private BigDecimal irsaNet = BigDecimal.ZERO;
     private BigDecimal retenueIsi5 = BigDecimal.ZERO;
     private BigDecimal totalIndemnitesNonImposables = BigDecimal.ZERO;
-    private BigDecimal totalRetenuesAcomptePret = BigDecimal.ZERO;
+    private BigDecimal totalRetenuesAvancesAcomptes = BigDecimal.ZERO;
     private BigDecimal netAvantArrondi = BigDecimal.ZERO;
     private BigDecimal netAPayer = BigDecimal.ZERO;
     private BigDecimal coutGlobalEmployeur = BigDecimal.ZERO;
@@ -125,7 +125,7 @@ public class BulletinPaie extends ClassMere {
                 "jours_absence, jours_conges, minutes_retard, salaire_base, taux_horaire, total_gains_bruts, " +
                 "total_cotisations_salariales, total_cotisations_patronales, salaire_net_imposable, " +
                 "base_irsa_arrondie, irsa_brut, reduction_enfants, irsa_net, retenue_isi_5, " +
-                "total_indemnites_non_imposables, total_retenues_acompte_pret, net_avant_arrondi, " +
+                "total_indemnites_non_imposables, total_retenues_avances_acomptes, net_avant_arrondi, " +
                 "net_a_payer, cout_global_employeur, statut, commentaire, date_calcul, calcule_par" +
                 ") VALUES (" +
                 "?, ?, ?, ?, ?, ?, ?, ?, " +
@@ -208,7 +208,7 @@ public class BulletinPaie extends ClassMere {
             ps.setBigDecimal(p++, retenueIsi5 != null ? retenueIsi5 : BigDecimal.ZERO);
 
             ps.setBigDecimal(p++, totalIndemnitesNonImposables != null ? totalIndemnitesNonImposables : BigDecimal.ZERO);
-            ps.setBigDecimal(p++, totalRetenuesAcomptePret != null ? totalRetenuesAcomptePret : BigDecimal.ZERO);
+            ps.setBigDecimal(p++, totalRetenuesAvancesAcomptes != null ? totalRetenuesAvancesAcomptes : BigDecimal.ZERO);
             ps.setBigDecimal(p++, netAvantArrondi != null ? netAvantArrondi : BigDecimal.ZERO);
 
             ps.setBigDecimal(p++, netAPayer != null ? netAPayer : BigDecimal.ZERO);
@@ -241,7 +241,7 @@ public class BulletinPaie extends ClassMere {
                 "jours_absence = ?, jours_conges = ?, minutes_retard = ?, salaire_base = ?, taux_horaire = ?, total_gains_bruts = ?, " +
                 "total_cotisations_salariales = ?, total_cotisations_patronales = ?, salaire_net_imposable = ?, " +
                 "base_irsa_arrondie = ?, irsa_brut = ?, reduction_enfants = ?, irsa_net = ?, retenue_isi_5 = ?, " +
-                "total_indemnites_non_imposables = ?, total_retenues_acompte_pret = ?, net_avant_arrondi = ?, " +
+                "total_indemnites_non_imposables = ?, total_retenues_avances_acomptes = ?, net_avant_arrondi = ?, " +
                 "net_a_payer = ?, cout_global_employeur = ?, statut = ?, commentaire = ?, " +
                 "date_validation = ?, valide_par = ?, date_cloture = ?, cloture_par = ?, " +
                 "motif_reouverture = ?, date_reouverture = ?, rouvert_par = ?, updated_at = CURRENT_TIMESTAMP " +
@@ -315,7 +315,7 @@ public class BulletinPaie extends ClassMere {
             ps.setBigDecimal(p++, retenueIsi5 != null ? retenueIsi5 : BigDecimal.ZERO);
 
             ps.setBigDecimal(p++, totalIndemnitesNonImposables != null ? totalIndemnitesNonImposables : BigDecimal.ZERO);
-            ps.setBigDecimal(p++, totalRetenuesAcomptePret != null ? totalRetenuesAcomptePret : BigDecimal.ZERO);
+            ps.setBigDecimal(p++, totalRetenuesAvancesAcomptes != null ? totalRetenuesAvancesAcomptes : BigDecimal.ZERO);
             ps.setBigDecimal(p++, netAvantArrondi != null ? netAvantArrondi : BigDecimal.ZERO);
 
             ps.setBigDecimal(p++, netAPayer != null ? netAPayer : BigDecimal.ZERO);
@@ -526,7 +526,7 @@ public class BulletinPaie extends ClassMere {
         b.setIrsaNet(rs.getBigDecimal("irsa_net"));
         b.setRetenueIsi5(rs.getBigDecimal("retenue_isi_5"));
         b.setTotalIndemnitesNonImposables(rs.getBigDecimal("total_indemnites_non_imposables"));
-        b.setTotalRetenuesAcomptePret(rs.getBigDecimal("total_retenues_acompte_pret"));
+        b.setTotalRetenuesAvancesAcomptes(rs.getBigDecimal("total_retenues_avances_acomptes"));
         b.setNetAvantArrondi(rs.getBigDecimal("net_avant_arrondi"));
         b.setNetAPayer(rs.getBigDecimal("net_a_payer"));
         b.setCoutGlobalEmployeur(rs.getBigDecimal("cout_global_employeur"));
@@ -712,8 +712,8 @@ public class BulletinPaie extends ClassMere {
     public BigDecimal getTotalIndemnitesNonImposables() { return totalIndemnitesNonImposables; }
     public void setTotalIndemnitesNonImposables(BigDecimal totalIndemnitesNonImposables) { this.totalIndemnitesNonImposables = totalIndemnitesNonImposables; }
 
-    public BigDecimal getTotalRetenuesAcomptePret() { return totalRetenuesAcomptePret; }
-    public void setTotalRetenuesAcomptePret(BigDecimal totalRetenuesAcomptePret) { this.totalRetenuesAcomptePret = totalRetenuesAcomptePret; }
+    public BigDecimal getTotalRetenuesAvancesAcomptes() { return totalRetenuesAvancesAcomptes; }
+    public void setTotalRetenuesAvancesAcomptes(BigDecimal totalRetenuesAvancesAcomptes) { this.totalRetenuesAvancesAcomptes = totalRetenuesAvancesAcomptes; }
 
     public BigDecimal getNetAvantArrondi() { return netAvantArrondi; }
     public void setNetAvantArrondi(BigDecimal netAvantArrondi) { this.netAvantArrondi = netAvantArrondi; }
