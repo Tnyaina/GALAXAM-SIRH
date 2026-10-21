@@ -60,10 +60,17 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
+    image: galaxam-sirh-frontend:dev
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8088:80"
+      - "127.0.0.1:8088:5173"
+    environment:
+      VITE_API_BASE_URL: /api/
+    volumes:
+      - ./frontend:/app
+      - galaxam_local_frontend_node_modules:/app/node_modules
+    working_dir: /app
     depends_on:
       backend:
         condition: service_healthy
@@ -77,6 +84,8 @@ volumes:
     name: galaxam_local_business_files
   galaxam_local_maven_repo:
     name: galaxam_local_maven_repo
+  galaxam_local_frontend_node_modules:
+    name: galaxam_local_frontend_node_modules
 
 networks:
   galaxam_local_network:

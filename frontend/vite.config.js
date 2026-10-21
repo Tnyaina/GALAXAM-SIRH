@@ -8,6 +8,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    // Docker Desktop ne transmet pas toujours les événements fs du bind mount.
+    watch: { usePolling: true, interval: 500 },
+    hmr: { clientPort: 8088 },
+    proxy: {
+      '/api': {
+        target: 'http://backend:8080',
+        changeOrigin: true,
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

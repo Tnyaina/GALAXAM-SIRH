@@ -3,6 +3,16 @@
 name: galaxam-sirh-prod
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: galaxam-sirh-frontend:prod
+    command: ["nginx", "-g", "daemon off;"]
+    ports: !override
+      - "127.0.0.1:8088:80"
+    volumes: !override []
+
   backend:
     build:
       context: ./backend

@@ -160,7 +160,7 @@ Docker Desktop avec Docker Compose est nécessaire. En mode local, Java et Maven
 docker compose up --build
 ```
 
-Cette commande active le profil Spring `local`, monte le code du backend et active Spring DevTools. Maven compile dans Docker ; les modifications Java redémarrent l'API après compilation. Si tu utilises IntelliJ, active la compilation automatique pour que les classes soient recompilées à chaque modification. Au premier démarrage, Maven télécharge les dépendances dans le volume `galaxam_local_maven_repo`, donc l'API peut prendre plusieurs minutes à démarrer ; Compose attend que son port soit prêt avant de démarrer le frontend. Les démarrages suivants réutilisent ce cache.
+Cette commande active le profil Spring `local`, monte les sources du backend et du frontend et active Spring DevTools et Vite. Les modifications visuelles du frontend apparaissent dans le navigateur sans reconstruire l'image ; le backend redémarre après recompilation Java. Si tu utilises IntelliJ, active la compilation automatique. Au premier démarrage, Maven et npm téléchargent leurs dépendances dans des volumes de cache, donc le lancement peut prendre plusieurs minutes. Compose attend que le backend soit prêt avant de démarrer Vite. Ouvrir `http://localhost:8088`.
 
 Pour le mode production, définir `GALAXAM_CORS_ORIGIN` dans `.env` avec l'origine publique exacte, par exemple `https://sirh.exemple.mg`. Ce mode construit une image backend autonome, active le profil Spring `prod`, désactive DevTools et utilise des volumes PostgreSQL et fichiers métier distincts de ceux du mode local.
 
@@ -169,7 +169,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Le frontend est publié sur `127.0.0.1:8088` ; le domaine public doit être acheminé vers ce port par le reverse proxy HTTPS de l'installation.
+En production, Nginx sert les fichiers frontend compilés et est publié sur `127.0.0.1:8088` ; le domaine public doit être acheminé vers ce port par le reverse proxy HTTPS de l'installation.
 
 Ouvrir `http://localhost:8088` pour l'application. Seul le frontend Nginx est accessible par ce port local ; il sert React et relaie `/api/` au backend. PostgreSQL est également publié **sur ce poste uniquement** pour pgAdmin : hôte `127.0.0.1`, port `5433`, base `sirh_galaxam`, utilisateur `galaxam_admin`, mot de passe `GALAXAM_DB_PASSWORD` de `.env`. Dans le réseau Docker, le backend se connecte à `postgres:5432` ; le port `5433` concerne uniquement les outils installés sur l'hôte.
 
