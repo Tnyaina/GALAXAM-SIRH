@@ -74,6 +74,19 @@ public class AuthController {
             try {
                 Utilisateur u = Utilisateur.rechercherParEmail(request.getEmail(), c);
                 JournalConnexion journal = new JournalConnexion();
+                if (httpRequest != null) {
+                    String ip = httpRequest.getHeader("X-Forwarded-For");
+                    if (ip == null || ip.isBlank() || "unknown".equalsIgnoreCase(ip)) {
+                        ip = httpRequest.getRemoteAddr();
+                    } else if (ip.contains(",")) {
+                        ip = ip.split(",")[0].trim();
+                    }
+                    if (ip != null && ip.length() > 45) {
+                        ip = ip.substring(0, 45);
+                    }
+                    journal.setAdresseIp(ip);
+                    journal.setUserAgent(httpRequest.getHeader("User-Agent"));
+                }
                 
                 if (u != null) {
                     journal.setIdUtilisateur(u.getIdUtilisateur());

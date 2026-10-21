@@ -13,6 +13,8 @@ public class JournalConnexion extends ClassMere {
     private Integer idUtilisateur;
     private Timestamp dateHeure;
     private String statut; // ex: "SUCCES", "ECHEC_MDP", "COMPTE_DESACTIVE"
+    private String adresseIp;
+    private String userAgent;
 
     public JournalConnexion() {
         this.setNomTable("JOURNAL_CONNEXION");
@@ -32,10 +34,12 @@ public class JournalConnexion extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO journal_connexion (id_utilisateur, statut) VALUES (?, ?)";
+        String sql = "INSERT INTO journal_connexion (id_utilisateur, statut, adresse_ip, user_agent) VALUES (?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, idUtilisateur);
             ps.setString(2, statut);
+            ps.setString(3, adresseIp);
+            ps.setString(4, userAgent);
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) this.idJournal = rs.getInt(1);
@@ -71,6 +75,8 @@ public class JournalConnexion extends ClassMere {
                     j.idUtilisateur = rs.getInt("id_utilisateur");
                     j.dateHeure = rs.getTimestamp("date_heure");
                     j.statut = rs.getString("statut");
+                    j.adresseIp = rs.getString("adresse_ip");
+                    j.userAgent = rs.getString("user_agent");
                     return j;
                 }
             }
@@ -86,4 +92,8 @@ public class JournalConnexion extends ClassMere {
     public void setDateHeure(Timestamp dateHeure) { this.dateHeure = dateHeure; }
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
+    public String getAdresseIp() { return adresseIp; }
+    public void setAdresseIp(String adresseIp) { this.adresseIp = adresseIp; }
+    public String getUserAgent() { return userAgent; }
+    public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
 }

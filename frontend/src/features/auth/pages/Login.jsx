@@ -9,6 +9,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import { Card, CardBody } from '@/components/ui/data-display/Card';
 import galaxamLogo from '@/assets/logo/galaxam-logo.png';
 import SEO from '@/components/system/SEO';
+import DesktopConnectionChooser from '@/features/desktop/DesktopConnectionChooser';
 
 export default function Login() {
     // Contexte et navigation
@@ -19,6 +20,8 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [showConnectionChooser, setShowConnectionChooser] = useState(false);
+    const isDesktop = typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -125,7 +128,7 @@ export default function Login() {
                                 label="Mot de passe"
                                 type={showPassword ? 'text' : 'password'}
                                 name="password"
-                                placeholder="••••••••"
+                                placeholder="Saisissez votre mot de passe"
                                 icon={<Lock size={16} />}
                                 iconRight={
                                     <button
@@ -155,6 +158,17 @@ export default function Login() {
                                 Se connecter
                             </Button>
                         </form>
+                        {isDesktop && (
+                            <div className="mt-5 border-t border-[var(--color-border-subtle)] pt-4 text-center">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConnectionChooser(true)}
+                                    className="min-h-10 rounded px-3 text-sm font-medium text-[var(--color-brand-600)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                >
+                                    Choisir une base ou un serveur
+                                </button>
+                            </div>
+                        )}
                     </CardBody>
                 </Card>
 
@@ -163,6 +177,7 @@ export default function Login() {
                     © {new Date().getFullYear()} Galaxam Logistics. Tous droits réservés.
                 </p>
             </div>
+            {showConnectionChooser && <DesktopConnectionChooser onClose={() => setShowConnectionChooser(false)} />}
         </main>
     );
 }

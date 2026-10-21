@@ -39,7 +39,8 @@ public class SecurityConfig {
         "/auth/refresh",
         "/auth/logout",
         "/auth/ping",
-        "/error"
+        "/error",
+        "/desktop/setup/admin"
     };
 
     /**

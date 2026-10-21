@@ -14,15 +14,39 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "nsis"],
-    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
+    "targets": [
+      "app",
+      "dmg",
+      "nsis"
+    ],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "resources": {
       "../bundle/backend.jar": "backend/backend.jar",
       "../bundle/runtime/bin/": "backend/runtime/bin/",
       "../bundle/runtime/conf/": "backend/runtime/conf/",
       "../bundle/runtime/lib/": "backend/runtime/lib/",
       "../bundle/runtime/release": "backend/runtime/release",
-      "../bundle/runtime-licenses.zip": "backend/runtime-licenses.zip"
+      "../bundle/runtime-licenses.zip": "backend/runtime-licenses.zip",
+      "../bundle/postgresql/bin/postgres": "postgresql/bin/postgres",
+      "../bundle/postgresql/bin/initdb": "postgresql/bin/initdb",
+      "../bundle/postgresql/bin/pg_ctl": "postgresql/bin/pg_ctl",
+      "../bundle/postgresql/bin/pg_isready": "postgresql/bin/pg_isready",
+      "../bundle/postgresql/bin/psql": "postgresql/bin/psql",
+      "../bundle/postgresql/bin/pg_dump": "postgresql/bin/pg_dump",
+      "../bundle/postgresql/bin/pg_restore": "postgresql/bin/pg_restore",
+      "../bundle/postgresql/lib/": "postgresql/lib/",
+      "../bundle/postgresql/share/": "postgresql/share/",
+      "../bundle/postgresql/COPYRIGHT": "postgresql/COPYRIGHT",
+      "../../backend/conception/bdd/01_schema_core_securite.sql": "postgresql/schema/01_schema_core_securite.sql",
+      "../../backend/conception/bdd/02_schema_referentiels_rh.sql": "postgresql/schema/02_schema_referentiels_rh.sql",
+      "../../backend/conception/bdd/03_schema_employes_contrats.sql": "postgresql/schema/03_schema_employes_contrats.sql",
+      "../../backend/conception/bdd/04_schema_conges.sql": "postgresql/schema/04_schema_conges.sql",
+      "../../backend/conception/bdd/05_schema_pointage.sql": "postgresql/schema/05_schema_pointage.sql",
+      "../../backend/conception/bdd/06_schema_paie.sql": "postgresql/schema/06_schema_paie.sql"
     }
   }
 }

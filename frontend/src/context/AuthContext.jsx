@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import apiClient, { setAccessToken, getAccessToken } from '@/api/apiClient';
+import apiClient, { setAccessToken, getAccessToken, getErrorMessage } from '@/api/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -173,17 +173,17 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
         } catch (error) {
             let message = "E-mail ou mot de passe incorrect. Veuillez vérifier votre saisie.";
-            if (error.response) {
-                if (typeof error.response.data === 'string' && error.response.data.trim() !== '') {
-                    message = error.response.data;
-                } else if (error.response.data?.message) {
-                    message = error.response.data.message;
-                } else if (error.response.status === 401) {
+            if (error.code === 'API_INCOMPATIBLE_RESPONSE') {
+                message = getErrorMessage(error);
+            } else if (error.response) {
+                if (error.response.status === 401) {
                     message = "E-mail ou mot de passe incorrect. Veuillez vérifier votre saisie.";
                 } else if (error.response.status === 403) {
                     message = "Votre compte utilisateur est désactivé. Veuillez contacter votre administrateur.";
                 } else if (error.response.status >= 500) {
                     message = "Le serveur est temporairement inaccessible. Veuillez réessayer dans un instant.";
+                } else {
+                    message = getErrorMessage(error, message);
                 }
             } else if (error.request) {
                 message = "Impossible de contacter le serveur. Veuillez vérifier votre connexion réseau.";

@@ -5,6 +5,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { NetworkStatusProvider } from '@/context/NetworkStatusContext';
 import NetworkStatusBanner from '@/components/system/NetworkStatusBanner';
 import ErrorBoundary from '@/components/system/ErrorBoundary';
+import DesktopEntryGate from '@/features/desktop/DesktopEntryGate';
 
 function App() {
     return (
@@ -13,7 +14,7 @@ function App() {
                 <ToastProvider>
                     <ErrorBoundary>
                         <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-fg)] antialiased">
-                            <Router />
+                            <DesktopEntryGate><Router /></DesktopEntryGate>
                             <NetworkStatusBanner />
                         </div>
                     </ErrorBoundary>

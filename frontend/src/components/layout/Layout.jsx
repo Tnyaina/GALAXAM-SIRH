@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext.jsx';
 import { useMenu } from '@/hooks/useMenu';
 import { findMenuTitleByHref } from '@/utils/menu';
+import { getErrorMessage } from '@/api/apiClient';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
@@ -22,7 +23,7 @@ export default function Layout({ children }) {
     const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
     const { pathname } = useLocation();
     const { isAuthenticated } = useAuth();
-    const { menu, loading: menuLoading, error: menuError } = useMenu();
+    const { menu, loading: menuLoading, error: menuError, refreshMenu } = useMenu();
 
     // Effet : applique et mémorise le thème.
     useEffect(() => {
@@ -52,7 +53,8 @@ export default function Layout({ children }) {
                 onClose={() => setSidebarOpen(false)}
                 menu={menu}
                 loading={menuLoading}
-                error={menuError}
+                error={menuError ? getErrorMessage(menuError, 'Impossible de charger le menu depuis cette connexion.') : null}
+                onRetry={refreshMenu}
             />
 
             {/* La topbar, le contenu et le footer vivent dans la colonne de droite :

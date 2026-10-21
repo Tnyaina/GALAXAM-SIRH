@@ -24,8 +24,8 @@ def run(args, *, env=None, input_text=None):
     result = subprocess.run(args, env=env, input=input_text, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode:
-        # Never print SQL input or credential-bearing environment values.
-        raise RuntimeError(f"{pathlib.Path(args[0]).name} failed: {result.stderr[-1000:]}")
+        # SQL input and credential-bearing environment values stay out of diagnostics.
+        raise RuntimeError(f"{pathlib.Path(args[0]).name} failed (exit {result.returncode})")
     return result.stdout.strip()
 
 
@@ -51,9 +51,11 @@ def psql(socket_dir, port, user, password, database, *, sql=None, file=None):
             "-h", str(socket_dir), "-p", str(port), "-U", user, "-d", database]
     if file:
         args.extend(["-f", str(file)])
+        input_text = None
     else:
-        args.extend(["-c", sql])
-    return run(args, env=env)
+        args.extend(["-f", "-"])
+        input_text = sql + "\n"
+    return run(args, env=env, input_text=input_text)
 
 
 def ready(port):

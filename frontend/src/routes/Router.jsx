@@ -55,6 +55,7 @@ const SecuriteAdminPanel = lazy(() => import("@/features/administration/pages/se
 const OrganisationAdminPanel = lazy(() => import("@/features/organization/pages/OrganisationAdminPanel"));
 const ReferentielsRhAdminPanel = lazy(() => import("@/features/administration/pages/referentiels/ReferentielsRhAdminPanel"));
 const ParametresModulesPanel = lazy(() => import("@/features/administration/pages/modules/ParametresModulesPanel"));
+const ConnectionSettingsPage = lazy(() => import("@/features/desktop/ConnectionSettingsPage"));
 
 // Pages système : un même écran paramétré, sans wrappers de route redondants.
 const SYSTEM_PAGES = {
@@ -212,6 +213,7 @@ export default function Router() {
                     <Route element={<ProtectedRoute />}>
                         {/* 403 à l'intérieur du Layout pour garder le menu latéral */}
                         <Route path="/non-autorise" element={<StatusPage {...SYSTEM_PAGES.unauthorized} />} />
+                        <Route path="/settings/connection" element={<ConnectionSettingsPage />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}

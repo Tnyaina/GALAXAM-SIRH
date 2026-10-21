@@ -129,7 +129,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
     );
 }
 
-export default function Sidebar({ open, onClose, menu = [], loading, error }) {
+export default function Sidebar({ open, onClose, menu = [], loading, error, onRetry }) {
     // Contexte, navigation et état local de la barre latérale.
     const location = useLocation();
     const sorted = sortByRang(menu);
@@ -223,9 +223,12 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         </div>
                     )}
                     {error && (
-                        <p className={`px-4 text-xs text-[var(--color-danger-500)] ${collapsed ? 'lg:hidden' : ''}`}>
-                            Impossible de charger le menu.
-                        </p>
+                        <div className={`px-3 py-2 text-xs text-[var(--color-danger-500)] ${collapsed ? 'lg:hidden' : ''}`} role="alert">
+                            <p>{error}</p>
+                            <button type="button" onClick={onRetry} disabled={loading} className="mt-2 font-semibold underline underline-offset-2 disabled:opacity-60">
+                                {loading ? 'Chargement…' : 'Réessayer'}
+                            </button>
+                        </div>
                     )}
                     {!loading && !error && (
                         <ul className="space-y-0.5">

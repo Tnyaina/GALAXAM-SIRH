@@ -1,6 +1,7 @@
 // apiClient.js
 import axios from 'axios';
 import { API_BASE_URL as BASE_URL } from './apiBaseUrl';
+import { API_MISMATCH_MESSAGE, isGalaxamHealthResponse, isHtmlApiResponse } from './apiResponse';
 
 let _accessToken = null;
 let refreshPromise = null;
@@ -72,13 +73,14 @@ const reportNetworkStatus = (reachable) => {
  */
 export const probeBackendConnectivity = async () => {
     try {
-        await axios.get(`${BASE_URL}auth/ping`, {
+        const response = await axios.get(`${BASE_URL}auth/ping`, {
             timeout: 5000,
             withCredentials: true,
-            validateStatus: () => true, // Tout statut HTTP (200...) atteste que le serveur répond
+            validateStatus: () => true, // Vérifier séparément le statut et le payload du ping GALAXAM.
         });
-        reportNetworkStatus(true);
-        return true;
+        const reachable = isGalaxamHealthResponse(response);
+        reportNetworkStatus(reachable);
+        return reachable;
     } catch {
         reportNetworkStatus(false);
         return false;
@@ -154,6 +156,17 @@ apiClient.interceptors.request.use(
 // Intercepteur de réponse : Fallback en cas de 401, retentative réseau et normalisation d'erreur
 apiClient.interceptors.response.use(
     (response) => {
+        if (
+            response.config?.responseType !== 'blob'
+            && response.config?.responseType !== 'arraybuffer'
+            && isHtmlApiResponse(response.data, response.headers?.['content-type'])
+        ) {
+            const error = new Error(API_MISMATCH_MESSAGE);
+            error.code = 'API_INCOMPATIBLE_RESPONSE';
+            error.userMessage = API_MISMATCH_MESSAGE;
+            error.response = response;
+            throw error;
+        }
         reportNetworkStatus(true);
         return response;
     },
@@ -175,6 +188,13 @@ apiClient.interceptors.response.use(
             }
         } else if (error.request) {
             reportNetworkStatus(false);
+        }
+
+        if (isHtmlApiResponse(error.response?.data, error.response?.headers?.['content-type'])) {
+            error.userMessage = API_MISMATCH_MESSAGE;
+            error.message = API_MISMATCH_MESSAGE;
+            error.code = 'API_INCOMPATIBLE_RESPONSE';
+            return Promise.reject(error);
         }
 
         if (
@@ -290,6 +310,7 @@ export const cleanUserFacingMessage = (rawMsg, fallback = "Une erreur inattendue
     if (!rawMsg || typeof rawMsg !== 'string') return fallback;
     const msg = rawMsg.trim();
     if (!msg) return fallback;
+    if (isHtmlApiResponse(msg)) return API_MISMATCH_MESSAGE;
 
     const lower = msg.toLowerCase();
     if (RAW_HTTP_ERRORS[lower]) {

@@ -1,0 +1,19 @@
+{
+  "identifier": "galaxam-desktop-local-ui",
+  "description": "Allow the bundled GALAXAM UI to use only the desktop setup and connection commands.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:18888"]
+  },
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "allow-get-desktop-status",
+    "allow-start-local-setup",
+    "allow-test-remote-api",
+    "allow-apply-remote-mode",
+    "allow-switch-to-local-mode",
+    "allow-create-initial-admin",
+    "allow-stop-local-services"
+  ]
+}
