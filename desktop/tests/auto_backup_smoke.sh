@@ -37,7 +37,7 @@ exit 0
 EOF
 /bin/chmod 700 "$BIN"/*
 export MOCK_CLUSTER="$CLUSTER"
-SCRIPT="$ROOT/desktop/src-tauri/src/auto_backup.sh"
+SCRIPT="$ROOT/desktop/src-tauri/src/platform/macos/auto_backup.sh"
 /bin/sh "$SCRIPT" "$HOME_DIR" "$VERSION_DIR" "$ID" 15432
 ARCHIVE=$(/usr/bin/find "$HOME_DIR/backups" -name 'galaxam-auto-*.tar' -type f -print)
 [ -n "$ARCHIVE" ]

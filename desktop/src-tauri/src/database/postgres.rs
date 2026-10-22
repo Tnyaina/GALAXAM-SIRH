@@ -1,5 +1,5 @@
 //! Embedded PostgreSQL lifecycle for the macOS desktop prototype.
-use crate::backend::DesktopConfig;
+use crate::connection::config::DesktopConfig;
 use rand::RngCore;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
@@ -46,7 +46,14 @@ pub struct PostgresStart {
 }
 
 pub struct PostgresProcess {
-    process: Mutex<Option<(Child, PathBuf, PathBuf, crate::service::ServiceLock)>>,
+    process: Mutex<
+        Option<(
+            Child,
+            PathBuf,
+            PathBuf,
+            crate::platform::service::ServiceLock,
+        )>,
+    >,
     operation: Mutex<()>,
 }
 
@@ -78,7 +85,7 @@ impl PostgresProcess {
         {
             return Err("PostgreSQL est déjà géré par cette instance");
         }
-        let ownership_lock = crate::service::ServiceLock::acquire(&config.home)
+        let ownership_lock = crate::platform::service::ServiceLock::acquire(&config.home)
             .map_err(|_| "Une autre opération contrôle déjà le service local")?;
         if config
             .home
@@ -90,7 +97,7 @@ impl PostgresProcess {
         }
         let reservation = TcpListener::bind(("127.0.0.1", config.postgres_port))
             .map_err(|_| "Port PostgreSQL occupé ; aucune base existante ne sera utilisée")?;
-        let resources = crate::resources::resource_dir(app)
+        let resources = crate::app::resources::resource_dir(app)
             .map_err(|_| "Répertoire des ressources PostgreSQL introuvable")?;
         let bin = resources.join("postgresql/bin");
         let schemas = resources.join("postgresql/schema");
@@ -226,8 +233,8 @@ impl PostgresProcess {
                 self.has_admin(app, config, &secrets.app)
             })();
             self.stop_inner();
-            let has_admin = setup
-                .map_err(|_| "Initialisation SQL incomplète ; cluster provisoire conservé")?;
+            let has_admin =
+                setup.map_err(|_| "Initialisation SQL incomplète ; cluster provisoire conservé")?;
             fs::rename(&paths.pending, &paths.cluster)
                 .map_err(|_| "Validation du cluster impossible ; intervention requise")?;
             write_new_private(
@@ -245,7 +252,8 @@ impl PostgresProcess {
                 reservation,
                 ownership_lock.clone(),
             )?;
-            let checked = self.verify_schema(&paths, config.postgres_port, &secrets.app)
+            let checked = self
+                .verify_schema(&paths, config.postgres_port, &secrets.app)
                 .and_then(|_| self.has_admin(app, config, &secrets.app));
             if checked.is_err() {
                 self.stop_inner();
@@ -265,7 +273,7 @@ impl PostgresProcess {
         port: u16,
         admin_password: &str,
         reservation: TcpListener,
-        ownership_lock: crate::service::ServiceLock,
+        ownership_lock: crate::platform::service::ServiceLock,
     ) -> Result<(), &'static str> {
         let log = private_append(&paths.logs.join("postgres.log"))?;
         let error = log
@@ -471,7 +479,7 @@ impl PostgresProcess {
         config: &DesktopConfig,
         app_password: &str,
     ) -> Result<bool, &'static str> {
-        let binary = crate::resources::resource_dir(app)
+        let binary = crate::app::resources::resource_dir(app)
             .map_err(|_| "Ressources PostgreSQL introuvables")?
             .join("postgresql/bin/psql");
         let count = psql_output(

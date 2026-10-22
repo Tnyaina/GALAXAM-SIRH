@@ -97,7 +97,7 @@ pub fn ensure_running(
         return Err("Le service autonome est disponible uniquement sur macOS".into());
     }
     validate_installation(home)?;
-    let resources = crate::resources::resource_dir(app)?;
+    let resources = crate::app::resources::resource_dir(app)?;
     let id = installation_id(home)?;
     validate_cluster_identity(home, &id)?;
     let _ = app.emit("setup-progress", "service-copy");
@@ -108,7 +108,9 @@ pub fn ensure_running(
         if let Some(previous_plist) = previous_plist {
             return match restore_previous_agent(home, &id, &previous_plist, api_port, pg_port) {
                 Ok(()) => Err(format!("{problem}; ancien service rétabli")),
-                Err(rollback) => Err(format!("{problem}; retour à l’ancien service échoué : {rollback}")),
+                Err(rollback) => Err(format!(
+                    "{problem}; retour à l’ancien service échoué : {rollback}"
+                )),
             };
         }
         return Err(problem);
@@ -116,7 +118,14 @@ pub fn ensure_running(
     Ok(())
 }
 
-fn start_current_agent(app: &AppHandle, home: &Path, service_dir: &Path, id: &str, api_port: u16, pg_port: u16) -> Result<(), String> {
+fn start_current_agent(
+    app: &AppHandle,
+    home: &Path,
+    service_dir: &Path,
+    id: &str,
+    api_port: u16,
+    pg_port: u16,
+) -> Result<(), String> {
     install_agent(home, service_dir, id, api_port, pg_port)?;
     let agent = agent_path(home, id)?;
     let _ = app.emit("setup-progress", "api-wait");
@@ -159,7 +168,10 @@ fn install_backup_agent_nonfatal(home: &Path, service_dir: &Path, id: &str, pg_p
     if let Err(problem) = install_backup_agent(home, service_dir, id, pg_port) {
         let log = home.join("logs/backup.log");
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log) {
-            let _ = writeln!(file, "Installation des sauvegardes automatiques échouée : {problem}");
+            let _ = writeln!(
+                file,
+                "Installation des sauvegardes automatiques échouée : {problem}"
+            );
         }
     }
 }
@@ -170,8 +182,11 @@ pub fn stop(home: &Path) -> Result<(), String> {
     let current = inspect_agent(home, &id)?;
     match current {
         None => return Ok(()),
-        Some(false) if inspect_agent_at_version(home, &id, PREVIOUS_SERVICE_VERSION)? != Some(true) =>
-            return Err("L'identité du service launchd est ambiguë; arrêt refusé".into()),
+        Some(false)
+            if inspect_agent_at_version(home, &id, PREVIOUS_SERVICE_VERSION)? != Some(true) =>
+        {
+            return Err("L'identité du service launchd est ambiguë; arrêt refusé".into())
+        }
         Some(true) => {}
         Some(false) => {}
     }
@@ -237,8 +252,8 @@ fn inspect_agent_at_version(home: &Path, id: &str, version: &str) -> Result<Opti
         .join(version)
         .join("galaxam-service.sh");
     let expected_script_text = expected_script.to_string_lossy().into_owned();
-    let script_is_regular = fs::symlink_metadata(&expected_script)
-        .is_ok_and(|meta| meta.file_type().is_file());
+    let script_is_regular =
+        fs::symlink_metadata(&expected_script).is_ok_and(|meta| meta.file_type().is_file());
     let staged_marker = expected_script
         .parent()
         .map(|dir| dir.join(".staged"))
@@ -252,7 +267,12 @@ fn inspect_agent_at_version(home: &Path, id: &str, version: &str) -> Result<Opti
     Ok(Some(valid))
 }
 
-fn migrate_previous_agent(home: &Path, id: &str, api_port: u16, pg_port: u16) -> Result<Option<String>, String> {
+fn migrate_previous_agent(
+    home: &Path,
+    id: &str,
+    api_port: u16,
+    pg_port: u16,
+) -> Result<Option<String>, String> {
     match inspect_agent(home, id)? {
         None | Some(true) => return Ok(None),
         Some(false) => {}
@@ -263,7 +283,9 @@ fn migrate_previous_agent(home: &Path, id: &str, api_port: u16, pg_port: u16) ->
     let plist = fs::read_to_string(agent_path(home, id)?)
         .map_err(|_| "Configuration de l’ancien service illisible".to_string())?;
     let target = launch_target(home, id);
-    let output = Command::new("/bin/launchctl").args(["bootout", &target]).output()
+    let output = Command::new("/bin/launchctl")
+        .args(["bootout", &target])
+        .output()
         .map_err(|_| "Arrêt de l’ancien service impossible".to_string())?;
     if !output.status.success() {
         return Err("Arrêt de l’ancien service non confirmé".into());
@@ -284,39 +306,61 @@ fn wait_service_release(home: &Path, id: &str, api_port: u16, pg_port: u16) -> R
         let job_absent = inspect_agent(home, id)?.is_none();
         let api_free = std::net::TcpListener::bind(("127.0.0.1", api_port)).is_ok();
         let pg_free = std::net::TcpListener::bind(("127.0.0.1", pg_port)).is_ok();
-        if job_absent && api_free && pg_free { return Ok(()); }
+        if job_absent && api_free && pg_free {
+            return Ok(());
+        }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
     Err("Le service GALAXAM n’a pas libéré ses ports".into())
 }
 
-fn restore_previous_agent(home: &Path, id: &str, previous_plist: &str, api_port: u16, pg_port: u16) -> Result<(), String> {
+fn restore_previous_agent(
+    home: &Path,
+    id: &str,
+    previous_plist: &str,
+    api_port: u16,
+    pg_port: u16,
+) -> Result<(), String> {
     let target = launch_target(home, id);
     if inspect_agent(home, id)?.is_some() {
-        let stopped = Command::new("/bin/launchctl").args(["bootout", &target]).status()
+        let stopped = Command::new("/bin/launchctl")
+            .args(["bootout", &target])
+            .status()
             .map_err(|_| "Arrêt du nouveau service impossible".to_string())?;
-        if !stopped.success() { return Err("Arrêt du nouveau service non confirmé".into()); }
+        if !stopped.success() {
+            return Err("Arrêt du nouveau service non confirmé".into());
+        }
     }
     wait_service_release(home, id, api_port, pg_port)?;
     let plist = agent_path(home, id)?;
     let pending = plist.with_extension("plist.rollback.pending");
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let mut file = options.open(&pending)
+    let mut file = options
+        .open(&pending)
         .map_err(|_| "Préparation du retour arrière impossible".to_string())?;
     file.write_all(previous_plist.as_bytes())
         .map_err(|_| "Écriture de l’ancien service impossible".to_string())?;
-    file.sync_all().map_err(|_| "Synchronisation de l’ancien service impossible".to_string())?;
+    file.sync_all()
+        .map_err(|_| "Synchronisation de l’ancien service impossible".to_string())?;
     fs::rename(&pending, &plist)
         .map_err(|_| "Rétablissement de l’ancien service impossible".to_string())?;
     let started = Command::new("/bin/launchctl")
-        .args(["bootstrap", &launch_domain(), plist.to_str().ok_or("Chemin du service invalide")?])
-        .status().map_err(|_| "Redémarrage de l’ancien service impossible".to_string())?;
-    if !started.success() { return Err("Redémarrage de l’ancien service non confirmé".into()); }
+        .args([
+            "bootstrap",
+            &launch_domain(),
+            plist.to_str().ok_or("Chemin du service invalide")?,
+        ])
+        .status()
+        .map_err(|_| "Redémarrage de l’ancien service impossible".to_string())?;
+    if !started.success() {
+        return Err("Redémarrage de l’ancien service non confirmé".into());
+    }
     wait_api(api_port)
 }
 
@@ -545,40 +589,76 @@ fn backup_target(id: &str) -> String {
     format!("{}/{}", launch_domain(), backup_label(id))
 }
 pub fn backup_agent_active(home: &Path) -> bool {
-    let Ok(id) = installation_id_existing(home) else { return false; };
+    let Ok(id) = installation_id_existing(home) else {
+        return false;
+    };
     let Ok(output) = Command::new("/bin/launchctl")
-        .args(["print", &backup_target(&id)]).output() else { return false; };
-    if !output.status.success() { return false; }
+        .args(["print", &backup_target(&id)])
+        .output()
+    else {
+        return false;
+    };
+    if !output.status.success() {
+        return false;
+    }
     let script = home.join("service/backup/backup.sh");
-    if !script.is_file() { return false; }
-    let printed = format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+    if !script.is_file() {
+        return false;
+    }
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     printed.contains(&script.to_string_lossy().to_string())
 }
 fn stop_backup_agent(home: &Path, id: &str) -> Result<(), String> {
     let target = backup_target(id);
-    let output = Command::new("/bin/launchctl").args(["print", &target]).output()
+    let output = Command::new("/bin/launchctl")
+        .args(["print", &target])
+        .output()
         .map_err(|_| "État des sauvegardes automatiques inaccessible".to_string())?;
-    if launchctl_job_absent(output.status.success(), &String::from_utf8_lossy(&output.stderr)) {
+    if launchctl_job_absent(
+        output.status.success(),
+        &String::from_utf8_lossy(&output.stderr),
+    ) {
         return Ok(());
     }
     let script = home.join("service/backup/backup.sh");
     let plist = backup_agent_path(home, id)?;
     let body = fs::read_to_string(&plist)
         .map_err(|_| "Configuration des sauvegardes automatiques absente".to_string())?;
-    let printed = format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     let expected = script.to_string_lossy();
     if !body.contains(expected.as_ref()) || !printed.contains(expected.as_ref()) {
         return Err("Identité du service de sauvegarde ambiguë ; arrêt refusé".into());
     }
-    let stopped = Command::new("/bin/launchctl").args(["bootout", &target]).status()
+    let stopped = Command::new("/bin/launchctl")
+        .args(["bootout", &target])
+        .status()
         .map_err(|_| "Arrêt des sauvegardes automatiques impossible".to_string())?;
-    if stopped.success() { Ok(()) } else { Err("Arrêt des sauvegardes automatiques non confirmé".into()) }
+    if stopped.success() {
+        Ok(())
+    } else {
+        Err("Arrêt des sauvegardes automatiques non confirmé".into())
+    }
 }
-fn install_backup_agent(home: &Path, service_dir: &Path, id: &str, pg_port: u16) -> Result<(), String> {
+fn install_backup_agent(
+    home: &Path,
+    service_dir: &Path,
+    id: &str,
+    pg_port: u16,
+) -> Result<(), String> {
     let directory = home.join("service/backup");
-    fs::create_dir_all(&directory).map_err(|_| "Dossier des sauvegardes automatiques inaccessible".to_string())?;
+    fs::create_dir_all(&directory)
+        .map_err(|_| "Dossier des sauvegardes automatiques inaccessible".to_string())?;
     verify_owned_directory(&directory)?;
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))
             .map_err(|_| "Permissions des sauvegardes automatiques invalides".to_string())?;
@@ -587,7 +667,8 @@ fn install_backup_agent(home: &Path, service_dir: &Path, id: &str, pg_port: u16)
     let script_pending = directory.join("backup.sh.pending");
     fs::write(&script_pending, include_str!("auto_backup.sh"))
         .map_err(|_| "Installation du lanceur de sauvegarde impossible".to_string())?;
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&script_pending, fs::Permissions::from_mode(0o700))
             .map_err(|_| "Permissions du lanceur de sauvegarde invalides".to_string())?;
@@ -597,7 +678,8 @@ fn install_backup_agent(home: &Path, service_dir: &Path, id: &str, pg_port: u16)
     let backups = home.join("backups");
     fs::create_dir_all(&backups).map_err(|_| "Dossier de sauvegardes inaccessible".to_string())?;
     verify_owned_directory(&backups)?;
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&backups, fs::Permissions::from_mode(0o700))
             .map_err(|_| "Permissions du dossier de sauvegardes invalides".to_string())?;
@@ -611,8 +693,10 @@ fn install_backup_agent(home: &Path, service_dir: &Path, id: &str, pg_port: u16)
         xml(&home.join("logs/backup.log").to_string_lossy())
     );
     let pending = plist.with_extension("plist.backup.pending");
-    fs::write(&pending, body).map_err(|_| "Configuration des sauvegardes automatiques impossible".to_string())?;
-    #[cfg(unix)] {
+    fs::write(&pending, body)
+        .map_err(|_| "Configuration des sauvegardes automatiques impossible".to_string())?;
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&pending, fs::Permissions::from_mode(0o600))
             .map_err(|_| "Permissions de la configuration de sauvegarde invalides".to_string())?;
@@ -620,31 +704,52 @@ fn install_backup_agent(home: &Path, service_dir: &Path, id: &str, pg_port: u16)
     fs::rename(&pending, &plist)
         .map_err(|_| "Publication de la configuration de sauvegarde impossible".to_string())?;
     let target = backup_target(id);
-    let output = Command::new("/bin/launchctl").args(["print", &target]).output()
+    let output = Command::new("/bin/launchctl")
+        .args(["print", &target])
+        .output()
         .map_err(|_| "État des sauvegardes automatiques inaccessible".to_string())?;
     if output.status.success() {
-        let printed = format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        let printed = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         if !printed.contains(&script.to_string_lossy().to_string()) {
             return Err("Un service de sauvegarde portant ce nom existe déjà".into());
         }
-        if printed.contains(&service_dir.to_string_lossy().to_string()) { return Ok(()); }
-        let stopped = Command::new("/bin/launchctl").args(["bootout", &target]).status()
+        if printed.contains(&service_dir.to_string_lossy().to_string()) {
+            return Ok(());
+        }
+        let stopped = Command::new("/bin/launchctl")
+            .args(["bootout", &target])
+            .status()
             .map_err(|_| "Mise à jour du service de sauvegarde impossible".to_string())?;
         if !stopped.success() {
             return Err("Arrêt de l’ancien service de sauvegarde non confirmé".into());
         }
     }
     let started = Command::new("/bin/launchctl")
-        .args(["bootstrap", &launch_domain(), plist.to_str().ok_or("Chemin de sauvegarde invalide")?])
-        .status().map_err(|_| "Activation des sauvegardes automatiques impossible".to_string())?;
-    if started.success() { Ok(()) } else { Err("Activation des sauvegardes automatiques non confirmée".into()) }
+        .args([
+            "bootstrap",
+            &launch_domain(),
+            plist.to_str().ok_or("Chemin de sauvegarde invalide")?,
+        ])
+        .status()
+        .map_err(|_| "Activation des sauvegardes automatiques impossible".to_string())?;
+    if started.success() {
+        Ok(())
+    } else {
+        Err("Activation des sauvegardes automatiques non confirmée".into())
+    }
 }
 fn verify_owned_directory(path: &Path) -> Result<(), String> {
-    let meta = fs::symlink_metadata(path).map_err(|_| "Dossier de sauvegarde inaccessible".to_string())?;
+    let meta =
+        fs::symlink_metadata(path).map_err(|_| "Dossier de sauvegarde inaccessible".to_string())?;
     if !meta.file_type().is_dir() {
         return Err("Dossier de sauvegarde invalide".into());
     }
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::MetadataExt;
         if meta.uid() != unsafe { libc::geteuid() } {
             return Err("Dossier de sauvegarde appartenant à un autre utilisateur".into());

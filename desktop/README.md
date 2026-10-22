@@ -2,6 +2,22 @@
 
 Prototype macOS ARM64 construit avec Tauri 2, React, Spring Boot, Java 17 et PostgreSQL 15.19. Le Web continue d'utiliser le même frontend React et le backend Spring Boot Docker.
 
+## Organisation du code et préparation de Windows
+
+Le code Rust est rangé par responsabilité :
+
+- `app/` : état partagé, démarrage et localisation des ressources embarquées ;
+- `connection/` : configuration et commandes de connexion locale ou distante ;
+- `database/` : initialisation et pilotage de PostgreSQL ;
+- `backup/` : format d'archive, export et commandes de sauvegarde ;
+- `security/` : amorçage administrateur et création du premier compte ;
+- `web/` : fichiers du frontend et relais HTTP vers Spring ;
+- `platform/` : intégrations au système, avec le superviseur et la planification macOS sous `platform/macos/`.
+
+`src-tauri/src/main.rs` ne garde que l'assemblage Tauri et le démarrage de la fenêtre. Les modules communs ne dépendent pas des commandes macOS. Le module `platform/unsupported_service.rs` refuse explicitement de démarrer un service local sur les systèmes qui n'ont pas encore d'implémentation : il ne constitue pas une version Windows opérationnelle.
+
+Avant de produire un installateur Windows, isoler derrière des interfaces de plateforme le cycle de vie du service en arrière-plan, la planification des sauvegardes, les dialogues « Enregistrer sous… », l'ouverture du dossier de sauvegardes, les chemins et permissions du répertoire de données, ainsi que le redémarrage de l'application. Garder le format de configuration et d'archive commun, avec un mécanisme de migration explicite si ces formats changent. Construire Java et PostgreSQL pour chaque architecture cible ; les exécutables du bundle macOS ne fonctionnent pas sur Windows. Conserver des paquets et scripts de build séparés par système.
+
 ## Construire
 
 Prérequis : macOS ARM64, Node.js/npm, Rust/Cargo, Maven et un JDK Temurin 17 avec `jlink`.

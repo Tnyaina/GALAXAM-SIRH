@@ -19,14 +19,7 @@ impl DesktopConfig {
             .or_else(|| std::env::var_os("GALAXAM_DESKTOP_HOME"))
         {
             Some(value) => PathBuf::from(value),
-            None if cfg!(target_os = "macos") => {
-                PathBuf::from(std::env::var_os("HOME").ok_or("Répertoire utilisateur introuvable")?)
-                    .join("Library/Application Support/GALAXAM SIRH")
-            }
-            None => PathBuf::from(
-                std::env::var_os("APPDATA").ok_or("Répertoire utilisateur introuvable")?,
-            )
-            .join("GALAXAM SIRH"),
+            None => crate::platform::default_data_home()?,
         };
         if !home.is_absolute() {
             return Err("Le répertoire GALAXAM_DESKTOP_HOME doit être absolu");
@@ -153,15 +146,7 @@ impl DesktopConfig {
         let home = command_line_value("--galaxam-data-home=")
             .or_else(|| std::env::var_os("GALAXAM_DESKTOP_HOME"))
             .map(PathBuf::from)
-            .unwrap_or_else(|| {
-                if cfg!(target_os = "macos") {
-                    PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
-                        .join("Library/Application Support/GALAXAM SIRH")
-                } else {
-                    PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default())
-                        .join("GALAXAM SIRH")
-                }
-            });
+            .unwrap_or_else(crate::platform::fallback_data_home);
         Self::new_embedded(home)
     }
 
