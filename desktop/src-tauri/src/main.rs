@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod backend;
+mod backup;
 mod postgres;
 mod resources;
 mod service;
@@ -56,11 +57,13 @@ struct DesktopRuntime {
     bootstrap_token: Mutex<Option<String>>,
     api_upstream: Arc<RwLock<Option<String>>>,
     tested_remote: Mutex<Option<String>>,
+    backup_operation: Mutex<()>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DesktopStatusState {
     mode: String,
+    starting: bool,
     setup_required: bool,
     local_available: bool,
     startup_error: Option<String>,
@@ -69,6 +72,7 @@ struct DesktopStatusState {
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 struct RuntimeStatus {
     mode: String,
+    starting: bool,
     setup_required: bool,
     api_available: bool,
     local_available: bool,
@@ -82,6 +86,20 @@ struct AdminInput {
     email: String,
     #[serde(rename = "motDePasse")]
     mot_de_passe: String,
+}
+
+#[derive(serde::Serialize)]
+struct BackupResult {
+    path: String,
+    bytes: u64,
+}
+
+#[derive(serde::Serialize)]
+struct BackupAutomationStatus {
+    active: bool,
+    last_success_unix_seconds: Option<u64>,
+    last_archive: Option<String>,
+    last_error: Option<String>,
 }
 
 async fn handle(
@@ -285,15 +303,18 @@ fn main() {
             apply_remote_mode,
             switch_to_local_mode,
             create_initial_admin,
-            stop_local_services
+            stop_local_services,
+            create_local_backup,
+            reveal_local_backups,
+            get_local_backup_status
         ])
         .setup(move |app| {
             let processes = LocalServices::new();
             let loaded = DesktopConfig::load();
-            let (config, mode, mut upstream, setup_required, mut local_valid, error, mut token) =
+            let (config, mode, mut upstream, setup_required, mut local_valid, error, token, starting) =
                 match loaded {
                     Ok(config) if config.auto_local => {
-                        (config, "setup".to_string(), None, true, false, None, None)
+                        (config, "setup".to_string(), None, true, false, None, None, false)
                     }
                     Ok(config) if config.local_port.is_none() => (
                         config,
@@ -307,67 +328,20 @@ fn main() {
                         false,
                         None,
                         None,
+                        false,
                     ),
                     Ok(config) => {
-                        let mut err = None;
-                        let mut candidate_token = None;
-                        if config.embedded_postgres {
-                            let port = config.local_port.unwrap_or(18081);
-                            match service::ensure_running(
-                                app.handle(),
-                                &config.home,
-                                port,
-                                config.postgres_port,
-                            ) {
-                                Ok(()) => {
-                                    let secrets_path = config
-                                        .home
-                                        .join("data/postgresql/config/installation.secrets");
-                                    let password = std::fs::read_to_string(secrets_path)
-                                        .ok()
-                                        .and_then(|text| {
-                                            text.lines().find_map(|line| {
-                                                line.strip_prefix("app=").map(str::to_owned)
-                                            })
-                                        });
-                                    if config.home.join("config/bootstrap.state").is_file() {
-                                        if let Some(password) = password.as_deref() {
-                                            match ensure_bootstrap_capability(
-                                                &config.home,
-                                                password,
-                                            ) {
-                                                Ok(capability) => {
-                                                    candidate_token = Some(capability)
-                                                }
-                                                Err(problem) => err = Some(problem.to_string()),
-                                            }
-                                        }
-                                    }
-                                }
-                                Err(start_error) => {
-                                    eprintln!(
-                                        "GALAXAM local supervisor startup failed: {start_error}"
-                                    );
-                                    err = Some(start_error);
-                                }
-                            }
-                        }
-                        let upstream = if err.is_none() {
-                            Some(config.api_upstream.clone())
-                        } else {
-                            None
-                        };
-                        let needs_admin = candidate_token.is_some();
-                        let needs_setup = needs_admin || err.is_some();
-                        let local_ready = err.is_none();
+                        let embedded = config.embedded_postgres;
+                        let upstream = if embedded { None } else { Some(config.api_upstream.clone()) };
                         (
                             config,
                             "local".into(),
                             upstream,
-                            needs_setup,
-                            local_ready,
-                            err,
-                            candidate_token,
+                            false,
+                            !embedded,
+                            None,
+                            None,
+                            embedded,
                         )
                     }
                     Err(problem) => {
@@ -380,6 +354,7 @@ fn main() {
                             false,
                             Some(problem.to_string()),
                             None,
+                            false,
                         )
                     }
                 };
@@ -402,13 +377,15 @@ fn main() {
                 config: Mutex::new(config),
                 status: Mutex::new(DesktopStatusState {
                     mode,
+                    starting,
                     setup_required,
                     local_available: local_valid,
                     startup_error: error,
                 }),
-                bootstrap_token: Mutex::new(token.take()),
+                bootstrap_token: Mutex::new(token),
                 api_upstream: upstream_state.clone(),
                 tested_remote: Mutex::new(None),
+                backup_operation: Mutex::new(()),
             });
             #[cfg(unix)]
             {
@@ -446,6 +423,12 @@ fn main() {
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(1024.0, 700.0)
                 .build()?;
+            if starting {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    let _ = start_existing_local(handle);
+                });
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -453,6 +436,54 @@ fn main() {
     // PostgreSQL and Spring Boot belong to the per-user LaunchAgent, not to the
     // lifetime of this UI process. Exiting the window must leave them running.
     app.run(|_, _| {});
+}
+
+fn start_existing_local(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<DesktopRuntime>();
+    let configuration = state.config.lock().map(|config| {
+        (
+            config.home.clone(),
+            config.local_port.unwrap_or(18081),
+            config.postgres_port,
+            config.api_upstream.clone(),
+        )
+    });
+    let outcome = configuration
+        .map_err(|_| "Configuration desktop indisponible".to_string())
+        .and_then(|(home, port, pg_port, upstream)| {
+            service::ensure_running(&app, &home, port, pg_port)?;
+            let token = if home.join("config/bootstrap.state").is_file() {
+                let secrets = std::fs::read_to_string(home.join("data/postgresql/config/installation.secrets"))
+                    .map_err(|_| "Secrets de la base locale illisibles".to_string())?;
+                let password = secrets.lines()
+                    .find_map(|line| line.strip_prefix("app="))
+                    .ok_or("Secret de la base locale absent")?;
+                Some(ensure_bootstrap_capability(&home, password).map_err(str::to_string)?)
+            } else {
+                None
+            };
+            Ok((upstream, token))
+        });
+    let (upstream, token, error) = match outcome {
+        Ok((upstream, token)) => (Some(upstream), token, None),
+        Err(problem) => {
+            eprintln!("GALAXAM local supervisor startup failed: {problem}");
+            (None, None, Some(problem))
+        }
+    };
+    if let Ok(mut current) = state.api_upstream.write() {
+        *current = upstream;
+    }
+    if let Ok(mut current) = state.bootstrap_token.lock() {
+        *current = token.clone();
+    }
+    if let Ok(mut current) = state.status.lock() {
+        current.starting = false;
+        current.setup_required = token.is_some() || error.is_some();
+        current.startup_error = error.clone();
+    }
+    let _ = app.emit("desktop-startup-complete", ());
+    error.map_or(Ok(()), Err)
 }
 
 const BOOTSTRAP_LIFETIME_SECS: u64 = 7 * 24 * 60 * 60;
@@ -752,6 +783,7 @@ fn read_runtime_status(
             None
         },
         mode: status.mode,
+        starting: status.starting,
         setup_required: status.setup_required,
         api_available,
         local_available: status.local_available,
@@ -760,10 +792,14 @@ fn read_runtime_status(
 }
 
 #[tauri::command]
-fn start_local_setup(
-    app: AppHandle,
-    state: TauriState<'_, DesktopRuntime>,
-) -> Result<RuntimeStatus, String> {
+async fn start_local_setup(app: AppHandle) -> Result<RuntimeStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || start_local_setup_blocking(app))
+        .await
+        .map_err(|_| "Préparation locale interrompue".to_string())?
+}
+
+fn start_local_setup_blocking(app: AppHandle) -> Result<RuntimeStatus, String> {
+    let state = app.state::<DesktopRuntime>();
     let current_status = state
         .status
         .lock()
@@ -772,36 +808,23 @@ fn start_local_setup(
     if current_status.mode != "setup" && current_status.startup_error.is_none() {
         return Err("La configuration initiale est déjà terminée".into());
     }
+    if current_status.mode == "local" {
+        start_existing_local(app.clone())?;
+        return get_desktop_status(state);
+    }
     let config = state
         .config
         .lock()
         .map_err(|_| "Configuration desktop indisponible")?;
     let processes = app.state::<LocalServices>();
     let _ = app.emit("setup-progress", "database");
-    let env = match processes.postgres.start(&app, &config) {
-        Ok(value) => value,
-        Err(problem) => return Err(problem.into()),
-    };
-    let Some(db_password) = env
-        .iter()
-        .find(|(key, _)| key == "GALAXAM_DESKTOP_DB_PASSWORD")
-        .map(|(_, value)| value.clone())
-    else {
-        processes.stop();
-        return Err("Secret local absent".into());
-    };
-    let has_admin = match processes.postgres.has_admin(&app, &config, &db_password) {
-        Ok(value) => value,
-        Err(problem) => {
-            processes.stop();
-            return Err(problem.into());
-        }
-    };
+    let database = processes.postgres.start(&app, &config)?;
+    let has_admin = database.has_admin;
     let capability = if has_admin {
         let _ = std::fs::remove_file(config.home.join("config/bootstrap.state"));
         None
     } else {
-        match ensure_bootstrap_capability(&config.home, &db_password) {
+        match ensure_bootstrap_capability(&config.home, &database.app_password) {
             Ok(value) => Some(value),
             Err(problem) => {
                 processes.stop();
@@ -810,13 +833,26 @@ fn start_local_setup(
         }
     };
     let _ = app.emit("setup-progress", "backend");
-    if let Err(problem) = config.save_local_mode() {
-        processes.stop();
-        return Err(problem.into());
-    }
     processes.stop();
     let port = config.local_port.unwrap_or(18081);
-    service::ensure_running(&app, &config.home, port, config.postgres_port)?;
+    if let Err(problem) = service::ensure_running(&app, &config.home, port, config.postgres_port) {
+        let cleanup = if config.home.join("config/installation.id").is_file() {
+            service::disable(&config.home)
+        } else {
+            Ok(())
+        };
+        return Err(match cleanup {
+            Ok(()) => problem,
+            Err(cleanup) => format!("{problem}; arrêt du service provisoire impossible : {cleanup}"),
+        });
+    }
+    if let Err(problem) = config.save_local_mode() {
+        let cleanup = service::disable(&config.home);
+        return Err(match cleanup {
+            Ok(()) => problem.to_string(),
+            Err(cleanup) => format!("{problem}; arrêt du service provisoire impossible : {cleanup}"),
+        });
+    }
     *state
         .api_upstream
         .write()
@@ -826,6 +862,7 @@ fn start_local_setup(
         .lock()
         .map_err(|_| "État desktop indisponible")? = DesktopStatusState {
         mode: "local".into(),
+        starting: false,
         setup_required: !has_admin,
         local_available: true,
         startup_error: None,
@@ -934,8 +971,13 @@ fn validate_remote_origin(value: &str) -> Result<String, String> {
 async fn apply_remote_mode(
     url: String,
     app: AppHandle,
-    state: TauriState<'_, DesktopRuntime>,
 ) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || apply_remote_mode_blocking(url, app))
+        .await.map_err(|_| "Changement vers le serveur distant interrompu".to_string())?
+}
+
+fn apply_remote_mode_blocking(url: String, app: AppHandle) -> Result<(), String> {
+    let state = app.state::<DesktopRuntime>();
     let origin = validate_remote_origin(&url)?;
     if state
         .tested_remote
@@ -1016,10 +1058,13 @@ async fn apply_remote_mode(
 }
 
 #[tauri::command]
-async fn switch_to_local_mode(
-    app: AppHandle,
-    state: TauriState<'_, DesktopRuntime>,
-) -> Result<(), String> {
+async fn switch_to_local_mode(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || switch_to_local_mode_blocking(app))
+        .await.map_err(|_| "Retour à la base locale interrompu".to_string())?
+}
+
+fn switch_to_local_mode_blocking(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<DesktopRuntime>();
     if !state
         .status
         .lock()
@@ -1054,6 +1099,10 @@ async fn switch_to_local_mode(
     config.api_upstream = format!("http://127.0.0.1:{}", config.local_port.unwrap_or(18081));
     let processes = app.state::<LocalServices>();
     if let Err(problem) = processes.postgres.start(&app, &config) {
+        config.local_port = previous_config.0;
+        config.embedded_postgres = previous_config.1;
+        config.auto_local = previous_config.2;
+        config.api_upstream = previous_config.3;
         return Err(problem.into());
     }
     processes.postgres.stop();
@@ -1102,15 +1151,129 @@ async fn switch_to_local_mode(
 }
 
 #[tauri::command]
-fn stop_local_services(state: TauriState<'_, DesktopRuntime>) -> Result<(), String> {
-    let config = state
+async fn stop_local_services(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<DesktopRuntime>();
+    let home = state
         .config
         .lock()
-        .map_err(|_| "Configuration desktop indisponible")?;
-    if config.local_port.is_none() {
-        return Err("Aucun service local n'est actif en mode distant".into());
+        .map_err(|_| "Configuration desktop indisponible".to_string())
+        .and_then(|config| {
+            if config.local_port.is_none() {
+                Err("Aucun service local n'est actif en mode distant".to_string())
+            } else {
+                Ok(config.home.clone())
+            }
+        })?;
+    tauri::async_runtime::spawn_blocking(move || service::disable(&home))
+        .await
+        .map_err(|_| "Arrêt du service local interrompu".to_string())?
+}
+
+#[tauri::command]
+async fn create_local_backup(app: AppHandle, token: String) -> Result<Option<BackupResult>, String> {
+    if token.is_empty() {
+        return Err("Session administrateur requise".into());
     }
-    service::disable(&config.home)
+    let state = app.state::<DesktopRuntime>();
+    let status = state.status.lock().map_err(|_| "État desktop indisponible")?.clone();
+    if status.mode != "local" || status.starting || status.startup_error.is_some() {
+        return Err("La base locale doit être disponible pour l’export".into());
+    }
+    let (home, port, upstream) = {
+        let config = state.config.lock().map_err(|_| "Configuration desktop indisponible")?;
+        if !config.embedded_postgres {
+            return Err("Export disponible uniquement pour la base locale intégrée".into());
+        }
+        (config.home.clone(), config.postgres_port, config.api_upstream.clone())
+    };
+    authorize_backup_admin(&upstream, &token).await?;
+    let destination = tauri::async_runtime::spawn_blocking(backup::choose_export_destination)
+        .await.map_err(|_| "Choix du fichier d’export interrompu".to_string())??;
+    let Some(destination) = destination else { return Ok(None); };
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<DesktopRuntime>();
+        let _operation = state.backup_operation.try_lock()
+            .map_err(|_| "Une sauvegarde est déjà en cours".to_string())?;
+        let path = backup::create(&app, &home, port)?;
+        let bytes = backup::export_copy(&path, &destination)?;
+        Ok(Some(BackupResult { path: destination.to_string_lossy().into_owned(), bytes }))
+    }).await.map_err(|_| "Sauvegarde interrompue".to_string())?
+}
+
+async fn authorize_backup_admin(upstream: &str, token: &str) -> Result<(), String> {
+    if token.is_empty() { return Err("Session administrateur requise".into()); }
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(10))
+        .build().map_err(|_| "Client réseau indisponible")?;
+    let response = client
+        .get(format!("{upstream}/api/admin/desktop-backup/authorize"))
+        .bearer_auth(token)
+        .send().await
+        .map_err(|_| "API locale indisponible".to_string())?;
+    if response.status() == reqwest::StatusCode::NO_CONTENT { return Ok(()); }
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        // An already installed service may still run the previous bundled JAR.
+        // Its existing security route is admin-only and supports HEAD.
+        let legacy = client
+            .head(format!("{upstream}/api/securite/utilisateurs"))
+            .bearer_auth(token)
+            .send().await
+            .map_err(|_| "API locale indisponible".to_string())?;
+        if legacy.status().is_success() { return Ok(()); }
+    }
+    Err("Autorisation administrateur refusée".into())
+}
+
+#[tauri::command]
+async fn get_local_backup_status(app: AppHandle, token: String) -> Result<BackupAutomationStatus, String> {
+    let state = app.state::<DesktopRuntime>();
+    let (home, upstream, embedded) = {
+        let config = state.config.lock().map_err(|_| "Configuration desktop indisponible")?;
+        (config.home.clone(), config.api_upstream.clone(), config.embedded_postgres)
+    };
+    if !embedded { return Err("Sauvegarde automatique locale indisponible".into()); }
+    authorize_backup_admin(&upstream, &token).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let backups = home.join("backups");
+        let last_success_unix_seconds = std::fs::read_to_string(backups.join(".automatic-last-success"))
+            .ok().and_then(|value| value.trim().parse::<u64>().ok());
+        let last_archive = std::fs::read_dir(&backups).ok().into_iter().flatten()
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let name = entry.file_name().into_string().ok()?;
+                if name.starts_with("galaxam-auto-") && name.ends_with(".tar")
+                    && entry.file_type().ok()?.is_file() { Some(name) } else { None }
+            }).max();
+        let last_error = std::fs::read_to_string(home.join("logs/backup.log"))
+            .ok().and_then(|log| log.lines().last().map(str::to_owned))
+            .filter(|line| line.contains("échouée"));
+        Ok(BackupAutomationStatus {
+            active: service::backup_agent_active(&home),
+            last_success_unix_seconds,
+            last_archive,
+            last_error,
+        })
+    }).await.map_err(|_| "État des sauvegardes interrompu".to_string())?
+}
+
+#[tauri::command]
+async fn reveal_local_backups(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<DesktopRuntime>();
+    let home = state.config.lock()
+        .map_err(|_| "Configuration desktop indisponible")?
+        .home.clone();
+    let backups = home.join("backups");
+    tauri::async_runtime::spawn_blocking(move || {
+        if !backups.is_dir() {
+            return Err("Aucun dossier de sauvegardes disponible".to_string());
+        }
+        let result = std::process::Command::new("/usr/bin/open")
+            .arg(&backups)
+            .status()
+            .map_err(|_| "Impossible d’ouvrir le dossier des sauvegardes".to_string())?;
+        if result.success() { Ok(()) } else { Err("Impossible d’ouvrir le dossier des sauvegardes".into()) }
+    }).await.map_err(|_| "Ouverture du dossier interrompue".to_string())?
 }
 
 #[tauri::command]
@@ -1214,6 +1377,7 @@ mod tests {
     fn desktop_status_snapshot_is_readable_without_webview_or_reentrant_locking() {
         let state = Mutex::new(DesktopStatusState {
             mode: "local".into(),
+            starting: false,
             setup_required: true,
             local_available: true,
             startup_error: None,
@@ -1226,6 +1390,7 @@ mod tests {
             status,
             RuntimeStatus {
                 mode: "local".into(),
+                starting: false,
                 setup_required: true,
                 api_available: true,
                 local_available: true,

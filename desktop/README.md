@@ -30,6 +30,12 @@ En mode local, PostgreSQL et Spring Boot utilisent les ressources du bundle et u
 
 Fermer la fenêtre ne désenregistre pas le LaunchAgent ni n'arrête les services locaux. L'arrêt explicite des services se fait dans **Paramètres → Connexion et données**. Les tâches Spring ne tournent pas pendant que le Mac est en veille ou après fermeture de la session utilisateur.
 
+Lors du passage du service local `0.1.3` à `0.1.4`, le prochain lancement copie les nouveaux composants, attend l'arrêt de l'ancien service, puis démarre le nouveau. Si ce démarrage échoue, l'application tente de rétablir l'ancien service. Les données PostgreSQL et les documents restent dans le même dossier.
+
+Un administrateur connecté peut créer une archive manuelle depuis **Paramètres → Connexion et données → Sauvegardes de la base locale**. Elle contient un export PostgreSQL au format personnalisé et le dossier des documents. L'archive est publiée dans `~/Library/Application Support/GALAXAM SIRH/backups/` après vérification de sa structure, puis copiée à l'emplacement choisi dans la fenêtre « Enregistrer sous… ».
+
+Un LaunchAgent utilisateur distinct vérifie chaque heure si une sauvegarde automatique est due. Il crée au plus une archive par période de 24 heures dans `backups/`, après contrôle de l'identité du cluster PostgreSQL, et conserve les sept dernières archives automatiques. Les archives manuelles ne sont pas supprimées par cette rotation. Les erreurs et les réussites sont consignées dans `logs/backup.log`. La tâche est désactivée avec les services locaux. Aucune tâche ne peut s'exécuter pendant que le Mac est éteint ; une tentative a lieu après son prochain démarrage si les services locaux sont actifs. La restauration n'est pas encore disponible dans l'interface ; l'archive n'est pas une image atomique des fichiers modifiés pendant l'export.
+
 ## Nettoyer les fichiers générés
 
 Le staging Java/PostgreSQL, les dépendances npm et les sorties Rust/Tauri sont reproductibles et ignorés par Git. Pour libérer l'espace après avoir conservé l'installateur souhaité :

@@ -14,6 +14,9 @@
     "allow-apply-remote-mode",
     "allow-switch-to-local-mode",
     "allow-create-initial-admin",
-    "allow-stop-local-services"
+    "allow-stop-local-services",
+    "allow-create-local-backup",
+    "allow-reveal-local-backups",
+    "allow-get-local-backup-status"
   ]
 }

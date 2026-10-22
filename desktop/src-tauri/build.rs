@@ -8,6 +8,9 @@ fn main() {
             "switch_to_local_mode",
             "create_initial_admin",
             "stop_local_services",
+            "create_local_backup",
+            "reveal_local_backups",
+            "get_local_backup_status",
         ]),
     ))
     .expect("failed to build Tauri permissions");

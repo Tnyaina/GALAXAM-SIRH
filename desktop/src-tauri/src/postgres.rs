@@ -9,7 +9,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 const DATABASE: &str = "sirh_galaxam";
 const APP_ROLE: &str = "galaxam_app";
@@ -40,6 +40,11 @@ struct InstallationSecrets {
     jwt: String,
 }
 
+pub struct PostgresStart {
+    pub app_password: String,
+    pub has_admin: bool,
+}
+
 pub struct PostgresProcess {
     process: Mutex<Option<(Child, PathBuf, PathBuf, crate::service::ServiceLock)>>,
     operation: Mutex<()>,
@@ -57,7 +62,7 @@ impl PostgresProcess {
         &self,
         app: &AppHandle,
         config: &DesktopConfig,
-    ) -> Result<Vec<(String, String)>, &'static str> {
+    ) -> Result<PostgresStart, &'static str> {
         let _operation = self
             .operation
             .lock()
@@ -169,7 +174,8 @@ impl PostgresProcess {
             InstallationSecrets::read(&paths.config.join("installation.secrets"))?
         };
         write_config(&paths, config.postgres_port)?;
-        if fresh {
+        let has_admin = if fresh {
+            let _ = app.emit("setup-progress", "cluster");
             let password_path = paths.config.join("initdb-password.pending");
             write_new_private(&password_path, &format!("{}\n", secrets.admin))?;
             let init_result = run_quiet(
@@ -196,6 +202,7 @@ impl PostgresProcess {
                 reservation,
                 ownership_lock.clone(),
             )?;
+            let _ = app.emit("setup-progress", "schema");
             let setup = (|| {
                 self.psql(&paths, config.postgres_port, ADMIN_ROLE, &secrets.admin, "postgres",
                     &format!("CREATE ROLE {APP_ROLE} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{}'", secrets.app))?;
@@ -215,27 +222,21 @@ impl PostgresProcess {
                         &paths.schemas.join(schema),
                     )?;
                 }
-                self.verify_schema(&paths, config.postgres_port, &secrets.app)
+                self.verify_schema(&paths, config.postgres_port, &secrets.app)?;
+                self.has_admin(app, config, &secrets.app)
             })();
             self.stop_inner();
-            setup.map_err(|_| "Initialisation SQL incomplète ; cluster provisoire conservé")?;
+            let has_admin = setup
+                .map_err(|_| "Initialisation SQL incomplète ; cluster provisoire conservé")?;
             fs::rename(&paths.pending, &paths.cluster)
                 .map_err(|_| "Validation du cluster impossible ; intervention requise")?;
             write_new_private(
                 &paths.config.join("installation.ready"),
                 "postgresql=15\nschema=canonical-01-06\n",
             )?;
-            let second_reservation = TcpListener::bind(("127.0.0.1", config.postgres_port))
-                .map_err(|_| "Port PostgreSQL occupé après initialisation")?;
-            self.launch(
-                &paths,
-                &paths.cluster,
-                config.postgres_port,
-                &secrets.admin,
-                second_reservation,
-                ownership_lock.clone(),
-            )?;
+            has_admin
         } else {
+            let _ = app.emit("setup-progress", "database-check");
             self.launch(
                 &paths,
                 &paths.cluster,
@@ -244,20 +245,17 @@ impl PostgresProcess {
                 reservation,
                 ownership_lock.clone(),
             )?;
-            self.verify_schema(&paths, config.postgres_port, &secrets.app)?;
-        }
-        Ok(vec![
-            (
-                "GALAXAM_DESKTOP_DB_URL".into(),
-                format!(
-                    "jdbc:postgresql://127.0.0.1:{}/{DATABASE}",
-                    config.postgres_port
-                ),
-            ),
-            ("GALAXAM_DESKTOP_DB_USER".into(), APP_ROLE.into()),
-            ("GALAXAM_DESKTOP_DB_PASSWORD".into(), secrets.app),
-            ("GALAXAM_DESKTOP_JWT_SECRET".into(), secrets.jwt),
-        ])
+            let checked = self.verify_schema(&paths, config.postgres_port, &secrets.app)
+                .and_then(|_| self.has_admin(app, config, &secrets.app));
+            if checked.is_err() {
+                self.stop_inner();
+            }
+            checked?
+        };
+        Ok(PostgresStart {
+            app_password: secrets.app,
+            has_admin,
+        })
     }
 
     fn launch(

@@ -1,7 +1,6 @@
 package mg.galaxam.sirh.paie.persistence;
 
 import bean.ClassMere;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;

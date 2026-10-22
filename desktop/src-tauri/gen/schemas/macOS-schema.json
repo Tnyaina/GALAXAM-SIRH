@@ -189,10 +189,28 @@
           "markdownDescription": "Enables the create_initial_admin command without any pre-configured scope."
         },
         {
+          "description": "Enables the create_local_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-local-backup",
+          "markdownDescription": "Enables the create_local_backup command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_desktop_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-desktop-status",
           "markdownDescription": "Enables the get_desktop_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_local_backup_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-local-backup-status",
+          "markdownDescription": "Enables the get_local_backup_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reveal_local_backups command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reveal-local-backups",
+          "markdownDescription": "Enables the reveal_local_backups command without any pre-configured scope."
         },
         {
           "description": "Enables the start_local_setup command without any pre-configured scope.",
@@ -231,10 +249,28 @@
           "markdownDescription": "Denies the create_initial_admin command without any pre-configured scope."
         },
         {
+          "description": "Denies the create_local_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-local-backup",
+          "markdownDescription": "Denies the create_local_backup command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_desktop_status command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-desktop-status",
           "markdownDescription": "Denies the get_desktop_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_local_backup_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-local-backup-status",
+          "markdownDescription": "Denies the get_local_backup_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reveal_local_backups command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reveal-local-backups",
+          "markdownDescription": "Denies the reveal_local_backups command without any pre-configured scope."
         },
         {
           "description": "Denies the start_local_setup command without any pre-configured scope.",

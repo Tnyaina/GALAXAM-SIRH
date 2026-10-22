@@ -295,30 +295,6 @@ fn bootstrap_artifacts_only(home: &Path) -> Result<bool, &'static str> {
     Ok(true)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bootstrap_diagnostics_do_not_make_a_new_installation_ambiguous() {
-        let root = std::env::temp_dir().join(format!(
-            "galaxam-bootstrap-artifacts-{}",
-            std::process::id()
-        ));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(root.join("logs")).unwrap();
-        fs::write(
-            root.join("logs/desktop-diagnostics.log"),
-            "event=startup-loaded mode=setup\n",
-        )
-        .unwrap();
-        assert!(bootstrap_artifacts_only(&root).unwrap());
-        fs::write(root.join("logs/other.log"), "unexpected\n").unwrap();
-        assert!(!bootstrap_artifacts_only(&root).unwrap());
-        let _ = fs::remove_dir_all(root);
-    }
-}
-
 fn command_line_value(prefix: &str) -> Option<std::ffi::OsString> {
     std::env::args_os().find_map(|arg| {
         let text = arg.to_string_lossy();
@@ -358,4 +334,28 @@ fn create_private_dirs(home: &Path) -> Result<(), &'static str> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bootstrap_diagnostics_do_not_make_a_new_installation_ambiguous() {
+        let root = std::env::temp_dir().join(format!(
+            "galaxam-bootstrap-artifacts-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("logs")).unwrap();
+        fs::write(
+            root.join("logs/desktop-diagnostics.log"),
+            "event=startup-loaded mode=setup\n",
+        )
+        .unwrap();
+        assert!(bootstrap_artifacts_only(&root).unwrap());
+        fs::write(root.join("logs/other.log"), "unexpected\n").unwrap();
+        assert!(!bootstrap_artifacts_only(&root).unwrap());
+        let _ = fs::remove_dir_all(root);
+    }
 }
