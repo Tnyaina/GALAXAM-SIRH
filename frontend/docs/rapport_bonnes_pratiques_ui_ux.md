@@ -29,9 +29,9 @@ Exemple :
 ```text
 [ Enregistrer ]
        ↓
-[ ⏳ Enregistrement... ]
+[ Enregistrement... ]
        ↓
-[ ✓ Enregistré ]
+[ Enregistré ]
 ```
 
 L'utilisateur ne doit jamais se demander :
@@ -142,7 +142,7 @@ Puis :
 ```text
 ● Actif
 
-✓ Synchronisé
+Synchronisé
 ```
 
 À utiliser notamment pour :
@@ -195,7 +195,7 @@ Marie
 Puis :
 
 ```text
-✓ Employé supprimé
+Employé supprimé
 ```
 
 ---
@@ -213,7 +213,7 @@ Puis :
 devient :
 
 ```text
-[ ⏳ Enregistrement... ]
+[ Enregistrement... ]
 ```
 
 pendant la requête.
@@ -262,15 +262,15 @@ Les actions importantes doivent être visuellement prioritaires.
 Pour les petites confirmations :
 
 ```text
-✓ Employé créé
+Employé créé
 ```
 
 ```text
-✓ Modification enregistrée
+Modification enregistrée
 ```
 
 ```text
-✓ Document supprimé
+Document supprimé
 ```
 
 Les notifications peuvent disparaître automatiquement.
@@ -308,7 +308,7 @@ Pour les actions réellement destructives, utiliser une confirmation explicite.
 Exemple :
 
 ```text
-⚠ Désactiver cet employé ?
+Désactiver cet employé ?
 
 Jean Dupont
 
@@ -335,7 +335,7 @@ Email
 
 [ tojo@gmail ]
 
-⚠ Format d'email invalide
+Format d'email invalide
 ```
 
 Puis :
@@ -343,7 +343,7 @@ Puis :
 ```text
 [ tojo@gmail.com ]
 
-✓ Email valide
+Email valide
 ```
 
 ## 10.2 Erreur au bon endroit
@@ -353,7 +353,7 @@ L'erreur doit être proche du champ concerné.
 Éviter :
 
 ```text
-❌ Une erreur est survenue
+Une erreur est survenue
 ```
 
 Préférer :
@@ -363,7 +363,7 @@ CIN
 
 [ 101234567890 ]
 
-⚠ Ce numéro CIN existe déjà.
+Ce numéro CIN existe déjà.
 ```
 
 ## 10.3 Message d'erreur utile
@@ -400,7 +400,7 @@ Si une requête échoue, ne pas vider le formulaire.
 Exemple :
 
 ```text
-⚠ Impossible de contacter le serveur.
+Impossible de contacter le serveur.
 
 Vos informations ont été conservées.
 
@@ -441,7 +441,7 @@ API
 Pendant la recherche :
 
 ```text
-🔍 Jean
+Recherche : Jean
 
 Recherche...
 ```
@@ -475,7 +475,7 @@ Aucune donnée.
 ### Bon
 
 ```text
-             👥
+         [Aucun collaborateur]
 
        Aucun employé
 
@@ -655,7 +655,7 @@ Une animation doit servir l'expérience, pas ralentir l'utilisateur.
 Pour les icônes seules :
 
 ```text
-✎
+[Modifier]
 ```
 
 Au survol :
@@ -669,13 +669,13 @@ Les tooltips sont particulièrement utiles pour les actions secondaires.
 Pour les actions critiques, privilégier un bouton avec texte explicite :
 
 ```text
-[ 🗑 Supprimer ]
+[ Supprimer ]
 ```
 
 plutôt que :
 
 ```text
-[ 🗑 ]
+[ Supprimer ]
 ```
 
 ---
@@ -698,7 +698,7 @@ Exemple :
 ```text
 ┌─────────────────────────────┐
 │                             │
-│  📄 Déposez votre document  │
+│    Déposez votre document   │
 │                             │
 │  ou                         │
 │                             │
@@ -724,7 +724,7 @@ contrat-jean.pdf
 Pour les formulaires complexes, il peut être utile d'afficher :
 
 ```text
-✓ Brouillon sauvegardé
+Brouillon sauvegardé
 ```
 
 ou :
@@ -747,7 +747,7 @@ Mais il faut clairement différencier :
 Si l'utilisateur a modifié un formulaire puis tente de partir :
 
 ```text
-⚠ Modifications non enregistrées
+Modifications non enregistrées
 
 Vous allez quitter cette page.
 Vos modifications seront perdues.
@@ -780,7 +780,7 @@ Ils doivent rester cohérents et ne pas gêner les raccourcis natifs du navigate
 Pour un gros SIRH :
 
 ```text
-⌘ K
+Ctrl + K
 
 Rechercher...
 ```
@@ -790,13 +790,13 @@ Exemple :
 ```text
 Jean Dupont
 
-👤 Jean Dupont
+Jean Dupont (Employé)
    Employé
 
-📄 Contrat CDI
+Contrat CDI (Document)
    Contrat
 
-🏖 Congé du 15 août
+Congé du 15 août (Demande)
    Congé
 ```
 
@@ -821,13 +821,13 @@ Principes importants :
 Mauvais :
 
 ```text
-🟢
+[Actif]
 ```
 
 Bon :
 
 ```text
-🟢 Actif
+Actif
 ```
 
 ---
@@ -879,7 +879,7 @@ Préférer :
 L'utilisateur doit toujours savoir dans quel état se trouve l'application :
 
 ```text
-✓ Synchronisé
+Synchronisé
 ```
 
 ```text
@@ -887,13 +887,13 @@ L'utilisateur doit toujours savoir dans quel état se trouve l'application :
 ```
 
 ```text
-⚠ Hors connexion
+Hors connexion
 ```
 
 En cas d'erreur :
 
 ```text
-⚠ Impossible de contacter le serveur.
+Impossible de contacter le serveur.
 
 Vos données n'ont pas été perdues.
 

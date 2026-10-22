@@ -23,4 +23,4 @@ modèle des sites partagés.
 
 Avant SP74 sur une base existante, exécuter les diagnostics décrits dans le
 script. Toute incohérence bloque la migration et doit être arbitrée/corrigée
-explicitement. Le test associé est `AffectationIntegrityIntegrationTest`.
+explicitement. Les tests de référence sont validés via `ContratTravailControllerPostgresTest` et `EmployeSatelliteLifecycleTest`.

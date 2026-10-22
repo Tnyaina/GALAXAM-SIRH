@@ -3,7 +3,6 @@ import {
     AlertTriangle,
     ArrowLeft,
     BadgeCheck,
-    Banknote,
     Building2,
     Calculator,
     CalendarCheck,
@@ -28,7 +27,6 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
-import { Textarea } from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card, CardBody, CardFooter } from '@/components/ui/data-display/Card';

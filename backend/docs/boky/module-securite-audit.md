@@ -6,7 +6,7 @@
 
 ---
 
-## ⚠️ Corrections par rapport à l'ancienne documentation
+## Corrections par rapport à l'ancienne documentation
 
 | Élément | Ancienne doc (ERRONÉE) | Réalité du code |
 |---|---|---|
@@ -104,7 +104,7 @@ CREATE TABLE ref_role (
 | Rôle | EMPLOYE | CONGE | POINTAGE | PAIE | ORGANISATION |
 |---|:---:|:---:|:---:|:---:|:---:|
 | `ROLE_ADMIN` (id=1) | R/W/V | R/W/V | R/W/V | R/W/V | R/W/V |
-| `ROLE_AGENT_POINTAGE` (id=2) | ❌ | ❌ | R+W (pas V) | ❌ | ❌ |
+| `ROLE_AGENT_POINTAGE` (id=2) | - | - | R+W (pas V) | - | - |
 
 ### 2.4 Table `utilisateur`
 ```sql

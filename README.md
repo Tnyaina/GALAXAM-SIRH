@@ -1,230 +1,372 @@
 # GALAXAM-SIRH
 
-Système Intégré de Gestion des Ressources Humaines, du Pointage, des Congés et de la Paie pour le groupe **GALAXAM LOGISTICS**.
+<p align="center">
+  <img src="frontend/public/glx-logo-favicon.png" alt="GALAXAM Logo" width="96" height="96" />
+</p>
 
-L'application centralise la gestion multi-filiales du personnel, le suivi opérationnel des présences et des heures majorées, l'administration des congés sur grand-livre comptable immuable (ledger FIFO), l'exécution du moteur de paie malagasy et l'édition automatique des déclaratifs légaux et fiscaux.
+<h3 align="center">Système Intégré de Gestion des Ressources Humaines, du Pointage et de la Paie</h3>
 
----
+<p align="center">
+  Plateforme d'entreprise unifiée, déterministe et auditable conçue pour le groupe <strong>GALAXAM LOGISTICS</strong> (Madagascar).
+</p>
 
-## 1. Contexte et Objectifs du Système
-
-Ce système remplace l'ancienne gestion dispersée sur tableurs par une plateforme d'entreprise unifiée, déterministe, auditable et strictement alignée sur le cadre légal et réglementaire de Madagascar :
-
-- **Code du Travail malgache** : [Loi n° 2024-014 du 14 août 2024 portant Code du Travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf) (adoptée le 01/07/2024, validée par la HCC le 08/08/2024 Décision n° 11-HCC/D3, promulguée le 14/08/2024) et Loi n° 2003-044 ;
-- **Réglementation de la durée du travail & heures supplémentaires** : Loi n° 2024-014 (Art. 109 & 110) et [Décret n° 72-226 du 6 juillet 1972](https://fr.scribd.com/document/887714691/Droit-Malgache-Du-Travail) (durée légale de 40 heures / semaine = 173,33 heures par mois, majorations HS +30% et +50%) ;
-- **Réglementation des congés payés** : [Décret n° 64-161 du 22 avril 1964](https://cabinetkim.mg/blog/code-du-travail-madagascar-nouvelle-loi-2024-014/) et Loi n° 2024-014 (Art. 125 à 135) avec tranche minimale de fractionnement de 15 jours consécutifs (Art. 130) ;
-- **Règlement Intérieur & Opposabilité du Pointage** : L'écrêtage matinal au plancher d'arrivée $\max(H_{\text{badge}}, H_{\text{plancher}})$ est opposable sous réserve de la clause d'interdiction d'accès anticipé du Règlement Intérieur homologué par l'Inspection du Travail (Art. 11 et 108) ;
-- **Réglementation fiscale et sociale** : Code Général des Impôts (barème progressif IRSA 2026, déclarations SAFI / e-Hetra), Décrets CNaPS, FMFP (Loi n° 2017-025), organismes sanitaires interentreprises (OSTIE, AMIT, FUNHECE) ;
-- **Valorisation financière des congés** : Modèle canonique `OHATRA KAJY DROITS CONGES` avec calcul du taux journalier unitaire `TCONGE` et imputation chronologique FIFO (convention interne de gestion assumée face au risque prud'homal du salaire continué Art. 131) ;
-- **Solde de Tout Compte (STC)** : Forclusion et délai légal de dénonciation de **deux (02) mois** (droit positif malgache, et non 6 mois comme en droit français).
-
-Le système est conçu pour une **durabilité pluriannuelle autonome** (exercices 2025, 2026, 2027 et suivants) sans nécessiter de modification de code, de duplication manuelle de constantes ou d'interventions techniques lors des changements d'année.
-
----
-
-## 2. Périmètre Fonctionnel
-
-### Gestion des Collaborateurs et Multi-Filiales
-- Gestion multi-entités : GALAXAM LOGISTICS, Vina sy Asa, LMD.
-- Dossiers administratifs complets : état civil, CIN, coordonnées bancaires (RIB/IBAN), personnes à charge éligibles fiscalement (règle des 21 ans).
-- Historisation continue de la carrière : affectations de postes, départements, sites géographiques et évolutions des salaires de base avec conservation inaltérable de l'ancienneté.
-
-### Gestion des Contrats de Travail et Événements RH
-- Types de contrats supportés : Contrat à Durée Indéterminée (CDI), Contrat à Durée Déterminée (CDD), Consultants et Prestataires (régimes journalier ou horaire).
-- Suivi du cycle de vie contractuel : gestion des périodes d'essai, renouvellements encadrés par la réglementation, ruptures conventionnelles, démissions, licenciements et départs à la retraite.
-- Génération automatisée de documents officiels au format DOCX/PDF : contrats d'embauche personnalisés, attestations de travail, certificats de fin de travail, avec résolution temporelle du signataire habilité (DAF en fonction à la date de signature).
-
-### Pointage et Gestion des Temps (GTA)
-- Modalités de saisie : saisie quotidienne, saisie hebdomadaire groupée, pointage terrain via badges ou QR codes.
-- Moteur de calcul des temps : détection automatique des retards, pauses, absences injustifiées et dispenses autorisées.
-- Ventilation auditable des heures majorées : heures supplémentaires à 30 % (huit premières heures au-delà de 40h), heures supplémentaires à 50 % (au-delà de 48h), travail de nuit, dimanches et jours fériés chômés et payés.
-- Indemnités opérationnelles : gestion des paniers repas et indemnités de déplacement/chantier rattachées aux sites d'affectation.
-- Scellement mensuel : génération d'un snapshot de pointage figé (`GELE` puis `CONSOMME`), ventilé par tranches horaires auditables (`pointage_snapshot_bucket`) servant de base inviolable au calcul de la paie.
-
-### Congés et Absences (Certification Grand-Livre FIFO)
-- Acquisition légale : **2,5 jours calendaires par mois** de travail effectif, proratisée au trentième en cas d'absences injustifiées.
-- Grand-livre comptable (`mouvement_solde_conge`) : chaque opération constitue une écriture signée et inaltérable (`ACQUISITION`, `PRISE`, `BONIFICATION`, `ANNULATION`, `EXPIRATION`, `REGULARISATION`).
-- Traitement de fin d'exercice : purge triennale automatique des droits prescrits (36 mois conformément à l'Article 85).
-- Événements familiaux : pool annuel partagé de 10 jours ouvrables (Article 88) avec contrôle cumulatif strict et exclusion du congé de paternité légal de 3 jours (Article 134).
-- Résolution temporelle `TCONGE` : détermination unitaire du taux journalier applicable pour l'indemnisation de congé payé et la liquidation en Solde de Tout Compte.
-- Renouvellement automatique : méthode `ensureReferencePeriod` garantissant l'ouverture idempotente de chaque exercice annuel (du 01/01/N au 31/12/N) sans duplication.
-
-### Paie salariée, prestataires et immutabilité
-- Régimes fiscaux traités :
-  - **Régime Général des Salariés :** cotisations salariales et patronales CNaPS (plafonné à 8 fois le SME), FMFP (1 %), organisme de santé (1 % salarié / 5 % à 6 % employeur selon barème de site), déduction de l'IRSA progressif par tranches avec minimum de perception légal.
-  - **Consultant salarié :** traité comme salarié selon son contrat, avec IRSA et cotisations applicables.
-  - **Prestataire indépendant :** contrat de prestation, facture PDF et paiement hors bulletin. La retenue ISI générale est désactivée pour le démarrage 2026.
-- Traitement des variables : intégration automatique des acomptes sur salaire, retenues sur prêts en cours, primes et gratifications exceptionnelles.
-- Périodes de paie chevauchantes (ex. 26/12/2025 au 25/01/2026) : résolution journalière des salaires contractuels multiples au prorata temporis exact.
-- Règle d'immutabilité : tout bulletin validé (`VALIDE`) est sanctuarisé contre tout recalcul automatisé silencieux. Les réouvertures requièrent une action tracée avec audit trail.
-- Reproductibilité absolue : la réouverture d'un bulletin historique face à de nouveaux barèmes fiscaux ou sociaux garantit un **écart de calcul strictement nul**.
-
-### Solde de Tout Compte (STC)
-- Calcul événementiel déclenché à la date de fin de contrat ou de départ effectif.
-- Décomposition : salaire au prorata du dernier mois, indemnité compensatrice de congés payés valorisée au `TCONGE`, montants de préavis/licenciement instruits selon la décision applicable. Le capital restant dû sur prêt peut être consulté, mais le moteur STC n'applique pas de retenue de prêt.
-- Numérotation officielle des reçus pour solde (`STC-AAAA-XXXX`) indexée sur l'année de départ effectif.
-
-### Déclarations Légales et Fiscales
-- **IRSA & SAFI / e-Hetra :** génération de la déclaration fiscale mensuelle au format conforme aux exigences de la Direction Générale des Impôts (DGI).
-- **CNaPS (DNTS) :** déclaration nominative trimestrielle des salaires et cotisations.
-- **FMFP :** état récapitulatif trimestriel pour le Fonds Malgache de Formation Professionnelle.
-- **Organismes Sanitaires :** états nominatifs périodiques pour OSTIE, AMIT ou FUNHECE selon l'organisme assigné à chaque site.
-- **Fichiers de Virement Bancaire :** génération des fichiers d'ordres de virement conformes aux formats bancaires interbancaires.
-- Principe de découplage : les déclarations agrègent les montants scellés des bulletins validés sans déclencher de recalcul sous-jacent.
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 17" />
+  <img src="https://img.shields.io/badge/Spring_Boot-4.1.0-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot" />
+  <img src="https://img.shields.io/badge/PostgreSQL-15-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL 15" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=black" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Compose" />
+  <img src="https://img.shields.io/badge/Statut-Production_Ready-success?style=for-the-badge" alt="Statut" />
+</p>
 
 ---
 
-## 3. Architecture Technique
+## Sommaire
 
-Le projet est structuré sous forme de monorepo intégrant les composants suivants :
-
-### Frontend
-- **Socle :** React 19, Vite, Tailwind CSS et Vanilla CSS.
-- **Architecture Applicative :** Découpage modulaire par domaine fonctionnel (`features/employees`, `features/attendance`, `features/leave`, `features/payroll`, `features/contracts`, `features/dashboard`).
-- **Principe Backend-Driven :** L'interface utilisateur ne duplique aucune logique métier ni barème légal. Les états, montants simulés et actions autorisées sont fournis par les endpoints de l'API REST.
-
-### Backend
-- **Socle :** Java 17, Spring Boot, Spring Security (authentification par JWT et contrôle d'accès basé sur les rôles RBAC).
-- **Accès aux Données :** Accès direct via JDBC natif (`java.sql.*`) avec pool de connexions HikariCP. Aucun framework ORM lourd (JPA/Hibernate) n'est employé afin de garantir la maîtrise des requêtes SQL, l'absence de requêtes N+1 et l'auditabilité des verrous de concurrence.
-- **Gestion des Concurrences :** Utilisation systématique de verrous pessimistes (`SELECT ... FOR UPDATE`) sur les opérations de débit de soldes et d'allocation de périodes.
-- **Tâches Automatiques & Schedulers :** Rattrapage quotidien autonome, acquisition périodique des congés, notification des alertes d'échéances de contrats et d'essais.
-
-### Base de Données
-- **Système :** PostgreSQL 15.
-- **Partitionnement Logique :** Scripts SQL versionnés organisés dans `backend/conception/bdd/` couvrant les schémas Core, Référentiels, Collaborateurs, Pointages, Congés, Paie et STC.
-- **Intégrité Relationnelle :** Contraintes d'exclusion temporelle (`daterange`), contraintes d'unicité partielles, clés étrangères strictes et vues de projection analytique temps réel.
+1. [Présentation & Contexte](#1-présentation--contexte)
+2. [Conformité Légale & Réglementaire (Madagascar)](#2-conformité-légale--réglementaire-madagascar)
+3. [Périmètre Fonctionnel](#3-périmètre-fonctionnel)
+4. [Architecture Technique](#4-architecture-technique)
+5. [Arborescence du Monorepo](#5-arborescence-du-monorepo)
+6. [Documentation & Références Maîtresses](#6-documentation--références-maîtresses)
+7. [Démarrage Rapide avec Docker](#7-démarrage-rapide-avec-docker)
+8. [Développement & Déploiement](#8-développement--déploiement)
+9. [Tests & Assurance Qualité](#9-tests--assurance-qualité)
+10. [Règles d'Immutabilité & Exploitation](#10-règles-dimmutabilité--exploitation)
 
 ---
 
-## 4. Organisation du Répertoire
+## 1. Présentation & Contexte
+
+**GALAXAM-SIRH** remplace l'ancienne gestion dispersée sur tableurs par un système d'information RH d'entreprise centralisé, déterministe et hautement auditable.
+
+Développée pour couvrir les opérations multi-filiales du groupe **GALAXAM LOGISTICS** (gouvernance multi-sociétés et multi-sites : filiale socle *GALAXAM LOGISTICS*, extensible dynamiquement via l'administration pour les entités du groupe telles que *Vina sy Asa* ou *LMD*), la solution orchestre de bout en bout :
+- La gestion administrative du personnel, des contrats et des carrières ;
+- Le pointage opérationnel sur cycle décalé (26 au 25) avec plancher d'arrivée par site et ventilation des heures majorées ;
+- La gestion des congés et absences via un grand-livre comptable immuable à décompte **FIFO** ;
+- Un moteur de paie malgache à calcul déterministe en 6 paliers avec gestion des acomptes, scellement des bulletins et règlements multi-modes traçables ;
+- Le Solde de Tout Compte (**STC**) avec journal des règlements échelonnés et décompte scellé ;
+- L'édition automatisée des déclaratifs légaux, sociaux et fiscaux (**IRSA / SAFI / e-Hetra**, **CNaPS**, **FMFP**, organismes sanitaires **AMIT / OSTIE / FUNHECE**) et des ordres de virement bancaire interbancaires.
+
+> [!NOTE]
+> Le système est conçu pour une **durabilité pluriannuelle autonome** (exercices 2025, 2026, 2027 et suivants) sans modification de code applicatif ni duplication manuelle de constantes lors des changements d'année fiscale.
+
+---
+
+## 2. Conformité Légale & Réglementaire (Madagascar)
+
+L'ensemble des algorithmes métiers applique strictement le droit social et fiscal positif de Madagascar :
+
+| Domaine | Référence Légale / Réglementaire | Application dans GALAXAM-SIRH |
+|---|---|---|
+| **Code du Travail** | [Loi n° 2024-014 du 14 août 2024](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf) & Loi n° 2003-044 | Statuts contractuels, transitions de carrière, préavis, certificats de travail (Art. 50). |
+| **Temps de Travail & HS** | Loi n° 2024-014 (Art. 109 & 110) & Décret n° 72-226 | Durée légale de 40h/semaine (173,33 h/mois). Majoration des heures supplémentaires (+30% pour les 8 premières heures au-delà de 40h, +50% au-delà de 48h). Qualification orthogonale des heures de nuit (22h–05h), dimanches et jours fériés. |
+| **Plancher d'arrivée** | Règlement Intérieur & Art. 11/108 (Loi 2024-014) | Écrêtage matinal $\max(H_{\text{badge}}, H_{\text{plancher}})$ opposable selon le plancher d'accès homologué par site. |
+| **Congés Payés** | Loi n° 2024-014 (Art. 125-135) & Décret n° 64-161 | Acquisition légale de **2,5 jours calendaires** par mois effectif. Tranche minimale de fractionnement de 15 jours consécutifs (Art. 130). |
+| **Prescription des Congés** | Loi n° 2024-014 (Art. 129) | Purge triennale (36 mois) soumise à un **workflow d'examen humain DAF strict** (aucun cron destructeur automatique). |
+| **Pool Familial & Paternité** | Loi n° 2024-014 (Art. 133 & 134) | Pool annuel de 10 jours ouvrables pour événements familiaux (Art. 133) et droit distinct de 3 jours pour congé de paternité (Art. 134). |
+| **Valorisation des Congés** | Modèle canonique `OHATRA KAJY DROITS CONGES` | Calcul unitaire du taux journalier `TCONGE` et imputation chronologique FIFO par lot d'acquisition. |
+| **Cotisations Sociales** | Décrets CNaPS, FMFP (Loi n° 2017-025), Santé (OSTIE, AMIT, FUNHECE) | CNaPS plafonné à 8× SME (1% salarié / 13% employeur), FMFP 1% employeur, Organisme de santé (1% salarié / 5% à 6% employeur selon site). |
+| **Fiscalité sur Salaires** | Code Général des Impôts (CGI) | Barème progressif IRSA par tranches avec minimum de perception légal et déduction pour charges de famille (règle des 21 ans). |
+| **Solde de Tout Compte** | Code du Travail malgache (Art. 50-51) | Délai légal de dénonciation et de forclusion de **deux (02) mois** (spécificité malgache, non 6 mois comme en droit français). |
+
+---
+
+## 3. Périmètre Fonctionnel
+
+```mermaid
+flowchart LR
+    A[Employé & Carrière] --> B[Pointage & Présences]
+    A --> C[Congés & Absences]
+    B -->|Snapshot gelé| D[Moteur de Paie]
+    C -->|Solde FIFO & TCONGE| D
+    D --> E[Bulletins Validés & Règlements]
+    D --> F[Déclarations SAFI / CNaPS / FMFP]
+    D --> G[Solde de Tout Compte STC]
+```
+
+### Structure, Organisation & Multi-Filiales
+- **Multi-sociétés :** Modélisation et gouvernance multi-sociétés (filiale socle GALAXAM LOGISTICS et entités secondaires administrables).
+- **Référentiel unifié :** 32 tables référentielles (`ref_*`) et 37 paramètres globaux versionnés à date d'effet sans rétroactivité.
+- **Sites & Établissements :** Paramétrage granulaire par site (plancher d'accès, organisme sanitaire affilié, calendrier des jours fériés).
+
+### Dossier Collaborateur, Contrats & Carrières
+- **Dossier individuel 360° :** État civil, CIN, coordonnées bancaires (RIB/IBAN), conjoints et personnes à charge éligibles fiscalement.
+- **Matricule séquentiel garanti :** Génération concurrente sécurisée sans trou de séquence.
+- **Cycle de vie contractuel :** CDI, CDD, consultants salariés, gestion des renouvellements et alertes proactives de fin de période d'essai (J-30, J-15, J-7, J).
+- **Génération documentaire :** Édition automatique des contrats d'embauche personnalisés et attestations de travail (DOCX/PDF) avec signature horodatée du signataire habilité.
+
+### Pointage & Gestion des Temps (GTA)
+- **Cycle décalé d'entreprise :** Prise en compte de la période de pointage décalée du 26 du mois $M-1$ au 25 du mois $M$.
+- **Moteur de qualification orthogonale :** Détection des retards, pauses, absences injustifiées, heures majorées (HS 30%, HS 50%), heures de nuit (22h–05h), dimanches et jours fériés chômés/payés.
+- **Sanctuarisation mensuelle :** Création d'un snapshot de pointage figé (`GELE` puis `CONSOMME`), ventilé par tranches auditables servant de base inviolable au calcul de la paie.
+
+### Congés & Absences (Grand-Livre FIFO)
+- **Principe comptable :** Traçabilité intégrale via `mouvement_solde_conge` (`ACQUISITION`, `PRISE`, `BONIFICATION`, `ANNULATION`, `REGULARISATION`).
+- **Valorisation FIFO :** Décompte chronologique des droits par lot d'acquisition garantissant la conformité de l'indemnité compensatrice.
+- **Absence de solde négatif :** Contrôle strict bloquant toute validation de congé excédant les droits acquis.
+- **Supervision DAF :** Tableaux de bord de suivi sur 12 mois et module d'examen de la prescription triennale.
+
+### Moteur de Paie, STC & Règlements
+- **Moteur déterministe en 6 paliers :** Salaire de base proratisé au trentième ou horaire, heures majorées (+30%, +50%, nuit, dimanche, férié), primes imposables/non-imposables, cotisations sociales (CNaPS, FMFP, Santé), assiette IRSA et net à payer.
+- **Typologie unifiée des bulletins :** Catégorisation stricte via `type_bulletin` (`MENSUEL`, `STC`, `COMPLEMENTAIRE`, `RAPPEL`, `GRATIFICATION`) avec numérotation normalisée (`BP-AAAA-MM-...` ou `STC-AAAA-...`) et scellement immuable de l'identité employeur (`bulletin_paie_employeur_snapshot`).
+- **Variables de paie & Acomptes :** Gestion centralisée dans `paie_avance_acompte` des acomptes sur salaire, avances exceptionnelles, primes/variables DAF (gains ou retenues avec quantité/taux) et régularisations de congés payés.
+- **Immutabilité absolue :** Tout bulletin au statut `VALIDE` ou `CLOTURE` est sanctuarisé contre tout recalcul automatisé silencieux.
+- **Règlement des bulletins :** Registre dédié (`paie_bulletin_reglement`) supportant les modes Virement, Chèque, Espèces et Mobile Money, avec téléversement obligatoire de justificatif (PDF ou image, 5 Mo max).
+- **Solde de Tout Compte (STC) :** Dossier de sortie (`paie_dossier_sortie` avec statuts `EN_PREPARATION`, `PRET_A_VALIDER`, `VALIDE`, `REGLE`, `CLOTURE`), décompte scellé, valorisation de l'indemnité compensatrice de congés en FIFO (`TCONGE`) et journal des règlements échelonnés (`paie_stc_reglement`).
+- **Prestataires indépendants :** Module B2B autonome hors paie (`prestataire_independant`, `prestataire_contrat`, `prestataire_facture`), avec retenue ISI générale désactivée en 2026.
+
+### Déclarations Officielles & Fichiers Bancaires
+- **Fiscalité :** Export mensuel conforme aux spécifications SAFI / e-Hetra (DGI).
+- **Charges sociales :** Déclaration Nominative Trimestrielle des Salaires (DNTS CNaPS) et récapitulatif FMFP.
+- **Santé :** États nominatifs périodiques selon l'organisme sanitaire de chaque site.
+- **Virements groupés :** Génération des ordres de virement bancaire interbancaires avec traçabilité des lots (`PREPARE`, `TRANSMIS`).
+
+---
+
+## 4. Architecture Technique
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                     GALAXAM SIRH                                       │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                        │
+│   CLIENTS                                                                              │
+│   ├── Application Web   : React 19 / Vite / Tailwind CSS / Lucide Icons                │
+│   └── Application Desk  : Tauri 2 (Rust) / Bundle macOS ARM64                          │
+│                                                                                        │
+│   API BACKEND (Spring Boot 4.1.0 / Java 17)                                            │
+│   ├── Architecture modulaire par domaine métier (DDD)                                 │
+│   ├── Accès aux données direct via JDBC natif (HikariCP) — Zéro ORM lourd              │
+│   ├── Verrous pessimistes (SELECT ... FOR UPDATE) sur soldes et périodes               │
+│   ├── Sécurité : JWT HS512, Refresh Tokens HttpOnly, Session Inactivity Timeout (900s) │
+│   └── Schedulers nocturnes coordonnés par bail distribué (SchedulerExecutionRegistry) │
+│                                                                                        │
+│   BASE DE DONNÉES (PostgreSQL 15)                                                      │
+│   ├── 01_schema_core_securite.sql       → RBAC, sessions, audit trail JSONB            │
+│   ├── 02_schema_referentiels_rh.sql     → 32 tables ref_*, parametre_global            │
+│   ├── 03_schema_employes_contrats.sql   → Collaborateurs, contrats, carrières          │
+│   ├── 04_schema_conges.sql              → Grand-livre FIFO, demandes, périodes         │
+│   ├── 05_schema_pointage.sql            → Pointage brut, ajustements, snapshots        │
+│   └── 06_schema_paie.sql                → Périodes, bulletins, STC, règlements         │
+│                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Choix d'Architecture Notables
+
+1. **JDBC Direct plutôt qu'un ORM (Hibernate/JPA) :**
+   Pour un moteur de paie et de grand-livre comptable, la maîtrise absolue des requêtes SQL, l'absence de requêtes $N+1$, la performance pure et le contrôle granulaire des verrous transactionnels (`FOR UPDATE`) sont impératifs.
+2. **Backend-Driven UI :**
+   L'interface frontend ne porte aucun barème fiscal ni formule de calcul légale. Les montants simulés, plafonds et droits autorisés sont systématiquement résolus par l'API Spring Boot.
+3. **Schedulers Nocturnes Coordonnés :**
+   Les tâches d'arrière-plan s'exécutent avec un mécanisme de bail distribué (`SchedulerExecutionRegistry`) garantissant l'absence de collision :
+   - `00:10:00` (quotidien) — `MouvementRhScheduler` : application automatique des mouvements RH (mutations, promotions, titularisations, sorties) atteignant leur date d'effet.
+   - `01:00:00` (mensuel, 1er du mois) — `AcquisitionCongeScheduler` : calcul et imputation des bonifications d'ancienneté des congés.
+   - `02:30:00` (quotidien) — `NotificationRhScheduler` : détection proactive des échéances d'essai (J-30, J-15, J-7, J) et alertes de fin de contrat CDD.
+   - `03:30:00` (quotidien) — `SessionSecurityScheduler` : purge en base des refresh tokens expirés et sécurisation des sessions inactives.
+   - `04:00:00` (mensuel, 1er du mois) — `AuditLogPurgeScheduler` : purge légale des traces d'audit expirées (> 36 mois).
+   - `Toutes les 15 min` — `RattrapageAutomatiqueService` : surveillance et rattrapage autonome des baux et exécutions asynchrones.
+
+---
+
+## 5. Arborescence du Monorepo
 
 ```text
 GALAXAM-SIRH/
-├── frontend/                                # Application Web React 19
-│   ├── src/
-│   │   ├── features/                        # Modules fonctionnels par domaine
-│   │   │   ├── attendance/                  # Pointage, présences et feuilles de temps
-│   │   │   ├── contracts/                   # Contrats, avenants et alertes d'échéances
-│   │   │   ├── dashboard/                   # Tableaux de bord RH et supervision
-│   │   │   ├── employees/                   # Dossiers du personnel et carrières
-│   │   │   ├── leave/                       # Demandes de congés, soldes et grand-livre
-│   │   │   └── payroll/                     # Paie, variables, STC, déclaratifs
-│   │   ├── components/                      # Composants d'interface transverses
-│   │   └── services/                        # Clients HTTP et gestion réseau
 ├── backend/                                 # API REST Spring Boot (Java 17)
+│   ├── conception/bdd/                      # Schémas SQL canoniques DDL/DML (01 à 06)
+│   ├── docs/boky/                           # Documentation maîtresse par module ("Boky")
 │   ├── src/main/java/mg/galaxam/sirh/
-│   │   ├── conge/                           # Domaine Congés & Absences
-│   │   ├── contrat/                         # Domaine Contrats, Carrières et Documents
-│   │   ├── cron/                            # Schedulers et rattrapages automatisés
-│   │   ├── dashboard/                       # Indicateurs clés et reporting
-│   │   ├── employe/                         # Gestion administrative du collaborateur
-│   │   ├── paie/                            # Paie salariée IRSA, STC et factures prestataires distinctes
-│   │   ├── pointage/                        # Saisie des temps, snapshots et indemnités
-│   │   └── securite/                        # Authentification, habilitations et audit
-│   ├── src/main/resources/                  # Configuration Spring et modèles de documents
-│   ├── conception/bdd/                      # Schémas relationnels et scripts DDL/DML
-│   └── src/test/java/mg/galaxam/sirh/       # Suites de tests unitaires et d'intégration
-├── docs/                                    # Documentation technique et réglementaire
-│   ├── TEMPORAL_RULES.md                    # Référentiel central des règles temporelles
-│   ├── TEMPORAL_DURABILITY_AUDIT.md         # Rapport d'audit de durabilité temporelle
-│   └── CAHIER_DES_CHARGES_GALAXAM.md        # Spécifications initiales du projet
-├── docker-compose.yml                       # PostgreSQL, backend et frontend Nginx
-└── README.md                                # Document principal de présentation
+│   │   ├── admin/                           # Administration des profils, rôles & habilitations
+│   │   ├── contrat/                         # Dossier collaborateur, contrats & carrières
+│   │   ├── conge/                           # Moteur grand-livre congés & absences FIFO
+│   │   ├── cron/                            # Schedulers nocturnes & baux d'exécution
+│   │   ├── dashboard/                       # Métriques RH & supervision
+│   │   ├── organisation/                    # Multi-filiales, sites & référentiels
+│   │   ├── paie/                            # Moteur de paie 6 paliers, STC & règlements
+│   │   ├── paieconfig/                      # Barèmes légaux, tranches IRSA & cotisations
+│   │   ├── pointage/                        # Gestion des temps, snapshots & heures majorées
+│   │   └── securite/                        # IAM, JWT, RBAC & journal d'audit JSONB
+│   └── pom.xml                              # Configuration Maven Spring Boot 4.1.0
+├── frontend/                                # Application Web SPA (React 19 / Vite)
+│   ├── src/
+│   │   ├── api/                             # Client API Axios, intercepteurs & résilience JWT
+│   │   ├── components/                      # Design system & composants d'interface réutilisables
+│   │   └── features/                        # Modules fonctionnels par domaine métier
+│   ├── docs/                                # Conventions UI/UX, CSS & runtime frontend
+│   └── package.json                         # Dépendances React 19 & Tailwind CSS v4
+├── desktop/                                 # Client applicatif Desktop (Tauri 2 / Rust)
+│   ├── src-tauri/                           # Cœur Tauri 2, gestionnaire de cycle de vie
+│   ├── scripts/                             # Scripts de staging PostgreSQL & JLink macOS
+│   └── README.md                            # Guide de build et packaging desktop
+├── docker/                                  # Scripts d'initialisation et configurations proxies
+├── docker-compose.yml                       # Environnement de développement local
+├── docker-compose.prod.yml                  # Déploiement optimisé de production
+├── docker-compose.desktop.yml               # Relais local pour client desktop
+├── .env.example                             # Gabarit des variables d'environnement
+└── README.md                                # Documentation générale du projet
 ```
 
 ---
 
-## 5. Guides et Références Documentaires
+## 6. Documentation & Références Maîtresses
 
-Les règles de gestion, protocoles de calcul et spécifications techniques sont détaillés dans les documents suivants :
+L'ensemble de la documentation fonctionnelle, réglementaire et technique approfondie est centralisé dans le répertoire [`backend/docs/boky/`](backend/docs/boky/) :
 
-- [docs/TEMPORAL_RULES.md](docs/TEMPORAL_RULES.md) : Standardisation des règles temporelles, dates métiers canoniques, résolution des versions actives et garanties d'immutabilité.
-- [docs/TEMPORAL_DURABILITY_AUDIT.md](docs/TEMPORAL_DURABILITY_AUDIT.md) : Rapport d'audit de durabilité, matrice de conformité par module et résultats des tests de non-régression.
-- [CONGE_CERTIFICATION_REPORT.md](CONGE_CERTIFICATION_REPORT.md) : Rapport de certification du grand-livre des congés et de l'algorithme FIFO triennal.
-- [docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md](docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md) : Architecture du moteur de paie et modélisation des flux financiers.
-- [docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md](docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md) : Manuel d'exploitation opérationnelle à destination des gestionnaires RH et DAF.
+| Document | Objet & Périmètre |
+|---|---|
+| [**INDEX.md**](backend/docs/boky/INDEX.md) | Index général, glossaire des acronymes légaux malgaches et plan du mémoire technique. |
+| [**module-employe-carriere.md**](backend/docs/boky/module-employe-carriere.md) | Dossier salarié (Art. 18-20), matricule séquentiel, carrières, contrats et exports DOCX. |
+| [**module-structure-organisation.md**](backend/docs/boky/module-structure-organisation.md) | Multi-filiales, 32 tables `ref_*`, 37 clés `parametre_global` et plancher d'arrivée par site. |
+| [**module-pointage-presence.md**](backend/docs/boky/module-pointage-presence.md) | Cycle décalé 26-25, ventilation hebdo Art. 109-110, qualification nuit/dimanche et snapshots. |
+| [**module-conges-absences.md**](backend/docs/boky/module-conges-absences.md) | Grand-livre FIFO, taux journalier `TCONGE`, pool familial 10j et examen DAF de prescription. |
+| [**module-paie.md**](backend/docs/boky/module-paie.md) | Moteur 6 paliers, cotisations, IRSA, STC, journal des règlements et prestataires indépendants. |
+| [**module-securite-audit.md**](backend/docs/boky/module-securite-audit.md) | Sécurité JWT HS512, expiration par inactivité, RBAC granulaire et audit trail JSONB. |
+| [**desktop/README.md**](desktop/README.md) | Guide technique du client lourd Tauri 2 pour macOS ARM64. |
+| [**frontend/docs/CONVENTIONS.md**](frontend/docs/CONVENTIONS.md) | Conventions architecturales, gestion d'état et standards d'accessibilité frontend. |
 
 ---
 
-## 6. Environnement et Commandes d'Exploitation
+## 7. Démarrage Rapide avec Docker
 
-### Installation locale avec Docker
+### Prérequis
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) avec Docker Compose activé ;
+- Port `8088` libre sur la machine hôte ;
+- Port `5433` libre sur la machine hôte (accès direct PostgreSQL optionnel pour pgAdmin / DBeaver).
 
-Docker Desktop avec Docker Compose est nécessaire. En mode local, Java et Maven s'exécutent dans le conteneur backend.
+### 1. Initialisation des Variables d'Environnement
+Copiez le gabarit `.env.example` à la racine du dépôt :
 
-1. Copier `.env.example` vers `.env` et renseigner `GALAXAM_DB_PASSWORD`, `GALAXAM_JWT_SECRET` et les paramètres du premier administrateur. `.env` est local et ignoré par Git ; ne pas le publier. Le secret JWT doit contenir au moins 64 octets aléatoires. Le mot de passe administrateur doit comporter au moins huit caractères, une majuscule, une minuscule et un chiffre.
-2. Vérifier la configuration sans afficher les valeurs : `docker compose config --quiet`.
-3. Démarrer les trois services en mode développement local :
+```bash
+cp .env.example .env
+```
+
+Éditez le fichier `.env` avec des valeurs sécurisées :
+- `GALAXAM_DB_PASSWORD` : mot de passe fort pour l'administrateur de base de données ;
+- `GALAXAM_JWT_SECRET` : clé secrète aléatoire d'au moins **64 octets** (512 bits) ;
+- `GALAXAM_DEFAULT_ADMIN_PASSWORD` : mot de passe d'initialisation (min. 8 caractères avec majuscule, minuscule, chiffre).
+
+### 2. Lancement en Mode Développement Local
+Démarrez les trois conteneurs (Base de données PostgreSQL 15, API Spring Boot et Frontend Vite en rechargement à chaud) :
 
 ```bash
 docker compose up --build
 ```
 
-Cette commande active le profil Spring `local`, monte les sources du backend et du frontend et active Spring DevTools et Vite. Les modifications visuelles du frontend apparaissent dans le navigateur sans reconstruire l'image ; le backend redémarre après recompilation Java. Si tu utilises IntelliJ, active la compilation automatique. Au premier démarrage, Maven et npm téléchargent leurs dépendances dans des volumes de cache, donc le lancement peut prendre plusieurs minutes. Compose attend que le backend soit prêt avant de démarrer Vite. Ouvrir `http://localhost:8088`.
+> [!TIP]
+> Au premier démarrage, PostgreSQL exécute automatiquement les 6 schémas SQL canoniques. Spring Boot télécharge ses dépendances Maven et initialise le premier compte administrateur si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`.
 
-Pour le mode production, définir `GALAXAM_CORS_ORIGIN` dans `.env` avec l'origine publique exacte, par exemple `https://sirh.exemple.mg`. Ce mode construit une image backend autonome, active le profil Spring `prod`, désactive DevTools et utilise des volumes PostgreSQL et fichiers métier distincts de ceux du mode local.
+### 3. Accès aux Services
+- **Interface Web :** [`http://localhost:8088`](http://localhost:8088)
+- **API REST (proxifiée) :** `http://localhost:8088/api/`
+- **PostgreSQL (accès hôte) :** `127.0.0.1:5433` (Base : `sirh_galaxam`, Utilisateur : `galaxam_admin`)
+
+Pour stopper les services sans détruire les données :
+```bash
+docker compose stop
+```
+
+> [!CAUTION]
+> N'exécutez **jamais** `docker compose down -v` sur une instance contenant des données de production ou de test métier. Cette commande détruit irréversiblement les volumes persistants déclarés.
+
+---
+
+## 8. Développement & Déploiement
+
+### Déploiement Docker en Mode Production
+Le profil production compile un bundle statique optimisé servi par Nginx et exécute un JAR Spring Boot autonome sans DevTools :
 
 ```bash
+# Vérification de la configuration
 docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+
+# Lancement en tâche de fond
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-En production, Nginx sert les fichiers frontend compilés et est publié sur `127.0.0.1:8088` ; le domaine public doit être acheminé vers ce port par le reverse proxy HTTPS de l'installation.
+### Exécution Hors Docker (Développement Natif)
 
-Ouvrir `http://localhost:8088` pour l'application. Seul le frontend Nginx est accessible par ce port local ; il sert React et relaie `/api/` au backend. PostgreSQL est également publié **sur ce poste uniquement** pour pgAdmin : hôte `127.0.0.1`, port `5433`, base `sirh_galaxam`, utilisateur `galaxam_admin`, mot de passe `GALAXAM_DB_PASSWORD` de `.env`. Dans le réseau Docker, le backend se connecte à `postgres:5432` ; le port `5433` concerne uniquement les outils installés sur l'hôte.
-
-Sur un volume PostgreSQL neuf, le script d'initialisation charge les six scripts SQL canoniques. Ce script ne se rejoue pas sur un volume déjà initialisé. Si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`, le backend crée le compte indiqué dans `.env` seulement si aucun administrateur actif n'existe ; il ne change pas le mot de passe d'un administrateur existant. Une fois le premier compte créé, désactiver ce paramètre puis recréer le backend avec la commande correspondant au mode choisi (`docker compose up -d --no-deps backend` en local ; ajouter `-f docker-compose.prod.yml` avant `up` en production).
-
-
-Les volumes locaux `galaxam_local_pg_data` et `galaxam_local_business_files` conservent la base et les fichiers métier. Le mode production utilise `galaxam_prod_pg_data` et `galaxam_prod_business_files` pour isoler ses données. Le volume historique `galaxam_pg_data` n'est pas utilisé. `docker compose stop` ou `docker compose down` conservent les volumes ; **ne pas exécuter `docker compose down -v`**, qui supprime les volumes déclarés par la configuration sélectionnée et leurs données. Sauvegarder les volumes avant toute opération de remise à zéro.
-
-Pour consulter l'état : `docker compose ps`. Pour les journaux : `docker compose logs --tail=100 postgres backend frontend`. La configuration a déjà été démarrée et vérifiée une première fois, mais l'état des conteneurs et volumes doit être contrôlé avant chaque nouvelle utilisation ; leur présence n'est pas garantie par ce guide.
-
-### Développement et tests hors Docker
-
-Java 17, Maven et Node.js/npm sont nécessaires pour lancer directement le backend et le frontend. Le profil Spring `local` utilise actuellement `localhost:5432` et ses propres valeurs de développement dans `application-local.properties`. Il ne pointe pas automatiquement vers le PostgreSQL Docker exposé sur `5433` ; adapter la configuration locale si ce dernier doit servir au développement hors Docker.
-
+#### Backend (Java 17 / Maven)
 ```bash
-
-# Compilation complète du backend
+# Compilation du projet
 mvn -f backend/pom.xml clean compile
 
-# Exécution de l'ensemble des tests automatisés sur la base sirh_galaxam_test
-mvn -f backend/pom.xml test
-
-# Exécution ciblée des tests de durabilité temporelle et de reproductibilité
-mvn -f backend/pom.xml test -Dtest=TemporalDurabilityReproducibilityIntegrationTest
-
-# Exécution de la simulation exhaustive du cycle de vie d'entreprise
-mvn -f backend/pom.xml test -Dtest=PayrollFullEnterpriseLifecycleSimulationIntegrationTest
-
-# Lancement de l'application Spring Boot en local
+# Démarrage du serveur Spring Boot
 mvn -f backend/pom.xml spring-boot:run
 ```
 
-### Commandes Frontend
-
+#### Frontend (Node.js 20+ / npm)
 ```bash
+cd frontend
+
 # Installation des dépendances
-cd frontend && npm install
+npm install
 
-# Lancement du serveur de développement local (Vite)
-cd frontend && npm run dev
+# Démarrage du serveur de développement Vite
+npm run dev
 
-# Exécution des tests unitaires et fonctionnels (Vitest)
-cd frontend && npm test
+# Audit de conformité du code
+npm run lint
 
-# Contrôle qualité et conformité du code (ESLint)
-cd frontend && npm run lint
+# Génération du bundle de production
+npm run build
+```
 
-# Génération du bundle optimisé pour la production
-cd frontend && npm run build
+#### Client Desktop (Tauri 2 / Rust)
+```bash
+cd desktop
+npm ci
+npm run build
 ```
 
 ---
 
-## 7. Directives d'Exploitation en Production
+## 9. Tests & Assurance Qualité
 
-1. **Isolation des Environnements :** Les suites de tests d'intégration automatisés s'exécutent impérativement sur la base `sirh_galaxam_test`. L'exécution de scripts destructifs sur la base de production `sirh_galaxam` est formellement bloquée au niveau applicatif.
-2. **Évolution Légale :** Toute révision future des barèmes officiels (revalorisation du SME, révision des tranches IRSA ou ajustement des taux de cotisations) s'effectue par insertion d'une nouvelle ligne datée (`date_debut_effet`) dans les référentiels applicables, sans modifier les enregistrements historiques.
-3. **Clôture Périodique :** La clôture définitive d'une période de paie scelle l'ensemble des bulletins associés. Aucune modification d'état civil, d'affectation ou de salaire postérieur à la date de clôture ne peut rétroagir sur une période close.
+Le projet intègre une suite de tests automatisés ciblés validant les règles de calcul de paie, la conformité légale, la non-régression et la concurrence.
+
+### Tests Backend (JUnit 5 / Spring Boot Test)
+```bash
+# Exécution de l'ensemble de la suite de tests backend
+mvn -f backend/pom.xml test
+
+# Tests ciblés sur le moteur de paie et les calculs d'acomptes/STC
+mvn -f backend/pom.xml test -Dtest=PayrollCalculationTargetedTest
+
+# Tests ciblés sur les transitions de périodes de paie
+mvn -f backend/pom.xml test -Dtest=PayrollPeriodTransitionTargetedTest
+
+# Tests d'intégrité sur les contrats et matricules concurrents
+mvn -f backend/pom.xml test -Dtest=ContratTravailControllerPostgresTest
+```
+
+### Tests Frontend (Node.js Native Test Runner & Lint)
+```bash
+cd frontend
+
+# Contrôle qualité et conformité ESLint
+npm run lint
+
+# Exécution des tests d'intégration API et validation des formulaires
+npm run test:api
+```
+
+---
+
+## 10. Règles d'Immutabilité & Exploitation
+
+1. **Immutabilité des Clôtures :**
+   La clôture définitive d'une période de paie scelle irrévocablement les bulletins associés. Aucune modification ultérieure d'état civil, d'affectation ou de barème ne peut rétroagir sur une période close.
+2. **Évolution des Barèmes Fiscaux et Sociaux :**
+   Toute modification réglementaire (revalorisation du SME, ajustement des tranches IRSA ou des taux CNaPS/FMFP/Santé) s'effectue par insertion d'un nouvel enregistrement daté (`date_debut_effet`), garantissant un écart de calcul strictement nul lors de la consultation des archives.
+3. **Traçabilité des Règlements :**
+   Tout règlement de bulletin ou de Solde de Tout Compte requiert l'attachement d'une pièce justificative horodatée, conservée de manière intègre dans le registre d'audit.
+
+---
+
+<p align="center">
+  <sub>Développé avec rigueur pour <strong>GALAXAM LOGISTICS</strong> — Madagascar. Tous droits réservés.</sub>
+</p>

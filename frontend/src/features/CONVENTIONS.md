@@ -10,7 +10,7 @@ Chaque domaine est autonome sous `features/<domaine>/`.
 
 Les utilitaires réellement transversaux restent dans `src/utils/` : dates, monnaie, navigation et icônes. Un fichier de feature ne les réexporte pas : il les importe directement.
 
-Les règles globales de hiérarchie visuelle, de responsive et d’usage des tokens sont définies dans [`frontend/CONVENTIONS.md`](../../CONVENTIONS.md). Ce document complète ces règles avec les conventions d’organisation des features.
+Les règles globales de hiérarchie visuelle, de responsive et d’usage des tokens sont définies dans [`docs/CONVENTIONS.md`](../../docs/CONVENTIONS.md). Ce document complète ces règles avec les conventions d’organisation des features.
 
 ## Convention de nommage
 

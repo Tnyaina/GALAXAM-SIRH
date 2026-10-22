@@ -174,13 +174,13 @@ window.addEventListener("online", ...);
 UX :
 
 ```text
-⚠ Connexion perdue
+Connexion perdue
 ```
 
 puis :
 
 ```text
-✓ Connexion rétablie
+Connexion rétablie
 ```
 
 ---
@@ -192,7 +192,7 @@ Une erreur dans un composant ne doit pas forcément provoquer un écran blanc.
 Afficher :
 
 ```text
-⚠ Cette section n'a pas pu être affichée.
+Cette section n'a pas pu être affichée.
 
 [ Réessayer ]
 ```
@@ -218,7 +218,7 @@ Tout gestionnaire de soumission de formulaire (création, modification, suppress
 ```javascript
 const handleSave = async (e) => {
   e.preventDefault();
-  if (submitting || loading) return; // ⛔ Clause de garde synchrone immédiate (Anti-Double Submit)
+  if (submitting || loading) return; // Clause de garde synchrone immédiate (Anti-Double Submit)
 
   setSubmitting(true);
   try {
@@ -228,7 +228,7 @@ const handleSave = async (e) => {
   } catch (err) {
     setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement.');
   } finally {
-    setSubmitting(false); // 🔓 Déverrouillage uniquement après la fin de la promesse HTTP
+    setSubmitting(false); // Déverrouillage uniquement après la fin de la promesse HTTP
   }
 };
 ```

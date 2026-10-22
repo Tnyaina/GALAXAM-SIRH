@@ -33,4 +33,4 @@ date de révocation, un ancien access token non expiré peut redevenir accepté
 après réactivation. La suppression de l'ancien refresh token, elle, reste
 effective.
 
-Le test de référence est `UtilisateurSessionLifecycleIntegrationTest`.
+Le test de référence est `IdleSessionServicePostgresTest`.

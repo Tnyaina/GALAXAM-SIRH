@@ -39,7 +39,7 @@ La migration `26-10-16-sp76-parametre-global-validite-temporelle.sql` détecte
 les dates inversées et les chevauchements avant DDL, sans réparer les données.
 Elle requiert les droits de modification de la table et `btree_gist` si
 l'extension n'est pas déjà disponible. Tests de référence :
-`ParametreGlobalTemporalIntegrationTest` et les tests d'intégration STC.
+`PayrollPeriodTransitionTargetedTest` et `CalendrierFeriePostgresTest`.
 # Résolution datée des cotisations
 
 `application.SocialContributionContextResolver` est la source de résolution pour les
