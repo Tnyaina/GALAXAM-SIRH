@@ -1,0 +1,87 @@
+name: Windows desktop sprint 1
+
+on:
+  push:
+    branches:
+      - codex/windows-sprint-*
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            frontend/package-lock.json
+      - name: Toolchain
+        shell: pwsh
+        run: |
+          rustup default stable
+          cargo --version
+          mvn.cmd -version
+          npm.cmd --version
+      - name: Dependencies
+        shell: pwsh
+        run: |
+          npm.cmd ci --prefix frontend
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend npm ci failed' }
+          npm.cmd ci --prefix desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop npm ci failed' }
+      - name: Fetch pinned PostgreSQL Windows archive
+        shell: pwsh
+        run: |
+          curl.exe -L --fail --retry 3 -o "$env:RUNNER_TEMP\postgresql.zip" 'https://get.enterprisedb.com/postgresql/postgresql-15.19-4-windows-x64-binaries.zip'
+          if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL download failed' }
+      - name: Build NSIS setup
+        shell: pwsh
+        run: |
+          & desktop/scripts/build-windows.ps1 -PostgresArchive "$env:RUNNER_TEMP\postgresql.zip" -PostgresSha256 '3B1365016BB381B8E37A38337D9187C72E61696E473256FC24A6B2ED9CA4B255'
+          if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
+      - name: Install in a custom folder and inspect payload
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'Setup missing' }
+          $install = 'C:\GalaxamCI'
+          $process = Start-Process -FilePath $setup.FullName -ArgumentList '/S',"/D=$install" -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+          foreach ($relative in @('galaxam-sirh-desktop.exe', 'resources\backend\backend.jar', 'resources\backend\runtime\bin\java.exe', 'resources\postgresql\bin\postgres.exe', 'resources\postgresql\bin\pg_dump.exe')) {
+            if (-not (Test-Path (Join-Path $install $relative))) { throw "Installed resource missing: $relative" }
+          }
+          $exe = Join-Path $install 'galaxam-sirh-desktop.exe'
+          $data = Join-Path $env:RUNNER_TEMP 'galaxam-ci-data'
+          $app = Start-Process -FilePath $exe -ArgumentList "--galaxam-data-home=$data",'--galaxam-web-port=18999' -PassThru
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              Start-Sleep -Seconds 1
+              try {
+                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:18999/' -TimeoutSec 2 -UseBasicParsing
+                if ($response.StatusCode -eq 200 -and $response.Content -match 'GALAXAM') { $ready = $true; break }
+              } catch { }
+            }
+            if (-not $ready) { throw 'Desktop web interface did not start' }
+          } finally {
+            Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+          }
+          $uninstall = Join-Path $install 'uninstall.exe'
+          if (-not (Test-Path $uninstall)) { throw 'Uninstaller missing' }
+          $process = Start-Process -FilePath $uninstall -ArgumentList '/S' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Uninstaller failed: $($process.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: galaxam-windows-nsis-x64
+          path: desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error

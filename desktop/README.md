@@ -2,6 +2,9 @@
 
 Prototype macOS ARM64 construit avec Tauri 2, React, Spring Boot, Java 17 et PostgreSQL 15.19. Le Web continue d'utiliser le même frontend React et le backend Spring Boot Docker.
 
+Le travail nécessaire pour Windows 10/11 est suivi dans [WINDOWS_TODO.md](WINDOWS_TODO.md).
+Le découpage en trois sprints et ses critères de validation figurent dans [WINDOWS_SPRINTS.md](WINDOWS_SPRINTS.md). Le build Windows préparatoire utilise `scripts/build-windows.ps1` sur un hôte Windows x64 avec un JDK Temurin 17, Maven, Node/npm et Rust MSVC ; il demande le chemin et l'empreinte SHA-256 de l'archive PostgreSQL Windows. Il n'est pas encore qualifié pour le mode local.
+
 ## Organisation du code et préparation de Windows
 
 Le code Rust est rangé par responsabilité :

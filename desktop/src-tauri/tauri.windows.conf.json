@@ -1,0 +1,37 @@
+{
+  "bundle": {
+    "targets": [
+      "nsis"
+    ],
+    "resources": {
+      "../bundle/backend.jar": "backend/backend.jar",
+      "../bundle/runtime/bin/": "backend/runtime/bin/",
+      "../bundle/runtime/conf/": "backend/runtime/conf/",
+      "../bundle/runtime/lib/": "backend/runtime/lib/",
+      "../bundle/runtime/release": "backend/runtime/release",
+      "../bundle/runtime-licenses.zip": "backend/runtime-licenses.zip",
+      "../bundle/postgresql/bin/": "postgresql/bin/",
+      "../bundle/postgresql/lib/": "postgresql/lib/",
+      "../bundle/postgresql/share/": "postgresql/share/",
+      "../bundle/postgresql/server_license.txt": "postgresql/server_license.txt",
+      "../bundle/postgresql/commandlinetools_3rd_party_licenses.txt": "postgresql/commandlinetools_3rd_party_licenses.txt",
+      "../../backend/conception/bdd/01_schema_core_securite.sql": "postgresql/schema/01_schema_core_securite.sql",
+      "../../backend/conception/bdd/02_schema_referentiels_rh.sql": "postgresql/schema/02_schema_referentiels_rh.sql",
+      "../../backend/conception/bdd/03_schema_employes_contrats.sql": "postgresql/schema/03_schema_employes_contrats.sql",
+      "../../backend/conception/bdd/04_schema_conges.sql": "postgresql/schema/04_schema_conges.sql",
+      "../../backend/conception/bdd/05_schema_pointage.sql": "postgresql/schema/05_schema_pointage.sql",
+      "../../backend/conception/bdd/06_schema_paie.sql": "postgresql/schema/06_schema_paie.sql"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "languages": [
+          "French"
+        ]
+      },
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      }
+    }
+  }
+}
