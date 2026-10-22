@@ -19,12 +19,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.io.ByteArrayInputStream;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.text.PDFTextStripper;
 
 /**
  * Tests ciblés validant la suppression complète de la gestion des prêts
@@ -312,7 +317,7 @@ public class PayrollCalculationTargetedTest {
         bp.setSalaireNetImposable(new BigDecimal("980000.00"));
         bp.setIrsaNet(new BigDecimal("80000.00"));
         bp.setTotalIndemnitesNonImposables(BigDecimal.ZERO);
-        bp.setTotalRetenuesAvancesAcomptes(new BigDecimal("150000.00"));
+        bp.setTotalRetenuesAvancesAcomptes(new BigDecimal("171010.00"));
         bp.setNetAvantArrondi(new BigDecimal("750000.00"));
         bp.setNetAPayer(new BigDecimal("750000.00"));
 
@@ -331,6 +336,22 @@ public class PayrollCalculationTargetedTest {
         l2.setMontantSalarial(new BigDecimal("150000.00"));
         lignes.add(l2);
 
+        BulletinPaieLigne l3 = new BulletinPaieLigne();
+        l3.setCodeRubrique("RETENUE_AVANCE_SPECIALE");
+        l3.setLibelleRubrique("Avance exceptionnelle");
+        l3.setCategorie("ACOMPTE_AVANCE");
+        l3.setSens("RETENUE");
+        l3.setMontantSalarial(new BigDecimal("20000.00"));
+        lignes.add(l3);
+
+        BulletinPaieLigne l4 = new BulletinPaieLigne();
+        l4.setCodeRubrique("RETENUE_CALL_PERSO");
+        l4.setLibelleRubrique("Retenue Télécommunications Privées (Call)");
+        l4.setCategorie("RETENUE_DIVERSE");
+        l4.setSens("RETENUE");
+        l4.setMontantSalarial(new BigDecimal("1010.00"));
+        lignes.add(l4);
+
         BulletinPaieComplet complet = new BulletinPaieComplet();
         complet.setBulletin(bp);
         complet.setLignes(lignes);
@@ -345,11 +366,29 @@ public class PayrollCalculationTargetedTest {
         byte[] excelBytes = docService.excel(complet, ctx);
         assertNotNull(excelBytes);
         assertTrue(excelBytes.length > 0);
+        try (var workbook = WorkbookFactory.create(new ByteArrayInputStream(excelBytes))) {
+            var sheet = workbook.getSheet("Bulletin de paie");
+            assertEquals("Acomptes", sheet.getRow(23).getCell(0).getStringCellValue());
+            assertEquals(150000d, sheet.getRow(23).getCell(4).getNumericCellValue());
+            assertEquals("Avances", sheet.getRow(24).getCell(0).getStringCellValue());
+            assertEquals(20000d, sheet.getRow(24).getCell(4).getNumericCellValue());
+            assertEquals("Autres retenues sur le net", sheet.getRow(25).getCell(0).getStringCellValue());
+            assertEquals(1010d, sheet.getRow(25).getCell(4).getNumericCellValue());
+            assertEquals(750000d, bp.getNetAPayer().doubleValue(), "Le net à payer n'est pas recalculé par le récapitulatif.");
+        }
 
         // 2. Export PDF
         byte[] pdfBytes = docService.pdf(complet, ctx);
         assertNotNull(pdfBytes);
         assertTrue(pdfBytes.length > 0);
+        try (PDDocument pdf = Loader.loadPDF(pdfBytes)) {
+            String text = new PDFTextStripper().getText(pdf);
+            assertTrue(text.contains("Acomptes"));
+            assertTrue(text.contains("Avances"));
+            assertTrue(text.contains("Autres retenues sur le net"));
+            assertTrue(text.contains("1 010 Ar"));
+            assertTrue(text.contains("750 000 Ar"));
+        }
     }
 
     @Test

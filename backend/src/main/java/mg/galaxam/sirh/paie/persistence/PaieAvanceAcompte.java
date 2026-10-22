@@ -31,6 +31,7 @@ public class PaieAvanceAcompte extends ClassMere {
     private String typeMouvement; // ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, NOTE_DE_FRAIS, PRIME_EXCEPTIONNELLE, RETENUE_DIVERSE
     // Donnée de calcul issue du catalogue lié, sans colonne supplémentaire.
     private String codeRubriqueCalcul;
+    private String libelleRubriqueCalcul;
     private String explicationCalcul;
     private String sens = "RETENUE"; // RETENUE, GAIN
     private BigDecimal montant;
@@ -320,6 +321,8 @@ public class PaieAvanceAcompte extends ClassMere {
     public void setTypeMouvement(String typeMouvement) { this.typeMouvement = typeMouvement; }
     public String getCodeRubriqueCalcul() { return codeRubriqueCalcul; }
     public void setCodeRubriqueCalcul(String codeRubriqueCalcul) { this.codeRubriqueCalcul = codeRubriqueCalcul; }
+    public String getLibelleRubriqueCalcul() { return libelleRubriqueCalcul; }
+    public void setLibelleRubriqueCalcul(String libelleRubriqueCalcul) { this.libelleRubriqueCalcul = libelleRubriqueCalcul; }
 
     public String getSens() { return sens; }
     public void setSens(String sens) { this.sens = sens; }

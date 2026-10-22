@@ -854,7 +854,8 @@ public class PayrollExecutionEngine {
                 if (isAcompteQuinzaine) {
                     String codeRubrique = a.getCodeRubriqueCalcul() != null
                             ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
-                    String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Acompte sur salaire";
+                    String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
+                            ? a.getLibelleRubriqueCalcul() : "Acompte sur salaire";
 
                     BigDecimal mntAcompte = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponibleAcompte));
                     if (mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
@@ -885,7 +886,8 @@ public class PayrollExecutionEngine {
                 if (isAvanceSpeciale) {
                     String codeRubrique = a.getCodeRubriqueCalcul() != null
                             ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
-                    String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Avance exceptionnelle sur salaire";
+                    String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
+                            ? a.getLibelleRubriqueCalcul() : "Avance exceptionnelle sur salaire";
 
                     BigDecimal capaciteRestanteAvance = plafondDixiemeAvances.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
                     BigDecimal mntAvanceRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(capaciteRestanteAvance));
@@ -920,7 +922,8 @@ public class PayrollExecutionEngine {
                     String libelleDefaut = "CALL_PERSO".equalsIgnoreCase(type)
                             ? "Retenue Téléphonie Privée (Call Perso)"
                             : "Retenue Diverse sur Salaire";
-                    String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : libelleDefaut;
+                    String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
+                            ? a.getLibelleRubriqueCalcul() : libelleDefaut;
 
                     BigDecimal soldeDisponible = netApresAvance.subtract(totalAutresRetenues).max(BigDecimal.ZERO);
                     BigDecimal mntRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponible));

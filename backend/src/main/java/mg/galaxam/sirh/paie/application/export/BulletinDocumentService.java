@@ -45,6 +45,24 @@ public class BulletinDocumentService {
 
     public record Context(String periode, String dates, String entreprise, String adresse, String nif, String stat) {}
     private record Rubrique(String libelle, BigDecimal base, BigDecimal taux, BigDecimal gain, BigDecimal retenue) {}
+    private record RetenuesNet(BigDecimal acomptes, BigDecimal avances, BigDecimal autres) {}
+
+    private static RetenuesNet retenuesNet(BulletinPaie b, List<BulletinPaieLigne> lignes) {
+        BigDecimal acomptes = BigDecimal.ZERO;
+        BigDecimal avances = BigDecimal.ZERO;
+        for (BulletinPaieLigne ligne : lignes) {
+            if (!"RETENUE".equalsIgnoreCase(ligne.getSens())) continue;
+            String code = ligne.getCodeRubrique() == null ? "" : ligne.getCodeRubrique().toUpperCase(Locale.ROOT);
+            BigDecimal montant = ligne.getMontantSalarial() == null ? BigDecimal.ZERO : ligne.getMontantSalarial();
+            if ("RETENUE_ACOMPTE_15".equals(code) || "ACOMPTE_15".equals(code) || "AVANCE_QUINZAINE".equals(code))
+                acomptes = acomptes.add(montant);
+            else if ("RETENUE_AVANCE_SPECIALE".equals(code) || "AVANCE_SPECIALE".equals(code))
+                avances = avances.add(montant);
+        }
+        BigDecimal total = b.getTotalRetenuesAvancesAcomptes() == null
+                ? BigDecimal.ZERO : b.getTotalRetenuesAvancesAcomptes();
+        return new RetenuesNet(acomptes, avances, total.subtract(acomptes).subtract(avances));
+    }
 
     public Context context(BulletinPaieComplet complet, Connection connection) throws Exception {
         String sql = "SELECT code, date_debut, date_fin FROM periode_paie WHERE id_periode_paie=?";
@@ -94,6 +112,7 @@ public class BulletinDocumentService {
     public byte[] excel(BulletinPaieComplet complet, Context context) throws Exception {
         BulletinPaie b = complet.getBulletin();
         List<Rubrique> rubriques = rubriques(complet);
+        RetenuesNet retenuesNet = retenuesNet(b, complet.getLignes() == null ? List.of() : complet.getLignes());
         try (XSSFWorkbook book = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             Sheet sheet = book.createSheet("Bulletin de paie");
             sheet.setDisplayGridlines(false);
@@ -150,7 +169,9 @@ public class BulletinDocumentService {
             cell(sheet, r, 0, "Net imposable", label); numeric(sheet, r++, 3, b.getRevenuNetImposable(), total);
             cell(sheet, r, 0, "IRSA", label); numeric(sheet, r++, 4, impot(b), total);
             cell(sheet, r, 0, "Ajouts au net", label); numeric(sheet, r++, 3, b.getTotalIndemnitesNonImposables(), total);
-            cell(sheet, r, 0, "Avances et acomptes", label); numeric(sheet, r++, 4, b.getTotalRetenuesAvancesAcomptes(), total);
+            cell(sheet, r, 0, "Acomptes", label); numeric(sheet, r++, 4, retenuesNet.acomptes(), total);
+            cell(sheet, r, 0, "Avances", label); numeric(sheet, r++, 4, retenuesNet.avances(), total);
+            cell(sheet, r, 0, "Autres retenues sur le net", label); numeric(sheet, r++, 4, retenuesNet.autres(), total);
             r++;
             cell(sheet, r, 0, "NET À PAYER", netLabel);
             for (int col = 1; col < 5; col++) cell(sheet, r, col, "", net);
@@ -172,6 +193,7 @@ public class BulletinDocumentService {
     public byte[] pdf(BulletinPaieComplet complet, Context context) throws Exception {
         BulletinPaie b = complet.getBulletin();
         List<Rubrique> rubriques = rubriques(complet);
+        RetenuesNet retenuesNet = retenuesNet(b, complet.getLignes() == null ? List.of() : complet.getLignes());
         try (PDDocument doc = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PageWriter page = new PageWriter(doc);
             page.heading(context, b);
@@ -181,7 +203,7 @@ public class BulletinDocumentService {
                 page.rubrique(l);
             }
             if (page.y < 205) { page.close(); page = new PageWriter(doc); page.continuation(context, b); }
-            page.totals(b);
+            page.totals(b, retenuesNet);
             page.close();
             doc.save(output);
             return output.toByteArray();
@@ -257,7 +279,7 @@ public class BulletinDocumentService {
             if (!current.isEmpty()) lines.add(current.toString());
             return lines.isEmpty() ? List.of("") : lines;
         }
-        void totals(BulletinPaie b) throws Exception {
+        void totals(BulletinPaie b, RetenuesNet retenuesNet) throws Exception {
             y -= 14;
             rule(y + 16);
             y -= 9;
@@ -266,7 +288,9 @@ public class BulletinDocumentService {
             summary("Net imposable", b.getRevenuNetImposable());
             summary("IRSA", impot(b));
             summary("Ajouts au net", b.getTotalIndemnitesNonImposables());
-            summary("Avances et acomptes", b.getTotalRetenuesAvancesAcomptes());
+            summary("Acomptes", retenuesNet.acomptes());
+            summary("Avances", retenuesNet.avances());
+            summary("Autres retenues sur le net", retenuesNet.autres());
             y -= 7;
             fill(LEFT, y + 12, RIGHT - LEFT, 36, BRAND_NAVY);
             text(LEFT + 12, y - 10, "NET À PAYER", 12, true, 0xFFFFFF);

@@ -39,6 +39,13 @@ son motif et son auteur dans l'historique. Les anciens règlements enregistrés
 avant le caractère obligatoire de la pièce restent signalés comme sans preuve
 jusqu'à leur rapprochement avec un justificatif réel.
 
+L'action individuelle enregistre le mode réellement utilisé, même s'il diffère
+du mode prévu sur le bulletin. Chèque, espèces et mobile money ne nécessitent
+pas de RIB ; date, référence et justificatif restent obligatoires. Les cases
+de sélection de la page de règlements concernent uniquement le lot bancaire.
+Un bulletin non éligible au lot peut encore recevoir un règlement individuel,
+sauf si un virement est en attente ou si son solde est repris dans un STC actif.
+
 Les virements groupés ont un cycle distinct : lot `PREPARE`, fichier CSV
 contrôlé, lot `TRANSMIS`, puis enregistrement des virements réellement effectués
 ou signalement des lignes non exécutées. Le statut technique `CONFIRME` d'une
@@ -345,8 +352,13 @@ annuels avec disponibilité et motif. Pour le mensuel, il lit la capacité
 `GENERATE_OUTPUT` du workflow ; pour le trimestre, il utilise le chargement de
 `QuarterlySocialDataService` ; pour l'année, il utilise la sélection et le
 contrôle des bulletins d'`AnnualPayrollExportService`. L'écran consomme ce
-catalogue pour afficher les actions. Les générateurs restent propriétaires des
-formats et du contenu réglementaire.
+catalogue pour afficher les actions. Le catalogue de l'interface retient les
+bulletins et les états Excel de contrôle interne : grand livre, IRSA, état social
+mensuel, synthèse sociale trimestrielle et récapitulatif annuel. Les anciens
+exports CSV et modèles déclaratifs restent accessibles par leurs routes backend,
+mais ne sont plus proposés comme états internes. Les générateurs restent
+propriétaires de leurs formats ; la génération ne prouve pas l'acceptation par un
+organisme.
 
 À partir de la migration `26-10-16-sp71-paie-identite-employeur-bulletin.sql`,
 `PayrollEmployerSnapshotService` fige la filiale, la raison sociale, le NIF et

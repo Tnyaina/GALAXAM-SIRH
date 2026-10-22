@@ -19,6 +19,7 @@ import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import BulletinVariableCorrection from './BulletinVariableCorrection';
+import { summarizeNetDeductions } from '@/features/payroll/utils/netDeductions';
 
 /** Consultation du bulletin calculé. */
 export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onRecalculateSuccess }) {
@@ -111,7 +112,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const netAvantImpot = bulletin?.salaireNetImposable;
     const retenueIsi = Number(bulletin?.retenueIsi5 || 0);
     const indemniteNet = Number(bulletin?.totalIndemnitesNonImposables || 0);
-    const retenuesTresorerie = Number(bulletin?.totalRetenuesAvancesAcomptes || 0);
+    const retenuesTresorerie = summarizeNetDeductions(lignes, bulletin?.totalRetenuesAvancesAcomptes);
     const compositionBrut = data?.compositionBrut;
     const ajustementArrondi = compositionBrut?.ecartArrondiNet ?? null;
     const estIrsa = !retenueIsi && lignes.some(l => l.codeRubrique === 'IMPOT_IRSA_NET' || l.codeRubrique === 'IMPOT_IRSA_BRUT');
@@ -400,12 +401,9 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 <span className="font-data font-semibold text-[var(--color-success-600)]">+{formatAr(bulletin.totalIndemnitesNonImposables)}</span>
                                             </div>
                                         )}
-                                        {retenuesTresorerie > 0 && (
-                                            <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
-                                                <span className="text-[var(--color-fg-muted)]">Acomptes, avances et autres retenues</span>
-                                                <span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.totalRetenuesAvancesAcomptes)}</span>
-                                            </div>
-                                        )}
+                                        {retenuesTresorerie.acomptes > 0 && <div className="flex justify-between items-center px-3.5 py-2 text-[11px]"><span className="text-[var(--color-fg-muted)]">Acomptes</span><span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(retenuesTresorerie.acomptes)}</span></div>}
+                                        {retenuesTresorerie.avances > 0 && <div className="flex justify-between items-center px-3.5 py-2 text-[11px]"><span className="text-[var(--color-fg-muted)]">Avances</span><span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(retenuesTresorerie.avances)}</span></div>}
+                                        {retenuesTresorerie.autres > 0 && <div className="flex justify-between items-center px-3.5 py-2 text-[11px]"><span className="text-[var(--color-fg-muted)]">Autres retenues sur le net</span><span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(retenuesTresorerie.autres)}</span></div>}
                                         {bulletin.netAvantArrondi != null && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Net avant arrondi</span>

@@ -1,7 +1,6 @@
 package mg.galaxam.sirh.paie.application.export;
 
 import java.sql.Connection;
-import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.ActionCapability;
@@ -38,39 +37,27 @@ public class PayrollDocumentCatalogService {
         List<Document> documents = List.of(
                 document("bulletins", "Bulletins individuels", "Un bulletin par salarié, depuis la campagne.", "PDF · Excel", ready, label, capability.reasonCodes()),
                 document("grand-livre", "Grand livre de paie", "État nominatif et détail des rubriques.", "Excel (.xlsx)", ready, label, capability.reasonCodes()),
-                document("irsa", "État IRSA", "Modèle fiscal à contrôler par la DAF.", "Excel (.xls)", ready, label, capability.reasonCodes()),
-                document("social", "État social mensuel", "Cotisations par organisme et salarié.", "Excel (.xlsx)", ready, label, capability.reasonCodes()),
-                document("safi-csv", "État 301 SAFI", "Données fiscales nominatives à contrôler.", "CSV", ready, label, capability.reasonCodes()),
-                document("safi-xls", "État 301 SAFI", "Déclaration IRSA au format Excel.", "Excel (.xls)", ready, label, capability.reasonCodes()),
-                document("dnts-csv", "DNTS CNaPS / FMFP", "Données sociales nominatives à contrôler.", "CSV", ready, label, capability.reasonCodes()),
-                document("virement-csv", "Ordre de virement", "Montants nets et coordonnées bancaires à vérifier.", "CSV", ready, label, capability.reasonCodes()));
+                document("irsa", "État IRSA", "Contrôle fiscal nominatif à vérifier par la DAF.", "Excel (.xls)", ready, label, capability.reasonCodes()),
+                document("social", "État social mensuel", "Cotisations par organisme et salarié.", "Excel (.xlsx)", ready, label, capability.reasonCodes()));
         return new Catalog("mensuel", ready ? 1 : 0, 1, documents);
     }
 
     public Catalog quarterly(int year, int quarter) throws Exception {
-        List<Document> documents = new ArrayList<>();
-        String[] ids = {"consolidation", "cnaps", "fmfp", "ostie", "omsi"};
-        String[] names = {"Consolidation sociale", "CNaPS · DNWEB", "CNaPS / FMFP", "OSTIE", "OMSI"};
-        String[] details = {"Synthèse et détail des trois mois.", "Modèle nominatif sur trois mois.",
-                "Modèle combiné et feuilles mensuelles.", "Modèle nominatif trimestriel.", "Modèle nominatif trimestriel."};
-        int[] counts = null;
+        Integer count = null;
         String failure = null;
         try (Connection connection = dataSource.getConnection()) {
             var data = quarterly.load(year, quarter, connection);
-            counts = new int[] {data.people().size(), data.cnaps().size(),
-                    (int) data.people().stream().filter(p -> p.hasCnaps() || p.hasFmfp()).count(),
-                    data.ostie().size(), data.omsi().size()};
+            count = data.people().size();
         } catch (IllegalStateException error) {
             failure = error.getMessage();
         }
-        for (int index = 0; index < ids.length; index++) {
-            boolean available = counts != null && counts[index] > 0;
-            String label = failure != null ? failure : available ? "À contrôler par la DAF" : "Aucune cotisation à déclarer";
-            documents.add(document(ids[index], names[index], details[index], index == 2 ? "Excel (.xls)" : "Excel (.xlsx)",
-                    available, label, failure != null ? List.of("PAYROLL_QUARTER_NOT_READY")
-                            : available ? List.of() : List.of("NO_DECLARABLE_DATA")));
-        }
-        return new Catalog("trimestriel", counts == null ? 0 : 3, 3, documents);
+        boolean available = count != null && count > 0;
+        String label = failure != null ? failure : available ? "Disponible" : "Aucune donnée sociale";
+        Document document = document("consolidation", "Synthèse sociale trimestrielle",
+                "Synthèse et détail des trois mois pour contrôle interne.", "Excel (.xlsx)", available, label,
+                failure != null ? List.of("PAYROLL_QUARTER_NOT_READY")
+                        : available ? List.of() : List.of("NO_SOCIAL_DATA"));
+        return new Catalog("trimestriel", count == null ? 0 : 3, 3, List.of(document));
     }
 
     public Catalog annual(int year) throws Exception {

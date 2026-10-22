@@ -2,6 +2,7 @@ import SharedButton from '@/components/ui/forms/Button';
 import { default as SharedInput, Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import ManualVariableValueFields from '../ManualVariableValueFields';
 import { manualMethod, manualValuePayload } from '../../utils/manualVariableCalculation';
+import { summarizeNetDeductions } from '../../utils/netDeductions';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     SlidersHorizontal, 
@@ -480,6 +481,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const previewRetenues = previewBulletin?.totalRetenuesAvancesAcomptes ?? previewBulletin?.total_retenues_avances_acomptes;
     const previewAvantArrondi = previewBulletin?.netAvantArrondi ?? previewBulletin?.net_avant_arrondi;
     const previewLines = Array.isArray(bulletinPreview?.lignes) ? bulletinPreview.lignes : [];
+    const previewNetDeductions = summarizeNetDeductions(previewLines, previewRetenues);
     const previewFiscalite = bulletinPreview?.explicationFiscalite;
     const previewHsExoneree = Number(previewFiscalite?.remunerationHsExonereeIrsa
         ?? previewLines.find(line => line.codeRubrique === 'HS_EXONEREE_IRSA')?.montantSalarial ?? 0);
@@ -497,7 +499,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         previewIsIrsa && Number(previewIrsa || 0) > 0 && ['IRSA prélevé', previewIrsa, '−', 'text-[var(--color-danger-600)] font-semibold'],
         Number(previewIsi || 0) > 0 && ['ISI prélevé', previewIsi, '−', 'text-[var(--color-danger-600)] font-semibold'],
         Number(previewIndemnitesNet || 0) > 0 && ['Indemnités et remboursements non imposables', previewIndemnitesNet, '+', 'text-[var(--color-success-700)] font-semibold'],
-        Number(previewRetenues || 0) > 0 && ['Acomptes, avances et autres retenues', previewRetenues, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        previewNetDeductions.acomptes > 0 && ['Acomptes', previewNetDeductions.acomptes, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        previewNetDeductions.avances > 0 && ['Avances', previewNetDeductions.avances, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        previewNetDeductions.autres > 0 && ['Autres retenues sur le net', previewNetDeductions.autres, '−', 'text-[var(--color-danger-600)] font-semibold'],
         ['Net avant arrondi', previewAvantArrondi, '', 'text-[var(--color-fg)] font-medium'],
         previewAjustement !== 0 && ['Ajustement à la dizaine d’ariary', Math.abs(previewAjustement), previewAjustement > 0 ? '+' : '−', 'text-[var(--color-fg)]'],
     ].filter(Boolean);

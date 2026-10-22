@@ -342,6 +342,7 @@ final class PayrollCalculationContextAssembler {
                 "pr.categorie AS rubrique_categorie, " +
                 "pr.etape_calcul AS rubrique_etape_calcul, " +
                 "pr.code AS rubrique_code, " +
+                "pr.libelle AS rubrique_libelle, " +
                 "EXISTS (SELECT 1 FROM paie_mouvement_justificatif pj WHERE pj.id_avance = paa.id_avance) " +
                 "AS justificatif_present " +
                 "FROM paie_avance_acompte paa " +
@@ -448,7 +449,9 @@ final class PayrollCalculationContextAssembler {
                                     rs, "est_imposable", "RUBRIQUE_PAIE", idEmploye);
                             boolean soumisCotis = PayrollConfigurationGuard.requireFlag(
                                     rs, "est_soumis_cotisation", "RUBRIQUE_PAIE", idEmploye);
-                            String libelleFinal = motif != null && !motif.isBlank() ? motif : (libelleType != null ? libelleType : codeType);
+                            String libelleRubrique = rs.getString("rubrique_libelle");
+                            String libelleFinal = libelleRubrique != null && !libelleRubrique.isBlank()
+                                    ? libelleRubrique : (libelleType != null ? libelleType : codeType);
 
                             PayrollCalculationInput.GainVariable gv = new PayrollCalculationInput.GainVariable(
                                     idAvance, codeType, libelleFinal, montant, catType, imposable, soumisCotis);
@@ -488,6 +491,7 @@ final class PayrollCalculationContextAssembler {
                         a.setIdEmploye(rs.getInt("id_employe"));
                         a.setTypeMouvement(codeType);
                         a.setCodeRubriqueCalcul(rs.getString("rubrique_code"));
+                        a.setLibelleRubriqueCalcul(rs.getString("rubrique_libelle"));
                         a.setExplicationCalcul(explanation);
                         a.setSens(sens != null ? sens : "RETENUE");
                         a.setMontant(montant);

@@ -174,12 +174,16 @@ public class BulletinPaieLigne extends ClassMere {
 
     public static List<BulletinPaieLigne> listerParBulletin(Integer idBulletin, Connection c) throws Exception {
         List<BulletinPaieLigne> list = new ArrayList<>();
-        String sql = "SELECT * FROM bulletin_paie_ligne WHERE id_bulletin = ? ORDER BY ordre ASC, id_ligne ASC";
+        String sql = "SELECT l.*, COALESCE(r.libelle, l.libelle_rubrique) AS libelle_rubrique_affiche " +
+                "FROM bulletin_paie_ligne l LEFT JOIN paie_rubrique r ON r.id_rubrique = l.id_rubrique " +
+                "WHERE l.id_bulletin = ? ORDER BY l.ordre ASC, l.id_ligne ASC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idBulletin);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapResultSet(rs));
+                    BulletinPaieLigne ligne = mapResultSet(rs);
+                    ligne.setLibelleRubrique(rs.getString("libelle_rubrique_affiche"));
+                    list.add(ligne);
                 }
             }
         }

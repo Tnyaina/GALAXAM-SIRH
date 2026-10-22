@@ -108,24 +108,6 @@ export default function DeclarationsSortiesPage() {
             setDownloading(null);
         }
     };
-    const downloadFile = async (type) => {
-        if (!periodId || !list.find(item => item.id === type)?.available) return;
-        setDownloading(type);
-        setDownloadError('');
-        try {
-            const { blob, filename } = await paieService.telechargerFichierExport(periodId, type);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.click();
-            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } catch (error) {
-            setDownloadError(getErrorMessage(error, 'Impossible de générer ce fichier.'));
-        } finally {
-            setDownloading(null);
-        }
-    };
     const downloadQuarterly = async (type) => {
         if (!list.find(item => item.id === type)?.available) return;
         setDownloading(type); setDownloadError('');
@@ -155,8 +137,8 @@ export default function DeclarationsSortiesPage() {
 
     return (
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full space-y-5 pb-8">
-            <SEO title="Documents et exports de paie | GALAXAM GRH" description="Catalogue des documents mensuels, trimestriels et annuels de paie." />
-            <PageHeader title="Documents et exports de paie" subtitle="Consultez les bulletins et téléchargez les états disponibles pour la période choisie."
+            <SEO title="États de paie | GALAXAM GRH" description="États Excel mensuels, trimestriels et annuels pour la gestion interne." />
+            <PageHeader title="États de paie" subtitle="Consultez les bulletins et téléchargez les états Excel utiles au contrôle interne."
                 icon={FolderOpen} backLink="/paie" backLabel="Centre de paie" />
             {downloadError && <Alert type="error" message={downloadError} onClose={() => setDownloadError('')} />}
             {catalogError && <Alert type="error" message={catalogError} />}
@@ -229,8 +211,7 @@ export default function DeclarationsSortiesPage() {
                                 <div className="sm:justify-self-end">
                                     {available && item.id === 'bulletins' && <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/controle`)}>Choisir un salarié</Button>}
                                     {available && needsValidation && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadExcel(item.id)}>Télécharger Excel</Button>}
-                                    {activeTab === 'mensuel' && available && ['safi-csv', 'safi-xls', 'dnts-csv', 'virement-csv'].includes(item.id) && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadFile(item.id)}>Télécharger {item.format}</Button>}
-                                    {activeTab === 'trimestriel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadQuarterly(item.id)}>Télécharger le modèle</Button>}
+                                    {activeTab === 'trimestriel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadQuarterly(item.id)}>Télécharger Excel</Button>}
                                     {activeTab === 'annuel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={downloadAnnual}>Télécharger Excel</Button>}
                                 </div>
                             </div>
@@ -241,7 +222,7 @@ export default function DeclarationsSortiesPage() {
             {activeTab === 'mensuel' && periodId && canExport && <div className="flex justify-end border-t border-[var(--color-border-subtle)] pt-4">
                 <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/sorties`)}>Voir l’étape de clôture</Button>
             </div>}
-            {activeTab === 'trimestriel' && <p className="text-xs text-[var(--color-fg-muted)]">Ces modèles sont des brouillons à revoir par la DAF. Les identifiants préremplis du modèle sont conservés ; les champs d’adhésion vides restent à compléter. L’acceptation sur les portails officiels n’a pas été vérifiée.</p>}
+            {activeTab === 'trimestriel' && <p className="text-xs text-[var(--color-fg-muted)]">Cette synthèse sert au contrôle interne des cotisations. Elle ne constitue pas une preuve de déclaration auprès d’un organisme.</p>}
             {activeTab === 'annuel' && <p className="text-xs text-[var(--color-fg-muted)]">Le récapitulatif utilise uniquement les campagnes de paie validées. Si l’année est incomplète, les mois inclus sont indiqués dans le classeur ; les mois absents ou non validés n’y figurent pas.</p>}
         </div>
     );

@@ -507,22 +507,17 @@ Le bulletin affiche les données d’emploi/période et les lignes de gains et r
 |---|---|---|
 | Mensuelle | Bulletins individuels PDF/Excel | Consultation/téléchargement depuis la campagne |
 | Mensuelle | Grand livre de paie Excel | Paie validée (inclut colonnes Santé adaptées : OSTIE, AMIT...) via `GrandLivrePaieExportService` |
-| Mensuelle | État IRSA Excel | Paie validée, modèle officiel de calcul fiscal mensuel via `IrsaExcelExportService` |
-| Mensuelle | Déclaration Fiscale SAFI IRSA | Format officiel DGI Madagascar en classeur Excel `.xls` (`SafiXlsExportService`) et extraction brute `.csv` (`SafiExportService`) |
-| Mensuelle | Déclaration DNTS CNaPS / FMFP | Export mensuel/trimestriel normalisé `.csv` via `DntsExportService` |
+| Mensuelle | État IRSA Excel | Paie validée, classeur issu d'un modèle embarqué à contrôler par la DAF via `IrsaExcelExportService` ; ce téléchargement ne prouve aucune déclaration |
 | Mensuelle | État social Excel | Regroupement dynamique par organisme déclaré (`ref_organisme_social`) avec récapitulatif global, colonnes détaillées par organisme et bannière d’avertissement si cotisations non rattachées |
 | Trimestrielle | Consolidation sociale | Synthèse trimestrielle interne dynamique par organisme pour les 3 mois du trimestre avec détection automatique des organismes et avertissements d’incohérence |
-| Trimestrielle | CNaPS / DNWEB | Modèle nominatif trimestriel officiel |
-| Trimestrielle | CNaPS / FMFP | Modèle combiné trimestriel officiel |
-| Trimestrielle | OSTIE et OMSI | Modèles trimestriels officiels déclaratifs |
 | Annuelle | Récapitulatif annuel de paie Excel | Utilise les campagnes validées via `AnnualPayrollExportService` ; peut être partiel |
 
-Les exports trimestriels attendent trois mois validés dans le trimestre. L’export annuel indique les mois disponibles et ne complète pas les mois absents par des données estimées.
+Le catalogue de l'interface présente les états Excel utiles au contrôle interne. Les anciens endpoints SAFI, DNTS et modèles par organisme restent dans le backend, mais ne sont plus proposés sur cet écran ; leur conformité et leur acceptation par un portail ne sont pas établies. L'ordre de virement CSV n'est pas un état de paie interne. Les exports trimestriels attendent trois mois validés dans le trimestre. L’export annuel indique les mois disponibles et ne complète pas les mois absents par des données estimées.
 
 > [!IMPORTANT]
 > **Distinction stricte entre sorties internes et modèles officiels :**  
 > Les états internes de contrôle (état social mensuel `EtatSocialMensuelExportService` et consolidation trimestrielle `QuarterlySocialDataService`) sont **dynamiques** : ils regroupent automatiquement les cotisations selon les organismes déclaratifs réels portés par les bulletins (CNaPS, FMFP, OSTIE, OMSI, AMIT, etc.).  
-> À l'inverse, les modèles déclaratifs externes (`cnaps`, `fmfp`, `ostie`, `omsi`, `safi`) sont des canevas institutionnels figés et réservés aux administrations officielles éponymes.
+> Les anciens modèles déclaratifs externes (`cnaps`, `fmfp`, `ostie`, `omsi`, `safi`) ne figurent plus dans ce catalogue interne. Leur présence technique ne démontre ni conformité réglementaire ni acceptation par un organisme.
 
 ### Sorties backend
 
@@ -553,8 +548,19 @@ et depuis **Fiche salarié → Paie → Bulletins → Règlements**. Le panneau 
 et utilise les composants `SlideOver`, `MoneyInput`, `Input`, `Select`, `Badge`
 ainsi que les tokens de `index.css`.
 
-Pour un lot bancaire, l'utilisateur sélectionne les bulletins ayant une banque
-et un RIB, prépare le lot puis vérifie le CSV. Le lot passe de `PREPARE` à
+L'action **Enregistrer un paiement** consigne un versement individuel déjà
+effectué. L'utilisateur choisit son mode réel, même s'il diffère du mode prévu
+sur le bulletin ; un paiement par chèque, espèces ou mobile money n'exige ni
+banque ni RIB. La preuve, la date et la référence restent obligatoires. Les
+cases de sélection de la liste servent exclusivement à préparer un lot bancaire.
+Elles sont désactivées pour les bulletins non éligibles au lot, mais cela ne
+bloque pas l'enregistrement individuel d'un paiement déjà effectué.
+
+Pour un lot bancaire, l'utilisateur sélectionne les bulletins mensuels validés
+ou clôturés de la période, avec mode prévu `VIREMENT`, un solde positif, une
+banque et un RIB. Un bulletin dans un virement en attente ou repris dans un STC
+actif ne peut pas rejoindre ce lot. L'utilisateur prépare le lot puis vérifie
+le CSV. Le lot passe de `PREPARE` à
 `TRANSMIS` après l'envoi. Chaque ligne n'est marquée `CONFIRME` qu'après retour
 bancaire, avec date d'exécution, référence et **avis d'exécution ou relevé joint**.
 Une ligne rejetée conserve son motif et libère le bulletin pour un nouveau

@@ -142,11 +142,12 @@ export default function ReglementsBulletinsPage() {
             <StatCard title="Reste à payer" value={formatMoneyAr(total - paid)} subtext="Inclut les virements non enregistrés" color="brand" />
         </div>
         <Card shadow="none"><CardHeader><CardTitle size="sm">Bulletins individuels</CardTitle></CardHeader><CardBody className="space-y-3">
+            {canWrite && <Alert type="info" message="Pour enregistrer un salaire déjà versé par virement, chèque, espèces ou mobile money, ouvrez « Enregistrer un paiement » sur le bulletin. Les cases de sélection servent uniquement à préparer un fichier de virements bancaires." />}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <Input label="Rechercher" value={query} onChange={e => { setQuery(e.target.value); setCurrentPage(1); }} placeholder="Nom, matricule ou référence" containerClassName="w-full sm:max-w-sm" />
                 {canWrite && <Button disabled={!selectedEligible.length || busy} onClick={createLot}>Préparer un lot de virements ({selectedEligible.length})</Button>}
             </div>
-            {canWrite && <Checkbox label={query ? `Tout cocher parmi les ${visibleEligibleIds.length} bulletins éligibles filtrés` : `Tout cocher parmi les ${visibleEligibleIds.length} bulletins éligibles de la période`} checked={allVisibleSelected} disabled={!visibleEligibleIds.length} onChange={e => toggleAllVisible(e.target.checked)} />}
+            {canWrite && <Checkbox label={query ? `Tout sélectionner pour le lot bancaire parmi les ${visibleEligibleIds.length} bulletins filtrés` : `Tout sélectionner pour le lot bancaire parmi les ${visibleEligibleIds.length} bulletins de la période`} checked={allVisibleSelected} disabled={!visibleEligibleIds.length} onChange={e => toggleAllVisible(e.target.checked)} />}
             {canWrite && selectedEligible.length > 0 && <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-fg-muted)]"><span>{selectedEligible.length} bulletin(s) sélectionné(s){selectedOutsideFilter > 0 ? `, dont ${selectedOutsideFilter} hors de la recherche` : ''}.</span><Button variant="ghost" size="xs" onClick={() => setSelected([])}>Effacer la sélection</Button></div>}
             <div className="divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)] sm:hidden">
                 {displayed.map(b => <article key={b.idBulletin} className="space-y-3 py-4">
@@ -159,21 +160,21 @@ export default function ReglementsBulletinsPage() {
                     </div>
                     <dl className="grid grid-cols-3 gap-2 text-xs"><div><dt className="text-[var(--color-fg-muted)]">Net dû</dt><dd className="font-semibold tabular-nums">{formatMoneyAr(b.netAPayer)}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Payé</dt><dd className="font-semibold tabular-nums">{formatMoneyAr(b.verse)}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Reste</dt><dd className="font-bold tabular-nums">{formatMoneyAr(b.reste)}</dd></div></dl>
                     {b.inclusDansStc && <p className="text-xs text-[var(--color-info-700)]">Le solde mensuel est intégré au STC. Enregistrez le versement depuis le dossier de sortie pour éviter un double paiement.</p>}
-                    <div className="flex items-center justify-between gap-2"><span className="text-xs text-[var(--color-fg-muted)]">{modeLabel[b.modePaiement] || b.modePaiement || '—'}</span><Button variant="outline" size="xs" onClick={() => setActiveBulletin(b.idBulletin)}>{canWrite && Number(b.reste) > 0 && !b.virementEnAttente && !b.inclusDansStc ? 'Voir et régler' : 'Consulter'}</Button></div>
+                    <div className="flex items-center justify-between gap-2"><span className="text-xs text-[var(--color-fg-muted)]">{modeLabel[b.modePaiement] || b.modePaiement || '—'}</span><Button variant="outline" size="xs" onClick={() => setActiveBulletin(b.idBulletin)}>{canWrite && Number(b.reste) > 0 && !b.virementEnAttente && !b.inclusDansStc ? 'Enregistrer un paiement' : 'Consulter'}</Button></div>
                 </article>)}
             </div>
             <div className="hidden sm:block"><Table bordered={false} density="comfortable" aria-label="Règlements des bulletins mensuels"><Thead><Tr>
-                {canWrite && <Th>Sélection</Th>}<Th>Salarié</Th><Th>Mode prévu</Th><Th className="text-right">Net dû</Th><Th className="text-right">Payé</Th><Th className="text-right">Reste</Th><Th>Situation</Th><Th className="text-right">Action</Th>
+                {canWrite && <Th>Lot bancaire</Th>}<Th>Salarié</Th><Th>Mode prévu</Th><Th className="text-right">Net dû</Th><Th className="text-right">Payé</Th><Th className="text-right">Reste</Th><Th>Situation</Th><Th className="text-right">Action</Th>
             </Tr></Thead><Tbody>{displayed.map(b => <Tr key={b.idBulletin}>
                 {canWrite && <Td><input type="checkbox" aria-label={`Ajouter ${b.nomPrenom} au lot de virements`} disabled={!eligible(b)} checked={selectedEligible.includes(b.idBulletin)} onChange={e => setSelected(s => e.target.checked ? [...s, b.idBulletin] : s.filter(id => id !== b.idBulletin))} className="accent-[var(--color-brand-600)]" /></Td>}
                 <Td><span className="font-semibold">{b.nomPrenom}</span><span className="block text-xs text-[var(--color-fg-muted)]">{b.matricule} · {b.referenceBulletin}</span></Td>
                 <Td>{modeLabel[b.modePaiement] || b.modePaiement || '—'}</Td><Td className="text-right tabular-nums">{formatMoneyAr(b.netAPayer)}</Td><Td className="text-right tabular-nums">{formatMoneyAr(b.verse)}</Td><Td className="text-right font-semibold tabular-nums">{formatMoneyAr(b.reste)}</Td>
                 <Td><Badge variant={status(b)[1]} size="xs">{status(b)[0]}</Badge></Td>
-                <Td className="text-right"><Button variant="outline" size="xs" onClick={() => setActiveBulletin(b.idBulletin)}>{canWrite && Number(b.reste) > 0 && !b.virementEnAttente && !b.inclusDansStc ? 'Voir et régler' : 'Consulter'}</Button></Td>
+                <Td className="text-right"><Button variant="outline" size="xs" onClick={() => setActiveBulletin(b.idBulletin)}>{canWrite && Number(b.reste) > 0 && !b.virementEnAttente && !b.inclusDansStc ? 'Enregistrer un paiement' : 'Consulter'}</Button></Td>
             </Tr>)}</Tbody></Table></div>
             {!visible.length && <EmptyState compact title="Aucun bulletin" description={query ? 'Aucun bulletin ne correspond à cette recherche.' : 'Aucun bulletin validé pour cette période.'} />}
             {visible.length > 0 && <Pagination currentPage={page} totalItems={visible.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50, 100]} onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />}
-            {canWrite && bulletins.some(b => b.modePaiement === 'VIREMENT' && Number(b.reste) > 0 && !b.virementEnAttente && !eligible(b)) && <p className="text-xs text-[var(--color-fg-muted)]">Un bulletin sans banque ou RIB ne peut pas rejoindre un lot. Son dossier bancaire doit être complété.</p>}
+            {canWrite && bulletins.some(b => b.modePaiement === 'VIREMENT' && Number(b.reste) > 0 && !b.virementEnAttente && !eligible(b)) && <p className="text-xs text-[var(--color-fg-muted)]">Sans banque ou RIB, un bulletin ne peut pas rejoindre un lot bancaire. Un paiement déjà effectué peut être enregistré individuellement avec son mode réel et son justificatif.</p>}
         </CardBody></Card>
         <Card shadow="none"><CardHeader><CardTitle size="sm">Lots de virements</CardTitle></CardHeader><CardBody className="space-y-0">
             {lots.map(l => <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border-subtle)] py-3 last:border-0">

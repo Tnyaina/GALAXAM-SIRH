@@ -138,7 +138,7 @@ export default function BulletinReglementSlideOver({ isOpen, onClose, idBulletin
                 {situation.inclusDansStc && <div className="space-y-2"><Alert type="warning" title="Bulletin repris dans un STC actif" message="Ce bulletin est inclus dans un Solde de Tout Compte actif. Son versement doit être enregistré et justifié depuis le dossier de sortie du salarié." /></div>}
                 {canWrite && balance > 0 && !situation.virementEnAttente && !situation.inclusDansStc && <form onSubmit={save} className="space-y-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
                     <div className="flex items-center gap-2"><Banknote size={16} className="text-[var(--color-brand-600)]" /><h3 className="text-sm font-semibold">Marquer un montant déjà payé</h3></div>
-                    <p className="text-xs text-[var(--color-fg-muted)]">Indiquez un paiement déjà effectué, quel que soit son mode, et joignez son justificatif.</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Indiquez le mode réellement utilisé, même s'il diffère du mode prévu sur le bulletin, et joignez la preuve du paiement déjà effectué. Un paiement individuel par chèque, espèces ou mobile money ne nécessite pas de RIB.</p>
                     <FormError message={formError} onClose={() => setFormError('')} />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <MoneyInput label="Montant versé (Ar)" required min={0.01} max={balance} value={form.montant} onValueChange={value => setForm(f => ({ ...f, montant: value }))} />
