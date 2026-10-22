@@ -73,17 +73,21 @@ public class EmployeRequest {
     private String photoUrl;
     private Date dateDeclaration;
 
-    // CONJOINT
+    // Conjoint facultatif : sur PUT, absent/null/vide = inchangé ; suppression explicite uniquement.
     private ConjointRequest conjoint;
+    private boolean supprimerConjoint;
 
     // ENFANTS
     private List<EnfantRequest> enfants;
+    private List<Integer> enfantsASupprimer;
 
     // CONTACTS URGENCE
     private List<ContactUrgenceRequest> contactsUrgence;
+    private List<Integer> contactsUrgenceASupprimer;
 
     // COMPTE BANCAIRE PRINCIPAL
     private CompteBanqueRequest compteBanquePrincipal;
+    private boolean supprimerCompteBanque;
 
     public static class ConjointRequest {
         private String nom;
@@ -115,6 +119,7 @@ public class EmployeRequest {
     }
 
     public static class EnfantRequest {
+        private Integer idEnfant;
         private String nom;
         private String prenom;
         private String sexe;
@@ -125,6 +130,9 @@ public class EmployeRequest {
         private Date dateFinScolarite;
         private boolean estHandicape = false;
         private boolean certificatFourni = false;
+
+        public Integer getIdEnfant() { return idEnfant; }
+        public void setIdEnfant(Integer idEnfant) { this.idEnfant = idEnfant; }
 
         public String getNom() { return nom; }
         public void setNom(String nom) { this.nom = nom; }
@@ -162,12 +170,16 @@ public class EmployeRequest {
     }
 
     public static class ContactUrgenceRequest {
+        private Integer idContact;
         private String nom;
         private String prenom;
         private String lienParente;
         private String adresse;
         private String telephone;
         private String societe;
+
+        public Integer getIdContact() { return idContact; }
+        public void setIdContact(Integer idContact) { this.idContact = idContact; }
 
         public String getNom() { return nom; }
         public void setNom(String nom) { this.nom = nom; }
@@ -189,10 +201,14 @@ public class EmployeRequest {
     }
 
     public static class CompteBanqueRequest {
+        private Integer idCompteBanque;
         private Integer idBanque;
         private String agence;
         private String numCompteRib;
         private String titulaireCompte;
+
+        public Integer getIdCompteBanque() { return idCompteBanque; }
+        public void setIdCompteBanque(Integer idCompteBanque) { this.idCompteBanque = idCompteBanque; }
 
         public Integer getIdBanque() { return idBanque; }
         public void setIdBanque(Integer idBanque) { this.idBanque = idBanque; }
@@ -302,12 +318,21 @@ public class EmployeRequest {
     public ConjointRequest getConjoint() { return conjoint; }
     public void setConjoint(ConjointRequest conjoint) { this.conjoint = conjoint; }
 
+    public boolean isSupprimerConjoint() { return supprimerConjoint; }
+    public void setSupprimerConjoint(boolean supprimerConjoint) { this.supprimerConjoint = supprimerConjoint; }
+
     public List<EnfantRequest> getEnfants() { return enfants; }
     public void setEnfants(List<EnfantRequest> enfants) { this.enfants = enfants; }
+    public List<Integer> getEnfantsASupprimer() { return enfantsASupprimer; }
+    public void setEnfantsASupprimer(List<Integer> enfantsASupprimer) { this.enfantsASupprimer = enfantsASupprimer; }
 
     public List<ContactUrgenceRequest> getContactsUrgence() { return contactsUrgence; }
     public void setContactsUrgence(List<ContactUrgenceRequest> contactsUrgence) { this.contactsUrgence = contactsUrgence; }
+    public List<Integer> getContactsUrgenceASupprimer() { return contactsUrgenceASupprimer; }
+    public void setContactsUrgenceASupprimer(List<Integer> contactsUrgenceASupprimer) { this.contactsUrgenceASupprimer = contactsUrgenceASupprimer; }
 
     public CompteBanqueRequest getCompteBanquePrincipal() { return compteBanquePrincipal; }
     public void setCompteBanquePrincipal(CompteBanqueRequest compteBanquePrincipal) { this.compteBanquePrincipal = compteBanquePrincipal; }
+    public boolean isSupprimerCompteBanque() { return supprimerCompteBanque; }
+    public void setSupprimerCompteBanque(boolean supprimerCompteBanque) { this.supprimerCompteBanque = supprimerCompteBanque; }
 }

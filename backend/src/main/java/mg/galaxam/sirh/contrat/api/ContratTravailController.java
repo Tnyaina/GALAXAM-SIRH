@@ -59,12 +59,16 @@ public class ContratTravailController {
     public ResponseEntity<?> getContratsEmploye(@PathVariable Integer idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             List<ContratTravail> contrats = ContratTravail.listerParEmploye(idEmploye, c);
+            if (contrats.isEmpty()) {
+                return ResponseEntity.ok(List.of());
+            }
             Set<Integer> idsContrats = contrats.stream()
                     .map(ContratTravail::getIdContrat)
                     .filter(java.util.Objects::nonNull)
                     .collect(Collectors.toSet());
             Map<Integer, Map<String, Object>> anciennetes =
                     ContratTravail.calculerAncienneteDetailleeBatch(idsContrats, c);
+            Map<Integer, ContratReferences> references = chargerReferencesContratsEmploye(idEmploye, c);
             // Enrichissement avec les libellés (filiale, type contrat...) pour chaque
             // contrat
             // de l'historique — nécessaire notamment pour le certificat de travail, qui est
@@ -72,7 +76,8 @@ public class ContratTravailController {
             // "actif").
             List<Map<String, Object>> contratsEnrichis = new ArrayList<>();
             for (ContratTravail ct : contrats) {
-                contratsEnrichis.add(enrichirContrat(ct, c, anciennetes.get(ct.getIdContrat())));
+                contratsEnrichis.add(enrichirContrat(ct, c, references.get(ct.getIdContrat()),
+                        anciennetes.get(ct.getIdContrat())));
             }
             return ResponseEntity.ok(contratsEnrichis);
         } catch (Exception e) {
@@ -696,7 +701,7 @@ public class ContratTravailController {
 
     // ─── Helpers d'enrichissement de données pour l'IHM ─────────────────────────
 
-    private String fetchLibelle(Connection c, String sql, Integer id) {
+    private String fetchLibelle(Connection c, String sql, Integer id) throws SQLException {
         if (id == null || id <= 0)
             return null;
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -706,46 +711,15 @@ public class ContratTravailController {
                     return rs.getString(1);
                 }
             }
-        } catch (Exception ignored) {
         }
         return null;
     }
 
-    /**
-     * Récupère le libellé et les informations légales (adresse, NIF, STAT) d'une
-     * filiale.
-     * Nécessaire pour l'en-tête officiel du certificat de travail.
-     *
-     * ATTENTION : adapter les noms de colonnes (adresse / nif / stat) si le schéma
-     * réel
-     * de ref_filiale diffère — cette table n'était pas incluse dans le script SQL
-     * fourni.
-     */
-    private Map<String, Object> fetchFiliale(Connection c, Integer id) {
-        if (id == null || id <= 0)
-            return null;
-        String sql = "SELECT raison_sociale, nif, stat FROM ref_filiale WHERE id_filiale = ?";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("libelle", rs.getString("raison_sociale"));
-                    m.put("nif", rs.getString("nif"));
-                    m.put("stat", rs.getString("stat"));
-                    return m;
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
+    private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c) throws SQLException {
+        return enrichirContrat(ct, c, chargerReferencesContrat(ct.getIdContrat(), c), null);
     }
 
-    private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c) {
-        return enrichirContrat(ct, c, null);
-    }
-
-    private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c,
+    private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c, ContratReferences references,
             Map<String, Object> anciennetePrecalculee) {
         Map<String, Object> map = new HashMap<>();
         map.put("idContrat", ct.getIdContrat());
@@ -764,8 +738,8 @@ public class ContratTravailController {
         map.put("description", ct.getDescription());
         map.put("commentaire", ct.getCommentaire());
 
-        if (ct.getIdFiliale() != null && ct.getIdFiliale() > 0) {
-            Map<String, Object> filiale = fetchFiliale(c, ct.getIdFiliale());
+        if (references != null && references.filiale != null) {
+            Map<String, Object> filiale = references.filiale;
             if (filiale != null) {
                 map.put("libelleFiliale", filiale.get("libelle"));
                 // Objet complet transmis au front (adresse/NIF/STAT), utilisé notamment
@@ -774,9 +748,8 @@ public class ContratTravailController {
             }
         }
         if (ct.getIdTypeContrat() != null && ct.getIdTypeContrat() > 0) {
-            map.put("libelleTypeContrat", fetchLibelle(c,
-                    "SELECT libelle FROM ref_type_contrat WHERE id_type_contrat = ?", ct.getIdTypeContrat()));
-            String codeType = fetchLibelle(c, "SELECT code FROM ref_type_contrat WHERE id_type_contrat = ?", ct.getIdTypeContrat());
+            map.put("libelleTypeContrat", references == null ? null : references.typeContratLibelle);
+            String codeType = references == null ? null : references.typeContratCode;
             map.put("codeTypeContrat", codeType);
             if (codeType != null) {
                 map.put("isCdi", "CDI".equalsIgnoreCase(codeType));
@@ -787,29 +760,19 @@ public class ContratTravailController {
             }
         }
         if (ct.getIdTypeIntervenant() != null && ct.getIdTypeIntervenant() > 0) {
-            map.put("libelleTypeIntervenant",
-                    fetchLibelle(c, "SELECT libelle FROM ref_type_intervenant WHERE id_type_intervenant = ?",
-                            ct.getIdTypeIntervenant()));
+            map.put("libelleTypeIntervenant", references == null ? null : references.typeIntervenantLibelle);
         }
         if (ct.getIdStatutRh() != null && ct.getIdStatutRh() > 0) {
-            try (PreparedStatement ps = c
-                    .prepareStatement("SELECT code, libelle FROM ref_statut_rh WHERE id_statut_rh = ?")) {
-                ps.setInt(1, ct.getIdStatutRh());
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        String codeStatut = rs.getString("code");
-                        map.put("codeStatutContrat", codeStatut);
-                        map.put("libelleStatutContrat", rs.getString("libelle"));
-                        map.put("isActif", "ACTIF".equalsIgnoreCase(codeStatut));
-                        map.put("isBrouillon", "BROUILLON".equalsIgnoreCase(codeStatut));
-                        map.put("isPlanifie", "PLANIFIE".equalsIgnoreCase(codeStatut));
-                        map.put("isAnnule", "ANNULE".equalsIgnoreCase(codeStatut));
-                        map.put("isCloture", "CLOTURE".equalsIgnoreCase(codeStatut) || "HISTORISE".equalsIgnoreCase(codeStatut));
-                        map.put("isRompu", "ROMPU".equalsIgnoreCase(codeStatut));
-                    }
-                }
-            } catch (SQLException e) {
-                // Ignore failure to fetch optional statut libelle
+            if (references != null && references.statutRhPresent) {
+                String codeStatut = references.statutRhCode;
+                map.put("codeStatutContrat", codeStatut);
+                map.put("libelleStatutContrat", references.statutRhLibelle);
+                map.put("isActif", "ACTIF".equalsIgnoreCase(codeStatut));
+                map.put("isBrouillon", "BROUILLON".equalsIgnoreCase(codeStatut));
+                map.put("isPlanifie", "PLANIFIE".equalsIgnoreCase(codeStatut));
+                map.put("isAnnule", "ANNULE".equalsIgnoreCase(codeStatut));
+                map.put("isCloture", "CLOTURE".equalsIgnoreCase(codeStatut) || "HISTORISE".equalsIgnoreCase(codeStatut));
+                map.put("isRompu", "ROMPU".equalsIgnoreCase(codeStatut));
             }
         }
 
@@ -854,7 +817,78 @@ public class ContratTravailController {
         return map;
     }
 
-    private Map<String, Object> enrichirAffectation(EmployeAffectationCarriere aff, Connection c) {
+    private Map<Integer, ContratReferences> chargerReferencesContratsEmploye(Integer idEmploye, Connection c)
+            throws SQLException {
+        String sql = "SELECT ct.id_contrat, rf.id_filiale AS filiale_id, rf.raison_sociale, rf.nif, rf.stat, "
+                + "rtc.libelle AS type_contrat_libelle, "
+                + "rtc.code AS type_contrat_code, rti.libelle AS type_intervenant_libelle, "
+                + "rs.id_statut_rh AS statut_id, rs.code AS statut_code, rs.libelle AS statut_libelle "
+                + "FROM contrat_travail ct "
+                + "LEFT JOIN ref_filiale rf ON rf.id_filiale = ct.id_filiale "
+                + "LEFT JOIN ref_type_contrat rtc ON rtc.id_type_contrat = ct.id_type_contrat "
+                + "LEFT JOIN ref_type_intervenant rti ON rti.id_type_intervenant = ct.id_type_intervenant "
+                + "LEFT JOIN ref_statut_rh rs ON rs.id_statut_rh = ct.id_statut_rh "
+                + "WHERE ct.id_employe = ?";
+        Map<Integer, ContratReferences> references = new HashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    references.put(rs.getInt("id_contrat"), lireReferences(rs));
+                }
+            }
+        }
+        return references;
+    }
+
+    private ContratReferences chargerReferencesContrat(Integer idContrat, Connection c) throws SQLException {
+        String sql = "SELECT ct.id_contrat, rf.id_filiale AS filiale_id, rf.raison_sociale, rf.nif, rf.stat, "
+                + "rtc.libelle AS type_contrat_libelle, "
+                + "rtc.code AS type_contrat_code, rti.libelle AS type_intervenant_libelle, "
+                + "rs.id_statut_rh AS statut_id, rs.code AS statut_code, rs.libelle AS statut_libelle "
+                + "FROM contrat_travail ct "
+                + "LEFT JOIN ref_filiale rf ON rf.id_filiale = ct.id_filiale "
+                + "LEFT JOIN ref_type_contrat rtc ON rtc.id_type_contrat = ct.id_type_contrat "
+                + "LEFT JOIN ref_type_intervenant rti ON rti.id_type_intervenant = ct.id_type_intervenant "
+                + "LEFT JOIN ref_statut_rh rs ON rs.id_statut_rh = ct.id_statut_rh "
+                + "WHERE ct.id_contrat = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idContrat);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? lireReferences(rs) : new ContratReferences();
+            }
+        }
+    }
+
+    private ContratReferences lireReferences(ResultSet rs) throws SQLException {
+        ContratReferences refs = new ContratReferences();
+        String raisonSociale = rs.getString("raison_sociale");
+        if (rs.getObject("filiale_id") != null) {
+            refs.filiale = new HashMap<>();
+            refs.filiale.put("libelle", raisonSociale);
+            refs.filiale.put("nif", rs.getString("nif"));
+            refs.filiale.put("stat", rs.getString("stat"));
+        }
+        refs.typeContratLibelle = rs.getString("type_contrat_libelle");
+        refs.typeContratCode = rs.getString("type_contrat_code");
+        refs.typeIntervenantLibelle = rs.getString("type_intervenant_libelle");
+        refs.statutRhCode = rs.getString("statut_code");
+        refs.statutRhLibelle = rs.getString("statut_libelle");
+        refs.statutRhPresent = rs.getObject("statut_id") != null;
+        return refs;
+    }
+
+    private static final class ContratReferences {
+        private Map<String, Object> filiale;
+        private String typeContratLibelle;
+        private String typeContratCode;
+        private String typeIntervenantLibelle;
+        private String statutRhCode;
+        private String statutRhLibelle;
+        private boolean statutRhPresent;
+    }
+
+    private Map<String, Object> enrichirAffectation(EmployeAffectationCarriere aff, Connection c) throws SQLException {
         Map<String, Object> map = new HashMap<>();
         map.put("idAffectation", aff.getIdAffectation());
         map.put("idEmploye", aff.getIdEmploye());

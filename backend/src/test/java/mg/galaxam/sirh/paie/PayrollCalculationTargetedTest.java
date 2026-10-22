@@ -11,6 +11,7 @@ import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
+import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
@@ -76,6 +77,68 @@ public class PayrollCalculationTargetedTest {
         in.setNbEnfantsEligibles(0);
 
         return in;
+    }
+
+    @Test
+    @DisplayName("L'exonération HS est désactivée par défaut et appliquée uniquement si activée")
+    void testExonerationHsDesactiveeEtActiveeSelonConfiguration() {
+        for (String[] cas : List.of(
+                new String[] {"0", "0"}, new String[] {"10", "0"},
+                new String[] {"20", "0"}, new String[] {"20", "5"},
+                new String[] {"8", "4"})) {
+            PayrollCalculationInput input = buildStandardInput(new BigDecimal("1000000.00"));
+            input.setHeuresHs30(new BigDecimal(cas[0]));
+            input.setHeuresHs50(new BigDecimal(cas[1]));
+            input.setMajorationHs30(new BigDecimal("0.30"));
+            input.setMajorationHs50(new BigDecimal("0.50"));
+            input.setExonerationHsIrsaActive(false);
+            input.setAppliquerExonerationHs(false);
+            input.setPlafondMensuelHsExonerees(new BigDecimal("20"));
+
+            BulletinPaieComplet sansExoneration = engine.calculer(input);
+            BigDecimal hs30 = sansExoneration.getMontantLigneSalariale("HEURES_SUP_30");
+            BigDecimal hs50 = sansExoneration.getMontantLigneSalariale("HEURES_SUP_50");
+            BigDecimal totalHs = hs30.add(hs50);
+            assertEquals(0, new BigDecimal("1000000.00").add(totalHs)
+                    .compareTo(sansExoneration.getBulletin().getTotalGainsBruts()),
+                    "Les HS rémunérées doivent entrer une seule fois dans le brut");
+            assertEquals(0, sansExoneration.getBulletin().getSalaireNetImposable()
+                    .compareTo(sansExoneration.getBulletin().getRevenuNetImposable()),
+                    "Une configuration désactivée ne retranche aucune HS de l'assiette IRSA");
+            assertEquals(0, totalHs.compareTo(sansExoneration.getMontantLigneSalariale("HS_IMPOSABLE_IRSA")));
+            assertFalse(sansExoneration.getLignes().stream().anyMatch(l -> "HS_EXONEREE_IRSA".equals(l.getCodeRubrique())));
+
+            input.setExonerationHsIrsaActive(true);
+            input.setAppliquerExonerationHs(true);
+            input.setPlafondMensuelHsExonerees(new BigDecimal("20"));
+            BulletinPaieComplet avecExoneration = engine.calculer(input);
+            BigDecimal heures30Exonerees = new BigDecimal(cas[0]).min(new BigDecimal("20"));
+            BigDecimal heures50Exonerees = new BigDecimal(cas[1]).min(new BigDecimal("20").subtract(heures30Exonerees));
+            BigDecimal tauxHoraire = input.getTauxHoraireEffectif();
+            BigDecimal montantExonereAttendu = MoneyRoundingPolicy.amount(
+                    heures30Exonerees.multiply(tauxHoraire).multiply(new BigDecimal("1.30")))
+                    .add(MoneyRoundingPolicy.amount(heures50Exonerees.multiply(tauxHoraire).multiply(new BigDecimal("1.50"))));
+            assertEquals(0, montantExonereAttendu.compareTo(avecExoneration.getMontantLigneSalariale("HS_EXONEREE_IRSA")));
+            assertEquals(0, sansExoneration.getBulletin().getRevenuNetImposable()
+                    .subtract(avecExoneration.getBulletin().getRevenuNetImposable()).compareTo(montantExonereAttendu),
+                    "Seul le montant HS exonéré configuré est retiré de l'assiette");
+        }
+    }
+
+    @Test
+    @DisplayName("Une catégorie déclarée non éligible ne bénéficie pas de l'exonération activée")
+    void testCategorieNonEligibleResteImposable() {
+        PayrollCalculationInput input = buildStandardInput(new BigDecimal("1000000.00"));
+        input.setHeuresHs30(new BigDecimal("12"));
+        input.setMajorationHs30(new BigDecimal("0.30"));
+        input.setExonerationHsIrsaActive(true);
+        input.setAppliquerExonerationHs(true);
+        input.setCategorieEligibleExonerationHs(false);
+        input.setPlafondMensuelHsExonerees(new BigDecimal("20"));
+
+        BulletinPaieComplet bulletin = engine.calculer(input);
+        assertEquals(0, BigDecimal.ZERO.compareTo(bulletin.getMontantLigneSalariale("HS_EXONEREE_IRSA")));
+        assertTrue(bulletin.getMontantLigneSalariale("HS_IMPOSABLE_IRSA").signum() > 0);
     }
 
     @Test

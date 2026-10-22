@@ -63,7 +63,7 @@ export default function FamilleContactsTab({
                         </Badge>
                         {deductiblesCount > 0 && (
                             <Badge variant="brand" size="xs" dot>
-                                {deductiblesCount} déductible{deductiblesCount > 1 ? 's' : ''} IRSA (-{totalDeductionAr.toLocaleString('fr-FR')} Ar)
+                                Estimation : {deductiblesCount} enfant{deductiblesCount > 1 ? 's' : ''} potentiellement éligible{deductiblesCount > 1 ? 's' : ''} (-{totalDeductionAr.toLocaleString('fr-FR')} Ar)
                             </Badge>
                         )}
                         {canWrite && onEditFamille && (
@@ -81,6 +81,10 @@ export default function FamilleContactsTab({
                     </div>
                 </CardHeader>
                 <CardBody className="p-5 space-y-5">
+                    <p className="text-[11px] text-[var(--color-fg-muted)]">
+                        Évaluation indicative à la date du jour ; le calcul officiel IRSA dépend de la période de paie.
+                    </p>
+
                     {/* Section Conjoint */}
                     {hasConjoint ? (
                         <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2">
@@ -135,12 +139,12 @@ export default function FamilleContactsTab({
                                         <Th>Enfant</Th>
                                         <Th>Naissance &amp; Âge</Th>
                                         <Th>Situation</Th>
-                                        <Th align="center">Déduction IRSA</Th>
+                                        <Th align="center">Estimation IRSA</Th>
                                     </Tr>
                                 </Thead>
                                 <Tbody>
                                     {enfantsAvecEval.map((enf, i) => (
-                                        <Tr key={i}>
+                                        <Tr key={enf.idEnfant ?? `enfant-${i}`}>
                                             <Td>
                                                 <p className="font-bold text-xs text-[var(--color-fg)]">
                                                     {enf.nom} {enf.prenom}
@@ -173,11 +177,11 @@ export default function FamilleContactsTab({
                                             <Td align="center">
                                                 {enf.evalIrsa.eligible ? (
                                                     <Badge variant="success" size="xs" className="font-bold">
-                                                        -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar
+                                                        Potentiellement éligible
                                                     </Badge>
                                                 ) : (
                                                     <Badge variant="default" size="xs">
-                                                        Non éligible
+                                                        Non éligible selon l’estimation
                                                     </Badge>
                                                 )}
                                             </Td>
@@ -241,7 +245,7 @@ export default function FamilleContactsTab({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {contactsUrgence.map((ct, i) => (
                                 <div
-                                    key={i}
+                                    key={ct.idContact ?? `contact-${i}`}
                                     className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 space-y-2.5"
                                 >
                                     <div className="flex items-center justify-between gap-2">

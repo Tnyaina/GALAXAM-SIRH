@@ -389,9 +389,30 @@ impl PostgresProcess {
         port: u16,
         password: &str,
     ) -> Result<(), &'static str> {
-        let result = self.psql(paths, port, APP_ROLE, password, DATABASE,
-            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")?;
-        if result.trim().parse::<u32>().unwrap_or(0) < 90 {
+        let result = self.psql(
+            paths,
+            port,
+            APP_ROLE,
+            password,
+            DATABASE,
+            "SELECT NOT EXISTS (
+                SELECT 1 FROM (VALUES
+                    ('ref_role'), ('utilisateur'), ('utilisateur_session'),
+                    ('ref_site'), ('ref_calendrier_ferie'),
+                    ('employe'), ('contrat_travail'),
+                    ('demande_conge'), ('conge_journal_droit'),
+                    ('periode_paie'), ('pointage_jour'), ('pointage_cumul_periode'),
+                    ('paie_config_legale'), ('bulletin_paie'), ('paie_stc_reglement')
+                ) AS required(name)
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM information_schema.tables AS actual
+                    WHERE actual.table_schema = 'public'
+                      AND actual.table_type = 'BASE TABLE'
+                      AND actual.table_name = required.name
+                )
+            )",
+        )?;
+        if result.trim() != "t" {
             return Err("Schéma GALAXAM incomplet");
         }
         let extension = self.psql(

@@ -4,31 +4,13 @@
 -- Schéma purifié : pointage_indemnite_jour source de vérité unique
 -- Sources : 26-08-05-sp0-ref.sql, 26-08-20-sp3-pointage.sql,
 --           26-09-16-sp8-indexes-foreign-keys.sql, 26-09-19-sp11-workflow-pointage-alter.sql
+-- Installation initiale uniquement sur une base ou un schéma cible vierge.
+-- Exécuter les scripts 01 → 06 dans cet ordre ; ne pas utiliser pour une mise à jour
+-- ni pour une réinitialisation.
 -- =====================================================================
 
--- 1. Nettoyage préalable des vues et tables (ordre inverse des dépendances)
+-- Extensions nécessaires
 CREATE EXTENSION IF NOT EXISTS btree_gist;
-
-DROP VIEW IF EXISTS v_synthese_pointage_mensuelle CASCADE;
-DROP VIEW IF EXISTS v_hs_mensuelle CASCADE;
-DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
-DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
-DROP VIEW IF EXISTS v_pointage_indemnites CASCADE;
-
-DROP TABLE IF EXISTS pointage_snapshot_indemnite CASCADE;
-DROP TABLE IF EXISTS pointage_snapshot_ajustement CASCADE;
-DROP TABLE IF EXISTS pointage_snapshot_bucket CASCADE;
-DROP TABLE IF EXISTS pointage_snapshot_jour CASCADE;
-DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
-DROP TABLE IF EXISTS pointage_ajustement_periode CASCADE;
-DROP TABLE IF EXISTS pointage_indemnite_jour CASCADE;
-DROP TABLE IF EXISTS pointage_jour CASCADE;
-DROP TABLE IF EXISTS employe_indemnite_derogation CASCADE;
-DROP TABLE IF EXISTS site_indemnite_config CASCADE;
-DROP TABLE IF EXISTS ref_indemnite CASCADE;
-DROP TABLE IF EXISTS ref_statut_pointage_jour CASCADE;
-DROP TABLE IF EXISTS periode_paie_transition CASCADE;
-DROP TABLE IF EXISTS periode_paie CASCADE;
 
 -- 2. Périodes de Paie
 CREATE TABLE periode_paie (
@@ -50,28 +32,6 @@ CREATE TABLE periode_paie (
     CONSTRAINT ex_periode_paie_dates EXCLUDE USING gist (daterange(date_debut, date_fin, '[]') WITH &&)
 );
 
-CREATE INDEX idx_periode_paie_statut ON periode_paie(statut);
-CREATE INDEX idx_periode_paie_valide_par ON periode_paie(valide_par);
-
--- Le journal des droits est défini dans le module Congés (04).
-ALTER TABLE conge_journal_droit
-    ADD CONSTRAINT conge_journal_droit_id_periode_paie_fkey
-    FOREIGN KEY (id_periode_paie) REFERENCES periode_paie(id_periode_paie);
-
--- Les bornes définissent définitivement la campagne. Les états restent modifiables.
-CREATE OR REPLACE FUNCTION interdire_modification_bornes_periode_paie()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    IF ROW(NEW.date_debut, NEW.date_fin) IS DISTINCT FROM ROW(OLD.date_debut, OLD.date_fin) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            CONSTRAINT = 'ck_periode_paie_bornes_immuables',
-            MESSAGE = format('Les bornes de la période %s sont immuables après création.', OLD.id_periode_paie);
-    END IF;
-    RETURN NEW;
-END $$;
-CREATE TRIGGER trg_periode_paie_bornes_immuables
-BEFORE UPDATE OF date_debut, date_fin ON periode_paie
-FOR EACH ROW EXECUTE FUNCTION interdire_modification_bornes_periode_paie();
 
 CREATE TABLE periode_paie_transition (
     id_transition BIGSERIAL PRIMARY KEY,
@@ -86,8 +46,6 @@ CREATE TABLE periode_paie_transition (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_periode_paie_transition_periode
-    ON periode_paie_transition(id_periode_paie, version_cible);
 
 -- 3. Statuts Journaliers & Indemnités de Référence
 CREATE TABLE ref_statut_pointage_jour (
@@ -125,8 +83,6 @@ CREATE TABLE site_indemnite_config (
     ) WHERE (est_actif IS TRUE)
 );
 
-CREATE INDEX idx_site_indemnite_actif ON site_indemnite_config(id_site, id_indemnite) WHERE date_fin IS NULL AND est_actif IS TRUE;
-CREATE INDEX idx_site_indemnite_config_ind ON site_indemnite_config(id_indemnite);
 
 CREATE TABLE employe_indemnite_derogation (
     id_derogation SERIAL PRIMARY KEY,
@@ -140,9 +96,6 @@ CREATE TABLE employe_indemnite_derogation (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_derogation_employe ON employe_indemnite_derogation(id_employe, id_indemnite) WHERE date_fin IS NULL;
-CREATE INDEX idx_employe_indemnite_derog_created_by ON employe_indemnite_derogation(created_by);
-CREATE INDEX idx_employe_indemnite_derog_ind ON employe_indemnite_derogation(id_indemnite);
 
 -- 4. Pointage Journalier (Purifié : Zéro colonne obsolète, montant_total_indemnites dénormalisé)
 CREATE TABLE pointage_jour (
@@ -182,38 +135,6 @@ CREATE TABLE pointage_jour (
     CONSTRAINT ck_pointage_second_repas_code CHECK (code_second_repas IS NULL OR code_second_repas IN ('REPAS_2', 'REPAS_2_MAJORE'))
 );
 
-CREATE INDEX idx_pointage_employe ON pointage_jour(id_employe);
-CREATE INDEX idx_pointage_periode ON pointage_jour(id_periode_paie);
-CREATE INDEX idx_pointage_date ON pointage_jour(date_pointage);
-CREATE INDEX idx_pointage_statut ON pointage_jour(id_statut_jour);
-CREATE INDEX idx_pointage_jour_site ON pointage_jour(id_site);
-CREATE INDEX idx_pointage_jour_saisi_par ON pointage_jour(saisi_par);
-CREATE INDEX idx_pointage_demande_conge ON pointage_jour(id_demande_conge) WHERE id_demande_conge IS NOT NULL;
-CREATE INDEX idx_pointage_ajuste_daf ON pointage_jour(ajuste_par_daf) WHERE ajuste_par_daf = TRUE;
-
--- Verrou FOR SHARE sur la période : une validation de date ne dépend pas d'une
--- simple lecture concurrente des bornes. Les limites sont inclusives.
-CREATE OR REPLACE FUNCTION verifier_pointage_jour_periode()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE
-    v_debut DATE;
-    v_fin DATE;
-BEGIN
-    SELECT date_debut, date_fin INTO v_debut, v_fin
-    FROM periode_paie
-    WHERE id_periode_paie = NEW.id_periode_paie
-    FOR SHARE;
-    IF NOT FOUND OR NEW.date_pointage NOT BETWEEN v_debut AND v_fin THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            CONSTRAINT = 'ck_pointage_jour_periode_dates',
-            MESSAGE = format('La date %s du pointage est hors de la période %s.',
-                NEW.date_pointage, NEW.id_periode_paie);
-    END IF;
-    RETURN NEW;
-END $$;
-CREATE TRIGGER trg_pointage_jour_periode_dates
-BEFORE INSERT OR UPDATE OF date_pointage, id_periode_paie ON pointage_jour
-FOR EACH ROW EXECUTE FUNCTION verifier_pointage_jour_periode();
 
 -- 5. Indemnités Journalières (Source Unique de Vérité)
 CREATE TABLE pointage_indemnite_jour (
@@ -230,8 +151,6 @@ CREATE TABLE pointage_indemnite_jour (
     CONSTRAINT uk_pointage_indemnite_fraction UNIQUE (id_pointage, id_indemnite, fraction)
 );
 
-CREATE INDEX idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
-CREATE INDEX idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);
 
 -- Correction horaire de fin de période, distincte de la rectification d'un badge.
 CREATE TABLE pointage_ajustement_periode (
@@ -248,8 +167,6 @@ CREATE TABLE pointage_ajustement_periode (
     date_annulation TIMESTAMP,
     motif_annulation TEXT
 );
-CREATE INDEX idx_pointage_ajustement_periode_employe
-    ON pointage_ajustement_periode(id_periode_paie, id_employe, statut);
 
 -- La semaine est un calcul mémoire dérivé des journées, pas une table persistée.
 -- 6. Snapshot et Clôture de Période (RG-PTG-14)
@@ -306,7 +223,6 @@ CREATE TABLE pointage_snapshot_indemnite (
     PRIMARY KEY (id_cumul, id_indemnite)
 );
 
-CREATE INDEX idx_cumul_periode_employe ON pointage_cumul_periode(id_employe, id_periode_paie);
 
 CREATE TABLE pointage_snapshot_ajustement (
     id_cumul INTEGER NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE RESTRICT,
@@ -315,10 +231,6 @@ CREATE TABLE pointage_snapshot_ajustement (
     motif TEXT NOT NULL,
     PRIMARY KEY (id_cumul, id_ajustement)
 );
-CREATE INDEX idx_pointage_cumul_periode_periode ON pointage_cumul_periode(id_periode_paie);
-CREATE INDEX idx_pointage_cumul_periode_gele_par ON pointage_cumul_periode(gele_par);
-CREATE UNIQUE INDEX uk_cumul_snapshot_courant ON pointage_cumul_periode(id_employe, id_periode_paie)
-WHERE statut_snapshot = 'GELE';
 
 CREATE TABLE pointage_snapshot_jour (
     id_cumul INTEGER NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE RESTRICT,
@@ -350,10 +262,88 @@ CREATE TABLE pointage_snapshot_bucket (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+
+-- Contraintes différées
+-- Le journal des droits est défini dans le module Congés (04).
+ALTER TABLE conge_journal_droit
+    ADD CONSTRAINT conge_journal_droit_id_periode_paie_fkey
+    FOREIGN KEY (id_periode_paie) REFERENCES periode_paie(id_periode_paie);
+
+
+-- Index complémentaires
+CREATE INDEX idx_periode_paie_statut ON periode_paie(statut);
+CREATE INDEX idx_periode_paie_valide_par ON periode_paie(valide_par);
+CREATE INDEX idx_periode_paie_transition_periode
+    ON periode_paie_transition(id_periode_paie, version_cible);
+CREATE INDEX idx_site_indemnite_actif ON site_indemnite_config(id_site, id_indemnite) WHERE date_fin IS NULL AND est_actif IS TRUE;
+CREATE INDEX idx_site_indemnite_config_ind ON site_indemnite_config(id_indemnite);
+CREATE INDEX idx_derogation_employe ON employe_indemnite_derogation(id_employe, id_indemnite) WHERE date_fin IS NULL;
+CREATE INDEX idx_employe_indemnite_derog_created_by ON employe_indemnite_derogation(created_by);
+CREATE INDEX idx_employe_indemnite_derog_ind ON employe_indemnite_derogation(id_indemnite);
+CREATE INDEX idx_pointage_employe ON pointage_jour(id_employe);
+CREATE INDEX idx_pointage_periode ON pointage_jour(id_periode_paie);
+CREATE INDEX idx_pointage_date ON pointage_jour(date_pointage);
+CREATE INDEX idx_pointage_statut ON pointage_jour(id_statut_jour);
+CREATE INDEX idx_pointage_jour_site ON pointage_jour(id_site);
+CREATE INDEX idx_pointage_jour_saisi_par ON pointage_jour(saisi_par);
+CREATE INDEX idx_pointage_demande_conge ON pointage_jour(id_demande_conge) WHERE id_demande_conge IS NOT NULL;
+CREATE INDEX idx_pointage_ajuste_daf ON pointage_jour(ajuste_par_daf) WHERE ajuste_par_daf = TRUE;
+CREATE INDEX idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
+CREATE INDEX idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);
+CREATE INDEX idx_pointage_ajustement_periode_employe
+    ON pointage_ajustement_periode(id_periode_paie, id_employe, statut);
+CREATE INDEX idx_cumul_periode_employe ON pointage_cumul_periode(id_employe, id_periode_paie);
+CREATE INDEX idx_pointage_cumul_periode_periode ON pointage_cumul_periode(id_periode_paie);
+CREATE INDEX idx_pointage_cumul_periode_gele_par ON pointage_cumul_periode(gele_par);
+CREATE UNIQUE INDEX uk_cumul_snapshot_courant ON pointage_cumul_periode(id_employe, id_periode_paie)
+WHERE statut_snapshot = 'GELE';
 CREATE INDEX idx_snapshot_bucket_cumul ON pointage_snapshot_bucket(id_cumul);
 CREATE INDEX idx_snapshot_bucket_periode ON pointage_snapshot_bucket(id_periode_paie);
 CREATE INDEX idx_snapshot_bucket_dates ON pointage_snapshot_bucket(date_debut, date_fin);
 
+-- Fonctions et triggers
+-- Les bornes définissent définitivement la campagne. Les états restent modifiables.
+CREATE OR REPLACE FUNCTION interdire_modification_bornes_periode_paie()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF ROW(NEW.date_debut, NEW.date_fin) IS DISTINCT FROM ROW(OLD.date_debut, OLD.date_fin) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            CONSTRAINT = 'ck_periode_paie_bornes_immuables',
+            MESSAGE = format('Les bornes de la période %s sont immuables après création.', OLD.id_periode_paie);
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_periode_paie_bornes_immuables
+BEFORE UPDATE OF date_debut, date_fin ON periode_paie
+FOR EACH ROW EXECUTE FUNCTION interdire_modification_bornes_periode_paie();
+
+
+-- Verrou FOR SHARE sur la période : une validation de date ne dépend pas d'une
+-- simple lecture concurrente des bornes. Les limites sont inclusives.
+CREATE OR REPLACE FUNCTION verifier_pointage_jour_periode()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    v_debut DATE;
+    v_fin DATE;
+BEGIN
+    SELECT date_debut, date_fin INTO v_debut, v_fin
+    FROM periode_paie
+    WHERE id_periode_paie = NEW.id_periode_paie
+    FOR SHARE;
+    IF NOT FOUND OR NEW.date_pointage NOT BETWEEN v_debut AND v_fin THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            CONSTRAINT = 'ck_pointage_jour_periode_dates',
+            MESSAGE = format('La date %s du pointage est hors de la période %s.',
+                NEW.date_pointage, NEW.id_periode_paie);
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_pointage_jour_periode_dates
+BEFORE INSERT OR UPDATE OF date_pointage, id_periode_paie ON pointage_jour
+FOR EACH ROW EXECUTE FUNCTION verifier_pointage_jour_periode();
+
+
+-- Vues
 CREATE OR REPLACE VIEW v_pointage_indemnites AS
 SELECT 
     pij.id_pointage_indemnite,

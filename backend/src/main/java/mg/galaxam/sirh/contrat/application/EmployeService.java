@@ -4,7 +4,10 @@ package mg.galaxam.sirh.contrat.application;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.PageDTO;
 import mg.galaxam.sirh.contrat.api.dto.EmployeRequest.DesactivationRequest;
@@ -116,108 +119,28 @@ public class EmployeService {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                verrouillerAllocateurMatricule(c);
                 // 2. Gestion et génération automatique du matricule si non renseigné
                 if (req.getMatricule() == null || req.getMatricule().trim().isEmpty() || "AUTO".equalsIgnoreCase(req.getMatricule().trim())) {
-                    req.setMatricule(generateNextMatricule(c));
+                    req.setMatricule(calculerProchainMatricule(c));
                 }
 
                 // 3. Employé principal
                 Employe emp = new Employe();
-                emp.setMatricule(req.getMatricule());
-                emp.setNom(req.getNom());
-                emp.setPrenom(req.getPrenom());
-                emp.setSexe(req.getSexe());
-                emp.setDateNaissance(req.getDateNaissance());
-                emp.setLieuNaissance(req.getLieuNaissance());
-                emp.setNationalite(req.getNationalite());
-                emp.setPereNomPrenom(req.getPereNomPrenom());
-                emp.setMereNomPrenom(req.getMereNomPrenom());
-                emp.setSituationFamiliale(req.getSituationFamiliale());
-
-                emp.setCinNumero(req.getCinNumero());
-                emp.setCinDateDelivrance(req.getCinDateDelivrance());
-                emp.setCinLieuDelivrance(req.getCinLieuDelivrance());
-                emp.setCinDuplicataDate(req.getCinDuplicataDate());
-                emp.setCinDuplicataLieu(req.getCinDuplicataLieu());
-
-                emp.setPermisConduireNumero(req.getPermisConduireNumero());
-                emp.setPermisConduireDateDelivrance(req.getPermisConduireDateDelivrance());
-                emp.setPermisConduireLieuDelivrance(req.getPermisConduireLieuDelivrance());
-
-                emp.setAdresse(req.getAdresse());
-                emp.setVille(req.getVille());
-                emp.setTelephone(req.getTelephone());
-                emp.setEmail(req.getEmail());
-
-                emp.setNumAffiliationCnaps(req.getNumAffiliationCnaps());
-                emp.setPhotoUrl(req.getPhotoUrl());
-                emp.setDateDeclaration(req.getDateDeclaration());
+                copierChampsEmploye(emp, req);
 
                 emp.save(c);
                 Integer empId = emp.getIdEmploye();
 
-                // 4. Conjoint
-                if (req.getConjoint() != null && req.getConjoint().getNom() != null && !req.getConjoint().getNom().isBlank()) {
-                    EmployeConjoint cj = new EmployeConjoint();
-                    cj.setIdEmploye(empId);
-                    cj.setNom(req.getConjoint().getNom());
-                    cj.setPrenom(req.getConjoint().getPrenom());
-                    cj.setDateNaissance(req.getConjoint().getDateNaissance());
-                    cj.setLieuNaissance(req.getConjoint().getLieuNaissance());
-                    cj.setSociete(req.getConjoint().getSociete());
-                    cj.setFonction(req.getConjoint().getFonction());
-                    cj.save(c);
-                }
+                // 4. Conjoint actuel facultatif
+                appliquerConjoint(empId, req, c);
 
-                // 5. Enfants
-                if (req.getEnfants() != null) {
-                    for (EmployeRequest.EnfantRequest enfReq : req.getEnfants()) {
-                        if (enfReq.getNom() != null && !enfReq.getNom().isBlank()) {
-                            EmployeEnfant enf = new EmployeEnfant();
-                            enf.setIdEmploye(empId);
-                            enf.setNom(enfReq.getNom());
-                            enf.setPrenom(enfReq.getPrenom());
-                            enf.setSexe(enfReq.getSexe());
-                            enf.setDateNaissance(enfReq.getDateNaissance());
-                            enf.setLieuNaissance(enfReq.getLieuNaissance());
-                            enf.setACharge(enfReq.isACharge());
-                            enf.setEstEtudiant(enfReq.isEstEtudiant());
-                            enf.setDateFinScolarite(enfReq.getDateFinScolarite());
-                            enf.setEstHandicape(enfReq.isEstHandicape());
-                            enf.setCertificatFourni(enfReq.isCertificatFourni());
-                            enf.save(c);
-                        }
-                    }
-                }
+                // 5–6. Enfants et contacts d'urgence
+                appliquerEnfants(empId, req, c);
+                appliquerContactsUrgence(empId, req, c);
 
-                // 6. Contacts d'urgence
-                if (req.getContactsUrgence() != null) {
-                    for (EmployeRequest.ContactUrgenceRequest ctReq : req.getContactsUrgence()) {
-                        if (ctReq.getNom() != null && !ctReq.getNom().isBlank()) {
-                            EmployeContactUrgence ct = new EmployeContactUrgence();
-                            ct.setIdEmploye(empId);
-                            ct.setNom(ctReq.getNom());
-                            ct.setPrenom(ctReq.getPrenom());
-                            ct.setLienParente(ctReq.getLienParente());
-                            ct.setAdresse(ctReq.getAdresse());
-                            ct.setTelephone(ctReq.getTelephone());
-                            ct.setSociete(ctReq.getSociete());
-                            ct.save(c);
-                        }
-                    }
-                }
-
-                // 7. Compte bancaire principal
-                if (req.getCompteBanquePrincipal() != null && req.getCompteBanquePrincipal().getIdBanque() != null) {
-                    EmployeCompteBanque cb = new EmployeCompteBanque();
-                    cb.setIdEmploye(empId);
-                    cb.setIdBanque(req.getCompteBanquePrincipal().getIdBanque());
-                    cb.setAgence(req.getCompteBanquePrincipal().getAgence());
-                    cb.setNumCompteRib(req.getCompteBanquePrincipal().getNumCompteRib());
-                    cb.setTitulaireCompte(req.getCompteBanquePrincipal().getTitulaireCompte());
-                    cb.setEstPrincipal(true);
-                    cb.save(c);
-                }
+                // 7. Compte bancaire facultatif et unique
+                appliquerCompteBanque(empId, req, c);
 
                 AuditLog.audit(c, "CREATION", "employe", String.valueOf(empId), null, emp);
 
@@ -252,104 +175,18 @@ public class EmployeService {
 
                 Employe ancienState = new Employe(emp);
 
-                emp.setMatricule(req.getMatricule());
-                emp.setNom(req.getNom());
-                emp.setPrenom(req.getPrenom());
-                emp.setSexe(req.getSexe());
-                emp.setDateNaissance(req.getDateNaissance());
-                emp.setLieuNaissance(req.getLieuNaissance());
-                emp.setNationalite(req.getNationalite());
-                emp.setPereNomPrenom(req.getPereNomPrenom());
-                emp.setMereNomPrenom(req.getMereNomPrenom());
-                emp.setSituationFamiliale(req.getSituationFamiliale());
-
-                emp.setCinNumero(req.getCinNumero());
-                emp.setCinDateDelivrance(req.getCinDateDelivrance());
-                emp.setCinLieuDelivrance(req.getCinLieuDelivrance());
-                emp.setCinDuplicataDate(req.getCinDuplicataDate());
-                emp.setCinDuplicataLieu(req.getCinDuplicataLieu());
-
-                emp.setPermisConduireNumero(req.getPermisConduireNumero());
-                emp.setPermisConduireDateDelivrance(req.getPermisConduireDateDelivrance());
-                emp.setPermisConduireLieuDelivrance(req.getPermisConduireLieuDelivrance());
-
-                emp.setAdresse(req.getAdresse());
-                emp.setVille(req.getVille());
-                emp.setTelephone(req.getTelephone());
-                emp.setEmail(req.getEmail());
-
-                emp.setNumAffiliationCnaps(req.getNumAffiliationCnaps());
-                emp.setPhotoUrl(req.getPhotoUrl());
-                emp.setDateDeclaration(req.getDateDeclaration());
+                copierChampsEmploye(emp, req);
 
                 emp.update(c);
 
-                // Conjoint
-                EmployeConjoint.deleteByEmployeId(id, c);
-                if (req.getConjoint() != null && req.getConjoint().getNom() != null && !req.getConjoint().getNom().isBlank()) {
-                    EmployeConjoint cj = new EmployeConjoint();
-                    cj.setIdEmploye(id);
-                    cj.setNom(req.getConjoint().getNom());
-                    cj.setPrenom(req.getConjoint().getPrenom());
-                    cj.setDateNaissance(req.getConjoint().getDateNaissance());
-                    cj.setLieuNaissance(req.getConjoint().getLieuNaissance());
-                    cj.setSociete(req.getConjoint().getSociete());
-                    cj.setFonction(req.getConjoint().getFonction());
-                    cj.save(c);
-                }
+                // Conjoint : absence du champ = conservation ; suppression explicite uniquement.
+                appliquerConjoint(id, req, c);
 
-                // Enfants
-                EmployeEnfant.deleteByEmployeId(id, c);
-                if (req.getEnfants() != null) {
-                    for (EmployeRequest.EnfantRequest enfReq : req.getEnfants()) {
-                        if (enfReq.getNom() != null && !enfReq.getNom().isBlank()) {
-                            EmployeEnfant enf = new EmployeEnfant();
-                            enf.setIdEmploye(id);
-                            enf.setNom(enfReq.getNom());
-                            enf.setPrenom(enfReq.getPrenom());
-                            enf.setSexe(enfReq.getSexe());
-                            enf.setDateNaissance(enfReq.getDateNaissance());
-                            enf.setLieuNaissance(enfReq.getLieuNaissance());
-                            enf.setACharge(enfReq.isACharge());
-                            enf.setEstEtudiant(enfReq.isEstEtudiant());
-                            enf.setDateFinScolarite(enfReq.getDateFinScolarite());
-                            enf.setEstHandicape(enfReq.isEstHandicape());
-                            enf.setCertificatFourni(enfReq.isCertificatFourni());
-                            enf.save(c);
-                        }
-                    }
-                }
+                // Les listes absentes ou vides n'effacent aucune ligne ; seules les suppressions explicites le font.
+                appliquerEnfants(id, req, c);
+                appliquerContactsUrgence(id, req, c);
 
-                // Contacts d'urgence
-                EmployeContactUrgence.deleteByEmployeId(id, c);
-                if (req.getContactsUrgence() != null) {
-                    for (EmployeRequest.ContactUrgenceRequest ctReq : req.getContactsUrgence()) {
-                        if (ctReq.getNom() != null && !ctReq.getNom().isBlank()) {
-                            EmployeContactUrgence ct = new EmployeContactUrgence();
-                            ct.setIdEmploye(id);
-                            ct.setNom(ctReq.getNom());
-                            ct.setPrenom(ctReq.getPrenom());
-                            ct.setLienParente(ctReq.getLienParente());
-                            ct.setAdresse(ctReq.getAdresse());
-                            ct.setTelephone(ctReq.getTelephone());
-                            ct.setSociete(ctReq.getSociete());
-                            ct.save(c);
-                        }
-                    }
-                }
-
-                // Compte bancaire principal
-                if (req.getCompteBanquePrincipal() != null && req.getCompteBanquePrincipal().getIdBanque() != null) {
-                    EmployeCompteBanque.deletePrincipalByEmployeId(id, c);
-                    EmployeCompteBanque cb = new EmployeCompteBanque();
-                    cb.setIdEmploye(id);
-                    cb.setIdBanque(req.getCompteBanquePrincipal().getIdBanque());
-                    cb.setAgence(req.getCompteBanquePrincipal().getAgence());
-                    cb.setNumCompteRib(req.getCompteBanquePrincipal().getNumCompteRib());
-                    cb.setTitulaireCompte(req.getCompteBanquePrincipal().getTitulaireCompte());
-                    cb.setEstPrincipal(true);
-                    cb.save(c);
-                }
+                appliquerCompteBanque(id, req, c);
 
                 AuditLog.audit(c, "MODIFICATION", "employe", String.valueOf(id), ancienState, emp);
 
@@ -361,6 +198,251 @@ public class EmployeService {
                 throw e;
             }
         }
+    }
+
+    private static void copierChampsEmploye(Employe employe, EmployeRequest req) {
+        employe.setMatricule(req.getMatricule());
+        employe.setNom(req.getNom());
+        employe.setPrenom(req.getPrenom());
+        employe.setSexe(req.getSexe());
+        employe.setDateNaissance(req.getDateNaissance());
+        employe.setLieuNaissance(req.getLieuNaissance());
+        employe.setNationalite(req.getNationalite());
+        employe.setPereNomPrenom(req.getPereNomPrenom());
+        employe.setMereNomPrenom(req.getMereNomPrenom());
+        employe.setSituationFamiliale(req.getSituationFamiliale());
+
+        employe.setCinNumero(req.getCinNumero());
+        employe.setCinDateDelivrance(req.getCinDateDelivrance());
+        employe.setCinLieuDelivrance(req.getCinLieuDelivrance());
+        employe.setCinDuplicataDate(req.getCinDuplicataDate());
+        employe.setCinDuplicataLieu(req.getCinDuplicataLieu());
+
+        employe.setPermisConduireNumero(req.getPermisConduireNumero());
+        employe.setPermisConduireDateDelivrance(req.getPermisConduireDateDelivrance());
+        employe.setPermisConduireLieuDelivrance(req.getPermisConduireLieuDelivrance());
+
+        employe.setAdresse(req.getAdresse());
+        employe.setVille(req.getVille());
+        employe.setTelephone(req.getTelephone());
+        employe.setEmail(req.getEmail());
+
+        employe.setNumAffiliationCnaps(req.getNumAffiliationCnaps());
+        employe.setPhotoUrl(req.getPhotoUrl());
+        employe.setDateDeclaration(req.getDateDeclaration());
+    }
+
+    void appliquerCompteBanque(int idEmploye, EmployeRequest req, Connection c) throws Exception {
+        EmployeRequest.CompteBanqueRequest donnees = req.getCompteBanquePrincipal();
+        boolean renseigne = donnees != null && (donnees.getIdBanque() != null
+                || !estVide(donnees.getNumCompteRib()) || !estVide(donnees.getAgence())
+                || !estVide(donnees.getTitulaireCompte()));
+        if (req.isSupprimerCompteBanque()) {
+            if (renseigne || donnees != null && donnees.getIdCompteBanque() != null) {
+                throw new IllegalArgumentException("Suppression et renseignement du compte bancaire incompatibles.");
+            }
+            EmployeCompteBanque existant = EmployeCompteBanque.findByEmployeId(idEmploye, c);
+            if (existant != null) existant.delete(c);
+            return;
+        }
+        if (!renseigne) {
+            if (donnees != null && donnees.getIdCompteBanque() != null) {
+                throw new IllegalArgumentException("Identifiant bancaire sans coordonnées bancaires.");
+            }
+            return;
+        }
+        if (donnees.getIdBanque() == null || estVide(donnees.getNumCompteRib())) {
+            throw new IllegalArgumentException("La banque et le numéro de compte RIB sont obligatoires.");
+        }
+        EmployeCompteBanque compte = EmployeCompteBanque.findByEmployeId(idEmploye, c);
+        if (donnees.getIdCompteBanque() != null && (donnees.getIdCompteBanque() <= 0
+                || compte == null || !donnees.getIdCompteBanque().equals(compte.getIdCompteBanque()))) {
+            throw new IllegalArgumentException("Compte bancaire introuvable pour cet employé.");
+        }
+        if (compte == null) {
+            compte = new EmployeCompteBanque();
+            compte.setIdEmploye(idEmploye);
+        } else if (Objects.equals(compte.getIdBanque(), donnees.getIdBanque())
+                && Objects.equals(compte.getAgence(), donnees.getAgence())
+                && Objects.equals(compte.getNumCompteRib(), donnees.getNumCompteRib())
+                && Objects.equals(compte.getTitulaireCompte(), donnees.getTitulaireCompte())) {
+            return;
+        }
+        compte.setIdBanque(donnees.getIdBanque());
+        compte.setAgence(donnees.getAgence());
+        compte.setNumCompteRib(donnees.getNumCompteRib());
+        compte.setTitulaireCompte(donnees.getTitulaireCompte());
+        if (compte.getIdCompteBanque() == null) compte.save(c); else compte.update(c);
+    }
+
+    void appliquerEnfants(int idEmploye, EmployeRequest req, Connection c) throws Exception {
+        Set<Integer> modifications = new HashSet<>();
+        Set<Integer> suppressions = validerSuppressions(req.getEnfantsASupprimer(), "enfant");
+        if (req.getEnfants() != null) {
+            for (EmployeRequest.EnfantRequest donnees : req.getEnfants()) {
+                if (donnees == null) throw new IllegalArgumentException("Enfant non renseigné.");
+                Integer id = donnees.getIdEnfant();
+                if (id != null && (id <= 0 || !modifications.add(id) || suppressions.contains(id))) {
+                    throw new IllegalArgumentException("Identifiant d'enfant contradictoire ou répété.");
+                }
+            }
+        }
+        for (Integer id : suppressions) {
+            EmployeEnfant enfant = new EmployeEnfant().rechercherParId(id, c);
+            verifierProprietaire(enfant == null ? null : enfant.getIdEmploye(), idEmploye, "Enfant");
+            enfant.delete(c);
+        }
+        if (req.getEnfants() == null) return;
+        for (EmployeRequest.EnfantRequest donnees : req.getEnfants()) {
+            Integer id = donnees.getIdEnfant();
+            EmployeEnfant enfant = id == null ? new EmployeEnfant() : new EmployeEnfant().rechercherParId(id, c);
+            if (id != null) verifierProprietaire(enfant == null ? null : enfant.getIdEmploye(), idEmploye, "Enfant");
+            if (id == null) enfant.setIdEmploye(idEmploye);
+            if (id != null && memesInformationsEnfant(enfant, donnees)) continue;
+            enfant.setNom(donnees.getNom());
+            enfant.setPrenom(donnees.getPrenom());
+            enfant.setSexe(donnees.getSexe());
+            enfant.setDateNaissance(donnees.getDateNaissance());
+            enfant.setLieuNaissance(donnees.getLieuNaissance());
+            enfant.setACharge(donnees.isACharge());
+            enfant.setEstEtudiant(donnees.isEstEtudiant());
+            enfant.setDateFinScolarite(donnees.getDateFinScolarite());
+            enfant.setEstHandicape(donnees.isEstHandicape());
+            enfant.setCertificatFourni(donnees.isCertificatFourni());
+            if (id == null) enfant.save(c); else enfant.update(c);
+        }
+    }
+
+    void appliquerContactsUrgence(int idEmploye, EmployeRequest req, Connection c) throws Exception {
+        Set<Integer> modifications = new HashSet<>();
+        Set<Integer> suppressions = validerSuppressions(req.getContactsUrgenceASupprimer(), "contact d'urgence");
+        if (req.getContactsUrgence() != null) {
+            for (EmployeRequest.ContactUrgenceRequest donnees : req.getContactsUrgence()) {
+                if (donnees == null) throw new IllegalArgumentException("Contact d'urgence non renseigné.");
+                Integer id = donnees.getIdContact();
+                if (id != null && (id <= 0 || !modifications.add(id) || suppressions.contains(id))) {
+                    throw new IllegalArgumentException("Identifiant de contact contradictoire ou répété.");
+                }
+            }
+        }
+        for (Integer id : suppressions) {
+            EmployeContactUrgence contact = new EmployeContactUrgence().rechercherParId(id, c);
+            verifierProprietaire(contact == null ? null : contact.getIdEmploye(), idEmploye, "Contact d'urgence");
+            contact.delete(c);
+        }
+        if (req.getContactsUrgence() == null) return;
+        for (EmployeRequest.ContactUrgenceRequest donnees : req.getContactsUrgence()) {
+            Integer id = donnees.getIdContact();
+            if (id == null && estVide(donnees.getNom()) && estVide(donnees.getPrenom())
+                    && estVide(donnees.getTelephone()) && estVide(donnees.getAdresse())
+                    && estVide(donnees.getSociete())) continue;
+            EmployeContactUrgence contact = id == null ? new EmployeContactUrgence() : new EmployeContactUrgence().rechercherParId(id, c);
+            if (id != null) verifierProprietaire(contact == null ? null : contact.getIdEmploye(), idEmploye, "Contact d'urgence");
+            if (id == null) contact.setIdEmploye(idEmploye);
+            if (id != null && memesInformationsContact(contact, donnees)) continue;
+            contact.setNom(donnees.getNom());
+            contact.setPrenom(donnees.getPrenom());
+            contact.setLienParente(donnees.getLienParente());
+            contact.setAdresse(donnees.getAdresse());
+            contact.setTelephone(donnees.getTelephone());
+            contact.setSociete(donnees.getSociete());
+            if (id == null) contact.save(c); else contact.update(c);
+        }
+    }
+
+    private static Set<Integer> validerSuppressions(List<Integer> ids, String objet) {
+        Set<Integer> uniques = new HashSet<>();
+        if (ids == null) return uniques;
+        for (Integer id : ids) {
+            if (id == null || id <= 0 || !uniques.add(id)) {
+                throw new IllegalArgumentException("Identifiant de " + objet + " à supprimer invalide ou répété.");
+            }
+        }
+        return uniques;
+    }
+
+    private static void verifierProprietaire(Integer proprietaire, int idEmploye, String objet) {
+        if (!Objects.equals(proprietaire, idEmploye)) {
+            throw new IllegalArgumentException(objet + " introuvable pour cet employé.");
+        }
+    }
+
+    private static boolean memesInformationsEnfant(EmployeEnfant actuel, EmployeRequest.EnfantRequest demande) {
+        return Objects.equals(actuel.getNom(), demande.getNom())
+                && Objects.equals(actuel.getPrenom(), demande.getPrenom())
+                && Objects.equals(actuel.getSexe(), demande.getSexe())
+                && Objects.equals(actuel.getDateNaissance(), demande.getDateNaissance())
+                && Objects.equals(actuel.getLieuNaissance(), demande.getLieuNaissance())
+                && actuel.isACharge() == demande.isACharge()
+                && actuel.isEstEtudiant() == demande.isEstEtudiant()
+                && Objects.equals(actuel.getDateFinScolarite(), demande.getDateFinScolarite())
+                && actuel.isEstHandicape() == demande.isEstHandicape()
+                && actuel.isCertificatFourni() == demande.isCertificatFourni();
+    }
+
+    private static boolean memesInformationsContact(EmployeContactUrgence actuel, EmployeRequest.ContactUrgenceRequest demande) {
+        EmployeContactUrgence normalise = new EmployeContactUrgence();
+        normalise.setLienParente(demande.getLienParente());
+        return Objects.equals(actuel.getNom(), demande.getNom())
+                && Objects.equals(actuel.getPrenom(), demande.getPrenom())
+                && Objects.equals(actuel.getLienParente(), normalise.getLienParente())
+                && Objects.equals(actuel.getAdresse(), demande.getAdresse())
+                && Objects.equals(actuel.getTelephone(), demande.getTelephone())
+                && Objects.equals(actuel.getSociete(), demande.getSociete());
+    }
+
+    void appliquerConjoint(int idEmploye, EmployeRequest req, Connection c) throws Exception {
+        EmployeRequest.ConjointRequest donnees = req.getConjoint();
+        boolean renseigne = donnees != null && (
+                !estVide(donnees.getNom()) || !estVide(donnees.getPrenom())
+                || donnees.getDateNaissance() != null || !estVide(donnees.getLieuNaissance())
+                || !estVide(donnees.getSociete()) || !estVide(donnees.getFonction()));
+        if (req.isSupprimerConjoint()) {
+            if (renseigne) {
+                throw new IllegalArgumentException("Suppression et renseignement du conjoint incompatibles.");
+            }
+            EmployeConjoint.deleteByEmployeId(idEmploye, c);
+            return;
+        }
+        if (!renseigne) {
+            return;
+        }
+        if (estVide(donnees.getNom()) || estVide(donnees.getPrenom())) {
+            throw new IllegalArgumentException("Le nom et le prénom du conjoint sont obligatoires.");
+        }
+
+        EmployeConjoint conjoint = EmployeConjoint.findByEmployeId(idEmploye, c);
+        if (conjoint == null) {
+            conjoint = new EmployeConjoint();
+            conjoint.setIdEmploye(idEmploye);
+            renseignerConjoint(conjoint, donnees);
+            conjoint.save(c);
+        } else if (!memesInformationsConjoint(conjoint, donnees)) {
+            renseignerConjoint(conjoint, donnees);
+            conjoint.update(c);
+        }
+    }
+
+    private static boolean estVide(String valeur) {
+        return valeur == null || valeur.isBlank();
+    }
+
+    private static boolean memesInformationsConjoint(EmployeConjoint actuel, EmployeRequest.ConjointRequest demande) {
+        return Objects.equals(actuel.getNom(), demande.getNom())
+                && Objects.equals(actuel.getPrenom(), demande.getPrenom())
+                && Objects.equals(actuel.getDateNaissance(), demande.getDateNaissance())
+                && Objects.equals(actuel.getLieuNaissance(), demande.getLieuNaissance())
+                && Objects.equals(actuel.getSociete(), demande.getSociete())
+                && Objects.equals(actuel.getFonction(), demande.getFonction());
+    }
+
+    private static void renseignerConjoint(EmployeConjoint conjoint, EmployeRequest.ConjointRequest donnees) {
+        conjoint.setNom(donnees.getNom());
+        conjoint.setPrenom(donnees.getPrenom());
+        conjoint.setDateNaissance(donnees.getDateNaissance());
+        conjoint.setLieuNaissance(donnees.getLieuNaissance());
+        conjoint.setSociete(donnees.getSociete());
+        conjoint.setFonction(donnees.getFonction());
     }
 
     public EmployeCPL desactiverEmploye(int id, DesactivationRequest req) throws Exception {
@@ -426,11 +508,31 @@ public class EmployeService {
 
     public String generateNextMatricule() throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            return generateNextMatricule(c);
+            // Cet aperçu ne réserve rien ; l'allocation définitive est sérialisée à la création.
+            return calculerProchainMatricule(c);
         }
     }
 
     public String generateNextMatricule(Connection c) throws Exception {
+        verifierTransactionMatricule(c);
+        verrouillerAllocateurMatricule(c);
+        return calculerProchainMatricule(c);
+    }
+
+    private void verrouillerAllocateurMatricule(Connection c) throws Exception {
+        verifierTransactionMatricule(c);
+        try (PreparedStatement ps = c.prepareStatement("SELECT pg_advisory_xact_lock(46002, 1)")) {
+            ps.execute();
+        }
+    }
+
+    private void verifierTransactionMatricule(Connection c) throws Exception {
+        if (c.getAutoCommit()) {
+            throw new IllegalStateException("L'allocation d'un matricule exige une transaction active.");
+        }
+    }
+
+    private String calculerProchainMatricule(Connection c) throws Exception {
         String sql = "WITH normalized AS ("
                 + " SELECT btrim(matricule, E' \\t\\n\\r\\f\\013') AS normalized_value"
                 + " FROM employe WHERE matricule IS NOT NULL"

@@ -352,6 +352,14 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         </div>
                     </div>
                 )}
+                {(isRevalorisation || isInit) && (
+                    <div className="bg-[var(--color-warning-500)]/8 border border-[var(--color-warning-500)]/25 p-3.5 flex items-start gap-3">
+                        <AlertTriangle size={16} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
+                        <p className="text-xs text-[var(--color-fg-muted)]">
+                            L'activation de l'exonération réduira l'assiette IRSA des gains HS admissibles dans la limite configurée. Son applicabilité juridique doit être confirmée avant activation; le plafond n'est pas fixé automatiquement à 20 heures.
+                        </p>
+                    </div>
+                )}
                 {isEdit && (
                     <div className="bg-[var(--color-brand-500)]/8 border border-[var(--color-brand-500)]/20 p-3.5 flex items-start gap-3">
                         <Info size={16} className="text-[var(--color-brand-500)] shrink-0 mt-0.5" />
@@ -598,38 +606,31 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                             <div className="col-span-2 pt-2 border-t border-[var(--color-border-subtle)] space-y-2">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <span className="text-xs font-semibold text-[var(--color-fg)]">Exonération IRSA des Heures Supplémentaires</span>
-                                        <p className="text-[11px] text-[var(--color-fg-muted)]">Article 01.03.03-9° CGI (salariés non-cadres éligibles)</p>
+                                        <span className="text-xs font-semibold text-[var(--color-fg)]">Exonération HS dans l'assiette IRSA</span>
+                                        <p className="text-[11px] text-[var(--color-fg-muted)]">Désactivée par défaut. Une activation crée une nouvelle version datée.</p>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
-                                        <SharedCheckbox plain
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            disabled={isReadOnly}
+                                        <SharedCheckbox plain type="checkbox" className="sr-only peer"
+                                            disabled={isReadOnly || isEdit}
                                             checked={!!formData.exonerationHsIrsaActive}
-                                            onChange={e => upd('exonerationHsIrsaActive', e.target.checked)}
-                                        />
-                                        <div className="w-9 h-5 bg-[var(--color-border-strong)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-on-color)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-surface)] after:border-[var(--color-border)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-500)]"></div>
+                                            onChange={e => { upd('exonerationHsIrsaActive', e.target.checked); upd('confirmationExonerationHs', false); }} />
+                                        <div className="w-9 h-5 bg-[var(--color-border-strong)] peer-focus:outline-none rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-surface)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:bg-[var(--color-brand-500)]"></div>
                                     </label>
                                 </div>
-                                {!formData.exonerationHsIrsaActive ? (
-                                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)] rounded">
-                                        <span className="font-semibold text-[var(--color-fg)]">Exonération désactivée pour cet exercice :</span>
-                                        <p className="text-[11px] mt-0.5">100% des heures supplémentaires accomplies seront intégrées dans l'assiette imposable IRSA (aucun abattement ni repli appliqué).</p>
-                                    </div>
-                                ) : (
-                                    <Input
-                                        label="Plafond mensuel HS exonérées (h)"
-                                        type="number"
-                                        step="0.5"
-                                        min="0"
-                                        required={!isReadOnly}
-                                        disabled={isReadOnly}
-                                        value={formData.plafondMensuelHsExonerees}
-                                        onChange={e => upd('plafondMensuelHsExonerees', e.target.value)}
-                                        hint="Plafond d'heures exonérées par mois civil (ex: 20h selon CGI Art. 01.03.03-9°)"
-                                    />
+                                <Input label="Plafond mensuel d'heures exonérées" type="number" step="0.01" min="0"
+                                    required={!isReadOnly && !!formData.exonerationHsIrsaActive}
+                                    disabled={isReadOnly || isEdit}
+                                    value={formData.plafondMensuelHsExonerees}
+                                    onChange={e => upd('plafondMensuelHsExonerees', e.target.value)}
+                                    hint="Conservé même lorsque l'exonération est désactivée; aucun plafond légal n'est présumé." />
+                                {formData.exonerationHsIrsaActive && !isReadOnly && (
+                                    <label className="flex items-start gap-2 text-xs text-[var(--color-fg)]">
+                                        <SharedCheckbox plain type="checkbox" checked={!!formData.confirmationExonerationHs}
+                                            onChange={e => upd('confirmationExonerationHs', e.target.checked)} />
+                                        <span>Je confirme volontairement l'activation à la date d'effet indiquée et comprends qu'elle réduira l'assiette IRSA selon le plafond et les critères d'éligibilité configurés.</span>
+                                    </label>
                                 )}
+                                {isEdit && <p className="text-[11px] text-[var(--color-fg-muted)]">Les paramètres d'exonération se modifient uniquement par une revalorisation avec date d'effet.</p>}
                             </div>
                         </div>
                     </div>
@@ -956,7 +957,7 @@ export default function ReglementationFiscaleTab() {
         seuilHsTranche1: parseSafe(formData.seuilHsTranche1, null),
         plafondHsHebdo: parseSafe(formData.plafondHsHebdo, 20),
         exonerationHsIrsaActive: Boolean(formData.exonerationHsIrsaActive),
-        plafondMensuelHsExonerees: formData.exonerationHsIrsaActive ? parseSafe(formData.plafondMensuelHsExonerees, 0) : 0,
+        plafondMensuelHsExonerees: parseSafe(formData.plafondMensuelHsExonerees, 0),
         acquisitionCongeMensuelJours: parseSafe(formData.acquisitionCongeMensuelJours, 2.5),
     });
 
@@ -967,6 +968,9 @@ export default function ReglementationFiscaleTab() {
         setSubmitting(true);
         try {
             const payload = buildPayload();
+            if (payload.exonerationHsIrsaActive && !formData.confirmationExonerationHs && modalMode !== 'edit') {
+                throw new Error("Confirmez explicitement l'activation de l'exonération HS.");
+            }
             if (modalMode === 'edit' && editingId) {
                 await paieConfigService.updateConfigLegale(editingId, payload);
                 toast({ title: 'Correction enregistrée', message: `Exercice "${payload.codeVersion}" mis à jour.`, type: 'success' });
@@ -980,7 +984,7 @@ export default function ReglementationFiscaleTab() {
             setShowModal(false);
             load();
         } catch (err) {
-            const errMsg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response?.data : null) || "Erreur lors de la sauvegarde. Vérifiez les données saisies.";
+            const errMsg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response?.data : null) || err.message || "Erreur lors de la sauvegarde. Vérifiez les données saisies.";
             setModalError(errMsg);
             document.getElementById('exercice-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } finally {
@@ -1043,7 +1047,7 @@ export default function ReglementationFiscaleTab() {
                                 <KpiField label="Seuil d'exonération" value={fmtAr(activeConfig.seuilExonerationIrsa)} sub="Base imposable en dessous → IRSA = 0" />
                                 <KpiField label="Minimum de Perception" value={fmtAr(activeConfig.minimumPerceptionIrsa)} sub="Plancher légal si IRSA calculé insuffisant" />
                                 <KpiField label="Déduction / Personne à Charge" value={fmtAr(activeConfig.deductionChargeFamille)} sub="Conjoint, enfants légitimes à charge" />
-                                <KpiField label="Exonération HS (CGI)" value={(activeConfig.exonerationHsIrsaActive && Number(activeConfig.plafondMensuelHsExonerees) > 0) ? `${fmtNb(activeConfig.plafondMensuelHsExonerees, 0)}h max / mois` : "Désactivée (0h)"} sub="Art. 01.03.03-9° non-cadres" />
+                                <KpiField label="HS dans l’IRSA" value="100 % imposables" sub="Règle métier DAF pour les nouveaux bulletins" />
                             </div>
 
                             {/* Grille des tranches progressives de l'exercice actif */}

@@ -9,30 +9,10 @@
 --           26-09-11-sp4-paie-stc.sql,
 --           26-09-12-sp4-paie-variables-dynamiques.sql, 26-09-13-sp4-conge-valorisation-droits.sql,
 --           26-09-15-sp7-regularisation-conge-mouvement.sql, 26-09-16-sp8-indexes-foreign-keys.sql
+-- Installation initiale uniquement sur une base ou un schéma cible vierge.
+-- Exécuter les scripts 01 → 06 dans cet ordre ; ne pas utiliser pour une mise à jour
+-- ni pour une réinitialisation.
 -- =====================================================================
-
--- 1. Nettoyage préalable des vues, triggers, tables et séquences
-DROP VIEW IF EXISTS v_config_legale_active CASCADE;
-
-DROP TABLE IF EXISTS ref_mode_paiement CASCADE;
-DROP TABLE IF EXISTS paie_stc CASCADE;
-DROP TABLE IF EXISTS prestataire_facture CASCADE;
-DROP TABLE IF EXISTS prestataire_contrat CASCADE;
-DROP TABLE IF EXISTS prestataire_independant CASCADE;
-DROP TABLE IF EXISTS paie_mouvement_imputation CASCADE;
-DROP TABLE IF EXISTS paie_avance_acompte CASCADE;
-DROP TABLE IF EXISTS ref_type_mouvement_paie CASCADE;
-DROP TABLE IF EXISTS bulletin_paie_ligne CASCADE;
-DROP TABLE IF EXISTS bulletin_paie CASCADE;
-DROP TABLE IF EXISTS paie_rubrique CASCADE;
-DROP TABLE IF EXISTS ref_taux_majoration CASCADE;
-DROP TABLE IF EXISTS bareme_irsa CASCADE;
-DROP TABLE IF EXISTS site_cotisation CASCADE;
-DROP TABLE IF EXISTS ref_type_cotisation CASCADE;
-DROP TABLE IF EXISTS ref_organisme_social CASCADE;
-DROP TABLE IF EXISTS paie_config_legale CASCADE;
-
-DROP SEQUENCE IF EXISTS seq_numero_recu_stc;
 
 -- Configuration Légale & Fiscale (Millésimes annuels de paie)
 CREATE TABLE paie_config_legale (
@@ -56,7 +36,7 @@ CREATE TABLE paie_config_legale (
     plafond_hs_hebdo NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     acquisition_conge_mensuel_jours NUMERIC(4,2) NOT NULL DEFAULT 2.50,
     exoneration_hs_irsa_active BOOLEAN NOT NULL DEFAULT FALSE,
-    plafond_mensuel_hs_exonerees NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+    plafond_mensuel_hs_exonerees NUMERIC(5,2) NOT NULL DEFAULT 0.00,
     source_type VARCHAR(50) DEFAULT 'CGI_MADAGASCAR',
     source_reference VARCHAR(255),
     article_reference VARCHAR(80) DEFAULT '01.03.16',
@@ -71,59 +51,6 @@ CREATE TABLE paie_config_legale (
     )
 );
 
-CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin) WHERE date_fin IS NULL;
-
--- Configuration Légale de Paie :
--- 1. LF_2024_2025 (applicable du 01/01/2024 au 31/12/2025) : SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar, Barème 5 tranches (couvre les tests déc 2025 : 26 nov - 25 déc)
--- 2. LF_2026_JAN_FEB (applicable du 01/01/2026 au 28/02/2026) : Décret CNaPS SME 262 680 Ar maintenu jusqu'au 28/02/2026, Barème IRSA 6 tranches LF 2026 (Min IRSA 3 000 Ar, tranche 25%)
--- 3. LF_2026 (en vigueur depuis le 01/03/2026) : Revalorisation effective SME 300 000 Ar (agricole 304 300 Ar), Plafond CNaPS 2 400 000 Ar, Barème 6 tranches (25%), Min IRSA 3 000 Ar
-INSERT INTO paie_config_legale (
-    id_config_legale, code_version, libelle, date_debut, date_fin,
-    sme_national, sme_agricole, plafond_cotisation_nb_sme,
-    seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa,
-    duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo,
-    acquisition_conge_mensuel_jours,
-    exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees,
-    source_type, source_reference, article_reference, publication_date
-) VALUES
-(
-    1,
-    'LF_2024_2025',
-    'Loi de Finances / Réglementation 2022-2025 — SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar',
-    '2001-07-01', '2025-12-31',
-    262680.00, 266500.00, 8.00,
-    350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
-    40.00, 173.33, 8.00, 20.00,
-    2.50,
-    FALSE, 20.00,
-    'CGI_MADAGASCAR', 'Code des impôts 2025', '01.03.16', '2024-01-01'
-),
-(
-    3,
-    'LF_2026_JAN_FEB',
-    'Loi de Finances 2026 (Janv-Févr 2026) — IRSA 6 Tranches, SME CNaPS 262 680 Ar',
-    '2026-01-01', '2026-02-28',
-    262680.00, 266500.00, 8.00,
-    350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
-    40.00, 173.33, 8.00, 20.00,
-    2.50,
-    FALSE, 20.00,
-    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2025-12-31'
-),
-(
-    2,
-    'LF_2026',
-    'Loi de Finances 2026 — Revalorisation SME 300 000 Ar, Plafond CNaPS 2 400 000 Ar, Min IRSA 3 000 Ar',
-    '2026-03-01', NULL,
-    300000.00, 304300.00, 8.00,
-    350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
-    40.00, 173.33, 8.00, 20.00,
-    2.50,
-    FALSE, 20.00,
-    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2026-02-15'
-);
-SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 3) FROM paie_config_legale));
-
 
 -- 2. Organismes Sociaux & Cotisations Sociales
 CREATE TABLE ref_organisme_social (
@@ -135,8 +62,6 @@ CREATE TABLE ref_organisme_social (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_organisme_social_code ON ref_organisme_social(code);
-CREATE INDEX idx_organisme_social_categorie ON ref_organisme_social(categorie);
 
 CREATE TABLE ref_type_cotisation (
     id_type_cotisation SERIAL PRIMARY KEY,
@@ -155,8 +80,6 @@ CREATE TABLE ref_type_cotisation (
     categorie VARCHAR(30) DEFAULT 'SANTE' CHECK (categorie IN ('PREVOYANCE', 'SANTE', 'FORMATION'))
 );
 
-CREATE INDEX idx_type_cotisation_config ON ref_type_cotisation(id_config_legale);
-CREATE INDEX idx_type_cotisation_organisme ON ref_type_cotisation(id_organisme);
 
 CREATE TABLE site_cotisation (
     id_site_cotisation SERIAL PRIMARY KEY,
@@ -168,8 +91,6 @@ CREATE TABLE site_cotisation (
     CONSTRAINT uk_site_cotisation UNIQUE (id_site, id_type_cotisation)
 );
 
-CREATE INDEX idx_site_cotisation_type ON site_cotisation(id_type_cotisation);
-CREATE INDEX idx_site_cotisation_organisme ON site_cotisation(id_organisme);
 
 -- 3. Barèmes IRSA & Majorations Légales
 CREATE TABLE bareme_irsa (
@@ -183,9 +104,6 @@ CREATE TABLE bareme_irsa (
     date_fin DATE
 );
 
-CREATE INDEX idx_bareme_irsa_config ON bareme_irsa(id_config_legale);
-CREATE UNIQUE INDEX uk_bareme_irsa_config_numero_debut
-    ON bareme_irsa(id_config_legale, numero_tranche, date_debut);
 
 CREATE TABLE ref_taux_majoration (
     id_taux_majoration SERIAL PRIMARY KEY,
@@ -197,7 +115,6 @@ CREATE TABLE ref_taux_majoration (
     date_fin DATE
 );
 
-CREATE INDEX idx_taux_majoration_config ON ref_taux_majoration(id_config_legale);
 
 -- 4. Catalogue des Rubriques & Types de Mouvements Variables
 CREATE TABLE paie_rubrique (
@@ -235,8 +152,6 @@ CREATE TABLE paie_rubrique (
     CONSTRAINT chk_rubrique_sens CHECK (sens IN ('GAIN', 'RETENUE', 'PATRONAL', 'INFO', 'NEUTRE'))
 );
 
-CREATE INDEX idx_paie_rubrique_categorie ON paie_rubrique(categorie);
-CREATE INDEX idx_paie_rubrique_ordre ON paie_rubrique(ordre_affichage);
 
 CREATE TABLE ref_type_mouvement_paie (
     id_type_mouvement SERIAL PRIMARY KEY,
@@ -260,9 +175,6 @@ CREATE TABLE ref_type_mouvement_paie (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_ref_type_mvt_code ON ref_type_mouvement_paie(code);
-CREATE INDEX idx_ref_type_mvt_sens ON ref_type_mouvement_paie(sens);
-CREATE INDEX idx_ref_type_mouvement_paie_rubrique ON ref_type_mouvement_paie(id_rubrique);
 
 -- 4b. Référentiels Typologiques de Paie & Règlements
 CREATE TABLE ref_mode_paiement (
@@ -274,14 +186,6 @@ CREATE TABLE ref_mode_paiement (
     actif BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
-INSERT INTO ref_mode_paiement (code, libelle, exige_rib, inclus_fichier_virement, actif)
-VALUES
-    ('VIREMENT', 'Virement Bancaire', TRUE, TRUE, TRUE),
-    ('CHEQUE', 'Chèque Bancaire', FALSE, FALSE, TRUE),
-    ('ESPECES', 'Espèces / Caisse', FALSE, FALSE, TRUE),
-    ('MOBILE_MONEY', 'Mobile Money (Mvola/Orange/Airtel)', FALSE, FALSE, TRUE)
-ON CONFLICT (code) DO NOTHING;
 
 -- 5. En-tête des Bulletins de Paie (avec audit de réouverture inline)
 CREATE TABLE bulletin_paie (
@@ -356,39 +260,6 @@ CREATE TABLE bulletin_paie (
 );
 
 
-CREATE INDEX idx_rubrique_versions ON paie_rubrique ((COALESCE(id_rubrique_origine,id_rubrique)),date_debut_effet);
-
--- Sérialise les changements d’une même famille et interdit les versions ambiguës.
-CREATE OR REPLACE FUNCTION verifier_versions_rubrique() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE famille INT;
-BEGIN
- famille := COALESCE(NEW.id_rubrique_origine, NEW.id_rubrique);
- PERFORM pg_advisory_xact_lock(46001, famille);
- IF NEW.id_rubrique_origine IS NOT NULL AND (NEW.id_rubrique_origine=NEW.id_rubrique OR
-    NOT EXISTS (SELECT 1 FROM paie_rubrique WHERE id_rubrique=NEW.id_rubrique_origine AND id_rubrique_origine IS NULL)) THEN
-    RAISE EXCEPTION 'La version doit référencer la rubrique d’origine';
- END IF;
- IF EXISTS (SELECT 1 FROM paie_rubrique r WHERE COALESCE(r.id_rubrique_origine,r.id_rubrique)=famille
-   AND r.id_rubrique<>NEW.id_rubrique AND daterange(r.date_debut_effet,r.date_fin_effet,'[]')
-       && daterange(NEW.date_debut_effet,NEW.date_fin_effet,'[]')) THEN
-   RAISE EXCEPTION 'Chevauchement des versions de rubrique';
- END IF;
- RETURN NEW;
-END $$;
-DROP TRIGGER IF EXISTS trg_versions_rubrique ON paie_rubrique;
-CREATE TRIGGER trg_versions_rubrique BEFORE INSERT OR UPDATE OF date_debut_effet,date_fin_effet,id_rubrique_origine
-ON paie_rubrique FOR EACH ROW EXECUTE FUNCTION verifier_versions_rubrique();
-
-CREATE INDEX idx_bulletin_periode ON bulletin_paie(id_periode_paie);
-CREATE INDEX idx_bulletin_employe ON bulletin_paie(id_employe);
-CREATE INDEX idx_bulletin_statut ON bulletin_paie(statut);
-CREATE INDEX idx_bulletin_snapshot_pointage ON bulletin_paie(id_snapshot_pointage);
-CREATE INDEX idx_bulletin_paie_calcule_par ON bulletin_paie(calcule_par);
-CREATE INDEX idx_bulletin_paie_valide_par ON bulletin_paie(valide_par);
-CREATE INDEX idx_bulletin_paie_cloture_par ON bulletin_paie(cloture_par);
-CREATE INDEX idx_bulletin_paie_rouvert_par ON bulletin_paie(rouvert_par);
-
--- Suivi financier distinct du statut de validation du bulletin.
 CREATE TABLE paie_bulletin_virement_lot (
     id_lot BIGSERIAL PRIMARY KEY,
     id_periode_paie INT NOT NULL REFERENCES periode_paie(id_periode_paie),
@@ -414,7 +285,6 @@ CREATE TABLE paie_bulletin_virement_ligne (
     traite_par INT REFERENCES utilisateur(id_utilisateur),
     UNIQUE (id_lot, id_bulletin)
 );
-CREATE UNIQUE INDEX uk_paie_virement_bulletin_en_attente ON paie_bulletin_virement_ligne(id_bulletin) WHERE statut = 'EN_ATTENTE';
 CREATE TABLE paie_bulletin_reglement (
     id_reglement BIGSERIAL PRIMARY KEY,
     id_bulletin INT NOT NULL REFERENCES bulletin_paie(id_bulletin),
@@ -434,8 +304,6 @@ CREATE TABLE paie_bulletin_reglement (
     annule_par INT REFERENCES utilisateur(id_utilisateur),
     motif_annulation TEXT
 );
-CREATE INDEX idx_paie_bulletin_reglement_actif ON paie_bulletin_reglement(id_bulletin) WHERE annule_at IS NULL;
-CREATE UNIQUE INDEX uk_paie_bulletin_reglement_reference_active ON paie_bulletin_reglement(id_bulletin, mode_reglement, reference_reglement) WHERE annule_at IS NULL;
 
 -- Identité de l'employeur conservée à la validation pour les réimpressions.
 CREATE TABLE bulletin_paie_employeur_snapshot (
@@ -477,12 +345,6 @@ CREATE TABLE bulletin_paie_ligne (
     CONSTRAINT chk_ligne_sens CHECK (sens IN ('GAIN', 'RETENUE', 'PATRONAL', 'INFO'))
 );
 
-CREATE INDEX idx_bulletin_ligne_bulletin ON bulletin_paie_ligne(id_bulletin);
-CREATE INDEX idx_bulletin_ligne_code ON bulletin_paie_ligne(code_rubrique);
-CREATE INDEX idx_bulletin_paie_ligne_rubrique ON bulletin_paie_ligne(id_rubrique);
-CREATE INDEX idx_bulletin_ligne_organisme ON bulletin_paie_ligne(id_organisme);
-CREATE INDEX idx_bulletin_ligne_code_organisme ON bulletin_paie_ligne(code_organisme);
-CREATE INDEX idx_bulletin_ligne_type_cotisation ON bulletin_paie_ligne(id_type_cotisation);
 
 -- 7. Avances, Acomptes et Variables DAF
 CREATE TABLE paie_avance_acompte (
@@ -519,9 +381,6 @@ CREATE TABLE paie_avance_acompte (
     CONSTRAINT chk_avance_imputation CHECK (montant_initial > 0 AND montant_impute >= 0 AND solde_restant >= 0 AND montant_impute + solde_restant = montant_initial),
     CONSTRAINT chk_avance_statut CHECK (statut IN ('EN_ATTENTE', 'APPROUVE', 'REJETE', 'IMPUTE_PAIE', 'ANNULE'))
 );
-CREATE UNIQUE INDEX uk_paie_regularisation_conge_cutover_active
-    ON paie_avance_acompte(id_conge_cutover_correction)
-    WHERE id_conge_cutover_correction IS NOT NULL AND statut NOT IN ('REJETE', 'ANNULE');
 
 CREATE TABLE paie_mouvement_imputation (
     id_imputation SERIAL PRIMARY KEY,
@@ -540,37 +399,6 @@ CREATE TABLE paie_mouvement_justificatif (
     depose_par INT REFERENCES utilisateur(id_utilisateur),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_mouvement_imputation_bulletin ON paie_mouvement_imputation(id_bulletin);
-
-CREATE OR REPLACE FUNCTION initialize_paie_avance_imputation()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.montant_initial := COALESCE(NEW.montant_initial, NEW.montant);
-    NEW.montant_impute := COALESCE(NEW.montant_impute, 0);
-    NEW.solde_restant := COALESCE(NEW.solde_restant, NEW.montant_initial - NEW.montant_impute);
-    IF NEW.provenance IS NULL THEN
-        SELECT provenance_defaut INTO NEW.provenance
-        FROM ref_type_mouvement_paie
-        WHERE id_type_mouvement = NEW.id_type_mouvement OR code = NEW.type_mouvement
-        ORDER BY CASE WHEN id_type_mouvement = NEW.id_type_mouvement THEN 0 ELSE 1 END
-        LIMIT 1;
-        NEW.provenance := COALESCE(NEW.provenance, 'VARIABLE_DAF');
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_initialize_paie_avance_imputation
-BEFORE INSERT ON paie_avance_acompte
-FOR EACH ROW EXECUTE FUNCTION initialize_paie_avance_imputation();
-
-CREATE INDEX idx_paie_avance_employe ON paie_avance_acompte(id_employe);
-CREATE INDEX idx_paie_avance_periode ON paie_avance_acompte(id_periode_paie);
-CREATE INDEX idx_paie_avance_type_mvt ON paie_avance_acompte(id_type_mouvement);
-CREATE INDEX idx_paie_avance_statut ON paie_avance_acompte(statut);
-CREATE INDEX idx_paie_avance_acompte_cree_par ON paie_avance_acompte(cree_par);
-CREATE INDEX idx_paie_avance_acompte_approuve_par ON paie_avance_acompte(approuve_par);
-CREATE INDEX idx_paie_avance_acompte_bulletin ON paie_avance_acompte(id_bulletin);
 
 -- Prestataires indépendants : circuit contractuel et factures hors paie.
 CREATE TABLE prestataire_independant (
@@ -620,7 +448,6 @@ CREATE TABLE prestataire_facture (
         (motif_annulation IS NOT NULL AND annule_par IS NOT NULL AND date_annulation IS NOT NULL)),
     UNIQUE (id_contrat_prestataire, reference)
 );
-CREATE INDEX idx_prestataire_facture_statut ON prestataire_facture(statut);
 
 -- 10. Solde de tout compte (STC) et décompte détaillé
 CREATE SEQUENCE IF NOT EXISTS seq_numero_recu_stc START WITH 1 INCREMENT BY 1;
@@ -678,14 +505,6 @@ CREATE TABLE paie_stc (
     CONSTRAINT chk_stc_statut CHECK (statut IN ('SIMULATION', 'VALIDE', 'REGLE', 'ANNULE'))
 );
 
-CREATE INDEX idx_paie_stc_employe ON paie_stc(id_employe);
-CREATE INDEX idx_paie_stc_periode ON paie_stc(id_periode_paie);
-CREATE INDEX idx_paie_stc_statut ON paie_stc(statut);
-CREATE INDEX idx_paie_stc_mode_reglement ON paie_stc(id_mode_reglement);
-CREATE INDEX idx_paie_stc_motif_sortie ON paie_stc(id_motif_sortie);
-CREATE INDEX idx_paie_stc_cree_par ON paie_stc(cree_par);
-CREATE INDEX idx_paie_stc_valide_par ON paie_stc(valide_par);
-CREATE INDEX idx_paie_stc_bulletin ON paie_stc(id_bulletin);
 
 -- 11. Dossier administratif de sortie et journal des règlements STC
 CREATE TABLE paie_dossier_sortie (
@@ -725,10 +544,6 @@ CREATE TABLE paie_dossier_sortie (
     CONSTRAINT uk_dossier_sortie_employe_depart UNIQUE (id_employe, date_depart)
 );
 
-CREATE INDEX idx_dossier_sortie_employe ON paie_dossier_sortie(id_employe);
-CREATE INDEX idx_dossier_sortie_statut ON paie_dossier_sortie(statut_dossier);
-CREATE INDEX idx_dossier_sortie_contrat ON paie_dossier_sortie(id_contrat);
-CREATE INDEX idx_dossier_sortie_stc ON paie_dossier_sortie(id_stc);
 
 CREATE TABLE paie_stc_reglement (
     id_reglement SERIAL PRIMARY KEY,
@@ -753,13 +568,123 @@ CREATE TABLE paie_stc_reglement (
         FOREIGN KEY (id_stc) REFERENCES paie_stc(id_stc) ON DELETE RESTRICT
 );
 
+-- Contraintes différées entre les règlements de bulletin et de STC
 ALTER TABLE paie_bulletin_reglement
     ADD COLUMN id_stc_reglement INT UNIQUE REFERENCES paie_stc_reglement(id_reglement);
 
+
+-- Index complémentaires
+CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin) WHERE date_fin IS NULL;
+CREATE INDEX idx_organisme_social_code ON ref_organisme_social(code);
+CREATE INDEX idx_organisme_social_categorie ON ref_organisme_social(categorie);
+CREATE INDEX idx_type_cotisation_config ON ref_type_cotisation(id_config_legale);
+CREATE INDEX idx_type_cotisation_organisme ON ref_type_cotisation(id_organisme);
+CREATE INDEX idx_site_cotisation_type ON site_cotisation(id_type_cotisation);
+CREATE INDEX idx_site_cotisation_organisme ON site_cotisation(id_organisme);
+CREATE INDEX idx_bareme_irsa_config ON bareme_irsa(id_config_legale);
+CREATE UNIQUE INDEX uk_bareme_irsa_config_numero_debut
+    ON bareme_irsa(id_config_legale, numero_tranche, date_debut);
+CREATE INDEX idx_taux_majoration_config ON ref_taux_majoration(id_config_legale);
+CREATE INDEX idx_paie_rubrique_categorie ON paie_rubrique(categorie);
+CREATE INDEX idx_paie_rubrique_ordre ON paie_rubrique(ordre_affichage);
+CREATE INDEX idx_ref_type_mvt_code ON ref_type_mouvement_paie(code);
+CREATE INDEX idx_ref_type_mvt_sens ON ref_type_mouvement_paie(sens);
+CREATE INDEX idx_ref_type_mouvement_paie_rubrique ON ref_type_mouvement_paie(id_rubrique);
+CREATE INDEX idx_rubrique_versions ON paie_rubrique ((COALESCE(id_rubrique_origine,id_rubrique)),date_debut_effet);
+CREATE INDEX idx_bulletin_periode ON bulletin_paie(id_periode_paie);
+CREATE INDEX idx_bulletin_employe ON bulletin_paie(id_employe);
+CREATE INDEX idx_bulletin_statut ON bulletin_paie(statut);
+CREATE INDEX idx_bulletin_snapshot_pointage ON bulletin_paie(id_snapshot_pointage);
+CREATE INDEX idx_bulletin_paie_calcule_par ON bulletin_paie(calcule_par);
+CREATE INDEX idx_bulletin_paie_valide_par ON bulletin_paie(valide_par);
+CREATE INDEX idx_bulletin_paie_cloture_par ON bulletin_paie(cloture_par);
+CREATE INDEX idx_bulletin_paie_rouvert_par ON bulletin_paie(rouvert_par);
+CREATE UNIQUE INDEX uk_paie_virement_bulletin_en_attente ON paie_bulletin_virement_ligne(id_bulletin) WHERE statut = 'EN_ATTENTE';
+CREATE INDEX idx_paie_bulletin_reglement_actif ON paie_bulletin_reglement(id_bulletin) WHERE annule_at IS NULL;
+CREATE UNIQUE INDEX uk_paie_bulletin_reglement_reference_active ON paie_bulletin_reglement(id_bulletin, mode_reglement, reference_reglement) WHERE annule_at IS NULL;
+CREATE INDEX idx_bulletin_ligne_bulletin ON bulletin_paie_ligne(id_bulletin);
+CREATE INDEX idx_bulletin_ligne_code ON bulletin_paie_ligne(code_rubrique);
+CREATE INDEX idx_bulletin_paie_ligne_rubrique ON bulletin_paie_ligne(id_rubrique);
+CREATE INDEX idx_bulletin_ligne_organisme ON bulletin_paie_ligne(id_organisme);
+CREATE INDEX idx_bulletin_ligne_code_organisme ON bulletin_paie_ligne(code_organisme);
+CREATE INDEX idx_bulletin_ligne_type_cotisation ON bulletin_paie_ligne(id_type_cotisation);
+CREATE UNIQUE INDEX uk_paie_regularisation_conge_cutover_active
+    ON paie_avance_acompte(id_conge_cutover_correction)
+    WHERE id_conge_cutover_correction IS NOT NULL AND statut NOT IN ('REJETE', 'ANNULE');
+CREATE INDEX idx_mouvement_imputation_bulletin ON paie_mouvement_imputation(id_bulletin);
+CREATE INDEX idx_paie_avance_employe ON paie_avance_acompte(id_employe);
+CREATE INDEX idx_paie_avance_periode ON paie_avance_acompte(id_periode_paie);
+CREATE INDEX idx_paie_avance_type_mvt ON paie_avance_acompte(id_type_mouvement);
+CREATE INDEX idx_paie_avance_statut ON paie_avance_acompte(statut);
+CREATE INDEX idx_paie_avance_acompte_cree_par ON paie_avance_acompte(cree_par);
+CREATE INDEX idx_paie_avance_acompte_approuve_par ON paie_avance_acompte(approuve_par);
+CREATE INDEX idx_paie_avance_acompte_bulletin ON paie_avance_acompte(id_bulletin);
+CREATE INDEX idx_prestataire_facture_statut ON prestataire_facture(statut);
+CREATE INDEX idx_paie_stc_employe ON paie_stc(id_employe);
+CREATE INDEX idx_paie_stc_periode ON paie_stc(id_periode_paie);
+CREATE INDEX idx_paie_stc_statut ON paie_stc(statut);
+CREATE INDEX idx_paie_stc_mode_reglement ON paie_stc(id_mode_reglement);
+CREATE INDEX idx_paie_stc_motif_sortie ON paie_stc(id_motif_sortie);
+CREATE INDEX idx_paie_stc_cree_par ON paie_stc(cree_par);
+CREATE INDEX idx_paie_stc_valide_par ON paie_stc(valide_par);
+CREATE INDEX idx_paie_stc_bulletin ON paie_stc(id_bulletin);
+CREATE INDEX idx_dossier_sortie_employe ON paie_dossier_sortie(id_employe);
+CREATE INDEX idx_dossier_sortie_statut ON paie_dossier_sortie(statut_dossier);
+CREATE INDEX idx_dossier_sortie_contrat ON paie_dossier_sortie(id_contrat);
+CREATE INDEX idx_dossier_sortie_stc ON paie_dossier_sortie(id_stc);
 CREATE INDEX idx_stc_reglement_stc ON paie_stc_reglement(id_stc);
 CREATE INDEX idx_stc_reglement_date ON paie_stc_reglement(date_reglement);
 CREATE UNIQUE INDEX uk_stc_reglement_stc_ref_active ON paie_stc_reglement(id_stc, reference_reglement) WHERE est_annule = FALSE;
 CREATE UNIQUE INDEX uk_stc_reglement_idempotence ON paie_stc_reglement(id_stc, cle_idempotence) WHERE cle_idempotence IS NOT NULL;
+
+-- Fonctions et triggers des rubriques et avances
+-- Sérialise les changements d’une même famille et interdit les versions ambiguës.
+CREATE OR REPLACE FUNCTION verifier_versions_rubrique() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE famille INT;
+BEGIN
+ famille := COALESCE(NEW.id_rubrique_origine, NEW.id_rubrique);
+ PERFORM pg_advisory_xact_lock(46001, famille);
+ IF NEW.id_rubrique_origine IS NOT NULL AND (NEW.id_rubrique_origine=NEW.id_rubrique OR
+    NOT EXISTS (SELECT 1 FROM paie_rubrique WHERE id_rubrique=NEW.id_rubrique_origine AND id_rubrique_origine IS NULL)) THEN
+    RAISE EXCEPTION 'La version doit référencer la rubrique d’origine';
+ END IF;
+ IF EXISTS (SELECT 1 FROM paie_rubrique r WHERE COALESCE(r.id_rubrique_origine,r.id_rubrique)=famille
+   AND r.id_rubrique<>NEW.id_rubrique AND daterange(r.date_debut_effet,r.date_fin_effet,'[]')
+       && daterange(NEW.date_debut_effet,NEW.date_fin_effet,'[]')) THEN
+   RAISE EXCEPTION 'Chevauchement des versions de rubrique';
+ END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_versions_rubrique ON paie_rubrique;
+CREATE TRIGGER trg_versions_rubrique BEFORE INSERT OR UPDATE OF date_debut_effet,date_fin_effet,id_rubrique_origine
+ON paie_rubrique FOR EACH ROW EXECUTE FUNCTION verifier_versions_rubrique();
+
+
+-- Suivi financier distinct du statut de validation du bulletin.
+
+CREATE OR REPLACE FUNCTION initialize_paie_avance_imputation()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.montant_initial := COALESCE(NEW.montant_initial, NEW.montant);
+    NEW.montant_impute := COALESCE(NEW.montant_impute, 0);
+    NEW.solde_restant := COALESCE(NEW.solde_restant, NEW.montant_initial - NEW.montant_impute);
+    IF NEW.provenance IS NULL THEN
+        SELECT provenance_defaut INTO NEW.provenance
+        FROM ref_type_mouvement_paie
+        WHERE id_type_mouvement = NEW.id_type_mouvement OR code = NEW.type_mouvement
+        ORDER BY CASE WHEN id_type_mouvement = NEW.id_type_mouvement THEN 0 ELSE 1 END
+        LIMIT 1;
+        NEW.provenance := COALESCE(NEW.provenance, 'VARIABLE_DAF');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_initialize_paie_avance_imputation
+BEFORE INSERT ON paie_avance_acompte
+FOR EACH ROW EXECUTE FUNCTION initialize_paie_avance_imputation();
+
+
 
 -- =====================================================================
 -- TRIGGERS DE SÉCURITÉ : IMMUTABILITÉ POST-CLÔTURE
@@ -820,6 +745,68 @@ CREATE TRIGGER trg_bulletin_paie_ligne_immutabilite
 -- =====================================================================
 -- DONNÉES DE RÉFÉRENCE DE BASE (INITIAL SEEDS DES ARCHIVES)
 -- =====================================================================
+
+-- Configuration Légale de Paie :
+-- 1. LF_2024_2025 (applicable du 01/01/2024 au 31/12/2025) : SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar, Barème 5 tranches (couvre les tests déc 2025 : 26 nov - 25 déc)
+-- 2. LF_2026_JAN_FEB (applicable du 01/01/2026 au 28/02/2026) : Décret CNaPS SME 262 680 Ar maintenu jusqu'au 28/02/2026, Barème IRSA 6 tranches LF 2026 (Min IRSA 3 000 Ar, tranche 25%)
+-- 3. LF_2026 (en vigueur depuis le 01/03/2026) : Revalorisation effective SME 300 000 Ar (agricole 304 300 Ar), Plafond CNaPS 2 400 000 Ar, Barème 6 tranches (25%), Min IRSA 3 000 Ar
+INSERT INTO paie_config_legale (
+    id_config_legale, code_version, libelle, date_debut, date_fin,
+    sme_national, sme_agricole, plafond_cotisation_nb_sme,
+    seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa,
+    duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo,
+    acquisition_conge_mensuel_jours,
+    exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees,
+    source_type, source_reference, article_reference, publication_date
+) VALUES
+(
+    1,
+    'LF_2024_2025',
+    'Loi de Finances / Réglementation 2022-2025 — SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar',
+    '2001-07-01', '2025-12-31',
+    262680.00, 266500.00, 8.00,
+    350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
+    40.00, 173.33, 8.00, 20.00,
+    2.50,
+    FALSE, 20.00,
+    'CGI_MADAGASCAR', 'Code des impôts 2025', '01.03.16', '2024-01-01'
+),
+(
+    3,
+    'LF_2026_JAN_FEB',
+    'Loi de Finances 2026 (Janv-Févr 2026) — IRSA 6 Tranches, SME CNaPS 262 680 Ar',
+    '2026-01-01', '2026-02-28',
+    262680.00, 266500.00, 8.00,
+    350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
+    40.00, 173.33, 8.00, 20.00,
+    2.50,
+    FALSE, 20.00,
+    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2025-12-31'
+),
+(
+    2,
+    'LF_2026',
+    'Loi de Finances 2026 — Revalorisation SME 300 000 Ar, Plafond CNaPS 2 400 000 Ar, Min IRSA 3 000 Ar',
+    '2026-03-01', NULL,
+    300000.00, 304300.00, 8.00,
+    350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
+    40.00, 173.33, 8.00, 20.00,
+    2.50,
+    FALSE, 20.00,
+    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2026-02-15'
+);
+SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 3) FROM paie_config_legale));
+
+
+-- Modes de paiement
+INSERT INTO ref_mode_paiement (code, libelle, exige_rib, inclus_fichier_virement, actif)
+VALUES
+    ('VIREMENT', 'Virement Bancaire', TRUE, TRUE, TRUE),
+    ('CHEQUE', 'Chèque Bancaire', FALSE, FALSE, TRUE),
+    ('ESPECES', 'Espèces / Caisse', FALSE, FALSE, TRUE),
+    ('MOBILE_MONEY', 'Mobile Money (Mvola/Orange/Airtel)', FALSE, FALSE, TRUE)
+ON CONFLICT (code) DO NOTHING;
+
 
 -- Organismes Sociaux Déclaratifs
 INSERT INTO ref_organisme_social (id_organisme, code, libelle, categorie, est_actif) VALUES

@@ -92,16 +92,49 @@ public class EmployeValidationEngine {
         if (req.getEnfants() != null) {
             for (int i = 0; i < req.getEnfants().size(); i++) {
                 EmployeRequest.EnfantRequest enf = req.getEnfants().get(i);
-                if (enf.getNom() == null || enf.getNom().trim().isEmpty()) {
-                    erreurs.add("L'enfant n°" + (i + 1) + " doit avoir un nom.");
+                if (enf == null) {
+                    erreurs.add("L'enfant n°" + (i + 1) + " n'est pas renseigné.");
+                    continue;
                 }
+
+                if (estVide(enf.getNom())) {
+                    erreurs.add("Le nom de l'enfant n°" + (i + 1) + " est obligatoire.");
+                }
+                if (estVide(enf.getPrenom())) {
+                    erreurs.add("Le prénom de l'enfant n°" + (i + 1) + " est obligatoire.");
+                }
+
                 LocalDate dateNaissEnf = toLocalDate(enf.getDateNaissance());
-                if (dateNaissEnf != null && dateNaissEnf.isAfter(LocalDate.now())) {
+                if (dateNaissEnf == null) {
+                    erreurs.add("La date de naissance de l'enfant n°" + (i + 1) + " est obligatoire.");
+                } else if (dateNaissEnf.isAfter(LocalDate.now())) {
                     erreurs.add("La date de naissance de l'enfant n°" + (i + 1) + " ne peut pas être dans le futur.");
                 }
                 LocalDate dateFinScol = toLocalDate(enf.getDateFinScolarite());
                 if (dateFinScol != null && dateNaissEnf != null && dateFinScol.isBefore(dateNaissEnf)) {
                     erreurs.add("La date de fin de scolarité de l'enfant n°" + (i + 1) + " ne peut pas précéder sa date de naissance.");
+                }
+            }
+        }
+
+        if (req.getContactsUrgence() != null) {
+            for (int i = 0; i < req.getContactsUrgence().size(); i++) {
+                EmployeRequest.ContactUrgenceRequest contact = req.getContactsUrgence().get(i);
+                if (contact == null) {
+                    erreurs.add("Le contact d'urgence n°" + (i + 1) + " n'est pas renseigné.");
+                    continue;
+                }
+                if (estContactVide(contact)) {
+                    continue;
+                }
+                if (estVide(contact.getNom())) {
+                    erreurs.add("Le nom du contact d'urgence n°" + (i + 1) + " est obligatoire.");
+                }
+                if (estVide(contact.getPrenom())) {
+                    erreurs.add("Le prénom du contact d'urgence n°" + (i + 1) + " est obligatoire.");
+                }
+                if (estVide(contact.getTelephone())) {
+                    erreurs.add("Le téléphone du contact d'urgence n°" + (i + 1) + " est obligatoire.");
                 }
             }
         }
@@ -172,5 +205,17 @@ public class EmployeValidationEngine {
 
     private LocalDate toLocalDate(Date sqlDate) {
         return sqlDate != null ? sqlDate.toLocalDate() : null;
+    }
+
+    private static boolean estVide(String valeur) {
+        return valeur == null || valeur.trim().isEmpty();
+    }
+
+    private static boolean estContactVide(EmployeRequest.ContactUrgenceRequest contact) {
+        return estVide(contact.getNom())
+                && estVide(contact.getPrenom())
+                && estVide(contact.getTelephone())
+                && estVide(contact.getAdresse())
+                && estVide(contact.getSociete());
     }
 }

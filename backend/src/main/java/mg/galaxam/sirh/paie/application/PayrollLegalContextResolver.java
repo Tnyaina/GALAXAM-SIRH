@@ -59,6 +59,7 @@ public class PayrollLegalContextResolver {
         Boolean exoActive = config.getExonerationHsIrsaActive();
         boolean estActif = Boolean.TRUE.equals(exoActive);
         input.setExonerationHsIrsaActive(estActif);
+        input.setAppliquerExonerationHs(estActif);
         input.setPlafondMensuelHsExonerees(estActif && config.getPlafondMensuelHsExonerees() != null ? config.getPlafondMensuelHsExonerees() : BigDecimal.ZERO);
         input.setIdConfigLegale(configId);
 

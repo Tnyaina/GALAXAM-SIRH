@@ -49,7 +49,7 @@ public class PaieConfigLegale extends ClassMere {
 
     // Exonération fiscale Heures Supplémentaires (CGI 01.03.03-9°)
     private Boolean exonerationHsIrsaActive = Boolean.FALSE;
-    private BigDecimal plafondMensuelHsExonerees = new BigDecimal("20.00");
+    private BigDecimal plafondMensuelHsExonerees = BigDecimal.ZERO;
 
     // Champ calculé (non stocké, calculé côté SQL)
     private BigDecimal plafondCotisationMensuel;
@@ -95,7 +95,7 @@ public class PaieConfigLegale extends ClassMere {
             ps.setBigDecimal(15, plafondHsHebdo);
             ps.setBigDecimal(16, acquisitionCongeMensuelJours != null ? acquisitionCongeMensuelJours : new BigDecimal("2.50"));
             ps.setBoolean(17, Boolean.TRUE.equals(exonerationHsIrsaActive));
-            ps.setBigDecimal(18, Boolean.TRUE.equals(exonerationHsIrsaActive) && plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
+            ps.setBigDecimal(18, plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
             ps.setBigDecimal(19, plafondAvanceEmployeurPct);
             ps.setBigDecimal(20, quotiteCessiblePct);
             try (ResultSet rs = ps.executeQuery()) {
@@ -132,7 +132,7 @@ public class PaieConfigLegale extends ClassMere {
             ps.setBigDecimal(15, plafondHsHebdo != null ? plafondHsHebdo : new BigDecimal("20.00"));
             ps.setBigDecimal(16, acquisitionCongeMensuelJours != null ? acquisitionCongeMensuelJours : new BigDecimal("2.50"));
             ps.setBoolean(17, Boolean.TRUE.equals(exonerationHsIrsaActive));
-            ps.setBigDecimal(18, Boolean.TRUE.equals(exonerationHsIrsaActive) && plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
+            ps.setBigDecimal(18, plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
             ps.setBigDecimal(19, plafondAvanceEmployeurPct);
             ps.setBigDecimal(20, quotiteCessiblePct);
             if (idConfigLegale != null) {
@@ -306,11 +306,8 @@ public class PaieConfigLegale extends ClassMere {
         }
         try {
             BigDecimal pl = rs.getBigDecimal("plafond_mensuel_hs_exonerees");
-            p.plafondMensuelHsExonerees = (Boolean.TRUE.equals(p.exonerationHsIrsaActive) && pl != null) ? pl : BigDecimal.ZERO;
+            p.plafondMensuelHsExonerees = pl != null ? pl : BigDecimal.ZERO;
         } catch (Exception ignored) {
-            p.plafondMensuelHsExonerees = BigDecimal.ZERO;
-        }
-        if (!Boolean.TRUE.equals(p.exonerationHsIrsaActive)) {
             p.plafondMensuelHsExonerees = BigDecimal.ZERO;
         }
         try {

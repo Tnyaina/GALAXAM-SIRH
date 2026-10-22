@@ -181,6 +181,12 @@ public class PaieConfigLegaleController {
                 }
                 PaieConfigLegale updated = mapFromRequest(request);
                 updated.setIdConfigLegale(id);
+                if (!java.util.Objects.equals(existing.getExonerationHsIrsaActive(), updated.getExonerationHsIrsaActive())
+                        || compareNullable(existing.getPlafondMensuelHsExonerees(), updated.getPlafondMensuelHsExonerees()) != 0) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "Les paramètres d'exonération HS doivent être modifiés par revalorisation avec une date d'effet.");
+                }
                 if (updated.getCodeVersion() == null || updated.getCodeVersion().isBlank()) {
                     updated.setCodeVersion(existing.getCodeVersion());
                 }
@@ -388,6 +394,11 @@ public class PaieConfigLegaleController {
     }
 
     private PaieConfigLegale mapFromRequest(PaieConfigLegaleRequest r) {
+        if (r.getDateDebut() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "La date de début ou d'effet est obligatoire.");
+        }
         if (r.getSeuilHsTranche1() == null || r.getSeuilHsTranche1().signum() < 0) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                 mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
@@ -418,9 +429,22 @@ public class PaieConfigLegaleController {
         p.setPlafondHsHebdo(r.getPlafondHsHebdo() != null ? r.getPlafondHsHebdo() : new BigDecimal("20.00"));
         p.setAcquisitionCongeMensuelJours(r.getAcquisitionCongeMensuelJours() != null ? r.getAcquisitionCongeMensuelJours() : new BigDecimal("2.50"));
         boolean exoActive = Boolean.TRUE.equals(r.getExonerationHsIrsaActive());
+        BigDecimal plafondExonere = r.getPlafondMensuelHsExonerees() != null
+                ? r.getPlafondMensuelHsExonerees() : BigDecimal.ZERO;
+        if (plafondExonere.signum() < 0 || (exoActive && plafondExonere.signum() <= 0)) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "Un plafond HS positif est requis lorsque l'exonération est activée; le plafond ne peut pas être négatif.");
+        }
         p.setExonerationHsIrsaActive(exoActive);
-        p.setPlafondMensuelHsExonerees(exoActive && r.getPlafondMensuelHsExonerees() != null ? r.getPlafondMensuelHsExonerees() : BigDecimal.ZERO);
+        p.setPlafondMensuelHsExonerees(plafondExonere);
         return p;
+    }
+
+    private static int compareNullable(BigDecimal left, BigDecimal right) {
+        if (left == null) left = BigDecimal.ZERO;
+        if (right == null) right = BigDecimal.ZERO;
+        return left.compareTo(right);
     }
 
     private PaieConfigLegale findPredecessor(int currentId, Date currentDebut, Connection c) throws Exception {

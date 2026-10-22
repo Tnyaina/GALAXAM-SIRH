@@ -180,12 +180,12 @@ final class PayrollCalculationContextAssembler {
                 dateDebutPeriodeSql.toLocalDate(), dateFinPeriodeSql.toLocalDate(), c));
     }
 
-    private void chargerBanque(PayrollCalculationInput in, Integer idEmploye, Connection c) throws Exception {
+    void chargerBanque(PayrollCalculationInput in, Integer idEmploye, Connection c) throws Exception {
         // 3. Coordonnées bancaires
         String sqlBanque = "SELECT ecb.num_compte_rib, rb.nom_banque " +
                 "FROM employe_compte_banque ecb " +
                 "LEFT JOIN ref_banque rb ON ecb.id_banque = rb.id_banque " +
-                "WHERE ecb.id_employe = ? AND ecb.est_principal = true LIMIT 1";
+                "WHERE ecb.id_employe = ?";
 
         try (PreparedStatement ps = c.prepareStatement(sqlBanque)) {
             ps.setInt(1, idEmploye);

@@ -2,27 +2,13 @@
 -- GALAXAM SIRH — MODULE 02 : RÉFÉRENTIELS RH & ORGANISATION STRUCTURELLE
 -- Script canonique final (Zéro ALTER TABLE, Zéro OWNER, Zéro public.)
 -- Sources : 26-08-05-sp0-ref.sql, 26-08-10-sp1-contrat.sql, 26-09-02-sp4-paie.sql
+-- Installation initiale uniquement sur une base ou un schéma cible vierge.
+-- Exécuter les scripts 01 → 06 dans cet ordre ; ne pas utiliser pour une mise à jour
+-- ni pour une réinitialisation.
 -- =====================================================================
 
--- 1. Nettoyage préalable (ordre inverse des dépendances)
+-- Extensions nécessaires
 CREATE EXTENSION IF NOT EXISTS btree_gist;
-
-DROP TABLE IF EXISTS site_calendrier_ferie CASCADE;
-DROP TABLE IF EXISTS ref_calendrier_ferie CASCADE;
-DROP TABLE IF EXISTS ref_categorie_professionnelle CASCADE;
-DROP TABLE IF EXISTS ref_mode_calcul_paie CASCADE;
-DROP TABLE IF EXISTS ref_motif_mouvement CASCADE;
-DROP TABLE IF EXISTS ref_motif_sortie CASCADE;
-DROP TABLE IF EXISTS ref_type_evenement_rh CASCADE;
-DROP TABLE IF EXISTS ref_statut_rh CASCADE;
-DROP TABLE IF EXISTS ref_type_intervenant CASCADE;
-DROP TABLE IF EXISTS ref_type_contrat CASCADE;
-DROP TABLE IF EXISTS ref_fonction CASCADE;
-DROP TABLE IF EXISTS ref_service CASCADE;
-DROP TABLE IF EXISTS ref_departement CASCADE;
-DROP TABLE IF EXISTS ref_site CASCADE;
-DROP TABLE IF EXISTS ref_banque CASCADE;
-DROP TABLE IF EXISTS ref_filiale CASCADE;
 
 -- 2. Structure Juridique & Filiales
 CREATE TABLE ref_filiale (
@@ -66,7 +52,6 @@ CREATE TABLE ref_site (
     CONSTRAINT chk_ref_site_plancher_arrivee CHECK (NOT plancher_arrivee_actif OR heure_entree_minimale_valorisee IS NOT NULL)
 );
 
-CREATE INDEX idx_ref_site_filiale_rattachement ON ref_site(id_filiale_rattachement);
 
 -- 5. Départements & Services
 CREATE TABLE ref_departement (
@@ -86,7 +71,6 @@ CREATE TABLE ref_service (
     CONSTRAINT uq_ref_service_id_departement UNIQUE (id_service, id_departement)
 );
 
-CREATE INDEX idx_ref_service_departement ON ref_service(id_departement);
 
 -- 6. Fonctions & Postes
 CREATE TABLE ref_fonction (
@@ -189,6 +173,10 @@ CREATE TABLE site_calendrier_ferie (
     CONSTRAINT uk_site_ferie UNIQUE (id_site, id_ferie)
 );
 
+
+-- Index complémentaires
+CREATE INDEX idx_ref_site_filiale_rattachement ON ref_site(id_filiale_rattachement);
+CREATE INDEX idx_ref_service_departement ON ref_service(id_departement);
 CREATE INDEX idx_site_calendrier_ferie_ferie ON site_calendrier_ferie(id_ferie);
 
 -- =====================================================================

@@ -65,11 +65,14 @@ export function CiviliteStep({
                         onClick={onGenerateMatricule}
                         loading={generatingMatricule}
                         className="px-3 shrink-0 self-stretch flex items-center justify-center border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)]"
-                        title="Générer automatiquement"
+                        title="Obtenir une suggestion de matricule"
                     >
                         <Wand2 size={15} />
                     </Button>
                 </div>
+                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                    Suggestion non réservée. Le matricule définitif est attribué lors de l’enregistrement.
+                </p>
             </div>
 
             <Select 
@@ -334,9 +337,13 @@ function evaluateIrsaEligibilityWithConfig(enf, fiscalConfig) {
 export function FamilleFormStep({
     formData,
     setNested,
+    onToggleSuppressionConjoint,
     addEnfant,
     removeEnfant,
+    enfantsSupprimes = [],
+    annulerSuppressionEnfant,
     setEnfant,
+    fieldErrors = {},
     villesStandards = VILLES_MADAGASCAR,
 }) {
     const { fiscalConfig } = useFiscalConfig();
@@ -345,39 +352,50 @@ export function FamilleFormStep({
     const totalDeductionAr = enfantsEligiblesCount * fiscalConfig.deductionParCharge;
 
     const sitFam = (formData.situationFamiliale || '').toUpperCase();
-    const hasConjoint = sitFam.includes('MARIE') || sitFam.includes('CONCUBIN');
+    const hasConjoint = sitFam.includes('MARIE') || sitFam.includes('CONCUBIN') || Boolean(formData.conjoint?.idConjoint);
 
     return (
         <div className="space-y-6">
-            {/* Conjoint affiché uniquement si marié ou en concubinage */}
+            {/* Un conjoint déjà enregistré reste accessible même si la situation familiale change. */}
             {hasConjoint && (
                 <Card padding className="bg-[var(--color-bg-subtle)]/60">
-                    <div className="pb-2 mb-3 border-b border-[var(--color-border-subtle)]">
+                    <div className="pb-2 mb-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
                             <Users size={14} className="text-[var(--color-brand-500)]" />
                             Conjoint
                         </h3>
+                        {formData.conjoint?.idConjoint && (
+                            <Button type="button" variant="outline" size="xs" onClick={onToggleSuppressionConjoint}>
+                                {formData.supprimerConjoint ? 'Annuler la suppression' : 'Supprimer le conjoint'}
+                            </Button>
+                        )}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input label="Nom" value={formData.conjoint.nom} onChange={e => setNested('conjoint', 'nom', e.target.value)} placeholder="Nom du conjoint" />
-                        <Input label="Prénom" value={formData.conjoint.prenom} onChange={e => setNested('conjoint', 'prenom', e.target.value)} placeholder="Prénom du conjoint" />
-                        <Input label="Date Naissance" type="date" max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - 16)))} value={formData.conjoint.dateNaissance} onChange={e => setNested('conjoint', 'dateNaissance', e.target.value)} />
-                        <AutocompleteInput 
-                            label="Lieu de Naissance" 
-                            value={formData.conjoint.lieuNaissance || ''} 
-                            onChange={e => setNested('conjoint', 'lieuNaissance', e.target.value)} 
-                            placeholder="Ex: Antananarivo, Toamasina..." 
-                            options={villesStandards}
-                        />
-                        <Input label="Société / Employeur" value={formData.conjoint.societe} onChange={e => setNested('conjoint', 'societe', e.target.value)} placeholder="Société du conjoint" />
-                        <AutocompleteInput 
-                            label="Fonction / Profession" 
-                            value={formData.conjoint.fonction || ''} 
-                            onChange={e => setNested('conjoint', 'fonction', e.target.value)} 
-                            placeholder="Ex: Enseignant, Comptable..." 
-                            options={PROFESSIONS_CONJOINT_SUGGESTIONS}
-                        />
-                    </div>
+                    {formData.supprimerConjoint ? (
+                        <p className="text-sm text-[var(--color-danger-600)]">
+                            Le conjoint sera supprimé lors de l'enregistrement de la fiche.
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Input label="Nom" value={formData.conjoint.nom} onChange={e => setNested('conjoint', 'nom', e.target.value)} placeholder="Nom du conjoint" />
+                            <Input label="Prénom" value={formData.conjoint.prenom} onChange={e => setNested('conjoint', 'prenom', e.target.value)} placeholder="Prénom du conjoint" />
+                            <Input label="Date Naissance" type="date" max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - 16)))} value={formData.conjoint.dateNaissance} onChange={e => setNested('conjoint', 'dateNaissance', e.target.value)} />
+                            <AutocompleteInput
+                                label="Lieu de Naissance"
+                                value={formData.conjoint.lieuNaissance || ''}
+                                onChange={e => setNested('conjoint', 'lieuNaissance', e.target.value)}
+                                placeholder="Ex: Antananarivo, Toamasina..."
+                                options={villesStandards}
+                            />
+                            <Input label="Société / Employeur" value={formData.conjoint.societe} onChange={e => setNested('conjoint', 'societe', e.target.value)} placeholder="Société du conjoint" />
+                            <AutocompleteInput
+                                label="Fonction / Profession"
+                                value={formData.conjoint.fonction || ''}
+                                onChange={e => setNested('conjoint', 'fonction', e.target.value)}
+                                placeholder="Ex: Enseignant, Comptable..."
+                                options={PROFESSIONS_CONJOINT_SUGGESTIONS}
+                            />
+                        </div>
+                    )}
                 </Card>
             )}
 
@@ -391,11 +409,11 @@ export function FamilleFormStep({
                         </h3>
                         {enfantsEligiblesCount > 0 ? (
                             <Badge variant="success" size="xs" dot>
-                                {enfantsEligiblesCount} déductible{enfantsEligiblesCount > 1 ? 's' : ''} (-{totalDeductionAr.toLocaleString('fr-FR')} Ar/mois)
+                                Estimation indicative : {enfantsEligiblesCount} enfant{enfantsEligiblesCount > 1 ? 's' : ''} potentiellement éligible{enfantsEligiblesCount > 1 ? 's' : ''} (jusqu'à -{totalDeductionAr.toLocaleString('fr-FR')} Ar/mois)
                             </Badge>
                         ) : (
                             <Badge variant="brand" size="xs">
-                                IRSA : -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar / enfant éligible
+                                Estimation IRSA : -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar / enfant potentiellement éligible
                             </Badge>
                         )}
                     </div>
@@ -405,6 +423,9 @@ export function FamilleFormStep({
                         </Button>
                     )}
                 </div>
+                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                    Estimation indicative à la date du jour ; le calcul officiel est effectué pour la période de paie et peut différer.
+                </p>
 
                 {formData.enfants.length === 0 ? (
                     <EmptyState
@@ -421,7 +442,7 @@ export function FamilleFormStep({
                         {formData.enfants.map((enf, idx) => {
                             const evalIrsa = evaluateIrsa(enf);
                             return (
-                                <Card key={idx} padding className="space-y-4 relative">
+                            <Card key={enf.idEnfant ? `enfant-${enf.idEnfant}` : enf.clientKey} padding className="space-y-4 relative">
                                     <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2 pr-8">
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-bold text-[var(--color-fg)]">Enfant #{idx + 1}</span>
@@ -445,10 +466,10 @@ export function FamilleFormStep({
                                     {/* Données d'état civil */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
                                         <div className="md:col-span-2">
-                                            <Input label="Nom" value={enf.nom} onChange={e => setEnfant(idx, 'nom', e.target.value)} placeholder="Nom" />
+                                            <Input label="Nom" value={enf.nom} onChange={e => setEnfant(idx, 'nom', e.target.value)} placeholder="Nom" error={fieldErrors[`enfant_${idx}_nom`]} />
                                         </div>
                                         <div className="md:col-span-2">
-                                            <Input label="Prénom" value={enf.prenom} onChange={e => setEnfant(idx, 'prenom', e.target.value)} placeholder="Prénom" />
+                                            <Input label="Prénom" value={enf.prenom} onChange={e => setEnfant(idx, 'prenom', e.target.value)} placeholder="Prénom" error={fieldErrors[`enfant_${idx}_prenom`]} />
                                         </div>
                                         <div className="md:col-span-2">
                                             <Select label="Sexe" value={enf.sexe} onChange={e => setEnfant(idx, 'sexe', e.target.value)}>
@@ -458,7 +479,7 @@ export function FamilleFormStep({
                                             </Select>
                                         </div>
                                         <div className="md:col-span-3">
-                                            <Input label="Date Naissance" type="date" max={getTodayDateString()} value={enf.dateNaissance} onChange={e => setEnfant(idx, 'dateNaissance', e.target.value)} />
+                                            <Input label="Date Naissance" type="date" max={getTodayDateString()} value={enf.dateNaissance} onChange={e => setEnfant(idx, 'dateNaissance', e.target.value)} error={fieldErrors[`enfant_${idx}_dateNaissance`]} />
                                         </div>
                                         <div className="md:col-span-3">
                                             <AutocompleteInput 
@@ -513,8 +534,8 @@ export function FamilleFormStep({
                                         {/* Indicateur visuel d'éligibilité fiscale IRSA */}
                                         <Alert
                                             type={evalIrsa.eligible ? 'success' : 'warning'}
-                                            title={evalIrsa.eligible ? `Déduction IRSA active (-${fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar/mois • ${fiscalConfig.codeVersion})` : 'Déduction fiscale non applicable'}
-                                            message={evalIrsa.motif}
+                                            title={evalIrsa.eligible ? 'Éligibilité estimative selon les données actuelles' : 'Estimation indicative : critères non réunis'}
+                                            message={`${evalIrsa.motif}. Cette estimation utilise la date du jour ; le calcul officiel est effectué pour la période de paie.`}
                                         />
                                     </div>
                                 </Card>
@@ -522,6 +543,12 @@ export function FamilleFormStep({
                         })}
                     </div>
                 )}
+                {enfantsSupprimes.map((enf, idx) => (
+                    <div key={enf.idEnfant} className="flex items-center justify-between text-xs text-[var(--color-fg-muted)]">
+                        <span>{enf.prenom} {enf.nom} — suppression à l'enregistrement</span>
+                        <Button type="button" variant="ghost" size="xs" onClick={() => annulerSuppressionEnfant(idx)}>Annuler la suppression</Button>
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -534,7 +561,10 @@ export function UrgenceFormStep({
     formData,
     addContact,
     removeContact,
+    contactsSupprimes = [],
+    annulerSuppressionContact,
     setContact,
+    fieldErrors = {},
 }) {
     return (
         <div className="space-y-3">
@@ -563,10 +593,10 @@ export function UrgenceFormStep({
             ) : (
                 <div className="space-y-3">
                     {formData.contactsUrgence.map((ct, idx) => (
-                        <Card key={idx} padding className="space-y-3 relative">
+                        <Card key={ct.idContact ? `contact-${ct.idContact}` : ct.clientKey} padding className="space-y-3 relative">
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2 pr-8">
                                 <span className="text-xs font-bold text-[var(--color-fg)]">Contact #{idx + 1}</span>
-                                {formData.contactsUrgence.length > 1 && (
+                                {(
                                     <Button
                                         type="button"
                                         onClick={() => removeContact(idx)}
@@ -579,8 +609,8 @@ export function UrgenceFormStep({
                                 )}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <Input label="Nom" value={ct.nom} onChange={e => setContact(idx, 'nom', e.target.value)} placeholder="Nom" />
-                                <Input label="Prénom" value={ct.prenom} onChange={e => setContact(idx, 'prenom', e.target.value)} placeholder="Prénom" />
+                                <Input label="Nom" value={ct.nom} onChange={e => setContact(idx, 'nom', e.target.value)} placeholder="Nom" error={fieldErrors[`contact_${idx}_nom`]} />
+                                <Input label="Prénom" value={ct.prenom} onChange={e => setContact(idx, 'prenom', e.target.value)} placeholder="Prénom" error={fieldErrors[`contact_${idx}_prenom`]} />
                                 <Select 
                                     label="Lien de Parenté" 
                                     value={ct.lienParente || 'Autre'} 
@@ -590,7 +620,7 @@ export function UrgenceFormStep({
                                         <option key={l.value} value={l.value}>{l.label}</option>
                                     ))}
                                 </Select>
-                                <Input label="Téléphone" value={ct.telephone} onChange={e => setContact(idx, 'telephone', e.target.value)} placeholder="Téléphone" />
+                                <Input label="Téléphone" value={ct.telephone} onChange={e => setContact(idx, 'telephone', e.target.value)} placeholder="Téléphone" error={fieldErrors[`contact_${idx}_telephone`]} />
                                 <div className="md:col-span-2">
                                     <Input label="Adresse" value={ct.adresse} onChange={e => setContact(idx, 'adresse', e.target.value)} placeholder="Adresse" />
                                 </div>
@@ -599,6 +629,12 @@ export function UrgenceFormStep({
                     ))}
                 </div>
             )}
+            {contactsSupprimes.map((ct, idx) => (
+                <div key={ct.idContact} className="flex items-center justify-between text-xs text-[var(--color-fg-muted)]">
+                    <span>{ct.prenom} {ct.nom} — suppression à l'enregistrement</span>
+                    <Button type="button" variant="ghost" size="xs" onClick={() => annulerSuppressionContact(idx)}>Annuler la suppression</Button>
+                </div>
+            ))}
         </div>
     );
 }

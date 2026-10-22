@@ -4,32 +4,10 @@
 -- Sources : 26-08-06-sp1-emp.sql, 26-08-10-sp1-contrat.sql,
 --           26-08-11-sp1-emp-doc.sql, 26-08-12-sp2-notifications.sql,
 --           26-09-14-sp6-vue-employe-actif-courant.sql, 26-09-16-sp8-indexes-foreign-keys.sql
+-- Installation initiale uniquement sur une base ou un schéma cible vierge.
+-- Exécuter les scripts 01 → 06 dans cet ordre ; ne pas utiliser pour une mise à jour
+-- ni pour une réinitialisation.
 -- =====================================================================
-
--- 1. Nettoyage préalable des vues et tables (ordre inverse des dépendances)
-DROP VIEW IF EXISTS v_employe_actif_courant CASCADE;
-DROP VIEW IF EXISTS v_historique_carriere_global CASCADE;
-DROP VIEW IF EXISTS v_workflow_rh_cpl CASCADE;
-DROP VIEW IF EXISTS v_document_rh_cpl CASCADE;
-DROP VIEW IF EXISTS v_employe_cpl CASCADE;
-
-DROP TABLE IF EXISTS notification_rh CASCADE;
-DROP TABLE IF EXISTS document_rh CASCADE;
-DROP TABLE IF EXISTS ref_type_document CASCADE;
-DROP TABLE IF EXISTS employe_affectation_carriere CASCADE;
-DROP TABLE IF EXISTS workflow_rh CASCADE;
-DROP TABLE IF EXISTS contrat_periode_essai CASCADE;
-DROP TABLE IF EXISTS contrat_travail CASCADE;
-DROP TABLE IF EXISTS employe_compte_banque CASCADE;
-DROP TABLE IF EXISTS employe_contact_urgence CASCADE;
-DROP TABLE IF EXISTS employe_enfant CASCADE;
-DROP TABLE IF EXISTS employe_conjoint CASCADE;
-DROP TABLE IF EXISTS employe CASCADE;
-
-DROP TYPE IF EXISTS lien_parente_enum CASCADE;
-DROP TYPE IF EXISTS motif_desactivation_enum CASCADE;
-DROP TYPE IF EXISTS situation_familiale_enum CASCADE;
-DROP TYPE IF EXISTS sexe_enum CASCADE;
 
 -- 2. Énumérations Métier RH
 CREATE TYPE sexe_enum AS ENUM ('M', 'F');
@@ -79,14 +57,11 @@ CREATE TABLE employe (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_employe_nom_prenom ON employe(nom, prenom);
-CREATE INDEX idx_employe_matricule ON employe(matricule);
-CREATE INDEX idx_employe_cin ON employe(cin_numero);
 
 -- 4. Satellites Familiaux & Personnels
 CREATE TABLE employe_conjoint (
     id_conjoint SERIAL PRIMARY KEY,
-    id_employe INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE,
+    id_employe INTEGER NOT NULL UNIQUE REFERENCES employe(id_employe) ON DELETE CASCADE,
     nom VARCHAR(100) NOT NULL,
     prenom VARCHAR(100) NOT NULL,
     date_naissance DATE,
@@ -97,7 +72,6 @@ CREATE TABLE employe_conjoint (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_employe_conjoint_emp ON employe_conjoint(id_employe);
 
 CREATE TABLE employe_enfant (
     id_enfant SERIAL PRIMARY KEY,
@@ -116,7 +90,6 @@ CREATE TABLE employe_enfant (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_employe_enfant_emp ON employe_enfant(id_employe);
 
 CREATE TABLE employe_contact_urgence (
     id_contact SERIAL PRIMARY KEY,
@@ -131,22 +104,18 @@ CREATE TABLE employe_contact_urgence (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_employe_contact_urgence_emp ON employe_contact_urgence(id_employe);
 
 CREATE TABLE employe_compte_banque (
     id_compte_banque SERIAL PRIMARY KEY,
-    id_employe INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE,
+    id_employe INTEGER NOT NULL UNIQUE REFERENCES employe(id_employe) ON DELETE CASCADE,
     id_banque INTEGER NOT NULL REFERENCES ref_banque(id_banque),
     agence VARCHAR(100),
     num_compte_rib VARCHAR(50) NOT NULL,
     titulaire_compte VARCHAR(150),
-    est_principal BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX uq_compte_principal_employe ON employe_compte_banque(id_employe) WHERE est_principal = TRUE;
-CREATE INDEX idx_employe_compte_banque_banque ON employe_compte_banque(id_banque);
 
 -- 5. Contrats de Travail
 CREATE TABLE contrat_travail (
@@ -173,14 +142,6 @@ CREATE TABLE contrat_travail (
     CONSTRAINT uq_contrat_id_employe UNIQUE (id_contrat, id_employe)
 );
 
-CREATE INDEX idx_contrat_employe ON contrat_travail(id_employe);
-CREATE INDEX idx_contrat_statut ON contrat_travail(id_statut_rh);
-CREATE INDEX idx_contrat_travail_precedent ON contrat_travail(id_contrat_precedent);
-CREATE INDEX idx_contrat_travail_filiale ON contrat_travail(id_filiale);
-CREATE INDEX idx_contrat_travail_motif_sortie ON contrat_travail(id_motif_sortie);
-CREATE INDEX idx_contrat_travail_type_contrat ON contrat_travail(id_type_contrat);
-CREATE INDEX idx_contrat_travail_evt_init ON contrat_travail(id_type_evenement_initial);
-CREATE INDEX idx_contrat_travail_type_interv ON contrat_travail(id_type_intervenant);
 
 CREATE TABLE contrat_periode_essai (
     id_periode_essai SERIAL PRIMARY KEY,
@@ -200,7 +161,6 @@ CREATE TABLE contrat_periode_essai (
     CONSTRAINT uk_contrat_periode UNIQUE (id_contrat, numero_periode)
 );
 
-CREATE INDEX idx_contrat_periode_essai_contrat ON contrat_periode_essai(id_contrat);
 
 -- 6. Affectations de Carrière
 CREATE TABLE employe_affectation_carriere (
@@ -232,17 +192,6 @@ CREATE TABLE employe_affectation_carriere (
         REFERENCES ref_service (id_service, id_departement)
 );
 
-CREATE INDEX idx_affectation_employe ON employe_affectation_carriere(id_employe);
-CREATE INDEX idx_affectation_contrat ON employe_affectation_carriere(id_contrat);
-CREATE INDEX idx_affectation_statut ON employe_affectation_carriere(id_statut_rh);
-CREATE INDEX idx_eac_site ON employe_affectation_carriere(id_site);
-CREATE INDEX idx_eac_departement ON employe_affectation_carriere(id_departement);
-CREATE INDEX idx_eac_service ON employe_affectation_carriere(id_service);
-CREATE INDEX idx_eac_fonction ON employe_affectation_carriere(id_fonction);
-CREATE INDEX idx_eac_responsable_hie ON employe_affectation_carriere(id_responsable_hierarchique);
-CREATE INDEX idx_eac_categorie_pro ON employe_affectation_carriere(id_categorie_professionnelle);
-CREATE INDEX idx_eac_mode_calcul_paie ON employe_affectation_carriere(id_mode_calcul_paie);
-CREATE INDEX idx_eac_motif_mouvement ON employe_affectation_carriere(id_motif_mouvement);
 
 -- 7. Workflows de Transition RH
 CREATE TABLE workflow_rh (
@@ -264,15 +213,6 @@ CREATE TABLE workflow_rh (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_workflow_rh_employe ON workflow_rh(id_employe);
-CREATE INDEX idx_workflow_rh_type_evenement ON workflow_rh(id_type_evenement_rh);
-CREATE INDEX idx_workflow_rh_statut_rh ON workflow_rh(id_statut_rh);
-CREATE INDEX idx_workflow_rh_contrat_source ON workflow_rh(id_contrat_source);
-CREATE INDEX idx_workflow_rh_contrat_cible ON workflow_rh(id_contrat_cible);
-CREATE INDEX idx_workflow_rh_affectation_source ON workflow_rh(id_affectation_source);
-CREATE INDEX idx_workflow_rh_affectation_cible ON workflow_rh(id_affectation_cible);
-CREATE INDEX idx_workflow_rh_demandeur ON workflow_rh(id_demandeur);
-CREATE INDEX idx_workflow_rh_valideur ON workflow_rh(id_valideur);
 
 -- 8. Gestion Documentaire RH
 CREATE TABLE ref_type_document (
@@ -306,10 +246,6 @@ CREATE TABLE document_rh (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_document_employe ON document_rh(id_employe);
-CREATE INDEX idx_document_type ON document_rh(id_type_document);
-CREATE INDEX idx_document_contrat ON document_rh(id_contrat);
-CREATE INDEX idx_document_workflow ON document_rh(id_workflow);
 
 -- 9. Notifications RH & Alertes Échéances
 CREATE TABLE notification_rh (
@@ -343,6 +279,47 @@ CREATE TABLE notification_rh (
     ))
 );
 
+
+-- Index complémentaires
+CREATE INDEX idx_employe_nom_prenom ON employe(nom, prenom);
+CREATE INDEX idx_employe_matricule ON employe(matricule);
+CREATE INDEX idx_employe_cin ON employe(cin_numero);
+CREATE INDEX idx_employe_enfant_emp ON employe_enfant(id_employe);
+CREATE INDEX idx_employe_contact_urgence_emp ON employe_contact_urgence(id_employe);
+CREATE INDEX idx_employe_compte_banque_banque ON employe_compte_banque(id_banque);
+CREATE INDEX idx_contrat_employe ON contrat_travail(id_employe);
+CREATE INDEX idx_contrat_statut ON contrat_travail(id_statut_rh);
+CREATE INDEX idx_contrat_travail_precedent ON contrat_travail(id_contrat_precedent);
+CREATE INDEX idx_contrat_travail_filiale ON contrat_travail(id_filiale);
+CREATE INDEX idx_contrat_travail_motif_sortie ON contrat_travail(id_motif_sortie);
+CREATE INDEX idx_contrat_travail_type_contrat ON contrat_travail(id_type_contrat);
+CREATE INDEX idx_contrat_travail_evt_init ON contrat_travail(id_type_evenement_initial);
+CREATE INDEX idx_contrat_travail_type_interv ON contrat_travail(id_type_intervenant);
+CREATE INDEX idx_contrat_periode_essai_contrat ON contrat_periode_essai(id_contrat);
+CREATE INDEX idx_affectation_employe ON employe_affectation_carriere(id_employe);
+CREATE INDEX idx_affectation_contrat ON employe_affectation_carriere(id_contrat);
+CREATE INDEX idx_affectation_statut ON employe_affectation_carriere(id_statut_rh);
+CREATE INDEX idx_eac_site ON employe_affectation_carriere(id_site);
+CREATE INDEX idx_eac_departement ON employe_affectation_carriere(id_departement);
+CREATE INDEX idx_eac_service ON employe_affectation_carriere(id_service);
+CREATE INDEX idx_eac_fonction ON employe_affectation_carriere(id_fonction);
+CREATE INDEX idx_eac_responsable_hie ON employe_affectation_carriere(id_responsable_hierarchique);
+CREATE INDEX idx_eac_categorie_pro ON employe_affectation_carriere(id_categorie_professionnelle);
+CREATE INDEX idx_eac_mode_calcul_paie ON employe_affectation_carriere(id_mode_calcul_paie);
+CREATE INDEX idx_eac_motif_mouvement ON employe_affectation_carriere(id_motif_mouvement);
+CREATE INDEX idx_workflow_rh_employe ON workflow_rh(id_employe);
+CREATE INDEX idx_workflow_rh_type_evenement ON workflow_rh(id_type_evenement_rh);
+CREATE INDEX idx_workflow_rh_statut_rh ON workflow_rh(id_statut_rh);
+CREATE INDEX idx_workflow_rh_contrat_source ON workflow_rh(id_contrat_source);
+CREATE INDEX idx_workflow_rh_contrat_cible ON workflow_rh(id_contrat_cible);
+CREATE INDEX idx_workflow_rh_affectation_source ON workflow_rh(id_affectation_source);
+CREATE INDEX idx_workflow_rh_affectation_cible ON workflow_rh(id_affectation_cible);
+CREATE INDEX idx_workflow_rh_demandeur ON workflow_rh(id_demandeur);
+CREATE INDEX idx_workflow_rh_valideur ON workflow_rh(id_valideur);
+CREATE INDEX idx_document_employe ON document_rh(id_employe);
+CREATE INDEX idx_document_type ON document_rh(id_type_document);
+CREATE INDEX idx_document_contrat ON document_rh(id_contrat);
+CREATE INDEX idx_document_workflow ON document_rh(id_workflow);
 CREATE INDEX idx_notif_utilisateur ON notification_rh(id_utilisateur) WHERE est_lue = FALSE;
 CREATE INDEX idx_notif_cible_role ON notification_rh(cible_role) WHERE est_lue = FALSE;
 CREATE INDEX idx_notif_non_lues ON notification_rh(est_lue, date_creation DESC);
@@ -405,7 +382,7 @@ SELECT
     COALESCE(ct.nb_contacts_urgence, 0) AS nb_contacts_urgence
 FROM employe e
 LEFT JOIN employe_conjoint cj ON e.id_employe = cj.id_employe
-LEFT JOIN employe_compte_banque cb ON e.id_employe = cb.id_employe AND cb.est_principal = TRUE
+LEFT JOIN employe_compte_banque cb ON e.id_employe = cb.id_employe
 LEFT JOIN ref_banque rb ON cb.id_banque = rb.id_banque
 LEFT JOIN (
     SELECT id_employe, COUNT(*)::INTEGER AS nb_enfants,
@@ -686,9 +663,9 @@ INSERT INTO employe_conjoint (id_conjoint, id_employe, nom, prenom, date_naissan
 INSERT INTO employe_conjoint (id_conjoint, id_employe, nom, prenom, date_naissance, lieu_naissance, societe, fonction) VALUES (2, 2, 'RANDRASANA', 'Eric Jean-Joel', '1966-02-14', 'Antananarivo', 'Galaxam Logistics', 'DG');
 
 -- Comptes bancaires fictifs (BNI Madagascar)
-INSERT INTO employe_compte_banque (id_compte_banque, id_employe, id_banque, agence, num_compte_rib, titulaire_compte, est_principal) VALUES
-(1, 1, 2, 'Antananarivo - Siège', '00005 01234 00010010001 88', 'RANDRASANA Eric Jean-Joel', TRUE),
-(2, 2, 2, 'Antananarivo - Siège', '00005 01234 00010010002 83', 'RALAMBOMANANA Tatamo Michele', TRUE);
+INSERT INTO employe_compte_banque (id_compte_banque, id_employe, id_banque, agence, num_compte_rib, titulaire_compte) VALUES
+(1, 1, 2, 'Antananarivo - Siège', '00005 01234 00010010001 88', 'RANDRASANA Eric Jean-Joel'),
+(2, 2, 2, 'Antananarivo - Siège', '00005 01234 00010010002 83', 'RALAMBOMANANA Tatamo Michele');
 
 SELECT setval('employe_id_employe_seq', 2, TRUE);
 SELECT setval('contrat_travail_id_contrat_seq', 2, TRUE);

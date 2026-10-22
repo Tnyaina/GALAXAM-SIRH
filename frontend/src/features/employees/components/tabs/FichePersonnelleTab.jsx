@@ -99,7 +99,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                     </CardTitle>
                     {comptes.length > 0 && (
                         <Badge variant="brand" size="xs">
-                            {comptes.length} compte{comptes.length > 1 ? 's' : ''} enregistré{comptes.length > 1 ? 's' : ''}
+                            Compte enregistré
                         </Badge>
                     )}
                 </CardHeader>
@@ -124,11 +124,11 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                         </div>
                     </div>
 
-                    {/* Comptes bancaires */}
+                    {/* Compte bancaire unique */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                                Comptes bancaires pour virement ({comptes.length})
+                                Compte bancaire pour virement
                             </h4>
                             {canWrite && onEdit && (
                                 <Button
@@ -139,7 +139,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                                     iconLeft={<Plus size={12} />}
                                     className="text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] font-semibold"
                                 >
-                                    {comptes.length > 0 ? 'Gérer les comptes' : 'Ajouter un compte'}
+                                    {comptes.length > 0 ? 'Modifier le compte' : 'Ajouter un compte'}
                                 </Button>
                             )}
                         </div>
@@ -150,12 +150,11 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                                     <Tr>
                                         <Th>Banque &amp; Agence</Th>
                                         <Th>N° Compte / RIB</Th>
-                                        <Th align="center">Usage</Th>
                                     </Tr>
                                 </Thead>
                                 <Tbody>
-                                    {comptes.map((cb, i) => (
-                                        <Tr key={i}>
+                                    {comptes.slice(0, 1).map((cb) => (
+                                        <Tr key={cb.idCompteBanque}>
                                             <Td>
                                                 <p className="font-bold text-xs text-[var(--color-fg)]">
                                                     {cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque #${cb.idBanque}` : '—')}
@@ -164,13 +163,6 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                                             </Td>
                                             <Td isData className="font-mono text-xs font-bold text-[var(--color-fg)]">
                                                 {cb.numCompteRib || '—'}
-                                            </Td>
-                                            <Td align="center">
-                                                {cb.estPrincipal ? (
-                                                    <Badge variant="success" size="xs" className="font-bold">Principal</Badge>
-                                                ) : (
-                                                    <Badge variant="default" size="xs">Secondaire</Badge>
-                                                )}
                                             </Td>
                                         </Tr>
                                     ))}

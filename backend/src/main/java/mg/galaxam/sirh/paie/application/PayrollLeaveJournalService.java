@@ -119,20 +119,7 @@ public class PayrollLeaveJournalService {
 
             // Récupérer les lignes du bulletin pour net_base et hs
             List<BulletinPaieLigne> lignes = lignesParBulletin.getOrDefault(bp.getIdBulletin(), List.of());
-            BigDecimal netBase = base;
-            BigDecimal mntHs = BigDecimal.ZERO;
-            for (BulletinPaieLigne l : lignes) {
-                String codeRub = l.getCodeRubrique() != null ? l.getCodeRubrique().toUpperCase() : "";
-                if ("RETENUE_ABSENCE".equals(codeRub) || "RETENUE_CONGE".equals(codeRub) || "DEDUCTION_CONGE_BASE".equals(codeRub)) {
-                    if (l.getMontantSalarial() != null) netBase = netBase.subtract(l.getMontantSalarial());
-                } else if ("INDEMNITE_CONGE".equals(codeRub) || "INDEMNITE_CONGE_PAYE".equals(codeRub)) {
-                    if (l.getMontantSalarial() != null) netBase = netBase.add(l.getMontantSalarial());
-                } else if ("HEURES_SUP".equalsIgnoreCase(l.getCategorie()) || "HEURES_SUPPLEMENTAIRES".equalsIgnoreCase(l.getCategorie()) || codeRub.startsWith("HS_") || "HS".equals(codeRub)) {
-                    if (l.getMontantSalarial() != null) mntHs = mntHs.add(l.getMontantSalarial());
-                }
-            }
-
-            BigDecimal baseTotale = netBase.add(mntHs).max(BigDecimal.ZERO);
+            BigDecimal baseTotale = calculerBaseValorisation(base, lignes);
             BigDecimal valMois = baseTotale.multiply(droitMois).divide(diviseurConge, 2, RoundingMode.HALF_UP);
 
             // Un mois déjà valorisé est figé : le remplacer en silence laisserait son lot FIFO
@@ -194,9 +181,7 @@ public class PayrollLeaveJournalService {
 
             BigDecimal cumulJours = (cumulJoursPrec != null ? cumulJoursPrec : BigDecimal.ZERO).add(droitMois);
             BigDecimal cumulVal = (cumulValPrec != null ? cumulValPrec : BigDecimal.ZERO).add(valMois);
-            BigDecimal tauxJournalier = cumulJours.compareTo(BigDecimal.ZERO) > 0
-                    ? cumulVal.divide(cumulJours, 2, RoundingMode.HALF_UP)
-                    : BigDecimal.ZERO; // Aucun droit valorisé : pas de TCONGE moyen inventé.
+            BigDecimal tauxJournalier = calculerTauxJournalier(cumulVal, cumulJours);
 
             // Une rectification DAF historisée ne doit jamais être écrasée par une nouvelle clôture.
             try (PreparedStatement guard = c.prepareStatement("SELECT 1 FROM conge_journal_droit j "
@@ -271,6 +256,34 @@ public class PayrollLeaveJournalService {
                 }
             }
         }
+    }
+
+    /** Les lignes INFO répartissent des montants déjà rémunérés et ne créent pas de gain. */
+    static BigDecimal calculerBaseValorisation(BigDecimal salaireBase, List<BulletinPaieLigne> lignes) {
+        BigDecimal netBase = salaireBase != null ? salaireBase : BigDecimal.ZERO;
+        BigDecimal heuresSupRemunerees = BigDecimal.ZERO;
+        for (BulletinPaieLigne ligne : lignes) {
+            String code = ligne.getCodeRubrique() != null ? ligne.getCodeRubrique().toUpperCase() : "";
+            BigDecimal montant = ligne.getMontantSalarial();
+            if (montant == null) continue;
+            if ("RETENUE_ABSENCE".equals(code) || "RETENUE_CONGE".equals(code)
+                    || "DEDUCTION_CONGE_BASE".equals(code)) {
+                netBase = netBase.subtract(montant);
+            } else if ("INDEMNITE_CONGE".equals(code) || "INDEMNITE_CONGE_PAYE".equals(code)) {
+                netBase = netBase.add(montant);
+            } else if ("GAIN".equalsIgnoreCase(ligne.getSens())
+                    && ("HEURES_SUP".equalsIgnoreCase(ligne.getCategorie())
+                    || "HEURES_SUPPLEMENTAIRES".equalsIgnoreCase(ligne.getCategorie()))) {
+                heuresSupRemunerees = heuresSupRemunerees.add(montant);
+            }
+        }
+        return netBase.add(heuresSupRemunerees).max(BigDecimal.ZERO);
+    }
+
+    static BigDecimal calculerTauxJournalier(BigDecimal cumulValeur, BigDecimal cumulJours) {
+        return cumulJours.signum() > 0
+                ? cumulValeur.divide(cumulJours, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
     }
 
 }

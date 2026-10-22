@@ -66,7 +66,7 @@ public class PayrollExecutionEngine {
         // 3. Net imposable
         BigDecimal revenuNetAvantImpot = calculerNetImposable(totalGainsBruts, cotis.totalCotisationsSalariales(), bp);
 
-        // 3.1 Exonération fiscale des Heures Supplémentaires (CGI Art. 01.03.03-9°)
+        // 3.1 Traçabilité des heures supplémentaires imposables.
         OvertimeExemptionDetail hsExo = calculerExonerationFiscaleHs(input, input.getTauxHoraireEffectif(), bp, lignes);
 
         // 4. Fiscalité salariale IRSA.
@@ -396,91 +396,77 @@ public class PayrollExecutionEngine {
             BigDecimal heuresImposables
     ) {}
 
-    /**
-     * Calcule l'exonération fiscale des heures supplémentaires selon l'Article 01.03.03-9° du CGI :
-     * "Les rémunérations perçues au titre des heures supplémentaires effectuées dans la limite de
-     * 20 heures par mois, à l'exclusion de celles perçues par le personnel cadre."
-     */
+    /** Applique le dispositif d'exonération seulement si la configuration datée l'autorise. */
     public OvertimeExemptionDetail calculerExonerationFiscaleHs(
             PayrollCalculationInput input, BigDecimal tauxHoraire, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal h30 = zeroIfNull(input.getHeuresHs30());
         BigDecimal h50 = zeroIfNull(input.getHeuresHs50());
         BigDecimal totalHeuresHs = h30.add(h50);
-
-        OvertimePayCalculator overtimeCalculator = new OvertimePayCalculator();
-        OvertimePayCalculator.Result overtime = overtimeCalculator.calculate(input, tauxHoraire);
+        OvertimePayCalculator.Result overtime = new OvertimePayCalculator().calculate(input, tauxHoraire);
         BigDecimal totalHsBrut = overtime.hs30().add(overtime.hs50());
-
         BigDecimal plafond = input.getPlafondMensuelHsExonerees();
-        if (!input.isAppliquerExonerationHs()
-                || plafond == null
-                || plafond.compareTo(BigDecimal.ZERO) <= 0
-                || totalHeuresHs.compareTo(BigDecimal.ZERO) <= 0) {
+        if (!input.isAppliquerExonerationHs() || plafond == null || plafond.signum() <= 0
+                || totalHeuresHs.signum() <= 0) {
+            if (totalHsBrut.signum() > 0) {
+                String commentaire = String.format("HS imposables IRSA : totalité des %s h rémunérées", totalHeuresHs);
+                lignes.add(creerLigne(bp, "HS_IMPOSABLE_IRSA", "Heures Supplémentaires Imposables IRSA", "INFO", "HEURES_SUP",
+                        tauxHoraire, null, totalHeuresHs, totalHsBrut, null, commentaire, 76));
+            }
             return new OvertimeExemptionDetail(totalHsBrut, BigDecimal.ZERO, totalHsBrut, BigDecimal.ZERO, totalHeuresHs);
         }
 
-        // Imputation chronologique légale : tranche 30% d'abord, puis tranche 50%
+        // Le plafond est imputé chronologiquement : HS 30 %, puis HS 50 %.
         BigDecimal exo30Heures = h30.min(plafond);
-        BigDecimal restePlafond = plafond.subtract(exo30Heures).max(BigDecimal.ZERO);
-        BigDecimal exo50Heures = h50.min(restePlafond);
-
-        BigDecimal totalHeuresExo = exo30Heures.add(exo50Heures);
-        BigDecimal totalHeuresImp = totalHeuresHs.subtract(totalHeuresExo).max(BigDecimal.ZERO);
-
-        BigDecimal txHs30 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs30()));
-        BigDecimal txHs50 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs50()));
-
-        BigDecimal totalExonereIrsa;
+        BigDecimal exo50Heures = h50.min(plafond.subtract(exo30Heures).max(BigDecimal.ZERO));
+        BigDecimal heuresExonerees = exo30Heures.add(exo50Heures);
+        BigDecimal heuresImposables = totalHeuresHs.subtract(heuresExonerees).max(BigDecimal.ZERO);
+        BigDecimal coefficient30 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs30()));
+        BigDecimal coefficient50 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs50()));
+        BigDecimal montantExonere;
         if (input.getSalaireParJour().values().stream().distinct().count() > 1) {
-            BigDecimal remunExo30 = montantHsExonereParDate(overtime.bucketDetails(),
+            BigDecimal montant30 = montantHsExonereParDate(overtime.bucketDetails(),
                     mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_30,
-                    exo30Heures, tauxHoraire, txHs30);
-            BigDecimal remunExo50 = montantHsExonereParDate(overtime.bucketDetails(),
+                    exo30Heures, tauxHoraire, coefficient30);
+            BigDecimal montant50 = montantHsExonereParDate(overtime.bucketDetails(),
                     mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_50,
-                    exo50Heures, tauxHoraire, txHs50);
-            totalExonereIrsa = MoneyRoundingPolicy.amount(remunExo30.add(remunExo50)).min(totalHsBrut);
+                    exo50Heures, tauxHoraire, coefficient50);
+            montantExonere = MoneyRoundingPolicy.amount(montant30.add(montant50)).min(totalHsBrut);
         } else {
-            BigDecimal remunExo30 = MoneyRoundingPolicy.amount(exo30Heures.multiply(tauxHoraire).multiply(txHs30));
-            BigDecimal remunExo50 = MoneyRoundingPolicy.amount(exo50Heures.multiply(tauxHoraire).multiply(txHs50));
-            totalExonereIrsa = remunExo30.add(remunExo50).min(totalHsBrut);
+            BigDecimal montant30 = MoneyRoundingPolicy.amount(exo30Heures.multiply(tauxHoraire).multiply(coefficient30));
+            BigDecimal montant50 = MoneyRoundingPolicy.amount(exo50Heures.multiply(tauxHoraire).multiply(coefficient50));
+            montantExonere = montant30.add(montant50).min(totalHsBrut);
         }
-        BigDecimal totalImposableIrsa = totalHsBrut.subtract(totalExonereIrsa).max(BigDecimal.ZERO);
-
-        if (totalExonereIrsa.compareTo(BigDecimal.ZERO) > 0) {
-            String comm = String.format("Exonération IRSA Art. 01.03.03-9° CGI : %s h (Plafond %sh/mois)", totalHeuresExo, plafond.stripTrailingZeros().toPlainString());
-            lignes.add(creerLigne(bp, "HS_EXONEREE_IRSA", "Heures Supplémentaires Exonérées IRSA (CGI 01.03.03-9°)", "INFO", "HEURES_SUP",
-                    tauxHoraire, null, totalHeuresExo, totalExonereIrsa, null, comm, 75));
+        BigDecimal montantImposable = totalHsBrut.subtract(montantExonere).max(BigDecimal.ZERO);
+        if (montantExonere.signum() > 0) {
+            String commentaire = String.format("Exonération HS configurée : %s h (plafond %s h/mois)",
+                    heuresExonerees, plafond.stripTrailingZeros().toPlainString());
+            lignes.add(creerLigne(bp, "HS_EXONEREE_IRSA", "Heures Supplémentaires Exonérées IRSA", "INFO", "HEURES_SUP",
+                    tauxHoraire, null, heuresExonerees, montantExonere, null, commentaire, 75));
         }
-        if (totalImposableIrsa.compareTo(BigDecimal.ZERO) > 0) {
-            String comm = String.format("HS Imposables IRSA : %s h au-delà du plafond mensuel de %sh", totalHeuresImp, plafond.stripTrailingZeros().toPlainString());
+        if (montantImposable.signum() > 0) {
             lignes.add(creerLigne(bp, "HS_IMPOSABLE_IRSA", "Heures Supplémentaires Imposables IRSA", "INFO", "HEURES_SUP",
-                    tauxHoraire, null, totalHeuresImp, totalImposableIrsa, null, comm, 76));
+                    tauxHoraire, null, heuresImposables, montantImposable, null,
+                    String.format("HS imposables après plafond configuré de %s h/mois", plafond.stripTrailingZeros().toPlainString()), 76));
         }
-
-        return new OvertimeExemptionDetail(totalHsBrut, totalExonereIrsa, totalImposableIrsa, totalHeuresExo, totalHeuresImp);
+        return new OvertimeExemptionDetail(totalHsBrut, montantExonere, montantImposable, heuresExonerees, heuresImposables);
     }
 
-    /** Même ordre de quota HS30 puis HS50, avec la valorisation historique de chaque bucket. */
+    /** Valorise les heures exonérées au taux du bucket de paie correspondant. */
     private static BigDecimal montantHsExonereParDate(List<BucketValuationResult> details,
             mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier tier,
-            BigDecimal heuresExonerees, BigDecimal tauxHoraireCloture, BigDecimal coefficientCloture) {
+            BigDecimal heuresExonerees, BigDecimal tauxHoraire, BigDecimal coefficient) {
         BigDecimal restantes = heuresExonerees;
         BigDecimal montant = BigDecimal.ZERO;
         for (var detail : details) {
-            if (restantes.signum() <= 0) break;
-            if (detail.sourceBucket().overtimeTier() != tier) continue;
-            BigDecimal heures = BigDecimal.valueOf(detail.sourceBucket().minutes())
-                    .divide(new BigDecimal("60"), 12, RoundingMode.HALF_UP);
+            if (restantes.signum() <= 0 || detail.sourceBucket().overtimeTier() != tier) continue;
+            BigDecimal heures = BigDecimal.valueOf(detail.sourceBucket().minutes()).divide(new BigDecimal("60"), 12, RoundingMode.HALF_UP);
             BigDecimal prises = heures.min(restantes);
             BigDecimal montantBucket = detail.overtimeBaseAmount().add(detail.overtimePremiumAmount());
-            montant = montant.add(montantBucket.multiply(prises)
-                    .divide(heures, 12, RoundingMode.HALF_UP));
+            montant = montant.add(montantBucket.multiply(prises).divide(heures, 12, RoundingMode.HALF_UP));
             restantes = restantes.subtract(prises);
         }
-        // Les minutes HS ajoutées par arbitrage DAF n'ont pas de badge ; leur date métier est la clôture.
-        if (restantes.signum() > 0)
-            montant = montant.add(restantes.multiply(tauxHoraireCloture).multiply(coefficientCloture));
-        return montant;
+        // Les heures ajoutées par arbitrage sans bucket de pointage utilisent le taux de clôture.
+        return restantes.signum() > 0 ? montant.add(restantes.multiply(tauxHoraire).multiply(coefficient)) : montant;
     }
 
     public BigDecimal calculerPrimes(PayrollCalculationInput input, BigDecimal salaireBaseContractuel,
@@ -749,7 +735,7 @@ public class PayrollExecutionEngine {
         }
         bp.setRetenueIsi5(BigDecimal.ZERO);
         if (input.isSoumisIrsa()) {
-            // Assiette IRSA Fiscale : Net Imposable Social - Rémunération des HS exonérées (CGI Art. 01.03.03-9°)
+            // Assiette IRSA : toutes les HS rémunérées sont déjà dans le net imposable social.
             BigDecimal gainsBrutsExoneres = (input.getGainsVariablesDynamiques() != null
                     ? input.getGainsVariablesDynamiques() : List.<PayrollCalculationInput.GainVariable>of()).stream()
                     .map(gain -> ManualPayrollRules.Contributions.resolve(gain).exclusionIrsa())

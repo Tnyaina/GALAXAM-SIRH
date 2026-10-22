@@ -5,6 +5,7 @@
  * pour assurer un guidage clair de l'utilisateur dans l'assistant de création / modification.
  */
 import { calculateAge } from '@/utils/dateUtils';
+import { validerSatellitesEmploye } from './employeSatelliteValidation.js';
 
 /**
  * Patterns de validation stricts conformes au backend (EmployeValidationEngine.java)
@@ -121,30 +122,7 @@ export const validerChampsEtape = (stepId, formData, matriculeError = '', option
     }
   }
 
-  if (stepId === 'famille') {
-    if (formData.enfants && formData.enfants.length > 0) {
-      for (let i = 0; i < formData.enfants.length; i++) {
-        const enf = formData.enfants[i];
-        if (!enf.nom || !enf.nom.trim()) {
-          errors[`enfant_${i}_nom`] = `L'enfant n°${i + 1} doit obligatoirement avoir un nom.`;
-        }
-        if (enf.dateNaissance) {
-          const [yE, mE, dE] = String(enf.dateNaissance).substring(0, 10).split('-').map(Number);
-          const dateNaissEnf = new Date(yE, mE - 1, dE, 0, 0, 0, 0);
-          if (dateNaissEnf > today) {
-            errors[`enfant_${i}_dateNaissance`] = `Date de naissance dans le futur.`;
-          }
-          if (enf.dateFinScolarite) {
-            const [yS, mS, dS] = String(enf.dateFinScolarite).substring(0, 10).split('-').map(Number);
-            const dateScol = new Date(yS, mS - 1, dS, 0, 0, 0, 0);
-            if (dateScol < dateNaissEnf) {
-              errors[`enfant_${i}_dateFinScolarite`] = `Ne peut précéder la naissance.`;
-            }
-          }
-        }
-      }
-    }
-  }
+  Object.assign(errors, validerSatellitesEmploye(stepId, formData, today));
 
   if (stepId === 'banque') {
     const cb = formData.compteBanquePrincipal;

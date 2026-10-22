@@ -1,19 +1,13 @@
 -- =====================================================================
 -- GALAXAM SIRH — MODULE 01 : CORE, SÉCURITÉ & AUDIT
 -- Script canonique final (Zéro ALTER TABLE, Zéro OWNER)
+-- Installation initiale uniquement sur une base ou un schéma cible vierge.
+-- Exécuter les scripts 01 → 06 dans cet ordre ; ne pas utiliser pour une mise à jour
+-- ni pour une réinitialisation.
 -- =====================================================================
 
--- 1. Nettoyage préalable (ordre inverse des dépendances)
-DROP TABLE IF EXISTS role_menu CASCADE;
-DROP TABLE IF EXISTS ref_menu CASCADE;
-DROP TABLE IF EXISTS scheduler_execution CASCADE;
-DROP TABLE IF EXISTS audit_log CASCADE;
-DROP TABLE IF EXISTS journal_connexion CASCADE;
-DROP TABLE IF EXISTS utilisateur CASCADE;
-DROP TABLE IF EXISTS role_permission CASCADE;
-DROP TABLE IF EXISTS ref_module CASCADE;
-DROP TABLE IF EXISTS ref_role CASCADE;
-DROP TABLE IF EXISTS parametre_global CASCADE;
+-- Extensions et types nécessaires
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- 2. Référentiel des Rôles
 CREATE TABLE ref_role (
@@ -60,9 +54,6 @@ CREATE TABLE utilisateur (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX idx_utilisateur_email_lower ON utilisateur (LOWER(email));
-CREATE INDEX idx_utilisateur_identifiant_lower ON utilisateur (LOWER(identifiant));
-CREATE INDEX idx_utilisateur_refresh_token ON utilisateur (refresh_token) WHERE refresh_token IS NOT NULL;
 
 -- Une famille de refresh token par utilisateur (compatibilité avec le modèle actuel),
 -- avec un état d'inactivité contrôlé côté serveur.
@@ -76,7 +67,6 @@ CREATE TABLE utilisateur_session (
     last_activity_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     revoked_at TIMESTAMP
 );
-CREATE INDEX idx_utilisateur_session_idle ON utilisateur_session(last_activity_at) WHERE revoked_at IS NULL;
 
 -- 6. Journal des Connexions
 CREATE TABLE journal_connexion (
@@ -101,9 +91,6 @@ CREATE TABLE audit_log (
     date_action TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_audit_table_rec ON audit_log(nom_table, id_enregistrement);
-CREATE INDEX idx_audit_utilisateur ON audit_log(id_utilisateur);
-CREATE INDEX idx_audit_date ON audit_log(date_action DESC);
 
 -- 8. Journal des traitements planifiés (verrou inter-instances et reprise après incident)
 CREATE TABLE scheduler_execution (
@@ -123,7 +110,6 @@ CREATE TABLE scheduler_execution (
     PRIMARY KEY (job_code, execution_key)
 );
 
-CREATE INDEX idx_scheduler_execution_status ON scheduler_execution(status, started_at DESC);
 
 -- 9. Menus Arborescents & Habilitations UI
 CREATE TABLE ref_menu (
@@ -143,7 +129,6 @@ CREATE TABLE role_menu (
 );
 
 -- 10. Paramètres Globaux
-CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 CREATE TABLE parametre_global (
     id_parametre SERIAL PRIMARY KEY,
@@ -165,6 +150,16 @@ CREATE TABLE parametre_global (
         OR (valeur IN ('INCLUS', 'EXCLUS') AND est_desactivable = TRUE))
 );
 
+
+-- Index complémentaires
+CREATE UNIQUE INDEX idx_utilisateur_email_lower ON utilisateur (LOWER(email));
+CREATE INDEX idx_utilisateur_identifiant_lower ON utilisateur (LOWER(identifiant));
+CREATE INDEX idx_utilisateur_refresh_token ON utilisateur (refresh_token) WHERE refresh_token IS NOT NULL;
+CREATE INDEX idx_utilisateur_session_idle ON utilisateur_session(last_activity_at) WHERE revoked_at IS NULL;
+CREATE INDEX idx_audit_table_rec ON audit_log(nom_table, id_enregistrement);
+CREATE INDEX idx_audit_utilisateur ON audit_log(id_utilisateur);
+CREATE INDEX idx_audit_date ON audit_log(date_action DESC);
+CREATE INDEX idx_scheduler_execution_status ON scheduler_execution(status, started_at DESC);
 CREATE INDEX idx_parametre_actif ON parametre_global(code_parametre) WHERE date_fin IS NULL;
 CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 CREATE INDEX idx_role_permission_module ON role_permission(id_module);

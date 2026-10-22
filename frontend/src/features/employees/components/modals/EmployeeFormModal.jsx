@@ -35,6 +35,7 @@ import {
 
 import { validerChampsEtape, validerToutesEtapesEmploye } from '@/features/employees/utils/employeFormValidation';
 import { fmtDateInput } from '@/utils/dateUtils';
+import { retirerElement, annulerSuppression, createSatelliteClientKey } from './satelliteFormChanges';
 
 const STEPS = [
     { id: 'civilite', label: 'Identité', icon: User, required: true },
@@ -55,9 +56,11 @@ const EMPTY_FORM = {
     adresse: '', ville: '', telephone: '', email: '',
     numAffiliationCnaps: '', photoUrl: '', dateDeclaration: '',
     conjoint: { nom: '', prenom: '', dateNaissance: '', lieuNaissance: '', societe: '', fonction: '' },
+    supprimerConjoint: false,
     enfants: [],
-    contactsUrgence: [{ nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
-    compteBanquePrincipal: { idBanque: '', agence: '', numCompteRib: '', titulaireCompte: '' }
+    contactsUrgence: [{ clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
+    compteBanquePrincipal: { idBanque: '', agence: '', numCompteRib: '', titulaireCompte: '' },
+    supprimerCompteBanque: false
 };
 
 const resolveStepIndex = (step) => {
@@ -79,6 +82,8 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     const [matriculeError, setMatriculeError] = useState('');
 
     const [formData, setFormData] = useState({ ...EMPTY_FORM });
+    const [enfantsSupprimes, setEnfantsSupprimes] = useState([]);
+    const [contactsSupprimes, setContactsSupprimes] = useState([]);
     const [isDirty, setIsDirty] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
@@ -139,6 +144,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 photoUrl: e.photoUrl || '',
                 dateDeclaration: fmtDateInput(e.dateDeclaration),
                 conjoint: {
+                    idConjoint: employeData.conjoint?.idConjoint || null,
                     nom: employeData.conjoint?.nom || e.conjointNom || '',
                     prenom: employeData.conjoint?.prenom || e.conjointPrenom || '',
                     dateNaissance: fmtDateInput(employeData.conjoint?.dateNaissance),
@@ -146,7 +152,10 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                     societe: employeData.conjoint?.societe || e.conjointSociete || '',
                     fonction: employeData.conjoint?.fonction || e.conjointFonction || ''
                 },
+                supprimerConjoint: false,
                 enfants: (employeData.enfants || []).map(enf => ({
+                    idEnfant: enf.idEnfant,
+                    clientKey: enf.idEnfant ? undefined : createSatelliteClientKey(),
                     nom: enf.nom || '',
                     prenom: enf.prenom || '',
                     sexe: enf.sexe || 'M',
@@ -160,6 +169,8 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 })),
                 contactsUrgence: (employeData.contactsUrgence?.length > 0)
                     ? employeData.contactsUrgence.map(ct => ({
+                        idContact: ct.idContact,
+                        clientKey: ct.idContact ? undefined : createSatelliteClientKey(),
                         nom: ct.nom || '',
                         prenom: ct.prenom || '',
                         lienParente: ct.lienParente || 'Autre',
@@ -167,10 +178,11 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                         adresse: ct.adresse || '',
                         societe: ct.societe || ''
                     }))
-                    : [{ nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
-                compteBanquePrincipal: employeData.comptesBancaires?.find(c => c.estPrincipal) || {
+                    : [{ clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
+                compteBanquePrincipal: employeData.comptesBancaires?.[0] || {
                     idBanque: '', agence: '', numCompteRib: '', titulaireCompte: ''
-                }
+                },
+                supprimerCompteBanque: false
             });
         } else {
             setFormData({ ...EMPTY_FORM });
@@ -178,6 +190,8 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             setCustomNationalite('');
         }
         setActiveStep(resolveStepIndex(initialStep));
+        setEnfantsSupprimes([]);
+        setContactsSupprimes([]);
         setErrorMsg('');
         setFieldErrors({});
         setMatriculeError('');
@@ -222,6 +236,11 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         });
     }, []);
 
+    const toggleSuppressionConjoint = useCallback(() => {
+        setIsDirty(true);
+        setFormData(prev => ({ ...prev, supprimerConjoint: !prev.supprimerConjoint }));
+    }, []);
+
     const addEnfant = useCallback(() => {
         setIsDirty(true);
         setFormData(prev => ({
@@ -229,6 +248,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             enfants: [
                 ...prev.enfants,
                 {
+                    clientKey: createSatelliteClientKey(),
                     nom: '', prenom: '', sexe: 'M',
                     dateNaissance: '', lieuNaissance: '',
                     aCharge: true, estEtudiant: false,
@@ -241,14 +261,27 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
 
     const removeEnfant = useCallback((index) => {
         setIsDirty(true);
-        setFormData(prev => ({
-            ...prev,
-            enfants: prev.enfants.filter((_, i) => i !== index)
-        }));
-    }, []);
+        const suivant = retirerElement(formData.enfants, enfantsSupprimes, index, 'idEnfant');
+        setFormData(prev => ({ ...prev, enfants: suivant.elements }));
+        setEnfantsSupprimes(suivant.suppressions);
+    }, [formData.enfants, enfantsSupprimes]);
+
+    const annulerSuppressionEnfant = useCallback((index) => {
+        setIsDirty(true);
+        const suivant = annulerSuppression(formData.enfants, enfantsSupprimes, index);
+        setFormData(prev => ({ ...prev, enfants: suivant.elements }));
+        setEnfantsSupprimes(suivant.suppressions);
+    }, [formData.enfants, enfantsSupprimes]);
 
     const setEnfant = useCallback((index, field, val) => {
         setIsDirty(true);
+        const errorKey = `enfant_${index}_${field}`;
+        setFieldErrors(prev => {
+            if (!(errorKey in prev)) return prev;
+            const next = { ...prev };
+            delete next[errorKey];
+            return next;
+        });
         setFormData(prev => {
             const copy = [...prev.enfants];
             copy[index] = { ...copy[index], [field]: val };
@@ -260,20 +293,33 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         setIsDirty(true);
         setFormData(prev => ({
             ...prev,
-            contactsUrgence: [...prev.contactsUrgence, { nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }]
+            contactsUrgence: [...prev.contactsUrgence, { clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }]
         }));
     }, []);
 
     const removeContact = useCallback((index) => {
         setIsDirty(true);
-        setFormData(prev => ({
-            ...prev,
-            contactsUrgence: prev.contactsUrgence.filter((_, i) => i !== index)
-        }));
-    }, []);
+        const suivant = retirerElement(formData.contactsUrgence, contactsSupprimes, index, 'idContact');
+        setFormData(prev => ({ ...prev, contactsUrgence: suivant.elements }));
+        setContactsSupprimes(suivant.suppressions);
+    }, [formData.contactsUrgence, contactsSupprimes]);
+
+    const annulerSuppressionContact = useCallback((index) => {
+        setIsDirty(true);
+        const suivant = annulerSuppression(formData.contactsUrgence, contactsSupprimes, index);
+        setFormData(prev => ({ ...prev, contactsUrgence: suivant.elements }));
+        setContactsSupprimes(suivant.suppressions);
+    }, [formData.contactsUrgence, contactsSupprimes]);
 
     const setContact = useCallback((index, field, val) => {
         setIsDirty(true);
+        const errorKey = `contact_${index}_${field}`;
+        setFieldErrors(prev => {
+            if (!(errorKey in prev)) return prev;
+            const next = { ...prev };
+            delete next[errorKey];
+            return next;
+        });
         setFormData(prev => {
             const copy = [...prev.contactsUrgence];
             copy[index] = { ...copy[index], [field]: val };
@@ -443,15 +489,31 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 cinDuplicataDate: fmtDateInput(formData.cinDuplicataDate) || null,
                 permisConduireDateDelivrance: fmtDateInput(formData.permisConduireDateDelivrance) || null,
                 dateDeclaration: fmtDateInput(formData.dateDeclaration) || null,
-                conjoint: formData.conjoint ? {
-                    ...formData.conjoint,
-                    dateNaissance: fmtDateInput(formData.conjoint.dateNaissance) || null
+                conjoint: formData.supprimerConjoint ? null : formData.conjoint ? {
+                    nom: formData.conjoint.nom,
+                    prenom: formData.conjoint.prenom,
+                    dateNaissance: fmtDateInput(formData.conjoint.dateNaissance) || null,
+                    lieuNaissance: formData.conjoint.lieuNaissance,
+                    societe: formData.conjoint.societe,
+                    fonction: formData.conjoint.fonction
                 } : null,
-                enfants: (formData.enfants || []).map(enf => ({
-                    ...enf,
-                    dateNaissance: fmtDateInput(enf.dateNaissance) || null,
-                    dateFinScolarite: fmtDateInput(enf.dateFinScolarite) || null
-                })),
+                enfants: (formData.enfants || []).map(enf => {
+                    const enfant = { ...enf };
+                    delete enfant.clientKey;
+                    return {
+                        ...enfant,
+                        dateNaissance: fmtDateInput(enf.dateNaissance) || null,
+                        dateFinScolarite: fmtDateInput(enf.dateFinScolarite) || null
+                    };
+                }),
+                contactsUrgence: (formData.contactsUrgence || []).map(contact => {
+                    const donnees = { ...contact };
+                    delete donnees.clientKey;
+                    return donnees;
+                }),
+                enfantsASupprimer: enfantsSupprimes.map(enf => enf.idEnfant),
+                contactsUrgenceASupprimer: contactsSupprimes.map(ct => ct.idContact),
+                compteBanquePrincipal: formData.supprimerCompteBanque ? null : formData.compteBanquePrincipal,
                 nationalite: finalNat,
                 numAffiliationCnaps: formData.numAffiliationCnaps?.trim() || null,
                 cinNumero: formData.cinNumero?.trim() || null,
@@ -731,9 +793,13 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                         <FamilleFormStep
                             formData={formData}
                             setNested={setNested}
+                            onToggleSuppressionConjoint={toggleSuppressionConjoint}
                             addEnfant={addEnfant}
                             removeEnfant={removeEnfant}
+                            enfantsSupprimes={enfantsSupprimes}
+                            annulerSuppressionEnfant={annulerSuppressionEnfant}
                             setEnfant={setEnfant}
+                            fieldErrors={fieldErrors}
                             villesStandards={VILLES_MADAGASCAR}
                         />
                     )}
@@ -744,7 +810,10 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                             formData={formData}
                             addContact={addContact}
                             removeContact={removeContact}
+                            contactsSupprimes={contactsSupprimes}
+                            annulerSuppressionContact={annulerSuppressionContact}
                             setContact={setContact}
+                            fieldErrors={fieldErrors}
                         />
                     )}
 
@@ -777,9 +846,19 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                 <div className="pb-2 border-b border-[var(--color-border-subtle)]">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
                                         <Landmark size={14} className="text-[var(--color-brand-600)]" />
-                                        Compte Bancaire Principal
+                                        Compte bancaire pour virement
                                     </h3>
+                                    {formData.compteBanquePrincipal?.idCompteBanque && (
+                                        <Button type="button" variant="ghost" size="xs"
+                                            onClick={() => { setIsDirty(true); setFormData(prev => ({ ...prev, supprimerCompteBanque: !prev.supprimerCompteBanque })); }}>
+                                            {formData.supprimerCompteBanque ? 'Annuler la suppression' : 'Supprimer le compte'}
+                                        </Button>
+                                    )}
                                 </div>
+                                {formData.supprimerCompteBanque && (
+                                    <p className="text-xs text-[var(--color-danger-600)]">Le compte sera supprimé lors de l'enregistrement de la fiche.</p>
+                                )}
+                                {!formData.supprimerCompteBanque && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <SearchSelect 
                                         label="Banque" 
@@ -812,6 +891,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                         placeholder="Nom du titulaire" 
                                     />
                                 </div>
+                                )}
                             </Card>
                         </div>
                     )}

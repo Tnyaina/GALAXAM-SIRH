@@ -2,25 +2,14 @@
 -- GALAXAM SIRH — MODULE 04 : CONGÉS & ABSENCES
 -- Script canonique final (ALTER TABLE pour une FK interne différée, Zéro OWNER, Zéro public.)
 -- Sources : 26-08-13-sp2-conges.sql, 26-09-16-sp8-indexes-foreign-keys.sql
+-- Installation initiale uniquement sur une base ou un schéma cible vierge.
+-- Exécuter les scripts 01 → 06 dans cet ordre ; ne pas utiliser pour une mise à jour
+-- ni pour une réinitialisation.
 -- =====================================================================
 
+
+-- Extensions nécessaires
 CREATE EXTENSION IF NOT EXISTS btree_gist;
-
--- 1. Nettoyage préalable des vues et tables (ordre inverse des dépendances)
-DROP VIEW IF EXISTS v_demande_conge_cpl CASCADE;
-DROP VIEW IF EXISTS v_pool_conge_annuel_consommation CASCADE;
-DROP VIEW IF EXISTS v_solde_conge_employe CASCADE;
-
-DROP TABLE IF EXISTS conge_taux_applicable CASCADE;
-DROP TABLE IF EXISTS conge_journal_droit CASCADE;
-DROP TABLE IF EXISTS conge_periode_reference CASCADE;
-DROP TABLE IF EXISTS conge_expiration_examen CASCADE;
-DROP TABLE IF EXISTS mouvement_solde_conge CASCADE;
-DROP TABLE IF EXISTS demande_conge CASCADE;
-DROP TABLE IF EXISTS ref_statut_demande_conge CASCADE;
-DROP TABLE IF EXISTS ref_motif_evenement_familial CASCADE;
-DROP TABLE IF EXISTS ref_type_conge CASCADE;
-DROP TABLE IF EXISTS ref_pool_conge_annuel CASCADE;
 
 -- 2. Référentiels des Congés & Quotas Partagés
 CREATE TABLE ref_pool_conge_annuel (
@@ -48,8 +37,6 @@ CREATE TABLE ref_type_conge (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_ref_type_conge_pool ON ref_type_conge(id_pool_conge_annuel);
-CREATE INDEX idx_ref_type_conge_bascule ON ref_type_conge(id_type_conge_bascule);
 
 CREATE TABLE ref_motif_evenement_familial (
     id_motif SERIAL PRIMARY KEY,
@@ -99,13 +86,6 @@ CREATE TABLE demande_conge (
     )
 );
 
-CREATE INDEX idx_demande_conge_employe ON demande_conge(id_employe);
-CREATE INDEX idx_demande_conge_statut ON demande_conge(id_statut_demande_conge);
-CREATE INDEX idx_demande_conge_periode ON demande_conge(date_debut, date_fin);
-CREATE INDEX idx_demande_conge_motif ON demande_conge(id_motif_evenement_familial);
-CREATE INDEX idx_demande_conge_type_conge ON demande_conge(id_type_conge);
-CREATE INDEX idx_demande_conge_saisi_par ON demande_conge(saisi_par);
-CREATE INDEX idx_demande_conge_valide_par ON demande_conge(valide_par);
 
 -- 4. Journal des Mouvements de Solde de Congé
 CREATE TABLE mouvement_solde_conge (
@@ -121,71 +101,6 @@ CREATE TABLE mouvement_solde_conge (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_mouvement_solde_employe ON mouvement_solde_conge(id_employe);
-CREATE INDEX idx_mouvement_solde_demande ON mouvement_solde_conge(id_demande_conge);
-CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
-CREATE INDEX idx_mouvement_solde_conge_created_by ON mouvement_solde_conge(created_by);
-CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
-CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
--- Une bonification d'ancienneté au plus par salarié et par année ; la contrainte
--- rend atomique la règle que le scheduler vérifie actuellement dans son ledger.
-CREATE UNIQUE INDEX idx_uniq_mouvement_bonification_annee
-    ON mouvement_solde_conge (id_employe, (EXTRACT(YEAR FROM date_mouvement)))
-    WHERE type_mouvement = 'BONIFICATION';
-
--- Corrections DAF du reliquat de reprise : l'ancien taux et les bulletins restent historiques.
-CREATE TABLE conge_cutover_correction (
-    id_correction SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL REFERENCES employe(id_employe),
-    id_mouvement_reprise INT NOT NULL REFERENCES mouvement_solde_conge(id_mouvement),
-    id_mouvement_ajustement INT NOT NULL UNIQUE REFERENCES mouvement_solde_conge(id_mouvement),
-    ancien_reliquat_jours NUMERIC(8,2) NOT NULL,
-    nouveau_reliquat_jours NUMERIC(8,2) NOT NULL,
-    ancien_reliquat_valeur NUMERIC(14,2) NOT NULL,
-    nouveau_reliquat_valeur NUMERIC(14,2) NOT NULL,
-    ancien_taux NUMERIC(14,6) NOT NULL,
-    nouveau_taux NUMERIC(14,6) NOT NULL,
-    regularisation_a_examiner NUMERIC(14,2) NOT NULL DEFAULT 0,
-    motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
-    corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
-    date_correction TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_cutover_correction_reliquat CHECK (nouveau_reliquat_jours >= 0 AND nouveau_reliquat_valeur >= 0)
-);
-CREATE INDEX idx_conge_cutover_correction_employe ON conge_cutover_correction(id_employe, date_correction);
-
--- Rectification DAF d'une valorisation mensuelle : les jours et le bulletin restent figés.
-CREATE TABLE conge_valorisation_mensuelle_correction (
-    id_correction SERIAL PRIMARY KEY,
-    id_journal INT NOT NULL,
-    id_mouvement_acquisition INT NOT NULL REFERENCES mouvement_solde_conge(id_mouvement),
-    ancienne_valeur NUMERIC(20,2) NOT NULL,
-    nouvelle_valeur NUMERIC(20,2) NOT NULL CHECK (nouvelle_valeur >= 0),
-    motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
-    corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
-    date_correction TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_conge_valorisation_correction_journal
-    ON conge_valorisation_mensuelle_correction(id_journal, date_correction);
-
--- 4b. Décisions DAF relatives aux droits candidats à la prescription
-CREATE TABLE conge_expiration_examen (
-    id_examen SERIAL PRIMARY KEY,
-    id_employe INT NOT NULL REFERENCES employe(id_employe),
-    decision VARCHAR(20) NOT NULL CHECK (decision IN ('REPORTE', 'EXPIRE')),
-    jours_examines NUMERIC(8,2) NOT NULL CHECK (jours_examines > 0),
-    motif TEXT NOT NULL,
-    planification_verifiee BOOLEAN NOT NULL DEFAULT FALSE,
-    date_prochaine_revue DATE,
-    id_mouvement_expiration INT REFERENCES mouvement_solde_conge(id_mouvement),
-    decide_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_conge_expiration_decision CHECK (
-        (decision = 'REPORTE' AND date_prochaine_revue IS NOT NULL AND id_mouvement_expiration IS NULL)
-        OR (decision = 'EXPIRE' AND date_prochaine_revue IS NULL AND id_mouvement_expiration IS NOT NULL AND planification_verifiee)
-    )
-);
-CREATE INDEX idx_conge_expiration_examen_employe_date
-    ON conge_expiration_examen(id_employe, created_at DESC, id_examen DESC);
 
 -- 5. Périodes de Référence Bornées & Taux Applicables (TCONGE Canonical)
 CREATE TABLE conge_periode_reference (
@@ -211,7 +126,6 @@ CREATE TABLE conge_periode_reference (
         daterange(date_debut, date_fin, '[]') WITH &&
     )
 );
-CREATE INDEX idx_conge_ref_emp_dates ON conge_periode_reference(id_employe, date_debut, date_fin);
 
 -- Grand-Livre de Valorisation des Droits à Congés
 CREATE TABLE conge_journal_droit (
@@ -234,13 +148,6 @@ CREATE TABLE conge_journal_droit (
     CONSTRAINT uk_conge_journal_emp_annee_mois UNIQUE (id_employe, annee, mois)
 );
 
-CREATE INDEX idx_conge_journal_emp ON conge_journal_droit(id_employe);
-CREATE INDEX idx_conge_journal_periode ON conge_journal_droit(id_periode_paie);
-CREATE INDEX idx_conge_journal_ref ON conge_journal_droit(id_periode_reference);
-
-ALTER TABLE conge_valorisation_mensuelle_correction
-    ADD CONSTRAINT fk_conge_valorisation_correction_journal
-    FOREIGN KEY (id_journal) REFERENCES conge_journal_droit(id_journal);
 
 CREATE TABLE conge_taux_applicable (
     id_taux_applicable SERIAL PRIMARY KEY,
@@ -257,6 +164,94 @@ CREATE TABLE conge_taux_applicable (
     CONSTRAINT chk_dates_taux CHECK (date_fin IS NULL OR date_fin > date_effet),
     CONSTRAINT chk_source_provenance CHECK (source_provenance IN ('KAJY_MIGRATION', 'CALCUL_PERIODE_REFERENCE', 'INITIALISATION_BASE_30', 'REPRISE_CUTOVER'))
 );
+
+-- Corrections et décisions DAF
+-- Corrections DAF du reliquat de reprise : l'ancien taux et les bulletins restent historiques.
+CREATE TABLE conge_cutover_correction (
+    id_correction SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_mouvement_reprise INT NOT NULL REFERENCES mouvement_solde_conge(id_mouvement),
+    id_mouvement_ajustement INT NOT NULL UNIQUE REFERENCES mouvement_solde_conge(id_mouvement),
+    ancien_reliquat_jours NUMERIC(8,2) NOT NULL,
+    nouveau_reliquat_jours NUMERIC(8,2) NOT NULL,
+    ancien_reliquat_valeur NUMERIC(14,2) NOT NULL,
+    nouveau_reliquat_valeur NUMERIC(14,2) NOT NULL,
+    ancien_taux NUMERIC(14,6) NOT NULL,
+    nouveau_taux NUMERIC(14,6) NOT NULL,
+    regularisation_a_examiner NUMERIC(14,2) NOT NULL DEFAULT 0,
+    motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
+    corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    date_correction TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_cutover_correction_reliquat CHECK (nouveau_reliquat_jours >= 0 AND nouveau_reliquat_valeur >= 0)
+);
+
+-- Rectification DAF d'une valorisation mensuelle : les jours et le bulletin restent figés.
+CREATE TABLE conge_valorisation_mensuelle_correction (
+    id_correction SERIAL PRIMARY KEY,
+    id_journal INT NOT NULL,
+    id_mouvement_acquisition INT NOT NULL REFERENCES mouvement_solde_conge(id_mouvement),
+    ancienne_valeur NUMERIC(20,2) NOT NULL,
+    nouvelle_valeur NUMERIC(20,2) NOT NULL CHECK (nouvelle_valeur >= 0),
+    motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
+    corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    date_correction TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4b. Décisions DAF relatives aux droits candidats à la prescription
+CREATE TABLE conge_expiration_examen (
+    id_examen SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    decision VARCHAR(20) NOT NULL CHECK (decision IN ('REPORTE', 'EXPIRE')),
+    jours_examines NUMERIC(8,2) NOT NULL CHECK (jours_examines > 0),
+    motif TEXT NOT NULL,
+    planification_verifiee BOOLEAN NOT NULL DEFAULT FALSE,
+    date_prochaine_revue DATE,
+    id_mouvement_expiration INT REFERENCES mouvement_solde_conge(id_mouvement),
+    decide_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_conge_expiration_decision CHECK (
+        (decision = 'REPORTE' AND date_prochaine_revue IS NOT NULL AND id_mouvement_expiration IS NULL)
+        OR (decision = 'EXPIRE' AND date_prochaine_revue IS NULL AND id_mouvement_expiration IS NOT NULL AND planification_verifiee)
+    )
+);
+
+
+-- Contraintes différées
+ALTER TABLE conge_valorisation_mensuelle_correction
+    ADD CONSTRAINT fk_conge_valorisation_correction_journal
+    FOREIGN KEY (id_journal) REFERENCES conge_journal_droit(id_journal);
+
+
+-- Index complémentaires
+CREATE INDEX idx_ref_type_conge_pool ON ref_type_conge(id_pool_conge_annuel);
+CREATE INDEX idx_ref_type_conge_bascule ON ref_type_conge(id_type_conge_bascule);
+CREATE INDEX idx_demande_conge_employe ON demande_conge(id_employe);
+CREATE INDEX idx_demande_conge_statut ON demande_conge(id_statut_demande_conge);
+CREATE INDEX idx_demande_conge_periode ON demande_conge(date_debut, date_fin);
+CREATE INDEX idx_demande_conge_motif ON demande_conge(id_motif_evenement_familial);
+CREATE INDEX idx_demande_conge_type_conge ON demande_conge(id_type_conge);
+CREATE INDEX idx_demande_conge_saisi_par ON demande_conge(saisi_par);
+CREATE INDEX idx_demande_conge_valide_par ON demande_conge(valide_par);
+CREATE INDEX idx_mouvement_solde_employe ON mouvement_solde_conge(id_employe);
+CREATE INDEX idx_mouvement_solde_demande ON mouvement_solde_conge(id_demande_conge);
+CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
+CREATE INDEX idx_mouvement_solde_conge_created_by ON mouvement_solde_conge(created_by);
+CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
+CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
+-- Une bonification d'ancienneté au plus par salarié et par année ; la contrainte
+-- rend atomique la règle que le scheduler vérifie actuellement dans son ledger.
+CREATE UNIQUE INDEX idx_uniq_mouvement_bonification_annee
+    ON mouvement_solde_conge (id_employe, (EXTRACT(YEAR FROM date_mouvement)))
+    WHERE type_mouvement = 'BONIFICATION';
+CREATE INDEX idx_conge_cutover_correction_employe ON conge_cutover_correction(id_employe, date_correction);
+CREATE INDEX idx_conge_valorisation_correction_journal
+    ON conge_valorisation_mensuelle_correction(id_journal, date_correction);
+CREATE INDEX idx_conge_expiration_examen_employe_date
+    ON conge_expiration_examen(id_employe, created_at DESC, id_examen DESC);
+CREATE INDEX idx_conge_ref_emp_dates ON conge_periode_reference(id_employe, date_debut, date_fin);
+CREATE INDEX idx_conge_journal_emp ON conge_journal_droit(id_employe);
+CREATE INDEX idx_conge_journal_periode ON conge_journal_droit(id_periode_paie);
+CREATE INDEX idx_conge_journal_ref ON conge_journal_droit(id_periode_reference);
 CREATE INDEX idx_taux_app_emp_dates ON conge_taux_applicable(id_employe, date_effet, date_fin);
 
 -- =====================================================================
