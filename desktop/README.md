@@ -3,7 +3,7 @@
 Prototype macOS ARM64 construit avec Tauri 2, React, Spring Boot, Java 17 et PostgreSQL 15.19. Le Web continue d'utiliser le même frontend React et le backend Spring Boot Docker.
 
 Le travail nécessaire pour Windows 10/11 est suivi dans [WINDOWS_TODO.md](WINDOWS_TODO.md).
-Le découpage en trois sprints et ses critères de validation figurent dans [WINDOWS_SPRINTS.md](WINDOWS_SPRINTS.md). Le build Windows préparatoire utilise `scripts/build-windows.ps1` sur un hôte Windows x64 avec un JDK Temurin 17, Maven, Node/npm et Rust MSVC ; il demande le chemin et l'empreinte SHA-256 de l'archive PostgreSQL Windows. Il n'est pas encore qualifié pour le mode local.
+Le découpage en trois sprints et ses critères de validation figurent dans [WINDOWS_SPRINTS.md](WINDOWS_SPRINTS.md). Le build Windows utilise `scripts/build-windows.ps1` sur un hôte Windows x64 avec un JDK Temurin 17, Maven, Node/npm et Rust MSVC ; il demande le chemin et l'empreinte SHA-256 de l'archive PostgreSQL Windows. Le parcours automatisé local a réussi sur le runner Windows Server 2022 ; les essais interactifs sur Windows 10/11 restent nécessaires avant diffusion.
 
 ## Organisation du code et préparation de Windows
 
@@ -55,7 +55,7 @@ En mode local, PostgreSQL et Spring Boot utilisent les ressources du bundle et u
 
 Fermer la fenêtre ne désenregistre pas le LaunchAgent ni n'arrête les services locaux. L'arrêt explicite des services se fait dans **Paramètres → Connexion et données**. Les tâches Spring ne tournent pas pendant que le Mac est en veille ou après fermeture de la session utilisateur.
 
-Lors du passage du service local `0.1.3` à `0.1.4`, le prochain lancement copie les nouveaux composants, attend l'arrêt de l'ancien service, puis démarre le nouveau. Si ce démarrage échoue, l'application tente de rétablir l'ancien service. Les données PostgreSQL et les documents restent dans le même dossier.
+Lors du passage du service local `0.1.4` à `0.1.5`, le prochain lancement copie les nouveaux composants, attend l'arrêt de l'ancien service, puis démarre le nouveau. Si ce démarrage échoue, l'application tente de rétablir l'ancien service. Les données PostgreSQL et les documents restent dans le même dossier. Toute future modification du JAR ou du runtime embarqué doit augmenter `SERVICE_VERSION` dans `platform/macos/service.rs` et définir la version précédente pour déclencher ce remplacement.
 
 Un administrateur connecté peut créer une archive manuelle depuis **Paramètres → Connexion et données → Sauvegardes de la base locale**. Elle contient un export PostgreSQL au format personnalisé et le dossier des documents. L'archive est publiée dans `~/Library/Application Support/GALAXAM SIRH/backups/` après vérification de sa structure, puis copiée à l'emplacement choisi dans la fenêtre « Enregistrer sous… ».
 

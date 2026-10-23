@@ -278,20 +278,28 @@ fn apply_remote_mode_blocking(url: String, app: AppHandle) -> Result<(), String>
         .map_err(|_| "Configuration desktop indisponible")?
         .home
         .clone();
+    #[cfg(not(windows))]
     let was_local = state
         .config
         .lock()
         .map_err(|_| "Configuration desktop indisponible")?
         .local_port
         .is_some();
+    #[cfg(windows)]
+    {
+        crate::platform::set_windows_remote_mode(&home, &origin)?;
+    }
+    #[cfg(not(windows))]
     if was_local && home.join("config/installation.id").is_file() {
         service::disable(&home)?;
     }
+    #[cfg(not(windows))]
     let save_result = state
         .config
         .lock()
         .map_err(|_| "Configuration desktop indisponible")?
         .save_remote_mode(&origin);
+    #[cfg(not(windows))]
     if let Err(problem) = save_result {
         if was_local {
             let config = state
@@ -381,7 +389,17 @@ fn switch_to_local_mode_blocking(app: AppHandle) -> Result<(), String> {
     config.embedded_postgres = true;
     config.auto_local = false;
     config.api_upstream = format!("http://127.0.0.1:{}", config.local_port.unwrap_or(18081));
+    #[cfg(windows)]
+    if let Err(problem) = crate::platform::set_windows_local_mode(&config.home) {
+        config.local_port = previous_config.0;
+        config.embedded_postgres = previous_config.1;
+        config.auto_local = previous_config.2;
+        config.api_upstream = previous_config.3;
+        return Err(problem);
+    }
+    #[cfg(not(windows))]
     let processes = app.state::<LocalServices>();
+    #[cfg(not(windows))]
     if let Err(problem) = processes.postgres.start(&app, &config) {
         config.local_port = previous_config.0;
         config.embedded_postgres = previous_config.1;
@@ -389,7 +407,9 @@ fn switch_to_local_mode_blocking(app: AppHandle) -> Result<(), String> {
         config.api_upstream = previous_config.3;
         return Err(problem.into());
     }
+    #[cfg(not(windows))]
     processes.postgres.stop();
+    #[cfg(not(windows))]
     if let Err(problem) = service::ensure_running(
         &app,
         &config.home,
@@ -408,6 +428,7 @@ fn switch_to_local_mode_blocking(app: AppHandle) -> Result<(), String> {
             }
         });
     }
+    #[cfg(not(windows))]
     if let Err(problem) = config.save_local_mode() {
         let cleanup = service::disable(&config.home);
         config.local_port = previous_config.0;

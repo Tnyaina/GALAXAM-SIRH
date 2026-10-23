@@ -8,8 +8,8 @@ use std::process::Command;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-const SERVICE_VERSION: &str = "0.1.4";
-const PREVIOUS_SERVICE_VERSION: &str = "0.1.3";
+const SERVICE_VERSION: &str = "0.1.5";
+const PREVIOUS_SERVICE_VERSION: &str = "0.1.4";
 
 /// Cross-process ownership marker shared by a temporary Tauri PostgreSQL
 /// owner and the long-lived LaunchAgent supervisor. The lock is released only

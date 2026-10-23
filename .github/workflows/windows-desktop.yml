@@ -217,6 +217,30 @@ jobs:
             Start-Sleep -Seconds 1
           }
           if (-not $restoreApiReady) { throw 'Local API did not return after database restoration' }
+          $modeResult = Join-Path $userTokenDir 'service-control.result'
+          $remoteArguments = @(
+            '--galaxam-bootstrap-helper'
+            '--galaxam-service-control=remote'
+            '--galaxam-remote-api=https://sirh.example.invalid'
+            ('"--galaxam-control-result={0}"' -f $modeResult)
+          ) -join ' '
+          $remoteProcess = Start-Process -FilePath $defaultExe -ArgumentList $remoteArguments -PassThru -Wait
+          if ($remoteProcess.ExitCode -ne 0 -or (Get-Content $modeResult -Raw) -ne 'OK') { throw 'Switch to remote mode failed' }
+          Remove-Item $modeResult -Force
+          if ((Get-Service $serviceName).Status -ne 'Stopped' -or (Get-Content (Join-Path $dataHome 'config\desktop.conf') -Raw) -notmatch 'mode=remote') { throw 'Remote mode did not stop the local service or save its configuration' }
+          $localArguments = @(
+            '--galaxam-bootstrap-helper'
+            '--galaxam-service-control=local'
+            ('"--galaxam-control-result={0}"' -f $modeResult)
+          ) -join ' '
+          $localProcess = Start-Process -FilePath $defaultExe -ArgumentList $localArguments -PassThru -Wait
+          if ($localProcess.ExitCode -ne 0 -or (Get-Content $modeResult -Raw) -ne 'OK') { throw 'Switch back to local mode failed' }
+          Remove-Item $modeResult -Force
+          if ((Get-Content (Join-Path $dataHome 'config\desktop.conf') -Raw) -notmatch 'mode=local') { throw 'Local mode configuration was not restored' }
+          try {
+            $api = Invoke-WebRequest -Uri 'http://127.0.0.1:18081/api/auth/ping' -TimeoutSec 5 -UseBasicParsing
+            if ($api.StatusCode -ne 200) { throw 'Local API returned an unexpected status' }
+          } catch { throw 'Local API did not return after switching modes' }
           Remove-Item Env:PGPASSWORD
           $secretAcl = (& icacls.exe $secretFile) -join "`n"
           if ($secretAcl -match 'S-1-5-32-545|BUILTIN\\Users') { throw 'Standard users can read database secrets' }

@@ -8,7 +8,9 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use windows_service::service::{
@@ -250,7 +252,13 @@ fn supervise(
         ))
         .map_err(|problem| problem.to_string())?;
 
-    run_due_automatic_backup(&config.home, &resources, config.postgres_port);
+    let backup_cancel = Arc::new(AtomicBool::new(false));
+    let mut backup_worker = Some(start_automatic_backup(
+        config.home.clone(),
+        resources.clone(),
+        config.postgres_port,
+        Arc::clone(&backup_cancel),
+    ));
     let mut next_backup_check = Instant::now() + Duration::from_secs(3_600);
 
     loop {
@@ -266,11 +274,30 @@ fn supervise(
                 break;
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
+                if backup_worker
+                    .as_ref()
+                    .is_some_and(thread::JoinHandle::is_finished)
+                {
+                    if let Some(worker) = backup_worker.take() {
+                        let _ = worker.join();
+                    }
+                }
                 if Instant::now() >= next_backup_check {
-                    run_due_automatic_backup(&config.home, &resources, config.postgres_port);
+                    if backup_worker.is_none() {
+                        backup_worker = Some(start_automatic_backup(
+                            config.home.clone(),
+                            resources.clone(),
+                            config.postgres_port,
+                            Arc::clone(&backup_cancel),
+                        ));
+                    }
                     next_backup_check = Instant::now() + Duration::from_secs(3_600);
                 }
                 if let Some(exit) = backend.try_wait().map_err(|problem| problem.to_string())? {
+                    backup_cancel.store(true, Ordering::Relaxed);
+                    if let Some(worker) = backup_worker.take() {
+                        let _ = worker.join();
+                    }
                     postgres.stop();
                     return Err(format!("Spring Boot s’est arrêté avec le code {exit}"));
                 }
@@ -278,6 +305,10 @@ fn supervise(
         }
     }
 
+    backup_cancel.store(true, Ordering::Relaxed);
+    if let Some(worker) = backup_worker.take() {
+        let _ = worker.join();
+    }
     shutdown_backend(&mut backend, api_port, &shutdown_token);
     postgres.stop();
     Ok(())
@@ -374,8 +405,26 @@ fn process_pending_restore(home: &Path, resources: &Path, port: u16) -> Result<(
     Ok(())
 }
 
-fn run_due_automatic_backup(home: &Path, resources: &Path, port: u16) {
-    if let Err(problem) = crate::backup::create_automatic_from_resources(resources, home, port) {
+fn start_automatic_backup(
+    home: std::path::PathBuf,
+    resources: std::path::PathBuf,
+    port: u16,
+    cancel: Arc<AtomicBool>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || run_due_automatic_backup(&home, &resources, port, &cancel))
+}
+
+fn run_due_automatic_backup(home: &Path, resources: &Path, port: u16, cancel: &AtomicBool) {
+    let result = crate::backup::archive::create_automatic_from_resources_with_cancel(
+        resources,
+        home,
+        port,
+        Some(cancel),
+    );
+    if cancel.load(Ordering::Relaxed) {
+        return;
+    }
+    if let Err(problem) = result {
         let path = home.join("logs/backup.log");
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
             let _ = writeln!(file, "sauvegarde automatique échouée : {problem}");

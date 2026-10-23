@@ -2,6 +2,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::AppHandle;
 
@@ -15,7 +17,7 @@ pub fn create_from_resources(
     home: &Path,
     port: u16,
 ) -> Result<PathBuf, String> {
-    create_named(resource_root, home, port, "galaxam")
+    create_named(resource_root, home, port, "galaxam", None)
 }
 
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -23,6 +25,15 @@ pub fn create_automatic_from_resources(
     resource_root: &Path,
     home: &Path,
     port: u16,
+) -> Result<Option<PathBuf>, String> {
+    create_automatic_from_resources_with_cancel(resource_root, home, port, None)
+}
+
+pub fn create_automatic_from_resources_with_cancel(
+    resource_root: &Path,
+    home: &Path,
+    port: u16,
+    cancel: Option<&AtomicBool>,
 ) -> Result<Option<PathBuf>, String> {
     let directory = home.join("backups");
     private_directory(&directory)?;
@@ -39,7 +50,7 @@ pub fn create_automatic_from_resources(
     if now.saturating_sub(last) < 86_400 {
         return Ok(None);
     }
-    let archive = create_named(resource_root, home, port, "galaxam-auto")?;
+    let archive = create_named(resource_root, home, port, "galaxam-auto", cancel)?;
     let latest = home.join("config/backup-last-archive");
     let latest_pending = home.join("config/backup-last-archive.pending");
     let pending = home.join("config/backup-last-success.pending");
@@ -92,6 +103,7 @@ fn create_named(
     home: &Path,
     port: u16,
     prefix: &str,
+    cancel: Option<&AtomicBool>,
 ) -> Result<PathBuf, String> {
     let directory = home.join("backups");
     private_directory(&directory)?;
@@ -109,6 +121,7 @@ fn create_named(
         return Err(problem);
     }
     let result = (|| {
+        ensure_not_cancelled(cancel)?;
         let secrets = fs::read_to_string(home.join("data/postgresql/config/installation.secrets"))
             .map_err(|_| "Secrets de la base locale illisibles".to_string())?;
         let password = secrets
@@ -135,8 +148,7 @@ fn create_named(
         dump_command
             .env_clear()
             .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
-        let status = dump_command
-            .status()
+        let status = interruptible_status(&mut dump_command, cancel)
             .map_err(|_| "Outil de sauvegarde PostgreSQL indisponible".to_string())?;
         if !status.success() {
             return Err("Sauvegarde PostgreSQL échouée".into());
@@ -145,13 +157,14 @@ fn create_named(
         let pg_restore = tools.join("pg_restore.exe");
         #[cfg(not(windows))]
         let pg_restore = tools.join("pg_restore");
-        let status = Command::new(pg_restore)
+        let mut verify_dump = Command::new(pg_restore);
+        verify_dump
             .arg("-l")
             .arg(&dump)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
+            .stderr(Stdio::null());
+        let status = interruptible_status(&mut verify_dump, cancel)
             .map_err(|_| "Vérification de l’archive PostgreSQL impossible".to_string())?;
         if !status.success() {
             return Err("Archive PostgreSQL invalide".into());
@@ -165,8 +178,9 @@ fn create_named(
             Err(_) => return Err("Dossier des documents inaccessible".into()),
         };
         if include_documents {
-            ensure_regular_tree(&documents)?;
+            ensure_regular_tree(&documents, cancel)?;
         }
+        ensure_not_cancelled(cancel)?;
         let manifest = serde_json::json!({
             "format": "galaxam-local-backup-v1",
             "database": "sirh_galaxam",
@@ -196,26 +210,28 @@ fn create_named(
         if include_documents {
             command.arg("-C").arg(home).arg("documents");
         }
-        let status = command
+        command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
+            .stderr(Stdio::null());
+        let status = interruptible_status(&mut command, cancel)
             .map_err(|_| "Archivage de la sauvegarde impossible".to_string())?;
         if !status.success() {
             return Err("Archivage des documents impossible".into());
         }
-        let status = Command::new(&tar)
+        let mut verify_archive = Command::new(&tar);
+        verify_archive
             .arg("-tf")
             .arg(&pending)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
+            .stderr(Stdio::null());
+        let status = interruptible_status(&mut verify_archive, cancel)
             .map_err(|_| "Vérification de l’archive impossible".to_string())?;
         if !status.success() {
             return Err("Archive de sauvegarde invalide".into());
         }
+        ensure_not_cancelled(cancel)?;
         fs::rename(&pending, &final_path)
             .map_err(|_| "Publication de la sauvegarde impossible".to_string())?;
         Ok(final_path.clone())
@@ -227,12 +243,52 @@ fn create_named(
     result
 }
 
-fn ensure_regular_tree(root: &Path) -> Result<(), String> {
+fn interruptible_status(
+    command: &mut Command,
+    cancel: Option<&AtomicBool>,
+) -> std::io::Result<std::process::ExitStatus> {
+    let Some(cancel) = cancel else {
+        return command.status();
+    };
+    if cancel.load(Ordering::Relaxed) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Interrupted,
+            "Sauvegarde interrompue",
+        ));
+    }
+    let mut child = command.spawn()?;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if cancel.load(Ordering::Relaxed) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "Sauvegarde interrompue",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn ensure_not_cancelled(cancel: Option<&AtomicBool>) -> Result<(), String> {
+    if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+        Err("Sauvegarde interrompue".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_regular_tree(root: &Path, cancel: Option<&AtomicBool>) -> Result<(), String> {
     let mut pending = vec![root.to_path_buf()];
     while let Some(directory) = pending.pop() {
+        ensure_not_cancelled(cancel)?;
         for entry in
             fs::read_dir(&directory).map_err(|_| "Dossier de documents illisible".to_string())?
         {
+            ensure_not_cancelled(cancel)?;
             let entry = entry.map_err(|_| "Entrée de document illisible".to_string())?;
             let kind = entry
                 .file_type()
@@ -592,6 +648,23 @@ fn private_mode(path: &Path, mode: u32) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn automatic_backup_command_stops_after_cancellation() {
+        let cancelled = std::sync::Arc::new(AtomicBool::new(false));
+        let signal = std::sync::Arc::clone(&cancelled);
+        let notifier = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            signal.store(true, Ordering::Relaxed);
+        });
+        let started = std::time::Instant::now();
+        let mut command = Command::new("/bin/sleep");
+        command.arg("5").stdout(Stdio::null()).stderr(Stdio::null());
+        assert!(interruptible_status(&mut command, Some(&cancelled)).is_err());
+        assert!(started.elapsed() < Duration::from_secs(2));
+        notifier.join().unwrap();
+    }
 
     fn test_root(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(

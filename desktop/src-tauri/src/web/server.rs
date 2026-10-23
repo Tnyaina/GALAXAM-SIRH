@@ -1,4 +1,4 @@
-use axum::body::Bytes;
+use axum::body::{Body, Bytes};
 use axum::extract::{DefaultBodyLimit, OriginalUri, State as AxumState};
 use axum::http::{header, HeaderMap, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -183,11 +183,7 @@ async fn proxy(
     };
     let status = upstream.status();
     let upstream_headers = upstream.headers().clone();
-    let bytes = match upstream.bytes().await {
-        Ok(bytes) => bytes,
-        Err(_) => return StatusCode::BAD_GATEWAY.into_response(),
-    };
-    let mut response = (status, bytes).into_response();
+    let mut response = (status, Body::from_stream(upstream.bytes_stream())).into_response();
     // Axum assigns application/octet-stream to a byte body. Keep the upstream
     // Content-Type (JSON, PDF, etc.) as the single authoritative value.
     response.headers_mut().remove(header::CONTENT_TYPE);

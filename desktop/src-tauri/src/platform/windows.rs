@@ -104,7 +104,13 @@ pub fn run_bootstrap_helper() -> Result<(), String> {
             .strip_prefix("--galaxam-service-control=")
             .map(str::to_owned)
     }) {
-        let result = run_service_control(&control);
+        let remote = std::env::args_os().find_map(|argument| {
+            argument
+                .to_string_lossy()
+                .strip_prefix("--galaxam-remote-api=")
+                .map(str::to_owned)
+        });
+        let result = run_service_control(&control, remote.as_deref());
         let result_path = std::env::args_os()
             .find_map(|argument| {
                 argument
@@ -249,7 +255,7 @@ fn run_restore_helper() -> Result<(), String> {
                 crate::backup::archive::extract_for_restore(&stable_source, &incoming)?;
             let _safety_has_docs =
                 crate::backup::archive::extract_for_restore(&rollback_archive, &safety)?;
-            run_service_control("stop")?;
+            run_service_control("stop", None)?;
             let request = home.join("config/restore.request");
             let service_result = home.join("config/restore-service.result");
             if request.exists() {
@@ -265,7 +271,7 @@ fn run_restore_helper() -> Result<(), String> {
                 format!(".restore-work-{}\n{port}\n", std::process::id()),
             )
             .map_err(|_| "Demande de restauration au service impossible".to_string())?;
-            run_service_control("start")?;
+            run_service_control("start", None)?;
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
             while std::time::Instant::now() < deadline {
                 if let Ok(response) = std::fs::read_to_string(&service_result) {
@@ -546,16 +552,24 @@ pub fn ensure_windows_service_ready(home: &Path, port: u16) -> Result<(), String
     if windows_api_ping(port) {
         return Ok(());
     }
-    run_elevated_service_control(home, "start")?;
+    run_elevated_service_control(home, "start", None)?;
     ensure_local_api_ready(port)
 }
 
 pub fn stop_windows_service(home: &Path) -> Result<(), String> {
-    run_elevated_service_control(home, "stop")
+    run_elevated_service_control(home, "stop", None)
 }
 
 pub fn disable_windows_service(home: &Path) -> Result<(), String> {
-    run_elevated_service_control(home, "disable")
+    run_elevated_service_control(home, "disable", None)
+}
+
+pub fn set_windows_remote_mode(home: &Path, origin: &str) -> Result<(), String> {
+    run_elevated_service_control(home, "remote", Some(origin))
+}
+
+pub fn set_windows_local_mode(home: &Path) -> Result<(), String> {
+    run_elevated_service_control(home, "local", None)
 }
 
 pub fn install_service() -> Result<(), String> {
@@ -788,10 +802,15 @@ fn windows_api_ping(port: u16) -> bool {
     stream.read_to_string(&mut response).is_ok() && response.starts_with("HTTP/1.1 200")
 }
 
-fn run_elevated_service_control(home: &Path, action: &str) -> Result<(), String> {
+fn run_elevated_service_control(
+    home: &Path,
+    action: &str,
+    remote: Option<&str>,
+) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     if home != default_data_home().map_err(str::to_string)?
-        || !matches!(action, "start" | "stop" | "disable")
+        || !matches!(action, "start" | "stop" | "disable" | "local" | "remote")
+        || (action == "remote") != remote.is_some()
     {
         return Err("Action de service Windows non autorisée".into());
     }
@@ -806,15 +825,19 @@ fn run_elevated_service_control(home: &Path, action: &str) -> Result<(), String>
     }
     let executable =
         std::env::current_exe().map_err(|_| "Exécutable GALAXAM introuvable".to_string())?;
-    let parameters = [
+    let mut parameters = vec![
         BOOTSTRAP_HELPER_ARG.to_string(),
         format!("--galaxam-service-control={action}"),
         format!("--galaxam-control-result={}", result_path.display()),
-    ]
-    .iter()
-    .map(|argument| quote_windows_argument(argument))
-    .collect::<Vec<_>>()
-    .join(" ");
+    ];
+    if let Some(origin) = remote {
+        parameters.push(format!("--galaxam-remote-api={origin}"));
+    }
+    let parameters = parameters
+        .iter()
+        .map(|argument| quote_windows_argument(argument))
+        .collect::<Vec<_>>()
+        .join(" ");
     let verb: Vec<u16> = "runas\0".encode_utf16().collect();
     let file: Vec<u16> = executable
         .as_os_str()
@@ -835,7 +858,8 @@ fn run_elevated_service_control(home: &Path, action: &str) -> Result<(), String>
     if operation as isize <= 32 {
         return Err("Autorisation administrateur refusée ou impossible".into());
     }
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+    let deadline = std::time::Instant::now()
+        + std::time::Duration::from_secs(if action == "local" { 240 } else { 120 });
     while std::time::Instant::now() < deadline {
         if result_path.is_file() {
             let result = std::fs::read_to_string(&result_path)
@@ -851,7 +875,62 @@ fn run_elevated_service_control(home: &Path, action: &str) -> Result<(), String>
     Err("L'autorisation administrateur n'a pas abouti dans le délai imparti".into())
 }
 
-fn run_service_control(action: &str) -> Result<(), String> {
+fn run_service_control(action: &str, remote: Option<&str>) -> Result<(), String> {
+    if matches!(action, "local" | "remote") {
+        let home = default_data_home().map_err(str::to_string)?;
+        let config = DesktopConfig::load().map_err(str::to_string)?;
+        if config.home != home {
+            return Err("Répertoire du service GALAXAM inattendu".into());
+        }
+        return match action {
+            "remote" => {
+                let origin = remote.ok_or("Adresse distante absente")?;
+                // Validate the destination before stopping the current service.
+                validate_remote_api_origin(origin)?;
+                run_service_control("disable", None)?;
+                if let Err(problem) = config.save_remote_mode(origin) {
+                    let recovery = if config.local_port.is_some() {
+                        run_service_control("start", None)
+                    } else {
+                        Ok(())
+                    };
+                    return Err(match recovery {
+                        Ok(()) => problem.to_string(),
+                        Err(error) => format!("{problem}; redémarrage local échoué : {error}"),
+                    });
+                }
+                Ok(())
+            }
+            "local" => {
+                if !home.join("data/postgresql/cluster/PG_VERSION").is_file()
+                    || !home
+                        .join("data/postgresql/config/installation.ready")
+                        .is_file()
+                {
+                    return Err("Base locale existante non validée".into());
+                }
+                run_service_control("start", None)?;
+                let port = DesktopConfig::new_for_setup().local_port.unwrap_or(18081);
+                if let Err(problem) = ensure_local_api_ready(port) {
+                    let _ = run_service_control("disable", None);
+                    return Err(problem);
+                }
+                let local = DesktopConfig::new_for_setup();
+                if let Err(problem) = local.save_local_mode() {
+                    let cleanup = run_service_control("disable", None);
+                    return Err(match cleanup {
+                        Ok(()) => problem.to_string(),
+                        Err(error) => format!("{problem}; arrêt du service local échoué : {error}"),
+                    });
+                }
+                Ok(())
+            }
+            _ => unreachable!(),
+        };
+    }
+    if remote.is_some() {
+        return Err("Adresse distante inattendue".into());
+    }
     use windows_service::service::{ServiceAccess, ServiceState};
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
     let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
@@ -903,6 +982,21 @@ fn run_service_control(action: &str) -> Result<(), String> {
         }
         _ => Err("Action de service Windows non autorisée".into()),
     }
+}
+
+fn validate_remote_api_origin(origin: &str) -> Result<(), String> {
+    let url = reqwest::Url::parse(origin).map_err(|_| "Adresse distante invalide")?;
+    if (url.scheme() != "https"
+        && !(url.scheme() == "http" && matches!(url.host_str(), Some("127.0.0.1" | "localhost"))))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err("Adresse API distante invalide".into());
+    }
+    Ok(())
 }
 
 fn set_service_start_type(value: &str) -> Result<(), String> {
@@ -1206,7 +1300,16 @@ pub fn reveal_backups(backups: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::prepare_service_data_home;
+    use super::{prepare_service_data_home, validate_remote_api_origin};
+
+    #[test]
+    fn elevated_mode_change_accepts_only_a_base_api_origin() {
+        assert!(validate_remote_api_origin("https://sirh.example.invalid").is_ok());
+        assert!(validate_remote_api_origin("http://127.0.0.1:18080").is_ok());
+        assert!(validate_remote_api_origin("http://sirh.example.invalid").is_err());
+        assert!(validate_remote_api_origin("https://sirh.example.invalid/admin").is_err());
+        assert!(validate_remote_api_origin("https://user@sirh.example.invalid").is_err());
+    }
 
     #[test]
     fn preparing_service_home_does_not_create_postgres_cluster_parent() {
