@@ -51,7 +51,7 @@ jobs:
       - name: Rust tests on Windows
         shell: pwsh
         run: |
-          cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --quiet
+          cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --release --quiet
           if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed' }
       - name: Install in a custom folder and inspect payload
         shell: pwsh
