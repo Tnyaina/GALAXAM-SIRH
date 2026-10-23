@@ -40,6 +40,10 @@ fn main() {
     if platform::is_bootstrap_helper() {
         if let Err(problem) = platform::run_bootstrap_helper() {
             eprintln!("GALAXAM bootstrap helper: {problem}");
+            platform::windows_service_runtime::record_service_diagnostic(
+                &DesktopConfig::new_for_setup().home,
+                &format!("Bootstrap helper failed: {problem}"),
+            );
             std::process::exit(1);
         }
         return;

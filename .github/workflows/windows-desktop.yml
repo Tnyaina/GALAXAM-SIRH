@@ -118,7 +118,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path $userTokenDir | Out-Null
           $bootstrapToken = Join-Path $userTokenDir 'bootstrap.token'
           & $defaultExe '--galaxam-bootstrap-helper' "--galaxam-data-home=$dataHome" "--galaxam-token-output=$bootstrapToken"
-          if ($LASTEXITCODE -ne 0) { throw 'Elevated bootstrap helper simulation failed' }
+          if ($LASTEXITCODE -ne 0) {
+            $serviceLog = Join-Path $dataHome 'logs\service.log'
+            if (Test-Path $serviceLog) { Get-Content -Path $serviceLog -Tail 120 }
+            throw 'Elevated bootstrap helper simulation failed'
+          }
           $token = Get-Content $bootstrapToken -Raw
           if ($token.Trim().Length -ne 64) { throw 'Bootstrap helper returned an invalid token' }
           Remove-Item $bootstrapToken -Force

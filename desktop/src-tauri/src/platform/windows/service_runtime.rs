@@ -258,7 +258,7 @@ fn supervise(
     Ok(())
 }
 
-fn record_service_diagnostic(home: &Path, message: &str) {
+pub(crate) fn record_service_diagnostic(home: &Path, message: &str) {
     let log_path = home.join("logs/service.log");
     if let Some(parent) = log_path.parent() {
         if fs::create_dir_all(parent).is_err() {
