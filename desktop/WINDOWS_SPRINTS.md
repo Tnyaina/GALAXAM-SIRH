@@ -18,7 +18,7 @@ Règle de passage : le sprint suivant ne commence qu'après réussite de tous le
 - Installation et désinstallation du programme sur Windows 10 et 11, avec dossier par défaut puis dossier personnalisé. Les données restent intactes à la désinstallation.
 - Vérification du lancement de l'interface et du mode distant. Le mode local n'est pas déclaré prêt à ce stade.
 
-État : **en cours**. La configuration Tauri par plateforme, les scripts de préparation Windows et le dossier de données `ProgramData` sont préparés. Le build et les essais Windows restent obligatoires avant le sprint 2. Le contrôle Windows exige un PC/une VM ou un runner Windows ; il n'est pas remplaçable par un build croisé non exécuté.
+État : **validé sur runner Windows Server 2022 pour le parcours personnalisé** (CI `39893723575`, commit `9f8ee79e`). Le setup NSIS a été construit, installé dans `C:\GalaxamCI`, ses ressources Java et PostgreSQL ont été contrôlées, l'interface HTTP locale a répondu et la désinstallation a réussi. Le build DMG macOS et les neuf tests Rust ont également réussi. Un contrôle CI supplémentaire du dossier par défaut et de la conservation des données à la désinstallation est en cours. L'essai visuel sur Windows 10/11 reste à faire avant diffusion publique ; le runner ne reproduit pas ces environnements à l'identique. Ce résultat autorise le travail du sprint 2 sur la base du runner choisi pour cette phase.
 
 ## Sprint 2 — Base locale et service Windows
 
