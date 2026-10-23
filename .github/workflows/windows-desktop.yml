@@ -119,6 +119,9 @@ jobs:
           $bootstrapToken = Join-Path $userTokenDir 'bootstrap.token'
           & $defaultExe '--galaxam-bootstrap-helper' "--galaxam-data-home=$dataHome" "--galaxam-token-output=$bootstrapToken"
           if ($LASTEXITCODE -ne 0) {
+            Write-Host "Bootstrap helper exit code: $LASTEXITCODE"
+            Write-Host "Bootstrap token file created: $(Test-Path $bootstrapToken)"
+            if (Test-Path $bootstrapToken) { Get-Item $bootstrapToken | Select-Object FullName,Length,LastWriteTime | Format-List }
             $serviceLog = Join-Path $dataHome 'logs\service.log'
             if (Test-Path $serviceLog) { Get-Content -Path $serviceLog -Tail 120 }
             throw 'Elevated bootstrap helper simulation failed'
