@@ -88,7 +88,9 @@ jobs:
           if (-not $apiReady) { throw 'Installed service did not make the local API ready' }
           if (-not (Test-Path (Join-Path $dataHome 'data\postgresql\config\installation.ready'))) { throw 'Service did not initialize PostgreSQL' }
           $defaultExe = Join-Path $defaultInstall 'galaxam-sirh-desktop.exe'
-          $bootstrapToken = Join-Path $env:RUNNER_TEMP 'galaxam-bootstrap-ci.token'
+          $userTokenDir = Join-Path $env:LOCALAPPDATA 'GALAXAM SIRH'
+          New-Item -ItemType Directory -Force -Path $userTokenDir | Out-Null
+          $bootstrapToken = Join-Path $userTokenDir 'bootstrap.token'
           & $defaultExe '--galaxam-bootstrap-helper' "--galaxam-data-home=$dataHome" "--galaxam-token-output=$bootstrapToken"
           if ($LASTEXITCODE -ne 0) { throw 'Elevated bootstrap helper simulation failed' }
           $token = Get-Content $bootstrapToken -Raw
