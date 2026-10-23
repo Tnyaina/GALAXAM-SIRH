@@ -6,6 +6,7 @@ use tauri::{AppHandle, Manager};
 
 const BOOTSTRAP_HELPER_ARG: &str = "--galaxam-bootstrap-helper";
 const BOOTSTRAP_OUTPUT_ARG: &str = "--galaxam-token-output=";
+const BACKUP_HELPER_ARG: &str = "--galaxam-backup-helper";
 static SERVICE_CHILD_JOB: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
 pub struct ServiceChildJob(windows_sys::Win32::Foundation::HANDLE);
@@ -82,10 +83,14 @@ pub fn assign_service_child(child: &std::process::Child) -> Result<(), String> {
 }
 
 pub fn is_bootstrap_helper() -> bool {
-    std::env::args_os().any(|argument| argument == BOOTSTRAP_HELPER_ARG)
+    std::env::args_os()
+        .any(|argument| argument == BOOTSTRAP_HELPER_ARG || argument == BACKUP_HELPER_ARG)
 }
 
 pub fn run_bootstrap_helper() -> Result<(), String> {
+    if std::env::args_os().any(|argument| argument == BACKUP_HELPER_ARG) {
+        return run_backup_helper();
+    }
     if let Some(control) = std::env::args_os().find_map(|argument| {
         argument
             .to_string_lossy()
@@ -137,6 +142,57 @@ pub fn run_bootstrap_helper() -> Result<(), String> {
     file.sync_all()
         .map_err(|_| "Synchronisation du jeton utilisateur impossible".to_string())?;
     Ok(())
+}
+
+fn run_backup_helper() -> Result<(), String> {
+    let result_path = argument_path("--galaxam-backup-result=")
+        .ok_or_else(|| "Fichier résultat de sauvegarde absent".to_string())?;
+    validate_user_result_path(&result_path, "backup.result")?;
+    let destination = argument_path("--galaxam-backup-output=")
+        .ok_or_else(|| "Destination de sauvegarde absente".to_string())?;
+    if !destination.is_absolute()
+        || destination.file_name().is_none()
+        || !destination
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tar"))
+        || !destination.parent().is_some_and(Path::is_dir)
+    {
+        return Err("Destination de sauvegarde invalide".into());
+    }
+    let home = default_data_home().map_err(str::to_string)?;
+    let port = std::env::args_os()
+        .find_map(|argument| {
+            argument
+                .to_string_lossy()
+                .strip_prefix("--galaxam-pg-port=")
+                .and_then(|value| value.parse::<u16>().ok())
+        })
+        .filter(|port| *port != 0)
+        .unwrap_or(15432);
+    let result = (|| {
+        let resources = std::env::current_exe()
+            .map_err(|_| "Exécutable GALAXAM introuvable".to_string())?
+            .parent()
+            .ok_or_else(|| "Ressources GALAXAM introuvables".to_string())?
+            .to_path_buf();
+        let archive = crate::backup::archive::create_from_resources(&resources, &home, port)?;
+        crate::backup::archive::export_copy(&archive, &destination)
+    })();
+    let payload = match &result {
+        Ok(bytes) => format!("OK:{bytes}"),
+        Err(problem) => format!("ERROR:{problem}"),
+    };
+    write_elevated_result(&result_path, &payload)?;
+    result.map(|_| ())
+}
+
+fn argument_path(prefix: &str) -> Option<PathBuf> {
+    std::env::args_os().find_map(|argument| {
+        argument
+            .to_string_lossy()
+            .strip_prefix(prefix)
+            .map(PathBuf::from)
+    })
 }
 
 pub fn elevated_bootstrap_token(home: &Path) -> Result<String, String> {
@@ -203,6 +259,81 @@ pub fn elevated_bootstrap_token(home: &Path) -> Result<String, String> {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
     Err("L'autorisation administrateur n'a pas abouti dans le délai imparti".into())
+}
+
+pub fn elevated_backup_export(home: &Path, port: u16, destination: &Path) -> Result<u64, String> {
+    use std::os::windows::ffi::OsStrExt;
+    if home != default_data_home().map_err(str::to_string)?
+        || !destination.is_absolute()
+        || destination.file_name().is_none()
+        || !destination
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tar"))
+    {
+        return Err("Destination de sauvegarde invalide".into());
+    }
+    let local_app_data = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .ok_or_else(|| "Profil utilisateur Windows indisponible".to_string())?;
+    let result_path = local_app_data.join("GALAXAM SIRH/backup.result");
+    validate_user_result_path(&result_path, "backup.result")?;
+    if result_path.exists() {
+        std::fs::remove_file(&result_path)
+            .map_err(|_| "Ancien résultat de sauvegarde impossible à supprimer".to_string())?;
+    }
+    let executable =
+        std::env::current_exe().map_err(|_| "Exécutable GALAXAM introuvable".to_string())?;
+    let arguments = [
+        BACKUP_HELPER_ARG.to_string(),
+        format!("--galaxam-data-home={}", home.display()),
+        format!("--galaxam-pg-port={port}"),
+        format!("--galaxam-backup-output={}", destination.display()),
+        format!("--galaxam-backup-result={}", result_path.display()),
+    ];
+    let parameters = arguments
+        .iter()
+        .map(|argument| quote_windows_argument(argument))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let verb: Vec<u16> = "runas\0".encode_utf16().collect();
+    let file: Vec<u16> = executable
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    let parameters: Vec<u16> = parameters.encode_utf16().chain(Some(0)).collect();
+    let operation = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            file.as_ptr(),
+            parameters.as_ptr(),
+            std::ptr::null(),
+            0,
+        )
+    };
+    if operation as isize <= 32 {
+        return Err("Autorisation administrateur refusée ou impossible".into());
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(600);
+    while std::time::Instant::now() < deadline {
+        if result_path.is_file() {
+            let result = std::fs::read_to_string(&result_path)
+                .map_err(|_| "Résultat de sauvegarde illisible".to_string())?;
+            let _ = std::fs::remove_file(&result_path);
+            if let Some(bytes) = result.strip_prefix("OK:") {
+                return bytes
+                    .parse()
+                    .map_err(|_| "Taille de sauvegarde invalide".to_string());
+            }
+            return Err(result
+                .strip_prefix("ERROR:")
+                .unwrap_or("Création de la sauvegarde impossible")
+                .to_owned());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+    Err("La sauvegarde n'a pas abouti dans le délai imparti".into())
 }
 
 pub fn ensure_local_api_ready(port: u16) -> Result<(), String> {
@@ -693,6 +824,39 @@ unsafe extern "system" {
     ) -> *mut std::ffi::c_void;
 }
 
+#[repr(C)]
+struct OpenFileNameW {
+    size: u32,
+    owner: *mut std::ffi::c_void,
+    instance: *mut std::ffi::c_void,
+    filter: *const u16,
+    custom_filter: *mut u16,
+    max_custom_filter: u32,
+    filter_index: u32,
+    file: *mut u16,
+    max_file: u32,
+    file_title: *mut u16,
+    max_file_title: u32,
+    initial_dir: *const u16,
+    title: *const u16,
+    flags: u32,
+    file_offset: u16,
+    file_extension: u16,
+    default_extension: *const u16,
+    custom_data: isize,
+    hook: Option<unsafe extern "system" fn(*mut std::ffi::c_void, u32, usize, isize) -> usize>,
+    template_name: *const u16,
+    reserved: *mut std::ffi::c_void,
+    reserved_value: u32,
+    flags_ex: u32,
+}
+
+#[link(name = "comdlg32")]
+unsafe extern "system" {
+    fn GetSaveFileNameW(dialog: *mut OpenFileNameW) -> i32;
+    fn CommDlgExtendedError() -> u32;
+}
+
 pub fn default_data_home() -> Result<PathBuf, &'static str> {
     Ok(
         PathBuf::from(std::env::var_os("ProgramData").ok_or("Dossier ProgramData introuvable")?)
@@ -727,7 +891,58 @@ pub fn restart_with_installation(app: &AppHandle, config: &DesktopConfig) -> Res
     Ok(())
 }
 pub fn choose_export_destination() -> Result<Option<PathBuf>, String> {
-    Err("Export non encore disponible sur ce système".into())
+    use std::os::windows::ffi::OsStringExt;
+    let mut file_name = vec![0u16; 32_768];
+    let default_name: Vec<u16> = "galaxam-sauvegarde.tar\0".encode_utf16().collect();
+    file_name[..default_name.len()].copy_from_slice(&default_name);
+    let filter: Vec<u16> = "Sauvegarde GALAXAM (*.tar)\0*.tar\0Tous les fichiers (*.*)\0*.*\0\0"
+        .encode_utf16()
+        .collect();
+    let title: Vec<u16> = "Enregistrer une sauvegarde GALAXAM SIRH\0"
+        .encode_utf16()
+        .collect();
+    let extension: Vec<u16> = "tar\0".encode_utf16().collect();
+    let mut dialog = OpenFileNameW {
+        size: std::mem::size_of::<OpenFileNameW>() as u32,
+        owner: std::ptr::null_mut(),
+        instance: std::ptr::null_mut(),
+        filter: filter.as_ptr(),
+        custom_filter: std::ptr::null_mut(),
+        max_custom_filter: 0,
+        filter_index: 1,
+        file: file_name.as_mut_ptr(),
+        max_file: file_name.len() as u32,
+        file_title: std::ptr::null_mut(),
+        max_file_title: 0,
+        initial_dir: std::ptr::null(),
+        title: title.as_ptr(),
+        flags: 0x0008_0000 | 0x0000_0002 | 0x0000_0800 | 0x0000_0008,
+        file_offset: 0,
+        file_extension: 0,
+        default_extension: extension.as_ptr(),
+        custom_data: 0,
+        hook: None,
+        template_name: std::ptr::null(),
+        reserved: std::ptr::null_mut(),
+        reserved_value: 0,
+        flags_ex: 0,
+    };
+    if unsafe { GetSaveFileNameW(&mut dialog) } == 0 {
+        return if unsafe { CommDlgExtendedError() } == 0 {
+            Ok(None)
+        } else {
+            Err("Choix du fichier de sauvegarde impossible".into())
+        };
+    }
+    let length = file_name
+        .iter()
+        .position(|value| *value == 0)
+        .unwrap_or(file_name.len());
+    let destination = PathBuf::from(std::ffi::OsString::from_wide(&file_name[..length]));
+    if !destination.is_absolute() || destination.file_name().is_none() {
+        return Err("Chemin de sauvegarde invalide".into());
+    }
+    Ok(Some(destination))
 }
 pub fn reveal_backups(backups: &Path) -> Result<(), String> {
     Command::new("explorer.exe")

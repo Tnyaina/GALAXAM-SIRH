@@ -33,5 +33,19 @@ pub fn disable(home: &Path) -> Result<(), String> {
 }
 
 pub fn backup_agent_active(_home: &Path) -> bool {
-    false
+    use windows_service::service::{ServiceAccess, ServiceState};
+    use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
+    let Ok(manager) = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
+    else {
+        return false;
+    };
+    let Ok(service) = manager.open_service(
+        crate::platform::windows_service_runtime::SERVICE_NAME,
+        ServiceAccess::QUERY_STATUS,
+    ) else {
+        return false;
+    };
+    service
+        .query_status()
+        .is_ok_and(|status| status.current_state == ServiceState::Running)
 }

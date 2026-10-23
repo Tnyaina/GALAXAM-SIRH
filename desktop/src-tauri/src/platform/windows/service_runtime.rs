@@ -232,6 +232,9 @@ fn supervise(
         ))
         .map_err(|problem| problem.to_string())?;
 
+    run_due_automatic_backup(&config.home, &resources, config.postgres_port);
+    let mut next_backup_check = Instant::now() + Duration::from_secs(3_600);
+
     loop {
         match received.recv_timeout(Duration::from_secs(2)) {
             Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => {
@@ -245,6 +248,10 @@ fn supervise(
                 break;
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
+                if Instant::now() >= next_backup_check {
+                    run_due_automatic_backup(&config.home, &resources, config.postgres_port);
+                    next_backup_check = Instant::now() + Duration::from_secs(3_600);
+                }
                 if let Some(exit) = backend.try_wait().map_err(|problem| problem.to_string())? {
                     postgres.stop();
                     return Err(format!("Spring Boot s’est arrêté avec le code {exit}"));
@@ -256,6 +263,17 @@ fn supervise(
     shutdown_backend(&mut backend, api_port, &shutdown_token);
     postgres.stop();
     Ok(())
+}
+
+fn run_due_automatic_backup(home: &Path, resources: &Path, port: u16) {
+    if let Err(problem) = crate::backup::create_automatic_from_resources(resources, home, port) {
+        let path = home.join("logs/backup.log");
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(file, "sauvegarde automatique échouée : {problem}");
+        }
+        let _ = fs::write(home.join("config/backup-last-error"), &problem);
+        record_service_diagnostic(home, "Automatic backup failed; see backup.log");
+    }
 }
 
 pub(crate) fn record_service_diagnostic(home: &Path, message: &str) {

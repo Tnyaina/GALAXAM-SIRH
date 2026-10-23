@@ -48,8 +48,13 @@ pub(crate) async fn create_local_backup(
             .backup_operation
             .try_lock()
             .map_err(|_| "Une sauvegarde est déjà en cours".to_string())?;
-        let path = backup::create(&app, &home, port)?;
-        let bytes = backup::export_copy(&path, &destination)?;
+        #[cfg(windows)]
+        let bytes = crate::platform::elevated_backup_export(&home, port, &destination)?;
+        #[cfg(not(windows))]
+        let bytes = {
+            let path = backup::create(&app, &home, port)?;
+            backup::export_copy(&path, &destination)?
+        };
         Ok(Some(BackupResult {
             path: destination.to_string_lossy().into_owned(),
             bytes,
@@ -115,32 +120,52 @@ pub(crate) async fn get_local_backup_status(
     }
     authorize_backup_admin(&upstream, &token).await?;
     tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(not(windows))]
         let backups = home.join("backups");
-        let last_success_unix_seconds =
-            std::fs::read_to_string(backups.join(".automatic-last-success"))
+        #[cfg(windows)]
+        let (last_success_unix_seconds, last_archive, last_error) = {
+            let config = home.join("config");
+            let last_success = std::fs::read_to_string(config.join("backup-last-success"))
                 .ok()
                 .and_then(|value| value.trim().parse::<u64>().ok());
-        let last_archive = std::fs::read_dir(&backups)
-            .ok()
-            .into_iter()
-            .flatten()
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                let name = entry.file_name().into_string().ok()?;
-                if name.starts_with("galaxam-auto-")
-                    && name.ends_with(".tar")
-                    && entry.file_type().ok()?.is_file()
-                {
-                    Some(name)
-                } else {
-                    None
-                }
-            })
-            .max();
-        let last_error = std::fs::read_to_string(home.join("logs/backup.log"))
-            .ok()
-            .and_then(|log| log.lines().last().map(str::to_owned))
-            .filter(|line| line.contains("échouée"));
+            let last_archive = std::fs::read_to_string(config.join("backup-last-archive"))
+                .ok()
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty());
+            let last_error = std::fs::read_to_string(config.join("backup-last-error"))
+                .ok()
+                .map(|value| format!("sauvegarde automatique échouée : {value}"));
+            (last_success, last_archive, last_error)
+        };
+        #[cfg(not(windows))]
+        let (last_success_unix_seconds, last_archive, last_error) = {
+            let last_success_unix_seconds =
+                std::fs::read_to_string(backups.join(".automatic-last-success"))
+                    .ok()
+                    .and_then(|value| value.trim().parse::<u64>().ok());
+            let last_archive = std::fs::read_dir(&backups)
+                .ok()
+                .into_iter()
+                .flatten()
+                .filter_map(Result::ok)
+                .filter_map(|entry| {
+                    let name = entry.file_name().into_string().ok()?;
+                    if name.starts_with("galaxam-auto-")
+                        && name.ends_with(".tar")
+                        && entry.file_type().ok()?.is_file()
+                    {
+                        Some(name)
+                    } else {
+                        None
+                    }
+                })
+                .max();
+            let last_error = std::fs::read_to_string(home.join("logs/backup.log"))
+                .ok()
+                .and_then(|log| log.lines().last().map(str::to_owned))
+                .filter(|line| line.contains("échouée"));
+            (last_success_unix_seconds, last_archive, last_error)
+        };
         Ok(BackupAutomationStatus {
             active: service::backup_agent_active(&home),
             last_success_unix_seconds,

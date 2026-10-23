@@ -113,6 +113,29 @@ jobs:
             throw 'Installed service did not make the local API ready'
           }
           if (-not (Test-Path (Join-Path $dataHome 'data\postgresql\config\installation.ready'))) { throw 'Service did not initialize PostgreSQL' }
+          $tar = Join-Path $env:SystemRoot 'System32\tar.exe'
+          $backupDirectory = Join-Path $dataHome 'backups'
+          $automaticBackup = $null
+          for ($attempt = 0; $attempt -lt 90; $attempt++) {
+            $automaticBackup = Get-ChildItem -Path $backupDirectory -File -Filter 'galaxam-auto-*.tar' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($automaticBackup) { break }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $automaticBackup) {
+            $backupLog = Join-Path $dataHome 'logs\backup.log'
+            if (Test-Path $backupLog) { Get-Content -Path $backupLog -Tail 60 }
+            throw 'Windows service did not create its automatic backup'
+          }
+          $autoContents = & $tar -tf $automaticBackup.FullName
+          if ($LASTEXITCODE -ne 0 -or $autoContents -notcontains 'database.dump' -or $autoContents -notcontains 'manifest.json') { throw 'Automatic backup archive is invalid' }
+          $autoExtract = Join-Path $env:RUNNER_TEMP 'auto-backup-inspection'
+          New-Item -ItemType Directory -Force -Path $autoExtract | Out-Null
+          & $tar -xf $automaticBackup.FullName -C $autoExtract
+          if ($LASTEXITCODE -ne 0) { throw 'Automatic backup archive could not be extracted' }
+          & (Join-Path $defaultInstall 'postgresql\bin\pg_restore.exe') -l (Join-Path $autoExtract 'database.dump') *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Automatic backup database dump is invalid' }
+          $manifest = Get-Content (Join-Path $autoExtract 'manifest.json') -Raw | ConvertFrom-Json
+          if ($manifest.format -ne 'galaxam-local-backup-v1') { throw 'Automatic backup manifest is invalid' }
           $defaultExe = Join-Path $defaultInstall 'galaxam-sirh-desktop.exe'
           $userTokenDir = Join-Path $env:LOCALAPPDATA 'GALAXAM SIRH'
           New-Item -ItemType Directory -Force -Path $userTokenDir | Out-Null
@@ -134,6 +157,24 @@ jobs:
           $token = Get-Content $bootstrapToken -Raw
           if ($token.Trim().Length -ne 64) { throw 'Bootstrap helper returned an invalid token' }
           Remove-Item $bootstrapToken -Force
+          $exportDirectory = Join-Path $env:RUNNER_TEMP 'Export sauvegarde été'
+          New-Item -ItemType Directory -Force -Path $exportDirectory | Out-Null
+          $manualExport = Join-Path $exportDirectory 'Copie locale été.tar'
+          $backupResult = Join-Path $userTokenDir 'backup.result'
+          $backupArguments = @(
+            '--galaxam-backup-helper'
+            ('"--galaxam-data-home={0}"' -f $dataHome)
+            '"--galaxam-pg-port=15432"'
+            ('"--galaxam-backup-output={0}"' -f $manualExport)
+            ('"--galaxam-backup-result={0}"' -f $backupResult)
+          ) -join ' '
+          $backupProcess = Start-Process -FilePath $defaultExe -ArgumentList $backupArguments -PassThru -Wait
+          if ($backupProcess.ExitCode -ne 0) { throw "Manual Windows backup helper failed: $($backupProcess.ExitCode)" }
+          $backupOutcome = Get-Content $backupResult -Raw
+          Remove-Item $backupResult -Force
+          if ($backupOutcome -notmatch '^OK:[0-9]+$' -or -not (Test-Path $manualExport)) { throw "Manual Windows backup export failed: $backupOutcome" }
+          & $tar -tf $manualExport *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Manual exported archive is invalid' }
           $secretFile = Join-Path $dataHome 'data\postgresql\config\installation.secrets'
           $secretAcl = (& icacls.exe $secretFile) -join "`n"
           if ($secretAcl -match 'S-1-5-32-545|BUILTIN\\Users') { throw 'Standard users can read database secrets' }
