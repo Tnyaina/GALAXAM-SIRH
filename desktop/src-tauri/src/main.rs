@@ -99,6 +99,7 @@ fn main() {
             security::admin::create_initial_admin,
             connection::commands::stop_local_services,
             backup::commands::create_local_backup,
+            backup::commands::restore_local_backup,
             backup::commands::reveal_local_backups,
             backup::commands::get_local_backup_status
         ])

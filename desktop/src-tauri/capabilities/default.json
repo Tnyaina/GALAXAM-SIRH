@@ -16,6 +16,7 @@
     "allow-create-initial-admin",
     "allow-stop-local-services",
     "allow-create-local-backup",
+    "allow-restore-local-backup",
     "allow-reveal-local-backups",
     "allow-get-local-backup-status"
   ]

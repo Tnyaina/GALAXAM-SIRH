@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager};
 const BOOTSTRAP_HELPER_ARG: &str = "--galaxam-bootstrap-helper";
 const BOOTSTRAP_OUTPUT_ARG: &str = "--galaxam-token-output=";
 const BACKUP_HELPER_ARG: &str = "--galaxam-backup-helper";
+const RESTORE_HELPER_ARG: &str = "--galaxam-restore-helper";
 static SERVICE_CHILD_JOB: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
 pub struct ServiceChildJob(windows_sys::Win32::Foundation::HANDLE);
@@ -83,13 +84,19 @@ pub fn assign_service_child(child: &std::process::Child) -> Result<(), String> {
 }
 
 pub fn is_bootstrap_helper() -> bool {
-    std::env::args_os()
-        .any(|argument| argument == BOOTSTRAP_HELPER_ARG || argument == BACKUP_HELPER_ARG)
+    std::env::args_os().any(|argument| {
+        argument == BOOTSTRAP_HELPER_ARG
+            || argument == BACKUP_HELPER_ARG
+            || argument == RESTORE_HELPER_ARG
+    })
 }
 
 pub fn run_bootstrap_helper() -> Result<(), String> {
     if std::env::args_os().any(|argument| argument == BACKUP_HELPER_ARG) {
         return run_backup_helper();
+    }
+    if std::env::args_os().any(|argument| argument == RESTORE_HELPER_ARG) {
+        return run_restore_helper();
     }
     if let Some(control) = std::env::args_os().find_map(|argument| {
         argument
@@ -184,6 +191,127 @@ fn run_backup_helper() -> Result<(), String> {
     };
     write_elevated_result(&result_path, &payload)?;
     result.map(|_| ())
+}
+
+fn run_restore_helper() -> Result<(), String> {
+    let result_path = argument_path("--galaxam-restore-result=")
+        .ok_or("Fichier résultat de restauration absent")?;
+    validate_user_result_path(&result_path, "restore.result")?;
+    let source =
+        argument_path("--galaxam-restore-input=").ok_or("Archive de restauration absente")?;
+    if !source.is_absolute()
+        || !source.is_file()
+        || !source
+            .extension()
+            .is_some_and(|value| value.eq_ignore_ascii_case("tar"))
+    {
+        return Err("Archive de restauration invalide".into());
+    }
+    let home = default_data_home().map_err(str::to_string)?;
+    let port = std::env::args_os()
+        .find_map(|arg| {
+            arg.to_string_lossy()
+                .strip_prefix("--galaxam-pg-port=")
+                .and_then(|value| value.parse::<u16>().ok())
+        })
+        .filter(|value| *value != 0)
+        .unwrap_or(15432);
+    let result = (|| {
+        let resources = std::env::current_exe()
+            .map_err(|_| "Exécutable GALAXAM introuvable".to_string())?
+            .parent()
+            .ok_or("Ressources GALAXAM introuvables")?
+            .to_path_buf();
+        let work = home
+            .join("backups")
+            .join(format!(".restore-work-{}", std::process::id()));
+        if work.exists() {
+            return Err("Une opération de restauration précédente doit être vérifiée".into());
+        }
+        std::fs::create_dir_all(&work)
+            .map_err(|_| "Dossier temporaire de restauration inaccessible".to_string())?;
+        let incoming = work.join("incoming");
+        let safety = work.join("safety");
+        let outcome = (|| {
+            let rollback_archive =
+                crate::backup::archive::create_from_resources(&resources, &home, port)?;
+            let stable_source = work.join("import.tar");
+            crate::backup::archive::export_copy(&source, &stable_source)?;
+            let incoming_has_docs =
+                crate::backup::archive::extract_for_restore(&stable_source, &incoming)?;
+            let _safety_has_docs =
+                crate::backup::archive::extract_for_restore(&rollback_archive, &safety)?;
+            run_service_control("stop")?;
+            let pg = resources.join("postgresql/bin/pg_ctl.exe");
+            let cluster = home.join("data/postgresql/cluster");
+            let config = home.join("data/postgresql/config/postgresql.conf");
+            let log = home.join("data/postgresql/logs/postgres.log");
+            let options = format!("-c config_file=\"{}\"", config.display());
+            let started = Command::new(&pg)
+                .args(["-D"])
+                .arg(&cluster)
+                .args(["-l"])
+                .arg(&log)
+                .args(["-o", &options, "-w", "-t", "30", "start"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .map_err(|_| "Démarrage temporaire de PostgreSQL impossible".to_string())?;
+            if !started.success() {
+                let _ = run_service_control("start");
+                return Err("Démarrage temporaire de PostgreSQL impossible".into());
+            }
+            let restored = crate::backup::archive::apply_database_restore(
+                &resources,
+                &home,
+                port,
+                &incoming.join("database.dump"),
+            );
+            let restored = match restored {
+                Ok(()) => {
+                    crate::backup::archive::replace_documents(&home, &incoming, incoming_has_docs)
+                }
+                Err(problem) => Err(problem),
+            };
+            if let Err(original) = &restored {
+                if let Err(rollback) = crate::backup::archive::apply_database_restore(
+                    &resources,
+                    &home,
+                    port,
+                    &safety.join("database.dump"),
+                ) {
+                    let _ = Command::new(&pg)
+                        .args(["-D"])
+                        .arg(&cluster)
+                        .args(["-m", "fast", "-w", "-t", "30", "stop"])
+                        .status();
+                    return Err(format!("Restauration échouée ({original}) et retour arrière impossible ({rollback}). Les services restent arrêtés. Sauvegarde de sécurité : {}", rollback_archive.display()));
+                }
+            }
+            let stopped = Command::new(&pg)
+                .args(["-D"])
+                .arg(&cluster)
+                .args(["-m", "fast", "-w", "-t", "30", "stop"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+            if stopped.map_or(true, |status| !status.success()) {
+                return Err("Arrêt temporaire de PostgreSQL après restauration impossible. Le service reste arrêté pour éviter de démarrer Spring Boot sur un état incertain.".into());
+            }
+            run_service_control("start")?;
+            restored
+        })();
+        let _ = std::fs::remove_dir_all(&work);
+        outcome
+    })();
+    let payload = result
+        .as_ref()
+        .map(|_| "OK".to_string())
+        .unwrap_or_else(|problem| format!("ERROR:{problem}"));
+    write_elevated_result(&result_path, &payload)?;
+    result
 }
 
 fn argument_path(prefix: &str) -> Option<PathBuf> {
@@ -334,6 +462,85 @@ pub fn elevated_backup_export(home: &Path, port: u16, destination: &Path) -> Res
         std::thread::sleep(std::time::Duration::from_millis(250));
     }
     Err("La sauvegarde n'a pas abouti dans le délai imparti".into())
+}
+
+pub fn restore_local_backup(
+    _app: &AppHandle,
+    home: &Path,
+    _api_port: u16,
+    port: u16,
+    archive: &Path,
+) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    if home != default_data_home().map_err(str::to_string)?
+        || !archive.is_absolute()
+        || !archive.is_file()
+        || !archive
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tar"))
+    {
+        return Err("Archive de restauration invalide".into());
+    }
+    let local_app_data = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .ok_or("Profil utilisateur Windows indisponible")?;
+    let result_path = local_app_data.join("GALAXAM SIRH/restore.result");
+    validate_user_result_path(&result_path, "restore.result")?;
+    if result_path.exists() {
+        std::fs::remove_file(&result_path)
+            .map_err(|_| "Ancien résultat de restauration impossible à supprimer".to_string())?;
+    }
+    let executable =
+        std::env::current_exe().map_err(|_| "Exécutable GALAXAM introuvable".to_string())?;
+    let arguments = [
+        RESTORE_HELPER_ARG.to_string(),
+        format!("--galaxam-pg-port={port}"),
+        format!("--galaxam-restore-input={}", archive.display()),
+        format!("--galaxam-restore-result={}", result_path.display()),
+    ];
+    let parameters = arguments
+        .iter()
+        .map(|argument| quote_windows_argument(argument))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let verb: Vec<u16> = "runas\0".encode_utf16().collect();
+    let file: Vec<u16> = executable
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    let parameters: Vec<u16> = parameters.encode_utf16().chain(Some(0)).collect();
+    let operation = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            file.as_ptr(),
+            parameters.as_ptr(),
+            std::ptr::null(),
+            0,
+        )
+    };
+    if operation as isize <= 32 {
+        return Err("Autorisation administrateur refusée ou impossible".into());
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
+    while std::time::Instant::now() < deadline {
+        if result_path.is_file() {
+            let result = std::fs::read_to_string(&result_path)
+                .map_err(|_| "Résultat de restauration illisible".to_string())?;
+            let _ = std::fs::remove_file(&result_path);
+            return if result == "OK" {
+                Ok(())
+            } else {
+                Err(result
+                    .strip_prefix("ERROR:")
+                    .unwrap_or("Restauration échouée")
+                    .to_string())
+            };
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+    Err("La restauration n’a pas abouti dans le délai imparti".into())
 }
 
 pub fn ensure_local_api_ready(port: u16) -> Result<(), String> {
@@ -854,6 +1061,7 @@ struct OpenFileNameW {
 #[link(name = "comdlg32")]
 unsafe extern "system" {
     fn GetSaveFileNameW(dialog: *mut OpenFileNameW) -> i32;
+    fn GetOpenFileNameW(dialog: *mut OpenFileNameW) -> i32;
     fn CommDlgExtendedError() -> u32;
 }
 
@@ -943,6 +1151,62 @@ pub fn choose_export_destination() -> Result<Option<PathBuf>, String> {
         return Err("Chemin de sauvegarde invalide".into());
     }
     Ok(Some(destination))
+}
+pub fn choose_restore_source() -> Result<Option<PathBuf>, String> {
+    use std::os::windows::ffi::OsStringExt;
+    let mut file_name = vec![0u16; 32_768];
+    let filter: Vec<u16> = "Sauvegarde GALAXAM (*.tar)\0*.tar\0Tous les fichiers (*.*)\0*.*\0\0"
+        .encode_utf16()
+        .collect();
+    let title: Vec<u16> = "Restaurer une sauvegarde GALAXAM SIRH\0"
+        .encode_utf16()
+        .collect();
+    let mut dialog = OpenFileNameW {
+        size: std::mem::size_of::<OpenFileNameW>() as u32,
+        owner: std::ptr::null_mut(),
+        instance: std::ptr::null_mut(),
+        filter: filter.as_ptr(),
+        custom_filter: std::ptr::null_mut(),
+        max_custom_filter: 0,
+        filter_index: 1,
+        file: file_name.as_mut_ptr(),
+        max_file: file_name.len() as u32,
+        file_title: std::ptr::null_mut(),
+        max_file_title: 0,
+        initial_dir: std::ptr::null(),
+        title: title.as_ptr(),
+        flags: 0x0000_1000 | 0x0000_0800 | 0x0000_0008,
+        file_offset: 0,
+        file_extension: 0,
+        default_extension: std::ptr::null(),
+        custom_data: 0,
+        hook: None,
+        template_name: std::ptr::null(),
+        reserved: std::ptr::null_mut(),
+        reserved_value: 0,
+        flags_ex: 0,
+    };
+    if unsafe { GetOpenFileNameW(&mut dialog) } == 0 {
+        return if unsafe { CommDlgExtendedError() } == 0 {
+            Ok(None)
+        } else {
+            Err("Choix de l’archive impossible".into())
+        };
+    }
+    let length = file_name
+        .iter()
+        .position(|value| *value == 0)
+        .unwrap_or(file_name.len());
+    let path = PathBuf::from(std::ffi::OsString::from_wide(&file_name[..length]));
+    if !path.is_absolute()
+        || !path.is_file()
+        || !path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tar"))
+    {
+        return Err("Archive de sauvegarde invalide".into());
+    }
+    Ok(Some(path))
 }
 pub fn reveal_backups(backups: &Path) -> Result<(), String> {
     Command::new("explorer.exe")

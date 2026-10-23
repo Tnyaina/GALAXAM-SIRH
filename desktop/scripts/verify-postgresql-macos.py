@@ -152,7 +152,7 @@ def main():
             run([str(BIN / "pg_dump"), "-Fc", "-h", str(socket_dir), "-p", str(port),
                  "-U", "galaxam_app", "-f", str(dump), "galaxam_test"], env=pg_env)
             psql(*env_admin, sql="CREATE DATABASE galaxam_restore OWNER galaxam_app")
-            run([str(BIN / "pg_restore"), "--no-owner", "--exit-on-error", "-h", str(socket_dir),
+            run([str(BIN / "pg_restore"), "--clean", "--if-exists", "--no-owner", "--no-acl", "--exit-on-error", "-h", str(socket_dir),
                  "-p", str(port), "-U", "galaxam_app", "-d", "galaxam_restore", str(dump)], env=pg_env)
             restored = psql(socket_dir, port, "galaxam_app", app_password, "galaxam_restore",
                             sql="SELECT label FROM phase5a_marker WHERE id=1")

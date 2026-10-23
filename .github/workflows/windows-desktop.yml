@@ -176,6 +176,42 @@ jobs:
           & $tar -tf $manualExport *> $null
           if ($LASTEXITCODE -ne 0) { throw 'Manual exported archive is invalid' }
           $secretFile = Join-Path $dataHome 'data\postgresql\config\installation.secrets'
+          $secrets = Get-Content $secretFile
+          $appPassword = ($secrets | Where-Object { $_.StartsWith('app=') } | Select-Object -First 1).Substring(4)
+          if (-not $appPassword) { throw 'Database application password is missing for restore verification' }
+          $env:PGPASSWORD = $appPassword
+          $psql = Join-Path $defaultInstall 'postgresql\bin\psql.exe'
+          & $psql -X -w -h 127.0.0.1 -p 15432 -U galaxam_app -d sirh_galaxam -c "CREATE TABLE IF NOT EXISTS public.galaxam_restore_ci_probe (id integer PRIMARY KEY, value text NOT NULL); INSERT INTO public.galaxam_restore_ci_probe VALUES (1, 'snapshot') ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value;" *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Could not seed the restore verification marker' }
+          & $psql -X -w -h 127.0.0.1 -p 15432 -U galaxam_app -d sirh_galaxam -c "UPDATE public.galaxam_restore_ci_probe SET value = 'changed' WHERE id = 1;" *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Could not mutate the restore verification marker' }
+          $restoreResult = Join-Path $userTokenDir 'restore.result'
+          $restoreArguments = @(
+            '--galaxam-restore-helper'
+            '"--galaxam-pg-port=15432"'
+            ('"--galaxam-restore-input={0}"' -f $manualExport)
+            ('"--galaxam-restore-result={0}"' -f $restoreResult)
+          ) -join ' '
+          $restoreProcess = Start-Process -FilePath $defaultExe -ArgumentList $restoreArguments -PassThru -Wait
+          if ($restoreProcess.ExitCode -ne 0) { throw "Windows restore helper failed: $(Get-Content $restoreResult -Raw -ErrorAction SilentlyContinue)" }
+          $restoreOutcome = Get-Content $restoreResult -Raw
+          Remove-Item $restoreResult -Force
+          if ($restoreOutcome -ne 'OK') { throw "Windows restore returned an unexpected result: $restoreOutcome" }
+          $probeOutput = Join-Path $env:RUNNER_TEMP 'restore-probe.txt'
+          & $psql -X -A -t -w -h 127.0.0.1 -p 15432 -U galaxam_app -d sirh_galaxam -c 'SELECT value FROM public.galaxam_restore_ci_probe WHERE id = 1;' *> $probeOutput
+          if ($LASTEXITCODE -ne 0 -or (Get-Content $probeOutput -join '').Trim() -ne 'snapshot') { throw 'Restored database does not contain the saved verification marker' }
+          $restoreApiReady = $false
+          for ($attempt = 0; $attempt -lt 240; $attempt++) {
+            if ((Get-Service $serviceName).Status -eq 'Running') {
+              try {
+                $api = Invoke-WebRequest -Uri 'http://127.0.0.1:18081/api/auth/ping' -TimeoutSec 2 -UseBasicParsing
+                if ($api.StatusCode -eq 200) { $restoreApiReady = $true; break }
+              } catch { }
+            }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $restoreApiReady) { throw 'Local API did not return after database restoration' }
+          Remove-Item Env:PGPASSWORD
           $secretAcl = (& icacls.exe $secretFile) -join "`n"
           if ($secretAcl -match 'S-1-5-32-545|BUILTIN\\Users') { throw 'Standard users can read database secrets' }
           & sc.exe stop $serviceName

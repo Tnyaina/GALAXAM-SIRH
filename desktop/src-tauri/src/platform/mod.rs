@@ -21,19 +21,20 @@ pub mod windows_service_runtime;
 
 #[cfg(target_os = "macos")]
 pub use macos::{
-    choose_export_destination, default_data_home, fallback_data_home, restart_with_installation,
-    reveal_backups,
+    choose_export_destination, choose_restore_source, default_data_home, fallback_data_home,
+    restart_with_installation, restore_local_backup, reveal_backups,
 };
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub use unsupported::{
-    choose_export_destination, default_data_home, fallback_data_home, restart_with_installation,
-    reveal_backups,
+    choose_export_destination, choose_restore_source, default_data_home, fallback_data_home,
+    restart_with_installation, reveal_backups,
 };
 #[cfg(target_os = "windows")]
 pub use windows::{
-    assign_service_child, choose_export_destination, create_service_child_job, default_data_home,
-    disable_windows_service, elevated_backup_export, elevated_bootstrap_token,
-    ensure_local_api_ready, ensure_windows_service_ready, fallback_data_home, install_service,
-    is_bootstrap_helper, remove_service, restart_with_installation, reveal_backups,
-    run_bootstrap_helper, stop_windows_service,
+    assign_service_child, choose_export_destination, choose_restore_source,
+    create_service_child_job, default_data_home, disable_windows_service, elevated_backup_export,
+    elevated_bootstrap_token, ensure_local_api_ready, ensure_windows_service_ready,
+    fallback_data_home, install_service, is_bootstrap_helper, remove_service,
+    restart_with_installation, restore_local_backup, reveal_backups, run_bootstrap_helper,
+    stop_windows_service,
 };

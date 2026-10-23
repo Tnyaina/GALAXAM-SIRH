@@ -9,6 +9,7 @@ fn main() {
             "create_initial_admin",
             "stop_local_services",
             "create_local_backup",
+            "restore_local_backup",
             "reveal_local_backups",
             "get_local_backup_status",
         ]),

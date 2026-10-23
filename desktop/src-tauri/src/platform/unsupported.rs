@@ -19,6 +19,18 @@ pub fn restart_with_installation(_app: &AppHandle, _config: &DesktopConfig) -> R
 pub fn choose_export_destination() -> Result<Option<PathBuf>, String> {
     Err("Export non encore disponible sur ce système".into())
 }
+pub fn choose_restore_source() -> Result<Option<PathBuf>, String> {
+    Err("Restauration non disponible sur ce système".into())
+}
 pub fn reveal_backups(_backups: &Path) -> Result<(), String> {
     Err("Ouverture des sauvegardes non encore disponible sur ce système".into())
+}
+pub fn restore_local_backup(
+    _app: &AppHandle,
+    _home: &Path,
+    _api_port: u16,
+    _pg_port: u16,
+    _archive: &Path,
+) -> Result<(), String> {
+    Err("Restauration non disponible sur ce système".into())
 }

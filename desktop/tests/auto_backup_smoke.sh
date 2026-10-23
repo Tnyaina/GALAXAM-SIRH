@@ -46,6 +46,12 @@ ARCHIVE=$(/usr/bin/find "$HOME_DIR/backups" -name 'galaxam-auto-*.tar' -type f -
 /bin/sh "$SCRIPT" "$HOME_DIR" "$VERSION_DIR" "$ID" 15432
 [ "$(/usr/bin/find "$HOME_DIR/backups" -name 'galaxam-auto-*.tar' -type f | /usr/bin/wc -l | /usr/bin/tr -d ' ')" = 1 ]
 /usr/bin/printf '%s\n' 0 > "$HOME_DIR/backups/.automatic-last-success"
+if [ -L "$HOME_DIR/documents/link" ]; then /bin/rm "$HOME_DIR/documents/link"; fi
+/bin/ln -s /etc/passwd "$HOME_DIR/documents/link"
+if /bin/sh "$SCRIPT" "$HOME_DIR" "$VERSION_DIR" "$ID" 15432; then
+  /bin/echo 'expected special document file rejection' >&2; exit 1
+fi
+/bin/rm "$HOME_DIR/documents/link"
 if MOCK_DUMP_FAIL=1 /bin/sh "$SCRIPT" "$HOME_DIR" "$VERSION_DIR" "$ID" 15432; then
   /bin/echo 'expected pg_dump failure' >&2; exit 1
 fi

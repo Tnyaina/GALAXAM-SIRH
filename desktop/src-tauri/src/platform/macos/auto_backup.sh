@@ -55,6 +55,8 @@ PGPASSWORD="$APP_PASS" "$PG/pg_dump" -Fc --no-owner --no-acl -h 127.0.0.1 -p "$P
 DOCUMENTS=false
 if [ -e "$HOME_DIR/documents" ]; then
   [ -d "$HOME_DIR/documents" ] && [ ! -L "$HOME_DIR/documents" ] || fail "dossier des documents invalide"
+  SPECIAL=$(/usr/bin/find "$HOME_DIR/documents" ! -type d ! -type f -print -quit)
+  [ -z "$SPECIAL" ] || fail "liens ou fichiers spéciaux non pris en charge dans documents"
   DOCUMENTS=true
 fi
 /usr/bin/printf '{"format":"galaxam-local-backup-v1","database":"sirh_galaxam","documents_included":%s,"created_unix_seconds":%s}\n' "$DOCUMENTS" "$NOW" > "$STAGING/manifest.json"

@@ -164,6 +164,9 @@ fn create_named(
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
             Err(_) => return Err("Dossier des documents inaccessible".into()),
         };
+        if include_documents {
+            ensure_regular_tree(&documents)?;
+        }
         let manifest = serde_json::json!({
             "format": "galaxam-local-backup-v1",
             "database": "sirh_galaxam",
@@ -222,6 +225,27 @@ fn create_named(
         let _ = fs::remove_file(&pending);
     }
     result
+}
+
+fn ensure_regular_tree(root: &Path) -> Result<(), String> {
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(directory) = pending.pop() {
+        for entry in
+            fs::read_dir(&directory).map_err(|_| "Dossier de documents illisible".to_string())?
+        {
+            let entry = entry.map_err(|_| "Entrée de document illisible".to_string())?;
+            let kind = entry
+                .file_type()
+                .map_err(|_| "Type de document illisible".to_string())?;
+            if kind.is_symlink() || (!kind.is_dir() && !kind.is_file()) {
+                return Err("Les sauvegardes ne prennent pas en charge les liens ou fichiers spéciaux dans documents".into());
+            }
+            if kind.is_dir() {
+                pending.push(entry.path());
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -292,6 +316,212 @@ pub fn export_copy(source: &Path, destination: &Path) -> Result<u64, String> {
     result
 }
 
+/// Extract and validate an imported archive without following links or allowing
+/// entries to escape the private staging directory.
+pub fn extract_for_restore(archive_path: &Path, staging: &Path) -> Result<bool, String> {
+    fs::create_dir(staging)
+        .map_err(|_| "Dossier temporaire de restauration impossible à créer".to_string())?;
+    private_mode(staging, 0o700)?;
+    let result = (|| {
+        let tar = tar_executable();
+        let listing = Command::new(&tar)
+            .arg("-tf")
+            .arg(archive_path)
+            .output()
+            .map_err(|_| "Outil d’archive indisponible".to_string())?;
+        if !listing.status.success() {
+            return Err("Archive de sauvegarde illisible".into());
+        }
+        let names = String::from_utf8(listing.stdout)
+            .map_err(|_| "Noms de fichiers d’archive invalides".to_string())?;
+        let mut database = false;
+        let mut manifest = false;
+        for name in names.lines() {
+            let normalized = name.trim_end_matches('/');
+            let path = Path::new(normalized);
+            if normalized.is_empty()
+                || normalized.contains('\\')
+                || path.is_absolute()
+                || path
+                    .components()
+                    .any(|part| !matches!(part, std::path::Component::Normal(_)))
+            {
+                return Err("L’archive contient un chemin non autorisé".into());
+            }
+            let parts = path
+                .components()
+                .filter_map(|part| match part {
+                    std::path::Component::Normal(value) => {
+                        Some(value.to_string_lossy().into_owned())
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            if parts == ["database.dump"] {
+                database = true;
+            } else if parts == ["manifest.json"] {
+                manifest = true;
+            } else if parts.first().map(String::as_str) != Some("documents") {
+                return Err("L’archive contient un fichier inattendu".into());
+            }
+        }
+        if !database || !manifest {
+            return Err("L’archive ne contient pas la base et son manifeste".into());
+        }
+        let verbose = Command::new(&tar)
+            .arg("-tvf")
+            .arg(archive_path)
+            .output()
+            .map_err(|_| "Vérification des types d’entrée impossible".to_string())?;
+        if !verbose.status.success()
+            || String::from_utf8_lossy(&verbose.stdout)
+                .lines()
+                .any(|line| line.starts_with('l') || line.starts_with('h'))
+        {
+            return Err(
+                "Les liens symboliques et liens physiques sont interdits dans une sauvegarde"
+                    .into(),
+            );
+        }
+        let extracted = Command::new(&tar)
+            .args(["-xf"])
+            .arg(archive_path)
+            .arg("-C")
+            .arg(staging)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|_| "Extraction temporaire de l’archive impossible".to_string())?;
+        if !extracted.success() {
+            return Err("Extraction temporaire de l’archive impossible".into());
+        }
+        let bytes = fs::read(staging.join("manifest.json"))
+            .map_err(|_| "Manifeste de sauvegarde illisible".to_string())?;
+        let value: serde_json::Value = serde_json::from_slice(&bytes)
+            .map_err(|_| "Manifeste de sauvegarde invalide".to_string())?;
+        if value.get("format").and_then(|field| field.as_str()) != Some("galaxam-local-backup-v1")
+            || value.get("database").and_then(|field| field.as_str()) != Some("sirh_galaxam")
+        {
+            return Err("Format de sauvegarde GALAXAM non reconnu".into());
+        }
+        Ok(staging.join("documents").is_dir())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_dir_all(staging);
+    }
+    result
+}
+
+fn tar_executable() -> PathBuf {
+    #[cfg(windows)]
+    {
+        std::env::var_os("SystemRoot")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+            .join("System32/tar.exe")
+    }
+    #[cfg(not(windows))]
+    {
+        PathBuf::from("/usr/bin/tar")
+    }
+}
+
+pub fn apply_database_restore(
+    resource_root: &Path,
+    home: &Path,
+    port: u16,
+    dump: &Path,
+) -> Result<(), String> {
+    let secrets = fs::read_to_string(home.join("data/postgresql/config/installation.secrets"))
+        .map_err(|_| "Secrets de la base locale illisibles".to_string())?;
+    let password = secrets
+        .lines()
+        .find_map(|line| line.strip_prefix("app="))
+        .ok_or("Secret applicatif absent")?;
+    let tools = resource_root.join("postgresql/bin");
+    #[cfg(windows)]
+    let pg_restore = tools.join("pg_restore.exe");
+    #[cfg(not(windows))]
+    let pg_restore = tools.join("pg_restore");
+    let status = Command::new(pg_restore)
+        .args([
+            "--clean",
+            "--if-exists",
+            "--no-owner",
+            "--no-acl",
+            "--exit-on-error",
+            "-h",
+            "127.0.0.1",
+            "-p",
+        ])
+        .arg(port.to_string())
+        .args(["-U", "galaxam_app", "-d", "sirh_galaxam"])
+        .arg(dump)
+        .env("PGPASSWORD", password)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|_| "Outil de restauration PostgreSQL indisponible".to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("Restauration PostgreSQL échouée".into())
+    }
+}
+
+pub fn replace_documents(
+    home: &Path,
+    staging: &Path,
+    include_documents: bool,
+) -> Result<(), String> {
+    let target = home.join("documents");
+    let current = match fs::symlink_metadata(&target) {
+        Ok(meta) if meta.file_type().is_dir() => true,
+        Ok(_) => return Err("Dossier actuel des documents invalide; remplacement refusé".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(_) => return Err("Dossier actuel des documents inaccessible".into()),
+    };
+    let replacement = staging.join("documents");
+    if include_documents && !replacement.is_dir() {
+        return Err("Documents absents de l’archive".into());
+    }
+    let old = home.join(format!("documents.restore-{}", std::process::id()));
+    if old.exists() {
+        return Err("Une restauration précédente doit être vérifiée avant de continuer".into());
+    }
+    if current {
+        fs::rename(&target, &old)
+            .map_err(|_| "Mise de côté des documents actuels impossible".to_string())?;
+    }
+    if include_documents {
+        if let Err(error) = fs::rename(&replacement, &target) {
+            if current {
+                let _ = fs::rename(&old, &target);
+            }
+            return Err(format!(
+                "Installation des documents restaurés impossible : {error}"
+            ));
+        }
+    } else if fs::create_dir(&target).is_err() {
+        if current {
+            let _ = fs::rename(&old, &target);
+        }
+        return Err("Création du dossier de documents restauré impossible".into());
+    }
+    if current && fs::remove_dir_all(&old).is_err() {
+        append_backup_log(
+            home,
+            &format!(
+                "restauration terminée; ancienne copie conservée : {}",
+                old.display()
+            ),
+        );
+    }
+    Ok(())
+}
+
 fn private_directory(path: &Path) -> Result<(), String> {
     if !path.exists() {
         fs::create_dir(path).map_err(|_| "Dossier de sauvegarde impossible à créer".to_string())?;
@@ -360,6 +590,17 @@ fn private_mode(path: &Path, mode: u32) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    fn test_root(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "galaxam-{label}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
     #[test]
     fn exported_archive_is_copied_to_selected_directory() {
         let root = std::env::temp_dir().join(format!(
@@ -378,6 +619,81 @@ mod tests {
         assert_eq!(fs::read(&destination).unwrap(), b"archive-content");
         assert!(export_copy(&source, &destination).is_err());
         assert_eq!(fs::read(&destination).unwrap(), b"archive-content");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn restore_extractor_accepts_only_a_valid_galaxam_archive() {
+        let root = test_root("restore-test");
+        let source = root.join("source");
+        fs::create_dir_all(source.join("documents")).unwrap();
+        fs::write(source.join("database.dump"), b"database").unwrap();
+        fs::write(source.join("manifest.json"), r#"{"format":"galaxam-local-backup-v1","database":"sirh_galaxam","documents_included":true}"#).unwrap();
+        fs::write(source.join("documents/file.txt"), b"document").unwrap();
+        let archive_path = root.join("backup.tar");
+        let status = Command::new(tar_executable())
+            .arg("-cf")
+            .arg(&archive_path)
+            .arg("-C")
+            .arg(&source)
+            .args(["database.dump", "manifest.json", "documents"])
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let staging = root.join("staging");
+        assert!(extract_for_restore(&archive_path, &staging).unwrap());
+        assert_eq!(
+            fs::read(staging.join("documents/file.txt")).unwrap(),
+            b"document"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn restore_extractor_rejects_symlinks() {
+        use std::os::unix::fs::symlink;
+        let root = test_root("restore-link-test");
+        let source = root.join("source");
+        fs::create_dir_all(source.join("documents")).unwrap();
+        fs::write(source.join("database.dump"), b"database").unwrap();
+        fs::write(
+            source.join("manifest.json"),
+            r#"{"format":"galaxam-local-backup-v1","database":"sirh_galaxam"}"#,
+        )
+        .unwrap();
+        symlink("/etc/passwd", source.join("documents/link")).unwrap();
+        let archive_path = root.join("backup.tar");
+        let status = Command::new(tar_executable())
+            .arg("-cf")
+            .arg(&archive_path)
+            .arg("-C")
+            .arg(&source)
+            .args(["database.dump", "manifest.json", "documents"])
+            .status()
+            .unwrap();
+        assert!(status.success());
+        assert!(extract_for_restore(&archive_path, &root.join("staging")).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn restore_replaces_documents_as_a_directory_unit() {
+        let root = test_root("restore-documents-test");
+        let home = root.join("home");
+        let staging = root.join("staging");
+        fs::create_dir_all(home.join("documents")).unwrap();
+        fs::create_dir_all(staging.join("documents")).unwrap();
+        fs::write(home.join("documents/old.txt"), b"old").unwrap();
+        fs::write(staging.join("documents/new.txt"), b"new").unwrap();
+        replace_documents(&home, &staging, true).unwrap();
+        assert!(!home.join("documents/old.txt").exists());
+        assert_eq!(fs::read(home.join("documents/new.txt")).unwrap(), b"new");
+        replace_documents(&home, &staging, false).unwrap();
+        assert!(fs::read_dir(home.join("documents"))
+            .unwrap()
+            .next()
+            .is_none());
         fs::remove_dir_all(root).unwrap();
     }
 }

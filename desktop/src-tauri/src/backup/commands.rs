@@ -64,6 +64,60 @@ pub(crate) async fn create_local_backup(
     .map_err(|_| "Sauvegarde interrompue".to_string())?
 }
 
+#[tauri::command]
+pub(crate) async fn restore_local_backup(
+    app: AppHandle,
+    token: String,
+) -> Result<Option<String>, String> {
+    let state = app.state::<DesktopRuntime>();
+    let (home, port, api_port, upstream, embedded) = {
+        let config = state
+            .config
+            .lock()
+            .map_err(|_| "Configuration desktop indisponible")?;
+        (
+            config.home.clone(),
+            config.postgres_port,
+            config.local_port.unwrap_or(0),
+            config.api_upstream.clone(),
+            config.embedded_postgres,
+        )
+    };
+    if !embedded || api_port == 0 {
+        return Err(
+            "Restauration disponible uniquement quand les services locaux sont actifs".into(),
+        );
+    }
+    let status = state
+        .status
+        .lock()
+        .map_err(|_| "État desktop indisponible")?
+        .clone();
+    if status.mode != "local" || status.starting || status.startup_error.is_some() {
+        return Err("La base locale doit être disponible pour la restauration".into());
+    }
+    authorize_backup_admin(&upstream, &token).await?;
+    let Some(archive) =
+        tauri::async_runtime::spawn_blocking(crate::platform::choose_restore_source)
+            .await
+            .map_err(|_| "Sélection de l’archive interrompue".to_string())??
+    else {
+        return Ok(None);
+    };
+    let app_for_restore = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app_for_restore.state::<DesktopRuntime>();
+        let _operation = state
+            .backup_operation
+            .try_lock()
+            .map_err(|_| "Une opération sur les sauvegardes est déjà en cours".to_string())?;
+        crate::platform::restore_local_backup(&app_for_restore, &home, api_port, port, &archive)?;
+        Ok(Some(archive.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|_| "Restauration interrompue".to_string())?
+}
+
 async fn authorize_backup_admin(upstream: &str, token: &str) -> Result<(), String> {
     if token.is_empty() {
         return Err("Session administrateur requise".into());
