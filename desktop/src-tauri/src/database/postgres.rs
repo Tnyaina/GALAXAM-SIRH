@@ -34,6 +34,42 @@ fn pg_binary(bin: &Path, name: &str) -> PathBuf {
     }
 }
 
+fn configure_pg_environment(command: &mut Command, bin: &Path) {
+    command.env_clear();
+    #[cfg(unix)]
+    {
+        command.env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
+        let _ = bin;
+    }
+    #[cfg(windows)]
+    {
+        let system_root = std::env::var_os("SystemRoot")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+        let system32 = system_root.join("System32");
+        let path = std::env::join_paths([bin, system32.as_path(), system_root.as_path()]);
+        command.env("PATH", path.unwrap_or_else(|_| system32.into_os_string()));
+        for variable in [
+            "SystemRoot",
+            "WINDIR",
+            "SystemDrive",
+            "ComSpec",
+            "PATHEXT",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "APPDATA",
+            "LOCALAPPDATA",
+        ] {
+            if let Some(value) = std::env::var_os(variable) {
+                command.env(variable, value);
+            }
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    let _ = bin;
+}
+
 struct PgPaths {
     bin: PathBuf,
     schemas: PathBuf,
@@ -81,11 +117,27 @@ impl PostgresProcess {
         app: &AppHandle,
         config: &DesktopConfig,
     ) -> Result<PostgresStart, &'static str> {
+        if cfg!(target_os = "windows") {
+            return Err("PostgreSQL local doit être démarré par le service Windows");
+        }
+        let resources = crate::app::resources::resource_dir(app)
+            .map_err(|_| "Répertoire des ressources PostgreSQL introuvable")?;
+        self.start_with_resources(&resources, config, |stage| {
+            let _ = app.emit("setup-progress", stage);
+        })
+    }
+
+    pub(crate) fn start_with_resources(
+        &self,
+        resources: &Path,
+        config: &DesktopConfig,
+        progress: impl Fn(&str),
+    ) -> Result<PostgresStart, &'static str> {
         let _operation = self
             .operation
             .lock()
             .map_err(|_| "Gestionnaire PostgreSQL indisponible")?;
-        if !cfg!(target_os = "macos") {
+        if !cfg!(any(target_os = "macos", target_os = "windows")) {
             return Err("PostgreSQL embarqué non disponible sur cette plateforme");
         }
         if self
@@ -108,8 +160,6 @@ impl PostgresProcess {
         }
         let reservation = TcpListener::bind(("127.0.0.1", config.postgres_port))
             .map_err(|_| "Port PostgreSQL occupé ; aucune base existante ne sera utilisée")?;
-        let resources = crate::app::resources::resource_dir(app)
-            .map_err(|_| "Répertoire des ressources PostgreSQL introuvable")?;
         let bin = resources.join("postgresql/bin");
         let schemas = resources.join("postgresql/schema");
         for name in ["postgres", "initdb", "pg_ctl", "pg_isready", "psql"] {
@@ -193,23 +243,22 @@ impl PostgresProcess {
         };
         write_config(&paths, config.postgres_port)?;
         let has_admin = if fresh {
-            let _ = app.emit("setup-progress", "cluster");
+            progress("cluster");
             let password_path = paths.config.join("initdb-password.pending");
             write_new_private(&password_path, &format!("{}\n", secrets.admin))?;
-            let init_result = run_quiet(
-                Command::new(pg_binary(&paths.bin, "initdb"))
-                    .arg("-D")
-                    .arg(&paths.pending)
-                    .arg("-U")
-                    .arg(ADMIN_ROLE)
-                    .arg("--encoding=UTF8")
-                    .arg("--locale=C")
-                    .arg("--auth-local=scram-sha-256")
-                    .arg("--auth-host=scram-sha-256")
-                    .arg(format!("--pwfile={}", password_path.display()))
-                    .env_clear()
-                    .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
-            );
+            let mut initdb = Command::new(pg_binary(&paths.bin, "initdb"));
+            initdb
+                .arg("-D")
+                .arg(&paths.pending)
+                .arg("-U")
+                .arg(ADMIN_ROLE)
+                .arg("--encoding=UTF8")
+                .arg("--locale=C")
+                .arg("--auth-local=scram-sha-256")
+                .arg("--auth-host=scram-sha-256")
+                .arg(format!("--pwfile={}", password_path.display()));
+            configure_pg_environment(&mut initdb, &paths.bin);
+            let init_result = run_quiet(&mut initdb);
             let _ = fs::remove_file(&password_path);
             init_result.map_err(|_| "initdb a échoué ; cluster provisoire conservé")?;
             self.launch(
@@ -220,7 +269,7 @@ impl PostgresProcess {
                 reservation,
                 ownership_lock.clone(),
             )?;
-            let _ = app.emit("setup-progress", "schema");
+            progress("schema");
             let setup = (|| {
                 self.psql(&paths, config.postgres_port, ADMIN_ROLE, &secrets.admin, "postgres",
                     &format!("CREATE ROLE {APP_ROLE} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{}'", secrets.app))?;
@@ -241,7 +290,7 @@ impl PostgresProcess {
                     )?;
                 }
                 self.verify_schema(&paths, config.postgres_port, &secrets.app)?;
-                self.has_admin(app, config, &secrets.app)
+                self.has_admin_at(&paths.bin, config, &secrets.app)
             })();
             self.stop_inner();
             let has_admin =
@@ -254,7 +303,7 @@ impl PostgresProcess {
             )?;
             has_admin
         } else {
-            let _ = app.emit("setup-progress", "database-check");
+            progress("database-check");
             self.launch(
                 &paths,
                 &paths.cluster,
@@ -265,7 +314,7 @@ impl PostgresProcess {
             )?;
             let checked = self
                 .verify_schema(&paths, config.postgres_port, &secrets.app)
-                .and_then(|_| self.has_admin(app, config, &secrets.app));
+                .and_then(|_| self.has_admin_at(&paths.bin, config, &secrets.app));
             if checked.is_err() {
                 self.stop_inner();
             }
@@ -299,12 +348,11 @@ impl PostgresProcess {
                 "config_file={}",
                 paths.config.join("postgresql.conf").display()
             ))
-            .env_clear()
-            .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
-            .env("HOME", paths.base.parent().unwrap_or(&paths.base))
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(error));
+        configure_pg_environment(&mut command, &paths.bin);
+        command.env("HOME", paths.base.parent().unwrap_or(&paths.base));
         drop(reservation);
         let child = command
             .spawn()
@@ -459,7 +507,8 @@ impl PostgresProcess {
         else {
             return;
         };
-        let _ = Command::new(pg_ctl)
+        let mut command = Command::new(&pg_ctl);
+        command
             .arg("-D")
             .arg(&cluster)
             .arg("-m")
@@ -468,11 +517,12 @@ impl PostgresProcess {
             .arg("-t")
             .arg("10")
             .arg("stop")
-            .env_clear()
-            .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+            .stderr(Stdio::null());
+        if let Some(bin) = pg_ctl.parent() {
+            configure_pg_environment(&mut command, bin);
+        }
+        let _ = command.status();
         let deadline = Instant::now() + Duration::from_secs(10);
         while Instant::now() < deadline {
             if child.try_wait().ok().flatten().is_some() {
@@ -484,16 +534,13 @@ impl PostgresProcess {
         let _ = child.wait();
     }
 
-    pub fn has_admin(
+    fn has_admin_at(
         &self,
-        app: &AppHandle,
+        bin: &Path,
         config: &DesktopConfig,
         app_password: &str,
     ) -> Result<bool, &'static str> {
-        let bin = crate::app::resources::resource_dir(app)
-            .map_err(|_| "Ressources PostgreSQL introuvables")?
-            .join("postgresql/bin");
-        let binary = pg_binary(&bin, "psql");
+        let binary = pg_binary(bin, "psql");
         let count = psql_output(
             &binary,
             config.postgres_port,
@@ -558,18 +605,19 @@ impl InstallationSecrets {
 }
 
 fn pg_ready(binary: &Path, port: u16) -> bool {
-    Command::new(binary)
+    let mut command = Command::new(binary);
+    command
         .arg("-h")
         .arg("127.0.0.1")
         .arg("-p")
         .arg(port.to_string())
         .arg("-q")
-        .env_clear()
-        .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success())
+        .stderr(Stdio::null());
+    if let Some(bin) = binary.parent() {
+        configure_pg_environment(&mut command, bin);
+    }
+    command.status().is_ok_and(|s| s.success())
 }
 
 fn psql_output(
@@ -597,11 +645,12 @@ fn psql_output(
         .arg(user)
         .arg("-d")
         .arg(database)
-        .env_clear()
-        .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
-        .env("PGPASSWORD", password)
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
+    if let Some(bin) = binary.parent() {
+        configure_pg_environment(&mut command, bin);
+    }
+    command.env("PGPASSWORD", password);
     if let Some(path) = file {
         command.arg("-f").arg(path).stdin(Stdio::null());
     } else {
@@ -647,6 +696,7 @@ fn write_config(paths: &PgPaths, port: u16) -> Result<(), &'static str> {
     let hba_path = hba
         .to_str()
         .ok_or("Chemin PostgreSQL invalide")?
+        .replace('\\', "/")
         .replace('\'', "''");
     let config = format!(
         "listen_addresses = '127.0.0.1'\nport = {port}\nunix_socket_directories = ''\nhba_file = '{hba_path}'\nssl = off\npassword_encryption = 'scram-sha-256'\nlog_statement = 'none'\nlog_min_error_statement = 'panic'\n"
