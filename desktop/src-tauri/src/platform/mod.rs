@@ -36,5 +36,5 @@ pub use windows::{
     elevated_bootstrap_token, ensure_local_api_ready, ensure_windows_service_ready,
     fallback_data_home, install_service, is_bootstrap_helper, remove_service,
     restart_with_installation, restore_local_backup, reveal_backups, run_bootstrap_helper,
-    stop_windows_service,
+    set_windows_local_mode, set_windows_remote_mode, stop_windows_service,
 };
