@@ -1,7 +1,7 @@
 use crate::connection::config::DesktopConfig;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 pub fn default_data_home() -> Result<PathBuf, &'static str> {
     Ok(

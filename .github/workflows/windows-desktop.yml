@@ -48,6 +48,11 @@ jobs:
         run: |
           & desktop/scripts/build-windows.ps1 -PostgresArchive "$env:RUNNER_TEMP\postgresql.zip" -PostgresSha256 '3B1365016BB381B8E37A38337D9187C72E61696E473256FC24A6B2ED9CA4B255'
           if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
+      - name: Rust tests on Windows
+        shell: pwsh
+        run: |
+          cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --quiet
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed' }
       - name: Install in a custom folder and inspect payload
         shell: pwsh
         run: |

@@ -23,6 +23,17 @@ const SCHEMAS: [&str; 6] = [
     "06_schema_paie.sql",
 ];
 
+fn pg_binary(bin: &Path, name: &str) -> PathBuf {
+    #[cfg(windows)]
+    {
+        return bin.join(format!("{name}.exe"));
+    }
+    #[cfg(not(windows))]
+    {
+        bin.join(name)
+    }
+}
+
 struct PgPaths {
     bin: PathBuf,
     schemas: PathBuf,
@@ -102,7 +113,7 @@ impl PostgresProcess {
         let bin = resources.join("postgresql/bin");
         let schemas = resources.join("postgresql/schema");
         for name in ["postgres", "initdb", "pg_ctl", "pg_isready", "psql"] {
-            if !bin.join(name).is_file() {
+            if !pg_binary(&bin, name).is_file() {
                 return Err("Binaire PostgreSQL absent du bundle");
             }
         }
@@ -186,7 +197,7 @@ impl PostgresProcess {
             let password_path = paths.config.join("initdb-password.pending");
             write_new_private(&password_path, &format!("{}\n", secrets.admin))?;
             let init_result = run_quiet(
-                Command::new(paths.bin.join("initdb"))
+                Command::new(pg_binary(&paths.bin, "initdb"))
                     .arg("-D")
                     .arg(&paths.pending)
                     .arg("-U")
@@ -279,7 +290,7 @@ impl PostgresProcess {
         let error = log
             .try_clone()
             .map_err(|_| "Journal PostgreSQL inaccessible")?;
-        let mut command = Command::new(paths.bin.join("postgres"));
+        let mut command = Command::new(pg_binary(&paths.bin, "postgres"));
         command
             .arg("-D")
             .arg(cluster)
@@ -304,12 +315,12 @@ impl PostgresProcess {
             .map_err(|_| "Gestionnaire PostgreSQL indisponible")? = Some((
             child,
             cluster.to_path_buf(),
-            paths.bin.join("pg_ctl"),
+            pg_binary(&paths.bin, "pg_ctl"),
             ownership_lock,
         ));
         let deadline = Instant::now() + Duration::from_secs(20);
         while Instant::now() < deadline {
-            if pg_ready(&paths.bin.join("pg_isready"), port)
+            if pg_ready(&pg_binary(&paths.bin, "pg_isready"), port)
                 && self.identity_ok(paths, cluster, port, admin_password)
             {
                 return Ok(());
@@ -336,7 +347,7 @@ impl PostgresProcess {
 
     fn identity_ok(&self, paths: &PgPaths, cluster: &Path, port: u16, password: &str) -> bool {
         let result = psql_output(
-            &paths.bin.join("psql"),
+            &pg_binary(&paths.bin, "psql"),
             port,
             ADMIN_ROLE,
             password,
@@ -360,7 +371,7 @@ impl PostgresProcess {
         sql: &str,
     ) -> Result<String, &'static str> {
         psql_output(
-            &paths.bin.join("psql"),
+            &pg_binary(&paths.bin, "psql"),
             port,
             user,
             password,
@@ -378,7 +389,7 @@ impl PostgresProcess {
         path: &Path,
     ) -> Result<(), &'static str> {
         psql_output(
-            &paths.bin.join("psql"),
+            &pg_binary(&paths.bin, "psql"),
             port,
             APP_ROLE,
             password,
@@ -479,9 +490,10 @@ impl PostgresProcess {
         config: &DesktopConfig,
         app_password: &str,
     ) -> Result<bool, &'static str> {
-        let binary = crate::app::resources::resource_dir(app)
+        let bin = crate::app::resources::resource_dir(app)
             .map_err(|_| "Ressources PostgreSQL introuvables")?
-            .join("postgresql/bin/psql");
+            .join("postgresql/bin");
+        let binary = pg_binary(&bin, "psql");
         let count = psql_output(
             &binary,
             config.postgres_port,
@@ -729,3 +741,18 @@ fn private_append(path: &Path) -> Result<File, &'static str> {
 
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+#[cfg(test)]
+mod tests {
+    use super::pg_binary;
+    use std::path::Path;
+
+    #[test]
+    fn bundled_postgres_binary_has_platform_extension() {
+        let name = pg_binary(Path::new("postgresql/bin"), "pg_dump");
+        #[cfg(windows)]
+        assert_eq!(name, Path::new("postgresql/bin/pg_dump.exe"));
+        #[cfg(not(windows))]
+        assert_eq!(name, Path::new("postgresql/bin/pg_dump"));
+    }
+}

@@ -37,6 +37,8 @@ Règle de passage : le sprint suivant ne commence qu'après réussite de tous le
 
 État : **en cours**. Le point d'entrée du Service Control Manager et ses transitions démarrer/arrêter sont préparés, avec un contrôle CI sous le compte `LocalService`. Le service n'est pas encore enregistré par le setup : la supervision de PostgreSQL et Spring, les ACL des données et l'initialisation locale restent à implémenter et à valider.
 
+Architecture retenue pour la suite : une base par machine sous `ProgramData`, exécutée par `LocalService`. Le service sera seul à lire les secrets PostgreSQL et JWT ; l'interface utilisateur demandera les opérations locales via un canal authentifié, sans accès direct à ces fichiers. Les ressources exécutables utilisées par le service devront rester dans un emplacement protégé, même si l'utilisateur choisit un autre dossier pour l'interface. Le mode local Windows reste fermé jusqu'à validation de ces droits et du parcours du premier administrateur.
+
 ## Sprint 3 — Sauvegardes, restauration et livraison
 
 **Livrables**
