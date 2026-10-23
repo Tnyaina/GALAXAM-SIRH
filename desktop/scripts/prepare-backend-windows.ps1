@@ -23,8 +23,12 @@ New-Item -ItemType Directory -Force $bundle | Out-Null
 Copy-Item (Join-Path $repo 'backend\target\sirh-0.0.1-SNAPSHOT.jar') (Join-Path $bundle 'backend.jar') -Force
 if (Test-Path $runtime) { Remove-Item $runtime -Recurse -Force }
 $modules = 'java.base,java.compiler,java.datatransfer,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.security.sasl,java.sql,java.sql.rowset,java.transaction.xa,java.xml,java.xml.crypto,jdk.charsets,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.localedata,jdk.security.auth,jdk.security.jgss,jdk.unsupported,jdk.zipfs'
-& $jlink --module-path (Join-Path $jdk 'jmods') --add-modules $modules --strip-debug --no-header-files --no-man-pages --compress=2 --output $runtime
+& $jlink --module-path (Join-Path $jdk 'jmods') --add-modules $modules --add-options '-Xms64m -Xmx512m -XX:+UseSerialGC' --strip-debug --no-header-files --no-man-pages --compress=2 --output $runtime
 if ($LASTEXITCODE -ne 0) { throw 'Création du runtime Java échouée.' }
+$runtimeFlags = (& (Join-Path $runtime 'bin\java.exe') -XX:+PrintCommandLineFlags -version 2>&1 | Out-String)
+if ($runtimeFlags -notmatch 'MaxHeapSize=536870912' -or $runtimeFlags -notmatch 'UseSerialGC') {
+    throw 'Le runtime Java embarqué ne respecte pas les limites mémoire desktop.'
+}
 Get-ChildItem (Join-Path $runtime 'bin') -File | Where-Object Name -ne 'java.exe' | Remove-Item -Force
 $legal = Join-Path $runtime 'legal'
 if (-not (Test-Path (Join-Path $runtime 'bin\java.exe')) -or -not (Test-Path (Join-Path $legal 'java.base\LICENSE'))) {

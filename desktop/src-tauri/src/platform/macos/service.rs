@@ -942,6 +942,7 @@ mod tests {
         assert!(SERVICE_SCRIPT.contains("show data_directory"));
         assert!(SERVICE_SCRIPT.contains("Processus backend ambigu"));
         assert!(SERVICE_SCRIPT.contains("config_file=\\\"$CONFIG/postgresql.conf\\\""));
+        assert!(!SERVICE_SCRIPT.contains("-Xmx"));
         assert!(!SERVICE_SCRIPT.contains("--spring.datasource.password"));
         let path =
             std::env::temp_dir().join(format!("galaxam-service-script-{}.sh", std::process::id()));

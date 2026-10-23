@@ -703,7 +703,7 @@ fn write_config(paths: &PgPaths, port: u16) -> Result<(), &'static str> {
         .replace('\\', "/")
         .replace('\'', "''");
     let config = format!(
-        "listen_addresses = '127.0.0.1'\nport = {port}\nunix_socket_directories = ''\nhba_file = '{hba_path}'\nssl = off\npassword_encryption = 'scram-sha-256'\nlog_statement = 'none'\nlog_min_error_statement = 'panic'\n"
+        "listen_addresses = '127.0.0.1'\nport = {port}\nunix_socket_directories = ''\nhba_file = '{hba_path}'\nssl = off\npassword_encryption = 'scram-sha-256'\nmax_connections = 30\nshared_buffers = 64MB\nwork_mem = 2MB\nmaintenance_work_mem = 32MB\neffective_cache_size = 512MB\nlog_statement = 'none'\nlog_min_error_statement = 'panic'\n"
     );
     write_private_replace(&conf, &config)
 }

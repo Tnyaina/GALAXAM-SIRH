@@ -33,6 +33,12 @@ npm run build
 
 Le build prépare le JAR et le runtime Java, compile ou valide PostgreSQL, compile React puis produit le `.app` et le `.dmg` dans `src-tauri/target/release/bundle/`. Ce build local n'est pas signé Developer ID ni notarisé.
 
+## Empreinte mémoire desktop
+
+Le runtime Java embarqué est construit avec un tas initial de 64 Mio, un plafond de 512 Mio et le ramasse-miettes Serial, de faible empreinte. Le profil Spring desktop garde de 1 à 5 connexions SQL et limite Tomcat à 32 threads (4 au repos). PostgreSQL est configuré avec 64 Mio de tampons partagés, 2 Mio par opération SQL et 30 connexions maximum. Ces réglages s'appliquent aux deux scripts de préparation du runtime et à la configuration PostgreSQL desktop commune.
+
+Le DMG ARM64 produit pendant la dernière vérification pèse 107,14 Mio. Le plafond Java de 512 Mio et ces réglages n'ont pas encore été mesurés sur un PC Windows peu puissant ni lors d'une exportation RH volumineuse ; ils constituent des plafonds de départ à confirmer avec des mesures représentatives avant livraison Windows.
+
 ## Connexion au Web Docker
 
 La Web Docker reste disponible sur `http://localhost:8088`. Le backend n'est pas publié directement sur le réseau. Pour que le desktop utilise la même API, démarrer le relais local dédié :

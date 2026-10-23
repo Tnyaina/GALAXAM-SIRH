@@ -47,8 +47,15 @@ PY
 "$jdk_home/bin/jlink" \
   --module-path "$jdk_home/jmods" \
   --add-modules "$modules" \
+  --add-options='-Xms64m -Xmx512m -XX:+UseSerialGC' \
   --strip-debug --no-header-files --no-man-pages --compress=2 \
   --output "$runtime_dir"
+
+runtime_flags=$("$runtime_dir/bin/java" -XX:+PrintCommandLineFlags -version 2>&1)
+if [[ "$runtime_flags" != *"MaxHeapSize=536870912"* || "$runtime_flags" != *"UseSerialGC"* ]]; then
+  printf 'The bundled Java runtime is missing the low-memory defaults.\n' >&2
+  exit 2
+fi
 
 # jlink includes command-line tools from selected modules. The application only
 # launches java; these tools are unnecessary in an end-user bundle.
