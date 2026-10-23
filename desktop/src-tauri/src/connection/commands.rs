@@ -56,6 +56,40 @@ fn start_local_setup_blocking(app: AppHandle) -> Result<RuntimeStatus, String> {
         start_existing_local(app.clone())?;
         return get_desktop_status(state);
     }
+    #[cfg(target_os = "windows")]
+    {
+        let config = state
+            .config
+            .lock()
+            .map_err(|_| "Configuration desktop indisponible")?;
+        let port = config.local_port.unwrap_or(18081);
+        service::ensure_running(&app, &config.home, port, config.postgres_port)?;
+        let capability = if config.home.join("config/bootstrap.state").is_file() {
+            Some(crate::platform::elevated_bootstrap_token(&config.home)?)
+        } else {
+            None
+        };
+        *state
+            .api_upstream
+            .write()
+            .map_err(|_| "État API indisponible")? = Some(config.api_upstream.clone());
+        *state
+            .status
+            .lock()
+            .map_err(|_| "État desktop indisponible")? = DesktopStatusState {
+            mode: "local".into(),
+            starting: false,
+            setup_required: capability.is_some(),
+            local_available: true,
+            startup_error: None,
+        };
+        *state
+            .bootstrap_token
+            .lock()
+            .map_err(|_| "État desktop indisponible")? = capability;
+        drop(config);
+        return get_desktop_status(state);
+    }
     let config = state
         .config
         .lock()

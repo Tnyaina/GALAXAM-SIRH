@@ -2,6 +2,7 @@ use crate::app::runtime::{DesktopRuntime, DesktopStatusState, RuntimeStatus};
 use crate::connection::config::DesktopConfig;
 use crate::platform;
 use crate::platform::service;
+#[cfg(not(target_os = "windows"))]
 use crate::security::bootstrap::ensure_bootstrap_capability;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -21,15 +22,22 @@ pub(crate) fn start_existing_local(app: AppHandle) -> Result<(), String> {
         .and_then(|(home, port, pg_port, upstream)| {
             service::ensure_running(&app, &home, port, pg_port)?;
             let token = if home.join("config/bootstrap.state").is_file() {
-                let secrets = std::fs::read_to_string(
-                    home.join("data/postgresql/config/installation.secrets"),
-                )
-                .map_err(|_| "Secrets de la base locale illisibles".to_string())?;
-                let password = secrets
-                    .lines()
-                    .find_map(|line| line.strip_prefix("app="))
-                    .ok_or("Secret de la base locale absent")?;
-                Some(ensure_bootstrap_capability(&home, password).map_err(str::to_string)?)
+                #[cfg(target_os = "windows")]
+                {
+                    Some(crate::platform::elevated_bootstrap_token(&home)?)
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let secrets = std::fs::read_to_string(
+                        home.join("data/postgresql/config/installation.secrets"),
+                    )
+                    .map_err(|_| "Secrets de la base locale illisibles".to_string())?;
+                    let password = secrets
+                        .lines()
+                        .find_map(|line| line.strip_prefix("app="))
+                        .ok_or("Secret de la base locale absent")?;
+                    Some(ensure_bootstrap_capability(&home, password).map_err(str::to_string)?)
+                }
             } else {
                 None
             };
@@ -50,6 +58,9 @@ pub(crate) fn start_existing_local(app: AppHandle) -> Result<(), String> {
     }
     if let Ok(mut current) = state.status.lock() {
         current.starting = false;
+        if error.is_none() {
+            current.local_available = true;
+        }
         current.setup_required = token.is_some() || error.is_some();
         current.startup_error = error.clone();
     }

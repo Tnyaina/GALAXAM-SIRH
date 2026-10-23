@@ -31,6 +31,14 @@ jobs:
           cargo --version
           mvn.cmd -version
           npm.cmd --version
+      - name: Backend tests
+        shell: pwsh
+        run: |
+          Push-Location backend
+          try {
+            mvn.cmd -q test
+            if ($LASTEXITCODE -ne 0) { throw 'Backend tests failed' }
+          } finally { Pop-Location }
       - name: Dependencies
         shell: pwsh
         run: |
@@ -66,11 +74,72 @@ jobs:
           $process = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Default installer failed: $($process.ExitCode)" }
           if (-not (Test-Path (Join-Path $defaultInstall 'galaxam-sirh-desktop.exe'))) { throw 'Default installation is missing' }
+          $serviceName = 'GalaxamSirhLocal'
+          $apiReady = $false
+          for ($attempt = 0; $attempt -lt 240; $attempt++) {
+            if ((Get-Service $serviceName -ErrorAction SilentlyContinue).Status -eq 'Running') {
+              try {
+                $api = Invoke-WebRequest -Uri 'http://127.0.0.1:18081/api/auth/ping' -TimeoutSec 2 -UseBasicParsing
+                if ($api.StatusCode -eq 200) { $apiReady = $true; break }
+              } catch { }
+            }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $apiReady) { throw 'Installed service did not make the local API ready' }
+          if (-not (Test-Path (Join-Path $dataHome 'data\postgresql\config\installation.ready'))) { throw 'Service did not initialize PostgreSQL' }
+          $defaultExe = Join-Path $defaultInstall 'galaxam-sirh-desktop.exe'
+          $bootstrapToken = Join-Path $env:RUNNER_TEMP 'galaxam-bootstrap-ci.token'
+          & $defaultExe '--galaxam-bootstrap-helper' "--galaxam-data-home=$dataHome" "--galaxam-token-output=$bootstrapToken"
+          if ($LASTEXITCODE -ne 0) { throw 'Elevated bootstrap helper simulation failed' }
+          $token = Get-Content $bootstrapToken -Raw
+          if ($token.Trim().Length -ne 64) { throw 'Bootstrap helper returned an invalid token' }
+          Remove-Item $bootstrapToken -Force
+          $secretFile = Join-Path $dataHome 'data\postgresql\config\installation.secrets'
+          $secretAcl = (& icacls.exe $secretFile) -join "`n"
+          if ($secretAcl -match 'S-1-5-32-545|BUILTIN\\Users') { throw 'Standard users can read database secrets' }
+          & sc.exe stop $serviceName
+          if ($LASTEXITCODE -ne 0) { throw 'Service stop failed' }
+          for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            if ((Get-Service $serviceName).Status -eq 'Stopped') { break }
+            Start-Sleep -Milliseconds 500
+          }
+          if ((Get-Service $serviceName).Status -ne 'Stopped') { throw 'Service did not stop cleanly' }
+          & (Join-Path $defaultInstall 'postgresql\bin\pg_isready.exe') -h 127.0.0.1 -p 15432 -q
+          if ($LASTEXITCODE -eq 0) { throw 'PostgreSQL remained active after service stop' }
+          & sc.exe start $serviceName
+          if ($LASTEXITCODE -ne 0) { throw 'Service restart failed' }
+          $apiReady = $false
+          for ($attempt = 0; $attempt -lt 240; $attempt++) {
+            if ((Get-Service $serviceName).Status -eq 'Running') {
+              try {
+                $api = Invoke-WebRequest -Uri 'http://127.0.0.1:18081/api/auth/ping' -TimeoutSec 2 -UseBasicParsing
+                if ($api.StatusCode -eq 200) { $apiReady = $true; break }
+              } catch { }
+            }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $apiReady) { throw 'Service restart did not restore the local API' }
+          $serviceBeforeCrash = Get-CimInstance Win32_Service -Filter "Name='$serviceName'"
+          if (-not $serviceBeforeCrash -or $serviceBeforeCrash.ProcessId -eq 0) { throw 'Could not inspect service process for recovery test' }
+          Stop-Process -Id $serviceBeforeCrash.ProcessId -Force
+          $recovered = $false
+          for ($attempt = 0; $attempt -lt 240; $attempt++) {
+            $serviceAfterCrash = Get-CimInstance Win32_Service -Filter "Name='$serviceName'"
+            if ($serviceAfterCrash.State -eq 'Running' -and $serviceAfterCrash.ProcessId -ne $serviceBeforeCrash.ProcessId) {
+              try {
+                $api = Invoke-WebRequest -Uri 'http://127.0.0.1:18081/api/auth/ping' -TimeoutSec 2 -UseBasicParsing
+                if ($api.StatusCode -eq 200) { $recovered = $true; break }
+              } catch { }
+            }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $recovered) { throw 'SCM recovery did not restart PostgreSQL and Spring after service termination' }
           $defaultUninstall = Join-Path $defaultInstall 'uninstall.exe'
           if (-not (Test-Path $defaultUninstall)) { throw 'Default uninstaller missing' }
           $process = Start-Process -FilePath $defaultUninstall -ArgumentList '/S' -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Default uninstaller failed: $($process.ExitCode)" }
           if (-not (Test-Path $marker)) { throw 'Uninstall deleted local data' }
+          if (Get-Service $serviceName -ErrorAction SilentlyContinue) { throw 'Uninstaller left the Windows service registered' }
           $install = 'C:\GalaxamCI'
           $process = Start-Process -FilePath $setup.FullName -ArgumentList '/S',"/D=$install" -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
@@ -78,55 +147,17 @@ jobs:
             if (-not (Test-Path (Join-Path $install $relative))) { throw "Installed resource missing: $relative" }
           }
           $exe = Join-Path $install 'galaxam-sirh-desktop.exe'
-          $serviceData = 'C:\GalaxamPgCI'
-          New-Item -ItemType Directory -Force -Path $serviceData | Out-Null
-          & icacls.exe $serviceData '/inheritance:r' '/grant:r' '*S-1-5-19:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F'
-          if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL service data ACL failed' }
-          $serviceName = 'GalaxamSirhLocal'
-          $binaryPath = '"' + $exe + '" --galaxam-service --galaxam-pg-smoke --galaxam-data-home=' + $serviceData
-          & sc.exe create $serviceName 'binPath=' $binaryPath 'start=' 'demand' 'obj=' 'NT AUTHORITY\LocalService'
-          if ($LASTEXITCODE -ne 0) { throw 'SCM service registration failed' }
-          try {
-            & sc.exe start $serviceName
-            if ($LASTEXITCODE -ne 0) { throw 'SCM service start failed' }
-            for ($attempt = 0; $attempt -lt 20; $attempt++) {
-              if ((Get-Service $serviceName).Status -eq 'Running') { break }
-              Start-Sleep -Milliseconds 500
+          $apiReady = $false
+          for ($attempt = 0; $attempt -lt 240; $attempt++) {
+            if ((Get-Service $serviceName -ErrorAction SilentlyContinue).Status -eq 'Running') {
+              try {
+                $api = Invoke-WebRequest -Uri 'http://127.0.0.1:18081/api/auth/ping' -TimeoutSec 2 -UseBasicParsing
+                if ($api.StatusCode -eq 200) { $apiReady = $true; break }
+              } catch { }
             }
-            if ((Get-Service $serviceName).Status -ne 'Running') { throw 'SCM service did not report Running' }
-            $postgresResult = Join-Path $serviceData 'service\ci-postgres-result.txt'
-            for ($attempt = 0; $attempt -lt 240; $attempt++) {
-              if (Test-Path $postgresResult) { break }
-              Start-Sleep -Seconds 1
-            }
-            if (-not (Test-Path $postgresResult)) { throw 'PostgreSQL service smoke did not complete' }
-            $result = Get-Content $postgresResult -Raw
-            if ($result.Trim() -ne 'READY') {
-              $initLog = Join-Path $serviceData 'data\postgresql\logs\initdb.log'
-              if (Test-Path $initLog) { Get-Content $initLog -Tail 80 }
-              throw "PostgreSQL service smoke failed: $result"
-            }
-            if (-not (Test-Path (Join-Path $serviceData 'data\postgresql\config\installation.ready'))) { throw 'PostgreSQL installation marker missing' }
-            & sc.exe stop $serviceName
-            if ($LASTEXITCODE -ne 0) { throw 'SCM service stop failed' }
-            for ($attempt = 0; $attempt -lt 60; $attempt++) {
-              if ((Get-Service $serviceName).Status -eq 'Stopped') { break }
-              Start-Sleep -Milliseconds 500
-            }
-            if ((Get-Service $serviceName).Status -ne 'Stopped') { throw 'SCM service did not stop' }
-            & (Join-Path $install 'postgresql\bin\pg_isready.exe') -h 127.0.0.1 -p 15432 -q
-            if ($LASTEXITCODE -eq 0) { throw 'PostgreSQL remained active after service stop' }
-          } finally {
-            if ((Get-Service $serviceName).Status -ne 'Stopped') {
-              & sc.exe stop $serviceName | Out-Null
-              for ($attempt = 0; $attempt -lt 60; $attempt++) {
-                if ((Get-Service $serviceName).Status -eq 'Stopped') { break }
-                Start-Sleep -Milliseconds 500
-              }
-            }
-            & sc.exe delete $serviceName
-            if ($LASTEXITCODE -ne 0) { throw 'SCM service cleanup failed' }
+            Start-Sleep -Seconds 1
           }
+          if (-not $apiReady) { throw 'Custom-folder install did not start the shared service' }
           $data = Join-Path $env:RUNNER_TEMP 'galaxam-ci-data'
           $app = Start-Process -FilePath $exe -ArgumentList "--galaxam-data-home=$data",'--galaxam-web-port=18999' -PassThru
           try {
@@ -146,6 +177,8 @@ jobs:
           if (-not (Test-Path $uninstall)) { throw 'Uninstaller missing' }
           $process = Start-Process -FilePath $uninstall -ArgumentList '/S' -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Uninstaller failed: $($process.ExitCode)" }
+          if (-not (Test-Path $marker)) { throw 'Custom-folder uninstall deleted local data' }
+          if (Get-Service $serviceName -ErrorAction SilentlyContinue) { throw 'Custom-folder uninstall left the service registered' }
       - uses: actions/upload-artifact@v4
         if: success()
         with:

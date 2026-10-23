@@ -25,6 +25,7 @@
     "windows": {
       "nsis": {
         "installMode": "perMachine",
+        "installerHooks": "windows/hooks.nsh",
         "languages": [
           "French"
         ]

@@ -31,6 +31,9 @@ pub use unsupported::{
 };
 #[cfg(target_os = "windows")]
 pub use windows::{
-    choose_export_destination, default_data_home, fallback_data_home, restart_with_installation,
-    reveal_backups,
+    assign_service_child, choose_export_destination, create_service_child_job, default_data_home,
+    disable_windows_service, elevated_bootstrap_token, ensure_local_api_ready,
+    ensure_windows_service_ready, fallback_data_home, install_service, is_bootstrap_helper,
+    remove_service, restart_with_installation, reveal_backups, run_bootstrap_helper,
+    stop_windows_service,
 };

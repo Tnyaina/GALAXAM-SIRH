@@ -72,6 +72,32 @@ pub fn ensure_bootstrap_capability(
     Ok(token)
 }
 
+/// Reconstructs the one-time capability only from a state previously created
+/// by the service. Unlike `ensure_bootstrap_capability`, this never creates or
+/// renews bootstrap state and is suitable for the short-lived elevated helper.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+pub(crate) fn existing_bootstrap_capability(
+    home: &std::path::Path,
+    master_secret: &str,
+) -> Result<String, &'static str> {
+    use ring::digest;
+    let (version, expires, fingerprint) =
+        read_bootstrap_state(&home.join("config/bootstrap.state"))?;
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "Horloge système invalide")?
+        .as_secs();
+    if expires <= now {
+        return Err("La période de configuration initiale est expirée");
+    }
+    let token = derive_bootstrap_token(master_secret, version);
+    let actual = hex(digest::digest(&digest::SHA256, token.as_bytes()).as_ref());
+    if actual != fingerprint {
+        return Err("État d'amorçage incohérent ; aucune création autorisée");
+    }
+    Ok(token)
+}
+
 pub(crate) fn derive_bootstrap_token(master_secret: &str, version: u64) -> String {
     let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, master_secret.as_bytes());
     let message = format!("GALAXAM-DESKTOP-INITIAL-ADMIN-v1:{version}");

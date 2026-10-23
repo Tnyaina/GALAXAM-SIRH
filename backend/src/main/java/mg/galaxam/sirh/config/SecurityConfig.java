@@ -40,7 +40,8 @@ public class SecurityConfig {
         "/auth/logout",
         "/auth/ping",
         "/error",
-        "/desktop/setup/admin"
+        "/desktop/setup/admin",
+        "/desktop/internal/shutdown"
     };
 
     /**

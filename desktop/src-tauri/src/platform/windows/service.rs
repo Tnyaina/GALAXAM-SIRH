@@ -17,19 +17,19 @@ impl ServiceLock {
 
 pub fn ensure_running(
     _app: &AppHandle,
-    _home: &Path,
-    _api_port: u16,
+    home: &Path,
+    api_port: u16,
     _pg_port: u16,
 ) -> Result<(), String> {
-    Err("Le service local Windows n'est pas encore activé par l'installateur".into())
+    crate::platform::ensure_windows_service_ready(home, api_port)
 }
 
-pub fn stop(_home: &Path) -> Result<(), String> {
-    Err("Arrêt du service local Windows non encore disponible".into())
+pub fn stop(home: &Path) -> Result<(), String> {
+    crate::platform::stop_windows_service(home)
 }
 
-pub fn disable(_home: &Path) -> Result<(), String> {
-    Err("Désactivation du service local Windows non encore disponible".into())
+pub fn disable(home: &Path) -> Result<(), String> {
+    crate::platform::disable_windows_service(home)
 }
 
 pub fn backup_agent_active(_home: &Path) -> bool {

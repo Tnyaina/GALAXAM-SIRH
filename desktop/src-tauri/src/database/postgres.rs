@@ -89,6 +89,8 @@ struct InstallationSecrets {
 
 pub struct PostgresStart {
     pub app_password: String,
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    pub jwt_secret: String,
     pub has_admin: bool,
 }
 
@@ -322,6 +324,7 @@ impl PostgresProcess {
         };
         Ok(PostgresStart {
             app_password: secrets.app,
+            jwt_secret: secrets.jwt,
             has_admin,
         })
     }
@@ -357,6 +360,13 @@ impl PostgresProcess {
         let child = command
             .spawn()
             .map_err(|_| "Démarrage PostgreSQL impossible")?;
+        #[cfg(windows)]
+        if crate::platform::assign_service_child(&child).is_err() {
+            let mut child = child;
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("Supervision du processus PostgreSQL impossible");
+        }
         *self
             .process
             .lock()
@@ -656,9 +666,16 @@ fn psql_output(
     } else {
         command.arg("-f").arg("-").stdin(Stdio::piped());
     }
+    #[allow(unused_mut)]
     let mut child = command
         .spawn()
         .map_err(|_| "Commande PostgreSQL impossible")?;
+    #[cfg(windows)]
+    if crate::platform::assign_service_child(&child).is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("Supervision de la commande PostgreSQL impossible");
+    }
     if let Some(sql) = sql {
         child
             .stdin
@@ -677,10 +694,20 @@ fn psql_output(
 }
 
 fn run_quiet(command: &mut Command, error_log: &Path) -> Result<(), &'static str> {
-    let output = command
+    #[allow(unused_mut)]
+    let mut child = command
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
-        .output()
+        .spawn()
+        .map_err(|_| "Commande PostgreSQL impossible")?;
+    #[cfg(windows)]
+    if crate::platform::assign_service_child(&child).is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("Supervision de la commande PostgreSQL impossible");
+    }
+    let output = child
+        .wait_with_output()
         .map_err(|_| "Commande PostgreSQL impossible")?;
     if !output.status.success() {
         if let Ok(mut log) = private_append(error_log) {

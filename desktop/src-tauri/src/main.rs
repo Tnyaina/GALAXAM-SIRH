@@ -21,6 +21,30 @@ const DEFAULT_WEB_PORT: u16 = 18888;
 
 fn main() {
     #[cfg(target_os = "windows")]
+    if std::env::args_os().any(|argument| argument == "--galaxam-install-service") {
+        if let Err(problem) = platform::install_service() {
+            eprintln!("GALAXAM service installation failed: {problem}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(target_os = "windows")]
+    if std::env::args_os().any(|argument| argument == "--galaxam-remove-service") {
+        if let Err(problem) = platform::remove_service() {
+            eprintln!("GALAXAM service removal failed: {problem}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(target_os = "windows")]
+    if platform::is_bootstrap_helper() {
+        if let Err(problem) = platform::run_bootstrap_helper() {
+            eprintln!("GALAXAM bootstrap helper: {problem}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(target_os = "windows")]
     if std::env::args_os().any(|argument| argument == "--galaxam-service") {
         if let Err(problem) = platform::windows_service_runtime::dispatch() {
             eprintln!("GALAXAM Windows service: {problem}");
