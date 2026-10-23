@@ -760,7 +760,7 @@ public class PayrollExecutionEngine {
 
             irsaNet = MoneyRoundingPolicy.tax(irsaRes.irsaNet().min(salaireNetImposable));
 
-            lignes.add(creerLigne(bp, "IMPOT_IRSA_BRUT", "IRSA Brut (Barème Progressif 6 Tranches)", "INFO", "IMPOT",
+            lignes.add(creerLigne(bp, "IMPOT_IRSA_BRUT", "IRSA brut arrondi à la dizaine supérieure", "INFO", "IMPOT",
                     irsaRes.baseIrsaArrondie(), null, irsaRes.irsaArrondiDizaine(), null, 400));
 
             int nbEnfants = input.getNbEnfantsEligibles();

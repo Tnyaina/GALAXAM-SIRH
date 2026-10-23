@@ -10,6 +10,30 @@ export const normalizePath = (p) => {
     return (p || '').split('?')[0].replace(/\/+$/, '') || '/';
 };
 
+/** Les interfaces d'administration sont réservées au rôle que protège Router.jsx. */
+export const canAccessRoleGatedRoute = (href, user) => {
+    const path = normalizePath(href);
+    if (path === '/admin/organisation' || path === '/parametres' || path === '/parametres/organisation') {
+        return user?.role === 'ROLE_ADMIN' || user?.permissions?.includes('ORGANISATION_WRITE') === true;
+    }
+    const isAdminRoute = path === '/admin' || path.startsWith('/admin/')
+        || path === '/parametres' || path.startsWith('/parametres/');
+    return !isAdminRoute || user?.role === 'ROLE_ADMIN';
+};
+
+/** Retire les liens de menu incompatibles avec les rôles de routes frontend. */
+export const filterMenuByUser = (items = [], user) => items.reduce((visible, item) => {
+    if (item.href && !canAccessRoleGatedRoute(item.href, user)) return visible;
+
+    const children = Array.isArray(item.sousMenus)
+        ? filterMenuByUser(item.sousMenus, user)
+        : undefined;
+
+    if (Array.isArray(item.sousMenus) && children.length === 0 && !item.href) return visible;
+    visible.push(children ? { ...item, sousMenus: children } : item);
+    return visible;
+}, []);
+
 /**
  * Collecte récursivement tous les nœuds feuilles (sans sous-menus) qui possèdent un href valide.
  */

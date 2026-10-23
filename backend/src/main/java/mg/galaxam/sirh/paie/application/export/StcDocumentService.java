@@ -1,6 +1,5 @@
 package mg.galaxam.sirh.paie.application.export;
 
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;

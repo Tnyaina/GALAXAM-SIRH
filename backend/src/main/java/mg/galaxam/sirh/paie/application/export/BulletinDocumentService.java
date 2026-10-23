@@ -83,12 +83,18 @@ public class BulletinDocumentService {
                 DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
                 String dates = start.format(dateFormat) + " au " + end.format(dateFormat);
                 return new Context(n(rs.getString("code")), dates,
-                        n(snapshot != null ? snapshot.name() : employer.name()),
+                        employerDisplayName(snapshot != null ? snapshot.name() : employer.name()),
                         n(snapshot != null ? snapshot.address() : employer.address()),
                         n(snapshot != null ? snapshot.nif() : employer.nif()),
                         n(snapshot != null ? snapshot.stat() : employer.stat()));
             }
         }
+    }
+
+    /** Keep the configured legal name while applying the brand's canonical casing in internal bulletins. */
+    private static String employerDisplayName(String value) {
+        String name = n(value);
+        return name.replaceFirst("(?i)^galaxam\\b", "GALAXAM");
     }
 
     private static List<Rubrique> rubriques(BulletinPaieComplet complet) {
@@ -99,7 +105,8 @@ public class BulletinDocumentService {
             BigDecimal taux = l.getTauxSalarial();
             // Les rubriques non proportionnelles utilisent parfois ce champ pour une valeur monétaire.
             if (taux != null && taux.abs().compareTo(BigDecimal.valueOf(100)) > 0) taux = null;
-            String libelle = n(l.getLibelleRubrique());
+            String libelle = "IMPOT_IRSA_BRUT".equals(l.getCodeRubrique())
+                    ? "IRSA brut arrondi à la dizaine supérieure" : n(l.getLibelleRubrique());
             if ("GAIN_NET".equals(l.getEtapeCalcul())) libelle = "Ajout au net : " + libelle;
             result.add(new Rubrique(libelle,
                     l.getBaseCalcul() != null ? l.getBaseCalcul() : l.getQuantite(), taux,
@@ -167,7 +174,7 @@ public class BulletinDocumentService {
             cell(sheet, r, 0, "Gains bruts", label); numeric(sheet, r++, 3, b.getTotalGainsBruts(), total);
             cell(sheet, r, 0, "Cotisations salariales", label); numeric(sheet, r++, 4, b.getTotalCotisationsSalariales(), total);
             cell(sheet, r, 0, "Net imposable", label); numeric(sheet, r++, 3, b.getRevenuNetImposable(), total);
-            cell(sheet, r, 0, "IRSA", label); numeric(sheet, r++, 4, impot(b), total);
+            cell(sheet, r, 0, "IRSA dû (net)", label); numeric(sheet, r++, 4, impot(b), total);
             cell(sheet, r, 0, "Ajouts au net", label); numeric(sheet, r++, 3, b.getTotalIndemnitesNonImposables(), total);
             cell(sheet, r, 0, "Acomptes", label); numeric(sheet, r++, 4, retenuesNet.acomptes(), total);
             cell(sheet, r, 0, "Avances", label); numeric(sheet, r++, 4, retenuesNet.avances(), total);
@@ -286,7 +293,7 @@ public class BulletinDocumentService {
             summary("Gains bruts", b.getTotalGainsBruts());
             summary("Cotisations salariales", b.getTotalCotisationsSalariales());
             summary("Net imposable", b.getRevenuNetImposable());
-            summary("IRSA", impot(b));
+            summary("IRSA dû (net)", impot(b));
             summary("Ajouts au net", b.getTotalIndemnitesNonImposables());
             summary("Acomptes", retenuesNet.acomptes());
             summary("Avances", retenuesNet.avances());

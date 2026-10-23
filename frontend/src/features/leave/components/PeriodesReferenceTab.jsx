@@ -8,6 +8,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
+import Loading from '@/components/ui/feedback/Loading';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -15,10 +16,17 @@ import congeService from '@/features/leave/api/congeService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
 import InitialisationSoldeModal from '@/features/leave/components/InitialisationSoldeModal';
+import DroitsLotsPanel from '@/features/leave/components/DroitsLotsPanel';
+import { ACQUISITION_CORRECTION_LIMIT, ACQUISITION_CORRECTION_STEPS } from '@/features/leave/utils/acquisitionCorrectionGuidance';
 
 const jours = (value) => Number(value || 0).toFixed(2);
 const dateFr = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('fr-FR') : '—';
 const moisFr = (mois, annee) => `${String(mois).padStart(2, '0')}/${annee}`;
+const statutReference = (statut) => ({
+  OUVERTE: { libelle: 'Ouverte', variant: 'success' },
+  CLOTUREE: { libelle: 'Clôturée', variant: 'neutral' },
+  ARCHIVEE: { libelle: 'Archivée', variant: 'neutral' },
+}[statut] || { libelle: statut || 'État inconnu', variant: 'neutral' });
 const lendemain = (date) => {
   const [annee, mois, jour] = date.split('-').map(Number);
   const valeur = new Date(Date.UTC(annee, mois - 1, jour + 1));
@@ -41,11 +49,16 @@ export default function PeriodesReferenceTab({
   const [periodes, setPeriodes] = useState([]);
   const [showCutoverModal, setShowCutoverModal] = useState(false);
   const [stock, setStock] = useState(null);
+  const [stockError, setStockError] = useState(null);
+  const [mouvements, setMouvements] = useState([]);
+  const [mouvementsError, setMouvementsError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [periodeControle, setPeriodeControle] = useState(null);
   const [lignes, setLignes] = useState([]);
   const [historique, setHistorique] = useState([]);
+  const [chargementMois, setChargementMois] = useState(false);
+  const [erreurMois, setErreurMois] = useState(null);
   const [ligneCorrection, setLigneCorrection] = useState(null);
   const [valeur, setValeur] = useState('');
   const [motif, setMotif] = useState('');
@@ -74,17 +87,30 @@ export default function PeriodesReferenceTab({
   }, [activation?.dateEffet, activation?.periode, employeId]);
 
   const chargerCycles = useCallback(async (id) => {
-    if (!id) { setPeriodes([]); setStock(null); return; }
+    if (!id) {
+      setPeriodes([]); setStock(null); setStockError(null);
+      setMouvements([]); setMouvementsError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
+    setStockError(null);
+    setMouvementsError(null);
     try {
-      const [cycles, lots] = await Promise.allSettled([
+      const [cycles, lots, mouvementResult] = await Promise.allSettled([
         congeService.getPeriodesReferenceEmploye(id),
         congeService.getValorisationLots(id),
+        congeService.getMouvementsEmploye(id),
       ]);
       if (cycles.status === 'rejected') throw cycles.reason;
       setPeriodes(Array.isArray(cycles.value) ? cycles.value : []);
       setStock(lots.status === 'fulfilled' ? lots.value : null);
+      if (lots.status === 'rejected') setStockError(getErrorMessage(lots.reason, 'La situation des lots est indisponible.'));
+      setMouvements(mouvementResult.status === 'fulfilled' && Array.isArray(mouvementResult.value)
+        ? mouvementResult.value : []);
+      if (mouvementResult.status === 'rejected') {
+        setMouvementsError(getErrorMessage(mouvementResult.reason, 'Le registre des mouvements est indisponible.'));
+      }
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger les références congés.'));
     } finally {
@@ -98,7 +124,8 @@ export default function PeriodesReferenceTab({
   const chargerMois = async (periode) => {
     setPeriodeControle(periode);
     setLigneCorrection(null);
-    setActionLoading(true);
+    setChargementMois(true);
+    setErreurMois(null);
     try {
       const [acquisitions, corrections] = await Promise.all([
         congeService.getMoisReference(periode.idPeriodeReference),
@@ -107,10 +134,11 @@ export default function PeriodesReferenceTab({
       setLignes(acquisitions);
       setHistorique(corrections);
     } catch (err) {
-      setPeriodeControle(null);
-      toast.error(getErrorMessage(err, 'Impossible de charger les acquisitions.'));
+      setLignes([]);
+      setHistorique([]);
+      setErreurMois(getErrorMessage(err, 'Impossible de charger les acquisitions et leur historique.'));
     } finally {
-      setActionLoading(false);
+      setChargementMois(false);
     }
   };
 
@@ -165,9 +193,9 @@ export default function PeriodesReferenceTab({
 
   return <div className="space-y-4">
     {periodesEnAttente && periodesEnAttente.length > 0 && (
-      <div className="p-4 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 space-y-2.5">
+      <div className="border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-warning-500)] bg-[var(--color-surface)] p-4 space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] flex items-center gap-2">
+          <span className="text-xs font-bold text-[var(--color-fg)] flex items-center gap-2">
             <ShieldAlert size={16} className="text-[var(--color-warning-500)] shrink-0" />
             {periodesEnAttente.length} cycle{periodesEnAttente.length > 1 ? 's' : ''} annuel{periodesEnAttente.length > 1 ? 's' : ''} clôturé{periodesEnAttente.length > 1 ? 's' : ''} en attente d'activation DAF
           </span>
@@ -178,6 +206,7 @@ export default function PeriodesReferenceTab({
             <button
               key={item.idPeriodeReference}
               type="button"
+              aria-pressed={employeId === item.idEmploye}
               onClick={() => {
                 setEmployeId(item.idEmploye);
                 chargerCycles(item.idEmploye);
@@ -185,13 +214,13 @@ export default function PeriodesReferenceTab({
               className={`px-3 py-1.5 text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
                 employeId === item.idEmploye
                   ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-xs'
-                  : 'bg-[var(--color-surface)] border-[var(--color-warning-500)]/40 text-[var(--color-fg)] hover:border-[var(--color-brand-500)]'
+                  : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:border-[var(--color-brand-500)]'
               }`}
             >
               <span className="font-semibold">{item.prenom} {item.nom}</span>
               {item.matricule && <span className="opacity-75">({item.matricule})</span>}
               <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
-                {item.dateDebut.slice(0, 4)} : {formatMoneyAr(item.tauxCalculeCloture)}/j
+                {item.dateDebut.slice(0, 4)} · TCONGE calculé {formatMoneyAr(item.tauxCalculeCloture)}/j
               </span>
             </button>
           ))}
@@ -227,27 +256,22 @@ export default function PeriodesReferenceTab({
       description="Consultez ses acquisitions annuelles et leurs valorisations." />
       : loading ? <SkeletonTable rows={4} columns={5} />
       : <>
-        <Card padding bordered>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase font-semibold text-[var(--color-fg-muted)]">Disponible aujourd'hui · tous lots historiques</p>
-              {stock ? <p className="text-lg font-semibold">
-                {jours(stock.soldeJours)} j · {formatMoneyAr(stock.soldeValorisation)}
-              </p> : <p className="text-sm text-[var(--color-fg-muted)]">Solde valorisé indisponible ; vérifiez les lots.</p>}
-              <p className="text-xs text-[var(--color-fg-muted)]">Les prises et ajustements sont déjà déduits ; les lots conservés sont consommés en FIFO.</p>
-            </div>
-            {canValidate && (
-              <Button
-                variant="outline"
-                size="sm"
-                iconLeft={<SlidersHorizontal size={14} />}
-                onClick={() => setShowCutoverModal(true)}
-              >
-                Reprendre l'historique
-              </Button>
-            )}
+        <DroitsLotsPanel
+          situation={stock}
+          movements={mouvements}
+          loading={loading}
+          error={stockError}
+          movementsError={mouvementsError}
+          onRetry={() => chargerCycles(employeId)}
+        />
+        {canValidate && (
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" iconLeft={<SlidersHorizontal size={14} />}
+              onClick={() => setShowCutoverModal(true)}>
+              Reprendre l'historique
+            </Button>
           </div>
-        </Card>
+        )}
         <Card padding bordered>
         <CardHeader className="pb-3 border-b border-[var(--color-border-subtle)]">
           <CardTitle className="text-sm">Références et acquisitions</CardTitle>
@@ -270,44 +294,55 @@ export default function PeriodesReferenceTab({
                     Pour un salarié ayant des droits acquis avant le déploiement, initialisez le stock et le Taux congé certifiés par la DAF.
                   </p>
                 </div>
-                {canValidate && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    iconLeft={<SlidersHorizontal size={14} />}
-                    onClick={() => setShowCutoverModal(true)}
-                  >
-                    Reprendre l'historique
-                  </Button>
-                )}
               </div>
             </div>
-          ) : <Table>
-            <Thead><Tr><Th>Année de référence</Th><Th>Statut</Th>
-              <Th className="text-right">Jours acquis</Th><Th className="text-right">Valeur acquise</Th>
-              <Th className="text-right">Taux à la clôture</Th><Th>Application du taux</Th><Th>Contrôle</Th></Tr></Thead>
+          ) : <>
+            <p className="mb-2 text-xs text-[var(--color-fg-muted)] sm:hidden">
+              Faites défiler le tableau horizontalement pour consulter les autres colonnes.
+            </p>
+            <Table aria-label="Périodes de référence et cumuls des congés">
+            <Thead><Tr><Th>Période et état</Th><Th>Acquisitions de l'année</Th>
+              <Th>TCONGE calculé et applicable</Th><Th>Contrôles et actions</Th></Tr></Thead>
             <Tbody>{periodes.map((periode) => {
               const ouverte = periode.statut === 'OUVERTE';
+              const statut = statutReference(periode.statut);
               return <Tr key={periode.idPeriodeReference}>
-                <Td>{dateFr(periode.dateDebut)} → {dateFr(periode.dateFin)}</Td>
-                <Td><Badge variant={ouverte ? 'success' : 'neutral'}>{periode.statut}</Badge></Td>
-                <Td className="text-right">{jours(ouverte ? periode.cumulDroitsCourant : periode.cumulDroitsCloture)} j</Td>
-                <Td className="text-right">{formatMoneyAr(ouverte ? periode.cumulValorisationCourante : periode.cumulValorisationCloture)}</Td>
-                <Td className="text-right">{ouverte ? 'En attente de clôture' : periode.tauxCalculeCloture ? `${formatMoneyAr(periode.tauxCalculeCloture)} / j` : '—'}</Td>
-                <Td>{periode.dateEffetActivation
-                  ? <span>Activé le {dateFr(periode.dateEffetActivation)}<br />{formatMoneyAr(periode.tauxActive)} / j</span>
-                  : !ouverte && Number(periode.tauxCalculeCloture) > 0
-                    ? <div className="space-y-1"><Badge variant="warning">À activer</Badge>
-                      {canValidate && <div><Button size="xs" variant="primary" onClick={() => ouvrirActivation(periode)}>Activer le taux</Button></div>}</div>
-                    : '—'}</Td>
-                <Td><div className="flex gap-2">
+                <Td>
+                  <div className="space-y-1.5">
+                    <p className="font-medium">{dateFr(periode.dateDebut)} → {dateFr(periode.dateFin)}</p>
+                    <Badge variant={statut.variant}>{statut.libelle}</Badge>
+                  </div>
+                </Td>
+                <Td>
+                  <dl className="space-y-1 text-xs">
+                    <div><dt className="inline text-[var(--color-fg-muted)]">Droits acquis : </dt><dd className="inline font-semibold">{jours(ouverte ? periode.cumulDroitsCourant : periode.cumulDroitsCloture)} j</dd></div>
+                    <div><dt className="inline text-[var(--color-fg-muted)]">Valeur acquise : </dt><dd className="inline font-semibold">{formatMoneyAr(ouverte ? periode.cumulValorisationCourante : periode.cumulValorisationCloture)}</dd></div>
+                  </dl>
+                  <p className="mt-1 text-[10px] text-[var(--color-fg-subtle)]">Cumul annuel, distinct du stock disponible.</p>
+                </Td>
+                <Td>
+                  <dl className="space-y-1 text-xs">
+                    <div><dt className="inline text-[var(--color-fg-muted)]">Calculé à la clôture : </dt><dd className="inline font-semibold">{ouverte ? 'Après clôture' : Number(periode.tauxCalculeCloture) > 0 ? `${formatMoneyAr(periode.tauxCalculeCloture)} / j` : '—'}</dd></div>
+                    <div><dt className="inline text-[var(--color-fg-muted)]">Applicable : </dt><dd className="inline font-semibold">{periode.dateEffetActivation ? `${formatMoneyAr(periode.tauxActive)} / j` : 'Aucun'}</dd></div>
+                  </dl>
+                  {periode.dateEffetActivation
+                    ? <p className="mt-1 text-[10px] text-[var(--color-fg-muted)]">Depuis le {dateFr(periode.dateEffetActivation)}</p>
+                    : !ouverte && Number(periode.tauxCalculeCloture) > 0
+                      ? <div className="mt-2 space-y-1"><Badge variant="warning">En attente d’activation</Badge>
+                        {canValidate
+                          ? <div><Button size="xs" variant="primary" onClick={() => ouvrirActivation(periode)}>Activer le TCONGE</Button></div>
+                          : <p className="text-[10px] text-[var(--color-fg-muted)]">Activation réservée à un utilisateur autorisé.</p>}</div>
+                      : null}
+                </Td>
+                <Td><div className="flex flex-wrap gap-2">
                   <Button size="xs" variant="outline" onClick={() => chargerMois(periode)}>Vérifier les mois</Button>
                   <Button size="xs" variant="outline" iconLeft={<FileSpreadsheet size={13} />}
                     onClick={() => exporter(periode)}>Excel</Button>
                 </div></Td>
               </Tr>;
             })}</Tbody>
-          </Table>}
+            </Table>
+          </>}
         </CardBody>
         </Card>
       </>}
@@ -315,41 +350,47 @@ export default function PeriodesReferenceTab({
     <Modal isOpen={Boolean(periodeControle)} onClose={() => setPeriodeControle(null)}
       title="Contrôle mensuel des acquisitions" size="2xl">
       <div className="p-4 space-y-4">
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          La valeur de chaque mois vient du bulletin clôturé. Une rectification change la valeur du lot et les cumuls,
-          jamais les jours ni le bulletin. Pour un cycle clôturé ou un lot déjà consommé, la DAF contrôle
-          l'indemnité déjà payée puis saisit un complément dans Paie → Variables, type « Régularisation de congé antérieur ».
-          Le motif doit contenir <code>JOURNAL_CONGE#id</code> et expliquer le calcul ; la variable passe par l'approbation de paie.
-        </p>
-        <div className="overflow-x-auto"><Table>
-          <Thead><Tr><Th>Mois acquis</Th><Th>Journal</Th><Th className="text-right">Jours</Th>
-            <Th className="text-right">Valeur du lot</Th><Th className="text-right">Cumul annuel</Th><Th>Action</Th></Tr></Thead>
-          <Tbody>{lignes.map((ligne) => <Tr key={ligne.idJournal}>
-            <Td>{moisFr(ligne.mois, ligne.annee)}</Td>
-            <Td>#{ligne.idJournal}</Td>
-            <Td className="text-right">{jours(ligne.jours)} j</Td>
-            <Td className="text-right">{formatMoneyAr(ligne.valeur)}</Td>
-            <Td className="text-right">{formatMoneyAr(ligne.cumul)}</Td>
-            <Td>{canValidate && ligne.statutReference === 'OUVERTE' &&
-              <Button size="xs" variant="outline" onClick={() => {
-                setLigneCorrection(ligne); setValeur(String(ligne.valeur)); setMotif('');
-              }}>Rectifier</Button>}</Td>
-          </Tr>)}</Tbody>
-        </Table></div>
-        {lignes.length === 0 && <p className="text-sm">Aucun droit acquis sur cette référence.</p>}
-        {historique.length > 0 && <div className="border-t pt-3 space-y-1">
-          <p className="text-sm font-semibold">Rectifications DAF</p>
-          {historique.map((item) => {
-            const ligne = lignes.find((row) => row.idJournal === item.idJournal);
-            return <p key={item.idCorrection} className="text-xs text-[var(--color-fg-muted)]">
-              {ligne ? moisFr(ligne.mois, ligne.annee) : `Journal ${item.idJournal}`}
-              {' · '}{formatMoneyAr(item.ancienneValeur)} → {formatMoneyAr(item.nouvelleValeur)}
-              {' · '}{item.motif} · utilisateur #{item.corrigePar}
-            </p>;
-          })}
-        </div>}
+        <Alert type="info" title="Choisir la procédure selon l'état du droit">
+          <ol className="list-decimal space-y-1 pl-5">
+            {ACQUISITION_CORRECTION_STEPS.map((step) => <li key={step}>{step}</li>)}
+          </ol>
+          <p className="mt-2">{ACQUISITION_CORRECTION_LIMIT}</p>
+        </Alert>
+        {erreurMois && <Alert type="error" title="Données mensuelles indisponibles" message={erreurMois}
+          actionLabel="Réessayer" onAction={() => chargerMois(periodeControle)} />}
+        {chargementMois ? <div role="status" className="py-8 text-center"><Loading size="sm" label="Chargement des acquisitions et rectifications…" /></div> : !erreurMois && <>
+          {lignes.length === 0 ? <EmptyState title="Aucun droit acquis sur cette référence" description="Aucune acquisition mensuelle n'est enregistrée pour cette période." /> : <div className="overflow-x-auto"><Table aria-label="Acquisitions mensuelles de la période">
+            <Thead><Tr><Th>Mois · journal</Th><Th className="text-right">Jours acquis</Th>
+              <Th className="text-right">Valeur du lot</Th><Th className="text-right">Cumul annuel</Th><Th>Action</Th></Tr></Thead>
+            <Tbody>{lignes.map((ligne) => <Tr key={ligne.idJournal}>
+              <Td><span className="font-medium">{moisFr(ligne.mois, ligne.annee)}</span><span className="block text-[10px] text-[var(--color-fg-muted)]">Journal #{ligne.idJournal}</span></Td>
+              <Td className="text-right">{jours(ligne.jours)} j</Td>
+              <Td className="text-right">{formatMoneyAr(ligne.valeur)}</Td>
+              <Td className="text-right">{formatMoneyAr(ligne.cumul)}</Td>
+              <Td>{canValidate && ligne.statutReference === 'OUVERTE' &&
+                <Button size="xs" variant="outline" onClick={() => {
+                  setLigneCorrection(ligne); setValeur(String(ligne.valeur)); setMotif('');
+                }}>Rectifier</Button>}</Td>
+            </Tr>)}</Tbody>
+          </Table></div>}
+          <section aria-labelledby="corrections-history-title" className="border-t border-[var(--color-border-subtle)] pt-3 space-y-2">
+            <h3 id="corrections-history-title" className="text-sm font-semibold">Historique des rectifications</h3>
+            {historique.length > 0 ? <div className="overflow-x-auto"><Table aria-label="Historique des rectifications de valorisation">
+              <Thead><Tr><Th>Mois · journal</Th><Th>Valeur précédente → nouvelle</Th><Th>Motif</Th><Th>Utilisateur</Th></Tr></Thead>
+              <Tbody>{historique.map((item) => {
+                const ligne = lignes.find((row) => row.idJournal === item.idJournal);
+                return <Tr key={item.idCorrection}>
+                  <Td>{ligne ? moisFr(ligne.mois, ligne.annee) : 'Journal'}<span className="block text-[10px] text-[var(--color-fg-muted)]">#{item.idJournal}</span></Td>
+                  <Td>{formatMoneyAr(item.ancienneValeur)} → {formatMoneyAr(item.nouvelleValeur)}</Td>
+                  <Td className="max-w-xs whitespace-normal">{item.motif}</Td>
+                  <Td>#{item.corrigePar}</Td>
+                </Tr>;
+              })}</Tbody>
+            </Table></div> : <p className="text-xs text-[var(--color-fg-muted)]">Aucune rectification n'est enregistrée sur cette période.</p>}
+          </section>
+        </>}
         {ligneCorrection && <form onSubmit={corriger} className="space-y-3 border-t pt-4">
-          <p className="font-semibold">Rectifier {moisFr(ligneCorrection.mois, ligneCorrection.annee)}</p>
+          <p className="font-semibold">Journal #{ligneCorrection.idJournal} · acquisition {moisFr(ligneCorrection.mois, ligneCorrection.annee)}</p>
           <p className="text-xs">Valeur actuelle : {formatMoneyAr(ligneCorrection.valeur)} ; {jours(ligneCorrection.jours)} jours inchangés.</p>
           <Input label="Nouvelle valeur acquise (Ar)" type="number" min="0" step="0.01"
             value={valeur} onChange={(event) => setValeur(event.target.value)} required />

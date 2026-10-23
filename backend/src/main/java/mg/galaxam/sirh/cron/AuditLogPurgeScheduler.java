@@ -3,7 +3,7 @@ package mg.galaxam.sirh.cron;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Scheduler pour la maintenance et la purge périodique des logs d'audit.
- * Purge les enregistrements d'audit de plus d'un an pour préserver les performances BDD.
+ * Purge les enregistrements d'audit conservés au-delà de 36 mois.
  */
 @Component
 public class AuditLogPurgeScheduler {
@@ -28,22 +28,31 @@ public class AuditLogPurgeScheduler {
 
     /**
      * Exécuté le 1er de chaque mois à 04:00:00.
-     * Supprime les entrées d'audit_log de plus de 365 jours (calculé en Java).
+     * Supprime les entrées d'audit_log antérieures au seuil calendaire de 36 mois.
      */
     @Scheduled(cron = "0 0 4 1 * ?", zone = "Indian/Antananarivo")
     public void purgerAnciensLogsAudit() {
         executionRegistry.runMonthly("PURGE_AUDIT", this::purgerAnciensLogsAuditInterne);
     }
 
+    public boolean rattraperPurgeMensuelle() {
+        if (LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).getDayOfMonth() == 1
+                && java.time.LocalTime.now(java.time.ZoneId.of("Indian/Antananarivo")).isBefore(java.time.LocalTime.of(4, 0))) {
+            return true;
+        }
+        LocalDate moisCourant = LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).withDayOfMonth(1);
+        return executionRegistry.runIfNotCompleted("PURGE_AUDIT", moisCourant, this::purgerAnciensLogsAuditInterne);
+    }
+
     private void purgerAnciensLogsAuditInterne() throws Exception {
-        Timestamp seuil1An = Timestamp.valueOf(LocalDateTime.now().minusDays(365));
+        Timestamp seuil36Mois = Timestamp.valueOf(LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).minusMonths(36).atStartOfDay());
         String sql = "DELETE FROM audit_log WHERE date_action < ?";
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setTimestamp(1, seuil1An);
+            ps.setTimestamp(1, seuil36Mois);
             int nbSupprimes = ps.executeUpdate();
             if (nbSupprimes > 0) {
-                log.info("[AuditLogPurgeScheduler] Purge des logs d'audit effectuée : {} entrées supprimées (> 1 an).", nbSupprimes);
+                log.info("[AuditLogPurgeScheduler] Purge des logs d'audit effectuée : {} entrées antérieures à 36 mois supprimées.", nbSupprimes);
             }
         } catch (Exception e) {
             log.error("[AuditLogPurgeScheduler] Erreur lors de la purge des logs d'audit : {}", e.getMessage(), e);

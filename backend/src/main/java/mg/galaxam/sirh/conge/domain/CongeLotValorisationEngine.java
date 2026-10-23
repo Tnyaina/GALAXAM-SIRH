@@ -18,9 +18,11 @@ public class CongeLotValorisationEngine {
     public record Imputation(int idMouvement, Integer idDemande, int idSource, String origine,
             BigDecimal jours, BigDecimal valeur, BigDecimal tauxHistorique) {}
     public record LotRestant(int idSource, String origine, LocalDate dateAcquisition,
-            BigDecimal jours, BigDecimal valeur) {}
+            BigDecimal jours, BigDecimal valeur, BigDecimal tauxHistorique) {}
     public record Situation(BigDecimal soldeJours, BigDecimal soldeValorisation,
             List<LotRestant> lots, List<Imputation> imputations, BigDecimal joursSansLot) {}
+    public record SimulationPrise(BigDecimal joursDemandes, BigDecimal soldeAvant, BigDecimal soldeApres,
+            BigDecimal valeurEstimee, boolean soldeSuffisant, List<Imputation> imputations) {}
 
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2);
     private static final String REPRISE = "REPRISE_CUTOVER";
@@ -208,8 +210,35 @@ public class CongeLotValorisationEngine {
                     .setScale(2, RoundingMode.HALF_UP));
         }
         List<LotRestant> restants = lots.stream().filter(l -> l.joursRestants.signum() > 0)
-                .map(l -> new LotRestant(l.id, l.origine, l.date, l.joursRestants, l.valeurRestante)).toList();
+                .map(l -> new LotRestant(l.id, l.origine, l.date, l.joursRestants, l.valeurRestante, l.taux()))
+                .toList();
         return new Situation(soldeJours, valeur, restants, List.copyOf(traces), joursSansLot);
+    }
+
+    /** Projette une prise sur l'instantané sans modifier le ledger ni les lots fournis. */
+    public SimulationPrise simulerPrise(Situation situation, BigDecimal joursDemandes) {
+        if (situation == null || joursDemandes == null || joursDemandes.signum() <= 0) {
+            throw new IllegalArgumentException("La situation et un nombre positif de jours sont requis.");
+        }
+        List<LotRestant> fifo = situation.lots().stream().sorted(Comparator
+                .comparingInt((LotRestant lot) -> REPRISE.equals(lot.origine()) ? 0 : AJUSTEMENT.equals(lot.origine()) ? 1 : 2)
+                .thenComparing(LotRestant::dateAcquisition).thenComparingInt(LotRestant::idSource)).toList();
+        BigDecimal restant = joursDemandes;
+        BigDecimal valeur = ZERO;
+        List<Imputation> imputations = new ArrayList<>();
+        for (LotRestant lot : fifo) {
+            if (restant.signum() <= 0) break;
+            BigDecimal jours = restant.min(lot.jours());
+            BigDecimal montant = jours.compareTo(lot.jours()) == 0 ? lot.valeur()
+                    : jours.multiply(lot.tauxHistorique()).setScale(2, RoundingMode.HALF_UP);
+            imputations.add(new Imputation(0, null, lot.idSource(), lot.origine(), jours, montant,
+                    lot.tauxHistorique()));
+            restant = restant.subtract(jours);
+            valeur = valeur.add(montant);
+        }
+        return new SimulationPrise(joursDemandes, situation.soldeJours(),
+                situation.soldeJours().subtract(joursDemandes), valeur.setScale(2, RoundingMode.HALF_UP),
+                restant.signum() == 0, List.copyOf(imputations));
     }
 
     private static LocalDate seuilExpiration(String commentaire, LocalDate date) {

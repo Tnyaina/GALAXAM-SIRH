@@ -79,6 +79,6 @@ public class CustomUserDetails implements UserDetails {
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails user) {
             return user.getIdUtilisateur();
         }
-        return 1;
+        throw new org.springframework.security.access.AccessDeniedException("Aucun utilisateur authentifié dans le contexte courant.");
     }
 }

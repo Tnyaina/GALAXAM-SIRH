@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
+import { defaultLeavePayable } from '@/features/leave/utils/defaultLeavePayable';
+import { hasFixedLeaveDuration } from '@/features/leave/utils/leaveDurationPolicy';
 import { 
   formatDateForInput, 
   isDateAnterieure,
@@ -26,7 +28,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const [derogationDelaiPreavis, setDerogationDelaiPreavis] = useState(false);
   const [derogationContinuiteService, setDerogationContinuiteService] = useState(false);
   const [extensionPathologiqueMaternite, setExtensionPathologiqueMaternite] = useState(false);
-  const [estRemunere, setEstRemunere] = useState(true);
+  const [estRemunere, setEstRemunere] = useState(false);
   const [showOptionsAvancees, setShowOptionsAvancees] = useState(false);
 
   // Simulation, Conflits de poste & Continuité de service
@@ -40,6 +42,9 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const [nbJoursOuvres, setNbJoursOuvres] = useState(0);
   const [nbJoursFeries, setNbJoursFeries] = useState(0);
   const [simulationError, setSimulationError] = useState(null);
+  const [simulationLotsReport, setSimulationLotsReport] = useState(null);
+  const [simulationLotsError, setSimulationLotsError] = useState(null);
+  const [simulationLotsLoading, setSimulationLotsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -84,7 +89,10 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         } else if (initialDemande.estPaye !== undefined) {
           setEstRemunere(Boolean(initialDemande.estPaye));
         } else {
-          setEstRemunere(true);
+          const type = (referentiels?.typesConge || []).find(
+            (item) => String(item.idTypeConge) === String(initialDemande.idTypeConge)
+          );
+          setEstRemunere(defaultLeavePayable(type));
         }
         if (initialDemande.derogationSoldeNegatif || initialDemande.derogationDelaiPreavis || initialDemande.derogationContinuiteService || initialDemande.extensionPathologiqueMaternite) {
           setShowOptionsAvancees(true);
@@ -102,7 +110,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setEstDemiJournee(false);
         setMomentDemiJournee('MATIN');
         setDerogationSoldeNegatif(false);
-        setEstRemunere(true);
+        setEstRemunere(false);
         const isPastInit = initialDateDebut && (() => {
           const [y, m, d] = String(initialDateDebut).split('T')[0].split('-').map(Number);
           const t = (y && m && d) ? new Date(y, m - 1, d, 0, 0, 0, 0) : new Date(initialDateDebut);
@@ -119,7 +127,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
       setError(null);
       setFieldErrors({});
     }
-  }, [isOpen, idEmployeProp, initialDemande, initialDateDebut, initialDateFin]);
+  }, [isOpen, idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels]);
 
   // Dérogation de préavis automatique si la date de début est antérieure à aujourd'hui (oubli, saisie rétroactive)
   useEffect(() => {
@@ -138,7 +146,11 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   // Simulation canonique : durée fixe, décompte, solde, préavis et quota viennent du backend.
   useEffect(() => {
     let active = true;
-    const isFixedDuration = Boolean(selectedType?.dureeFixeJours || idMotifEvenementFamilial || (extensionPathologiqueMaternite && isMaternite));
+    const isFixedDuration = hasFixedLeaveDuration({
+      fixedDays: selectedType?.dureeFixeJours,
+      maternityExtension: extensionPathologiqueMaternite,
+      isMaternity: isMaternite,
+    });
     const effDateFin = estDemiJournee ? dateDebut : (dateFin || null);
 
     // Ne pas simuler si type absent, ou dateDebut invalide
@@ -188,6 +200,47 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   }, [dateDebut, dateFin, idTypeConge, idMotifEvenementFamilial, estDemiJournee,
     extensionPathologiqueMaternite, isMaternite, derogationSoldeNegatif, derogationDelaiPreavis,
     idEmployeProp, selectedEmployeId, selectedType?.dureeFixeJours]);
+
+  // Estimation informative des lots : endpoint backend, sans écriture ni calcul FIFO côté navigateur.
+  useEffect(() => {
+    let active = true;
+    const employeeId = Number(idEmployeProp || selectedEmployeId) || null;
+    const endDate = estDemiJournee ? dateDebut : (dateFin || null);
+    if (!employeeId || !selectedType?.decompteSoldeAcquis || !simulationReport
+        || !isValidIsoDate(dateDebut) || !isValidIsoDate(endDate) || endDate < dateDebut) {
+      setSimulationLotsReport(null);
+      setSimulationLotsError(null);
+      setSimulationLotsLoading(false);
+      return () => { active = false; };
+    }
+    setSimulationLotsLoading(true);
+    setSimulationLotsError(null);
+    const timer = setTimeout(async () => {
+      try {
+        const report = await congeService.simulerValorisation({
+          idEmploye: employeeId,
+          idTypeConge: Number(idTypeConge),
+          idMotifEvenementFamilial: idMotifEvenementFamilial ? Number(idMotifEvenementFamilial) : null,
+          dateDebut,
+          dateFin: endDate,
+          estDemiJournee,
+          derogationSoldeNegatif: false,
+          derogationDelaiPreavis,
+          extensionPathologiqueMaternite,
+        });
+        if (active) setSimulationLotsReport(report);
+      } catch (err) {
+        if (!active) return;
+        setSimulationLotsReport(null);
+        setSimulationLotsError(getErrorMessage(err, 'Estimation des lots indisponible.'));
+      } finally {
+        if (active) setSimulationLotsLoading(false);
+      }
+    }, 350);
+    return () => { active = false; clearTimeout(timer); };
+  }, [idEmployeProp, selectedEmployeId, selectedType?.decompteSoldeAcquis,
+    simulationReport, idTypeConge, idMotifEvenementFamilial, dateDebut, dateFin,
+    estDemiJournee, derogationDelaiPreavis, extensionPathologiqueMaternite]);
 
   // Analyse serveur de continuité de service & simulation des jours (backend-driven)
   useEffect(() => {
@@ -357,6 +410,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
 
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres, nbJoursFeries,
     conflitReport, simulationReport, simulationError, checkingConflits,
+    simulationLotsReport, simulationLotsError, simulationLotsLoading,
     loading, error, fieldErrors, setFieldErrors,
 
     typesConge, motifsFamiliaux, selectedType,

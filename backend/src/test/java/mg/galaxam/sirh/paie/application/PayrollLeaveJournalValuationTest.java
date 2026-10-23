@@ -48,4 +48,17 @@ class PayrollLeaveJournalValuationTest {
         assertEquals(new BigDecimal("30500.00"),
                 PayrollLeaveJournalService.calculerTauxJournalier(cumulValeur, cumulDroits));
     }
+
+    @Test
+    void tauxAnnuelEstValeurCumuleeSurJoursCumulesAvecArrondiHalfUp() {
+        BigDecimal cumulJours = new BigDecimal("15.0000");
+        BigDecimal cumulValeur = new BigDecimal("165000.00");
+
+        assertEquals(new BigDecimal("11000.00"),
+                PayrollLeaveJournalService.calculerTauxJournalier(cumulValeur, cumulJours));
+        assertEquals(BigDecimal.ZERO,
+                PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("165000.00"), BigDecimal.ZERO));
+        assertEquals(new BigDecimal("1.01"),
+                PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("1.005"), BigDecimal.ONE));
+    }
 }

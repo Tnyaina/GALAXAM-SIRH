@@ -319,6 +319,16 @@ const congeService = {
     return response.data;
   },
 
+  simulerValorisation: async (demande) => {
+    const payload = demande ? {
+      ...demande,
+      dateDebut: congeService.toIsoDateString(demande.dateDebut),
+      dateFin: congeService.toIsoDateString(demande.dateFin),
+    } : demande;
+    const response = await apiClient.post('/conges/demandes/simuler-valorisation', payload);
+    return response.data;
+  },
+
   /**
    * Soumet une nouvelle demande de congé
    */

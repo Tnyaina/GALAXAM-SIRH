@@ -1,5 +1,6 @@
-import { isValidElement, useRef } from 'react';
+import { isValidElement, useEffect, useRef, useState } from 'react';
 import Button from '@/components/ui/forms/Button';
+import { hasHorizontalOverflow } from './tabsOverflow';
 
 /**
  * Tabs — Composant réutilisable d'onglets pour le Design System Galaxam.
@@ -16,8 +17,34 @@ export function Tabs({
     bg = 'surface', // 'surface' pour blanc, 'subtle' pour le gris léger
     className = '',
     ariaLabel = 'Navigation par onglets',
+    showScrollHint = false,
 }) {
     const tabListRef = useRef(null);
+    const [hasOverflow, setHasOverflow] = useState(false);
+
+    useEffect(() => {
+        if (!showScrollHint || variant !== 'underline') {
+            setHasOverflow(false);
+            return undefined;
+        }
+
+        const tabList = tabListRef.current;
+        if (!tabList) return undefined;
+
+        const updateOverflow = () => setHasOverflow(hasHorizontalOverflow(tabList));
+        updateOverflow();
+
+        const resizeObserver = typeof ResizeObserver !== 'undefined'
+            ? new ResizeObserver(updateOverflow)
+            : null;
+        resizeObserver?.observe(tabList);
+        window.addEventListener('resize', updateOverflow);
+
+        return () => {
+            resizeObserver?.disconnect();
+            window.removeEventListener('resize', updateOverflow);
+        };
+    }, [showScrollHint, tabs.length, variant]);
 
     // Choix dynamique de la couleur de fond
     const bgClass = bg === 'surface' ? 'bg-[var(--color-surface)]' : 'bg-[var(--color-bg-subtle)]';
@@ -60,30 +87,31 @@ export function Tabs({
 
     if (variant === 'underline') {
         return (
-            <div
-                ref={tabListRef}
-                role="tablist"
-                aria-label={ariaLabel}
-                aria-orientation="horizontal"
-                onKeyDown={handleKeyDown}
-                className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-3 overflow-x-auto gap-0.5 ${className}`}
-            >
-                {tabs.map((tab) => {
-                    const isActive = activeTab === tab.id;
-                    const badgeVal = tab.count !== undefined ? tab.count : tab.badge;
-                    return (
-                        <button
-                            key={tab.id}
-                            id={`tab-${tab.id}`}
-                            data-tab-id={tab.id}
-                            role="tab"
-                            aria-selected={isActive}
-                            aria-controls={`panel-${tab.id}`}
-                            tabIndex={isActive ? 0 : -1}
-                            type="button"
-                            disabled={tab.disabled}
-                            onClick={() => onChange(tab.id)}
-                            className={`
+            <div className="min-w-0">
+                <div
+                    ref={tabListRef}
+                    role="tablist"
+                    aria-label={ariaLabel}
+                    aria-orientation="horizontal"
+                    onKeyDown={handleKeyDown}
+                    className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-3 overflow-x-auto gap-0.5 ${className}`}
+                >
+                    {tabs.map((tab) => {
+                        const isActive = activeTab === tab.id;
+                        const badgeVal = tab.count !== undefined ? tab.count : tab.badge;
+                        return (
+                            <button
+                                key={tab.id}
+                                id={`tab-${tab.id}`}
+                                data-tab-id={tab.id}
+                                role="tab"
+                                aria-selected={isActive}
+                                aria-controls={`panel-${tab.id}`}
+                                tabIndex={isActive ? 0 : -1}
+                                type="button"
+                                disabled={tab.disabled}
+                                onClick={() => onChange(tab.id)}
+                                className={`
                                 flex items-center gap-1.5 py-2 px-3 border-b-2 text-xs font-semibold cursor-pointer whitespace-nowrap rounded-none
                                 focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] focus-visible:outline-offset-[-2px]
                                 ${isActive
@@ -91,22 +119,28 @@ export function Tabs({
                                     : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }
                                 ${tab.disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                            `}
-                        >
-                            {renderIcon(tab.icon)}
-                            <span>{tab.label}</span>
-                            {badgeVal !== undefined && (
-                                <span className={`px-1.5 py-0.5 text-[10.5px] font-data font-bold rounded-none ${
-                                    isActive
-                                        ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
-                                        : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
-                                }`}>
-                                    {badgeVal}
-                                </span>
-                            )}
-                        </button>
-                    );
-                })}
+                                `}
+                            >
+                                {renderIcon(tab.icon)}
+                                <span>{tab.label}</span>
+                                {badgeVal !== undefined && (
+                                    <span className={`px-1.5 py-0.5 text-[10.5px] font-data font-bold rounded-none ${
+                                        isActive
+                                            ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
+                                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
+                                    }`}>
+                                        {badgeVal}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+                {showScrollHint && hasOverflow && (
+                    <p role="status" aria-live="polite" className="px-3 pt-1 text-[11px] text-[var(--color-fg-muted)]">
+                        Faites défiler horizontalement pour voir tous les onglets.
+                    </p>
+                )}
             </div>
         );
     }

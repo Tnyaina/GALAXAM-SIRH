@@ -73,17 +73,17 @@ public class SchedulerExecutionRegistry {
         void run() throws Exception;
     }
 
-    public void runDaily(String jobCode, ScheduledWork work) {
-        run(jobCode, LocalDate.now(), work);
+    public boolean runDaily(String jobCode, ScheduledWork work) {
+        return run(jobCode, LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")), work);
     }
 
-    public void runMonthly(String jobCode, ScheduledWork work) {
-        run(jobCode, LocalDate.now().withDayOfMonth(1), work);
+    public boolean runMonthly(String jobCode, ScheduledWork work) {
+        return run(jobCode, LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).withDayOfMonth(1), work);
     }
 
-    public void run(String jobCode, LocalDate executionKey, ScheduledWork work) {
+    public boolean run(String jobCode, LocalDate executionKey, ScheduledWork work) {
         UUID attemptToken = tryStart(jobCode, executionKey);
-        if (attemptToken == null) return;
+        if (attemptToken == null) return isCompleted(jobCode, executionKey);
 
         AtomicBoolean ownsAttempt = new AtomicBoolean(true);
         ScheduledFuture<?> heartbeat = HEARTBEATS.scheduleAtFixedRate(
@@ -93,10 +93,12 @@ public class SchedulerExecutionRegistry {
             work.run();
             if (updateResult(jobCode, executionKey, attemptToken, "COMPLETED", null)) {
                 log.info("[SCHEDULER] {} terminé pour la clé métier {}.", jobCode, executionKey);
+                return true;
             } else {
                 ownsAttempt.set(false);
                 log.warn("[SCHEDULER] {} a terminé après avoir perdu sa réservation pour {} ; le statut reste détenu par la nouvelle tentative.",
                         jobCode, executionKey);
+                return false;
             }
         } catch (Exception exception) {
             String message = exception.getMessage() == null
@@ -107,9 +109,99 @@ public class SchedulerExecutionRegistry {
             }
             log.error("[SCHEDULER] {} échoué pour la clé métier {} : {}", jobCode, executionKey,
                     exception.getMessage(), exception);
+            return false;
         } finally {
             ownsAttempt.set(false);
             heartbeat.cancel(false);
+        }
+    }
+
+    public boolean isCompleted(String jobCode, LocalDate executionKey) {
+        String sql = "SELECT status FROM scheduler_execution WHERE job_code = ? AND execution_key = ?";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, jobCode);
+            statement.setDate(2, Date.valueOf(executionKey));
+            try (java.sql.ResultSet result = statement.executeQuery()) {
+                return result.next() && "COMPLETED".equals(result.getString(1));
+            }
+        } catch (Exception exception) {
+            log.error("[SCHEDULER] Impossible de vérifier l'état de {} / {} : {}", jobCode, executionKey,
+                    exception.getMessage(), exception);
+            return false;
+        }
+    }
+
+    public boolean runIfNotCompleted(String jobCode, LocalDate executionKey, ScheduledWork work) {
+        if (isCompleted(jobCode, executionKey)) return true;
+        return run(jobCode, executionKey, work);
+    }
+
+    public boolean runDailyCatchUp(String jobCode, java.time.LocalTime scheduledTime, ScheduledWork work) {
+        java.time.LocalTime now = java.time.LocalTime.now(java.time.ZoneId.of("Indian/Antananarivo"));
+        if (now.isBefore(scheduledTime)) return true;
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo"));
+        return runIfNotCompleted(jobCode, today, work);
+    }
+
+    public java.util.List<LocalDate> findIncompletePeriods(String jobCode, LocalDate firstPeriod,
+            LocalDate latestPeriod, int maxPeriods) {
+        if (maxPeriods <= 0 || firstPeriod.isAfter(latestPeriod)) return java.util.List.of();
+        String sql = "SELECT execution_key, status FROM scheduler_execution "
+                + "WHERE job_code = ? AND execution_key BETWEEN ? AND ? ORDER BY execution_key";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, jobCode);
+            statement.setDate(2, Date.valueOf(firstPeriod));
+            statement.setDate(3, Date.valueOf(latestPeriod));
+            java.util.Map<LocalDate, String> statuses = new java.util.HashMap<>();
+            try (java.sql.ResultSet result = statement.executeQuery()) {
+                while (result.next()) statuses.put(result.getDate(1).toLocalDate(), result.getString(2));
+            }
+            java.util.List<LocalDate> periods = new java.util.ArrayList<>();
+            for (LocalDate period = firstPeriod; !period.isAfter(latestPeriod); period = period.plusMonths(1)) {
+                if (!"COMPLETED".equals(statuses.get(period))) {
+                    if (periods.size() == maxPeriods) break;
+                    periods.add(period);
+                }
+            }
+            return periods;
+        } catch (Exception exception) {
+            log.error("[SCHEDULER] Impossible de rechercher une période incomplète pour {} entre {} et {} : {}",
+                    jobCode, firstPeriod, latestPeriod, exception.getMessage(), exception);
+            throw new IllegalStateException("Impossible de lire les périodes de " + jobCode, exception);
+        }
+    }
+
+    public LocalDate firstRecordedPeriod(String jobCode, LocalDate latestPeriod) {
+        String sql = "SELECT MIN(execution_key) FROM scheduler_execution WHERE job_code = ? AND execution_key <= ?";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, jobCode);
+            statement.setDate(2, Date.valueOf(latestPeriod));
+            try (java.sql.ResultSet result = statement.executeQuery()) {
+                result.next();
+                Date first = result.getDate(1);
+                return first == null ? latestPeriod : first.toLocalDate();
+            }
+        } catch (Exception exception) {
+            throw new IllegalStateException("Impossible de lire le début du rattrapage de " + jobCode, exception);
+        }
+    }
+
+    public boolean hasMoreIncompletePeriods(String jobCode, LocalDate nextPeriod, LocalDate latestPeriod) {
+        if (nextPeriod.isAfter(latestPeriod)) return false;
+        String sql = "SELECT 1 FROM generate_series(?::date, ?::date, INTERVAL '1 month') period "
+                + "LEFT JOIN scheduler_execution e ON e.job_code = ? "
+                + "AND e.execution_key = period::date WHERE COALESCE(e.status, '') <> 'COMPLETED' LIMIT 1";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setDate(1, Date.valueOf(nextPeriod));
+            statement.setDate(2, Date.valueOf(latestPeriod));
+            statement.setString(3, jobCode);
+            try (java.sql.ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        } catch (Exception exception) {
+            log.error("[SCHEDULER] Impossible de vérifier les périodes dues pour {} : {}", jobCode,
+                    exception.getMessage(), exception);
+            return true;
         }
     }
 
@@ -156,7 +248,7 @@ public class SchedulerExecutionRegistry {
             }
         } catch (Exception exception) {
             log.error("[SCHEDULER] Impossible d'acquérir le verrou {} / {} : {}", jobCode, executionKey,
-                    exception.getMessage());
+                    exception.getMessage(), exception);
             return null;
         }
     }

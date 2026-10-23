@@ -91,6 +91,7 @@ export default function SaisiePeriodeEmployePage({
     // ── 3. Hook métier centralisé ─────────────────────────────────────────────
     const {
         ficheData,
+        siteParams,
         siteIndemnites,
         displayedIndemnites,
         grilleRows,
@@ -413,12 +414,13 @@ export default function SaisiePeriodeEmployePage({
         <div className="space-y-4 font-sans pb-16">
             {/* 1. Barre supérieure : Mode de Saisie, Période & Site */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="attendance-mode-controls flex items-center gap-3 flex-wrap">
                     {/* Bascule Saisie collective vs Saisie par collaborateur */}
-                    <div className="inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 gap-0.5">
+                    <div className="attendance-mode-switch inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 gap-0.5">
                         <Button
                             variant="ghost"
                             size="sm"
+                            wrapLabel
                             iconLeft={<Users size={13} />}
                             onClick={() => requestNav({ type: 'tab', value: 'saisie' })}
                             className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
@@ -428,6 +430,7 @@ export default function SaisiePeriodeEmployePage({
                         <Button
                             variant="primary"
                             size="sm"
+                            wrapLabel
                             iconLeft={<User size={13} />}
                             className="font-bold shadow-xs"
                         >
@@ -442,6 +445,7 @@ export default function SaisiePeriodeEmployePage({
                         periodesList={periodesList}
                         selectedPeriodeId={selectedPeriodeId}
                         onSelectPeriode={(pId) => requestNav({ type: 'periode', value: pId })}
+                        className="attendance-period-navigator"
                     />
                 </div>
 
@@ -585,6 +589,7 @@ export default function SaisiePeriodeEmployePage({
                             filterJour={filterJour}
                             canEditPeriod={canEditPeriod}
                             isAutonome={isAutonome}
+                            siteParams={siteParams}
                             displayedIndemnites={displayedIndemnites}
                             initialRows={initialRows}
                             isDayRowModified={isDayRowModified}

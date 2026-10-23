@@ -9,6 +9,7 @@ export default function DepartementsList({
     departements = [],
     selectedDepartement,
     showInactive = false,
+    canWrite = false,
     onToggleShowInactive,
     onSelectDepartement,
     onOpenCreate,
@@ -55,7 +56,7 @@ export default function DepartementsList({
                             <span className="hidden sm:inline">Inactifs</span>
                         </label>
                     )}
-                    {departements.length > 0 && (
+                    {canWrite && departements.length > 0 && (
                         <Button
                             onClick={handleCreate}
                             variant="secondary"
@@ -86,44 +87,44 @@ export default function DepartementsList({
                         return (
                             <div
                                 key={dept.idDepartement}
-                                onClick={() => onSelectDepartement(dept)}
                                 className={`
-                                    w-full flex items-center justify-between p-2.5 sm:p-3 rounded-none border text-left cursor-pointer transition-all
+                                    w-full flex items-center justify-between rounded-none border transition-colors
                                     ${isSelected
                                         ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-semibold shadow-xs'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
                                     }
                                 `}
                             >
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-xs sm:text-sm font-bold truncate">{dept.libelle}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
+                                <button
+                                    type="button"
+                                    aria-pressed={isSelected}
+                                    onClick={() => onSelectDepartement(dept)}
+                                    className="min-w-0 flex-1 self-stretch p-2.5 sm:p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-focus-ring)]"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="text-xs sm:text-sm font-bold truncate">{dept.libelle}</span>
+                                    </span>
+                                    <span className="flex items-center gap-2 mt-0.5">
                                         <span className="text-[11px] font-mono text-[var(--color-fg-muted)]">{dept.codeDepartement}</span>
                                         <Badge variant={dept.estActif ? 'success' : 'default'} size="sm" dot>
                                             {dept.estActif ? "Actif" : "Inactif"}
                                         </Badge>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-1 pl-2 shrink-0">
+                                    </span>
+                                </button>
+                                {canWrite && <div className="flex items-center gap-1 px-1 shrink-0">
                                     <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEdit?.(dept, e);
-                                        }}
-                                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                        type="button"
+                                        onClick={(e) => handleEdit?.(dept, e)}
+                                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
                                         title="Modifier le département"
                                         aria-label={`Modifier ${dept.libelle}`}
                                     >
                                         <Edit2 size={14} />
                                     </button>
                                     <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleToggle?.(dept, e);
-                                        }}
-                                        className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
+                                        type="button"
+                                        onClick={(e) => handleToggle?.(dept, e)}
+                                        className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] ${
                                             dept.estActif
                                                 ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                 : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
@@ -133,7 +134,7 @@ export default function DepartementsList({
                                     >
                                         {dept.estActif ? <Power size={14} /> : <Check size={14} />}
                                     </button>
-                                </div>
+                                </div>}
                             </div>
                         );
                     })
@@ -142,9 +143,9 @@ export default function DepartementsList({
                         <EmptyState
                             icon={Building}
                             title={search ? "Aucun département correspondant" : "Aucun département"}
-                            description={search ? "Essayez avec d'autres termes de recherche." : "Créez votre premier département pour regrouper vos services."}
-                            actionLabel={!search ? "Créer un département" : undefined}
-                            onAction={!search ? handleCreate : undefined}
+                            description={search ? "Essayez avec d'autres termes de recherche." : canWrite ? "Créez votre premier département pour regrouper vos services." : "Aucun département n'est disponible dans le référentiel."}
+                            actionLabel={!search && canWrite ? "Créer un département" : undefined}
+                            onAction={!search && canWrite ? handleCreate : undefined}
                         />
                     </div>
                 )}

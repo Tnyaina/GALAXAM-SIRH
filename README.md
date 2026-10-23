@@ -164,11 +164,11 @@ flowchart LR
 3. **Schedulers Nocturnes Coordonnés :**
    Les tâches d'arrière-plan s'exécutent avec un mécanisme de bail distribué (`SchedulerExecutionRegistry`) garantissant l'absence de collision :
    - `00:10:00` (quotidien) — `MouvementRhScheduler` : application automatique des mouvements RH (mutations, promotions, titularisations, sorties) atteignant leur date d'effet.
-   - `01:00:00` (mensuel, 1er du mois) — `AcquisitionCongeScheduler` : calcul et imputation des bonifications d'ancienneté des congés.
+   - `01:00:00` (mensuel, 1er du mois) — `AcquisitionCongeScheduler` : vérifie les bonifications d'ancienneté pour les anniversaires du mois échu. L'acquisition mensuelle standard est enregistrée transactionnellement à la clôture de paie.
    - `02:30:00` (quotidien) — `NotificationRhScheduler` : détection proactive des échéances d'essai (J-30, J-15, J-7, J) et alertes de fin de contrat CDD.
    - `03:30:00` (quotidien) — `SessionSecurityScheduler` : purge en base des refresh tokens expirés et sécurisation des sessions inactives.
-   - `04:00:00` (mensuel, 1er du mois) — `AuditLogPurgeScheduler` : purge légale des traces d'audit expirées (> 36 mois).
-   - `Toutes les 15 min` — `RattrapageAutomatiqueService` : surveillance et rattrapage autonome des baux et exécutions asynchrones.
+   - `04:00:00` (mensuel, 1er du mois) — `AuditLogPurgeScheduler` : purge des traces d'audit antérieures à 36 mois.
+   - `Toutes les 15 min` — `RattrapageAutomatiqueService` : vérifie les balayages quotidiens après leur heure prévue, les mois de bonification manqués depuis la première période enregistrée (six par cycle), et la purge d'audit du mois courant après 04:00 le 1er. Les échecs restent retentables et les exécutions terminées sont dédupliquées dans `scheduler_execution`.
 
 ---
 
@@ -278,6 +278,12 @@ docker compose stop
 
 ### Déploiement Docker en Mode Production
 Le profil production compile un bundle statique optimisé servi par Nginx et exécute un JAR Spring Boot autonome sans DevTools :
+
+Le frontal de production est publié uniquement sur `127.0.0.1:8088` et doit être placé derrière un proxy TLS. Ce proxy doit écraser et transmettre `X-Forwarded-Proto: https` et `X-Forwarded-For` avec les valeurs fiables; le Nginx du conteneur relaie le protocole à l'API pour que le cookie de renouvellement soit marqué `Secure`. Ne publiez pas directement le port HTTP du conteneur sur Internet. Le limiteur de connexion est en mémoire et convient à l'instance unique définie par ce Compose; une mise à l'échelle horizontale nécessite une limite partagée au proxy ou un magasin partagé.
+
+Le bootstrap administrateur de production est désactivé par défaut. Pour le tout premier lancement uniquement, définir `GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true` et les variables d'identité/mot de passe administrateur; le remettre à `false` après création du compte.
+
+Les scripts SQL versionnés ne sont pas appliqués automatiquement par Spring. Avant une mise à jour de schéma, tester les migrations requises sur une copie de préproduction, sauvegarder PostgreSQL, puis conserver l'image précédente et vérifier la procédure de restauration avant le déploiement.
 
 ```bash
 # Vérification de la configuration

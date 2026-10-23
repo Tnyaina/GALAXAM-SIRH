@@ -27,10 +27,24 @@ et si le jeton correspond encore à celui enregistré en base. Le logout efface
 La suppression physique via `Utilisateur.delete` est interdite afin d'éviter la
 perte silencieuse des historiques liés au compte. Les journaux de connexion et
 d'audit restent donc associés à l'identité d'origine. Le filtre JWT recharge le
-compte et vérifie `isEnabled()` à chaque requête : un access token existant est
-refusé pendant la désactivation. En revanche, faute de version de session ou de
-date de révocation, un ancien access token non expiré peut redevenir accepté
-après réactivation. La suppression de l'ancien refresh token, elle, reste
-effective.
+compte et vérifie `isEnabled()` ainsi que la session `sid` à chaque requête.
+La désactivation révoque les sessions en base : un ancien access token reste
+refusé après réactivation. Une nouvelle connexion crée une nouvelle session.
+
+Les requêtes de renouvellement et de déconnexion par cookie exigent une origine
+exactement autorisée par `app.cors.allowed-origins` (en-tête `Origin`, ou
+`Referer` en repli). Une origine absente ou différente est refusée. Les écritures
+d'audit échouées remontent désormais une erreur ; les opérations qui utilisent
+la même transaction JDBC doivent alors être annulées.
+
+La connexion limite à dix les échecs par adresse e-mail normalisée sur une
+fenêtre de quinze minutes. Le compteur est en mémoire et borné ; il protège
+l'instance Compose unique. En cas de déploiement multi-instance, appliquer aussi
+une limite partagée au proxy d'entrée ou déplacer ce compteur vers un stockage
+partagé. Le proxy TLS public doit remplacer `X-Forwarded-Proto` et transmettre
+sa valeur à Nginx pour que le cookie de renouvellement conserve l'attribut
+`Secure`.
 
 Le test de référence est `IdleSessionServicePostgresTest`.
+
+Les écritures métier qui exigent un auteur échouent si aucun `CustomUserDetails` n'est présent dans le contexte de sécurité. L'identifiant du compte administrateur n'est jamais utilisé comme valeur de remplacement. Les permissions complètes implicites ne sont accordées qu'au code de rôle exact `ROLE_ADMIN`.

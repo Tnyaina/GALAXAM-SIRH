@@ -472,10 +472,11 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
                 {/* Sélecteur de Mode : Saisie collective (par date) vs Saisie par collaborateur (période) */}
                 <div className="flex items-center justify-between gap-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
-                    <div className="inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 gap-0.5">
+                    <div className="attendance-mode-switch inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 gap-0.5">
                         <Button
                             variant="primary"
                             size="sm"
+                            wrapLabel
                             iconLeft={<Users size={13} />}
                             className="font-bold shadow-xs"
                         >
@@ -484,6 +485,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         <Button
                             variant="ghost"
                             size="sm"
+                            wrapLabel
                             iconLeft={<User size={13} />}
                             onClick={() => {
                                 setSearchParams(prev => {

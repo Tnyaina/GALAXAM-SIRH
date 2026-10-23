@@ -55,17 +55,24 @@ export default function ValidationTable({
                 </div>
                 <StatusBadge status={d.codeStatutDemande || d.statutCode} size="xs" />
               </div>
-              <p className="text-xs text-[var(--color-fg)]">{d.libelleTypeConge || d.codeTypeConge} · {formatDate(d.dateDebut)} → {formatDate(d.dateFin)}</p>
+              <div className="space-y-0.5">
+                <p className="text-xs font-medium text-[var(--color-fg)]">{d.libelleTypeConge || d.codeTypeConge}</p>
+                <p className="text-xs text-[var(--color-fg-muted)]">{formatDate(d.dateDebut)} → {formatDate(d.dateFin)}</p>
+                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                  {d.estDemiJournee
+                    ? `0,5 jour · ${d.momentDemiJournee === 'APRES_MIDI' ? 'après-midi' : 'matin'}`
+                    : d.nbJoursDecomptes == null
+                      ? 'Durée non renseignée'
+                      : `${d.nbJoursDecomptes} jour${Number(d.nbJoursDecomptes) === 1 ? '' : 's'} décompté${Number(d.nbJoursDecomptes) === 1 ? '' : 's'}`}
+                  {d.derogationSoldeNegatif && <span className="ml-1 font-semibold text-[var(--color-danger-600)]">· solde négatif autorisé</span>}
+                </p>
+              </div>
               <div className="flex items-center justify-between gap-2">
                 <Button
-                  variant="outline"
+                  variant={aDecider ? 'primary' : 'outline'}
                   size="sm"
-                  className={`min-h-[44px] inline-flex items-center justify-center font-medium text-xs px-3.5 rounded-lg transition-colors ${
-                    aDecider
-                      ? 'border-[var(--color-brand-300)] text-[var(--color-brand-700)] bg-[var(--color-brand-50)]/70 hover:bg-[var(--color-brand-100)] dark:border-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] dark:bg-[var(--color-brand-950)]/40'
-                      : 'border-[var(--color-border)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
-                  }`}
-                  iconLeft={<Eye size={14} className={aDecider ? "text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" : "text-[var(--color-fg-subtle)]"} />}
+                  className="min-h-[44px]"
+                  iconLeft={<Eye size={14} />}
                   onClick={() => onOpenDetail(d)}
                   aria-label={`${aDecider ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}
                 >
@@ -167,14 +174,10 @@ export default function ValidationTable({
                           const isAExaminer = canValidate && d.availableActions?.APPROVE?.allowed === true;
                           return (
                             <Button
-                              variant="outline"
+                              variant={isAExaminer ? 'primary' : 'outline'}
                               size="sm"
-                              className={`min-h-[44px] sm:min-h-[34px] sm:h-[34px] inline-flex items-center justify-center font-medium text-xs px-3.5 rounded-lg transition-colors ${
-                                isAExaminer
-                                  ? 'border-[var(--color-brand-300)] text-[var(--color-brand-700)] bg-[var(--color-brand-50)]/70 hover:bg-[var(--color-brand-100)] dark:border-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] dark:bg-[var(--color-brand-950)]/40 shadow-2xs'
-                                  : 'border-[var(--color-border)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
-                              }`}
-                              iconLeft={<Eye size={14} className={isAExaminer ? "text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" : "text-[var(--color-fg-subtle)]"} />}
+                              className="min-h-[44px] sm:min-h-[34px] sm:h-[34px]"
+                              iconLeft={<Eye size={14} />}
                               onClick={() => onOpenDetail(d)}
                               title="Consulter la demande et ses actions disponibles"
                               aria-label={`${isAExaminer ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}

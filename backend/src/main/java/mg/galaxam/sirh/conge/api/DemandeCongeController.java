@@ -44,6 +44,9 @@ public class DemandeCongeController {
     private mg.galaxam.sirh.conge.application.CongeService congeService;
 
     @Autowired
+    private mg.galaxam.sirh.conge.application.CongeLotValorisationService congeLotValorisationService;
+
+    @Autowired
     private mg.galaxam.sirh.common.transaction.TransactionRunner transactionRunner;
 
     @PostMapping("/simuler")
@@ -66,6 +69,42 @@ public class DemandeCongeController {
                     Boolean.TRUE.equals(req.extensionPathologiqueMaternite()), c));
         } catch (Exception e) {
             log.warn("Erreur simulation congé : {}", e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping("/simuler-valorisation")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> simulerValorisation(@RequestBody SimulerDemandeRequest req) {
+        if (req == null || req.idEmploye() == null || req.dateDebut() == null
+                || req.idTypeConge() == null || req.dateFin() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "L'employé, le type et les dates de la demande sont requis pour l'estimation.");
+        }
+        try (Connection c = dataSource.getConnection()) {
+            var type = mg.galaxam.sirh.conge.persistence.RefTypeConge.rechercherParId(req.idTypeConge(), c);
+            if (type == null || !type.isEstActif()) throw new IllegalArgumentException("Type de congé inactif ou introuvable.");
+            if (!type.isDecompteSoldeAcquis()) {
+                return ResponseEntity.ok(Map.of("applicable", false, "message", "Ce type de congé ne débite pas les droits acquis."));
+            }
+            java.sql.Date debut = java.sql.Date.valueOf(req.dateDebut());
+            java.sql.Date fin = java.sql.Date.valueOf(req.dateFin());
+            var report = congeService.simulerDemande(req.idEmploye(), req.idTypeConge(),
+                    req.idMotifEvenementFamilial(), debut, fin,
+                    Boolean.TRUE.equals(req.estDemiJournee()), Boolean.TRUE.equals(req.derogationSoldeNegatif()),
+                    Boolean.TRUE.equals(req.derogationDelaiPreavis()),
+                    Boolean.TRUE.equals(req.extensionPathologiqueMaternite()), c);
+            var estimate = congeLotValorisationService.simulerPrise(req.idEmploye(), req.dateDebut(),
+                    report.joursDebites(), c);
+            var demandesConcurrentes = congeService.demandesSoldeEnAttente(req.idEmploye(), req.dateDebut(), c);
+            return ResponseEntity.ok(Map.of("applicable", true, "joursDemandes", report.joursDebites(),
+                    "soldeAvant", estimate.soldeAvant(), "soldeApres", estimate.soldeApres(),
+                    "valeurEstimee", estimate.valeurEstimee(), "soldeSuffisant", estimate.soldeSuffisant(),
+                    "lots", estimate.lots(), "avertissement", estimate.avertissement(),
+                    "demandesEnAttente", demandesConcurrentes));
+        } catch (Exception e) {
+            log.warn("Erreur estimation valorisation congé : {}", e.getMessage());
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }

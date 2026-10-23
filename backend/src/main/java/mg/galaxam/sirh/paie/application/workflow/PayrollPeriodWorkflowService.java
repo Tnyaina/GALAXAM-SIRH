@@ -495,6 +495,20 @@ public class PayrollPeriodWorkflowService {
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
                 int changedVariables = result.getInt(1);
+                int changedLeaveRequests = count(connection,
+                        "SELECT COUNT(*) FROM demande_conge dc "
+                                + "JOIN ref_type_conge tc ON tc.id_type_conge=dc.id_type_conge "
+                                + "JOIN ref_statut_demande_conge sc ON sc.id_statut_demande_conge=dc.id_statut_demande_conge "
+                                + "JOIN bulletin_paie b ON b.id_employe=dc.id_employe "
+                                + "JOIN periode_paie periode ON periode.id_periode_paie=b.id_periode_paie "
+                                + "WHERE b.id_periode_paie=? AND COALESCE(b.type_bulletin,'MENSUEL')='MENSUEL' "
+                                + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
+                                + "AND tc.decompte_solde_acquis=TRUE "
+                                + "AND (sc.code='VALIDE' OR (sc.code='ANNULE' AND EXISTS ("
+                                + "SELECT 1 FROM mouvement_solde_conge ms WHERE ms.id_demande_conge=dc.id_demande_conge "
+                                + "AND ms.type_mouvement='PRISE'))) "
+                                + "AND dc.date_debut<=periode.date_fin AND dc.date_fin>=periode.date_debut "
+                                + "AND dc.updated_at>COALESCE(b.date_calcul,'1970-01-01'::timestamptz)", periodId);
                 String staleSnapshotsSql = "SELECT COUNT(*) FROM bulletin_paie b "
                         + "WHERE b.id_periode_paie = ? AND COALESCE(b.type_bulletin,'MENSUEL') = 'MENSUEL' "
                         + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
@@ -532,7 +546,7 @@ public class PayrollPeriodWorkflowService {
                                 + "WHERE ct.id_employe = b.id_employe AND ct.updated_at > b.date_calcul "
                                 + "AND ct.date_debut<=periode.date_fin "
                                 + "AND (ct.date_fin IS NULL OR ct.date_fin>=periode.date_debut)))", periodId);
-                        return changedVariables + staleAttendance + changedEmployment;
+                        return changedVariables + changedLeaveRequests + staleAttendance + changedEmployment;
                     }
                 }
             }

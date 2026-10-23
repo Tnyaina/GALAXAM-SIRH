@@ -40,9 +40,6 @@ public class RefMotifEvenementFamilial extends ClassMere {
         if (libelle == null || libelle.isBlank()) {
             throw new IllegalArgumentException("Le libellé du motif est obligatoire.");
         }
-        if (nbJoursAutorises == null || nbJoursAutorises.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Le nombre de jours autorisés doit être supérieur à 0.");
-        }
         this.code = this.code.trim().toUpperCase();
 
         RefMotifEvenementFamilial existant = rechercherParCode(this.code, c);

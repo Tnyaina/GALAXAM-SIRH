@@ -33,7 +33,8 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
     idEmploye: null,
     dateDebut: null,
     dateFin: null,
-    initialDemande: null
+    initialDemande: null,
+    employeeContext: null
   });
 
   // Modal de détails et actions (Validation / Refus / Annulation)
@@ -120,12 +121,14 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
 
   // Actions utilisateur
   const handleCellClick = (idEmploye, dateDebut, dateFin) => {
+    const employee = ganttRows.find((row) => Number(row.idEmploye) === Number(idEmploye));
     setDemandeModalState({
       isOpen: true,
       idEmploye: idEmploye ? Number(idEmploye) : null,
       dateDebut: dateDebut,
       dateFin: dateFin || dateDebut,
-      initialDemande: null
+      initialDemande: null,
+      employeeContext: employee ? { nom: employee.employe, matricule: employee.matricule } : null
     });
   };
 
@@ -159,7 +162,8 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
       idEmploye: d?.idEmploye || null,
       dateDebut: d?.dateDebut ? fmtDateInput(d.dateDebut) : null,
       dateFin: d?.dateFin ? fmtDateInput(d.dateFin) : null,
-      initialDemande: d
+      initialDemande: d,
+      employeeContext: { nom: `${d?.prenom || ''} ${d?.nom || ''}`.trim(), matricule: d?.matricule }
     });
   };
   const closeDetail = () => { setShowDetailModal(false); setSelectedDemande(null); };
@@ -338,12 +342,13 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
           <DemandeCongeModal
             isOpen={demandeModalState.isOpen}
             onClose={() =>
-              setDemandeModalState({ isOpen: false, idEmploye: null, dateDebut: null, dateFin: null, initialDemande: null })
+              setDemandeModalState({ isOpen: false, idEmploye: null, dateDebut: null, dateFin: null, initialDemande: null, employeeContext: null })
             }
             idEmploye={demandeModalState.idEmploye}
             initialDateDebut={demandeModalState.dateDebut}
             initialDateFin={demandeModalState.dateFin}
             initialDemande={demandeModalState.initialDemande}
+            employeeContext={demandeModalState.employeeContext}
             referentiels={referentiels}
             onSuccess={handleModalSuccess}
           />

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Scheduler nocturne et au démarrage pour la gestion automatisée des mouvements de carrière RH.
- * S'exécute au démarrage de l'application et chaque nuit à Minuit pile (00:00:00).
+ * S'exécute au démarrage de l'application et chaque nuit à 00:10 (heure de Madagascar).
  */
 @Component
 public class MouvementRhScheduler {
@@ -26,12 +26,17 @@ public class MouvementRhScheduler {
     private SchedulerExecutionRegistry executionRegistry;
 
     /**
-     * Exécution automatique chaque jour à minuit (00:00:00).
+     * Exécution automatique chaque jour à 00:10 (heure de Madagascar).
      * Vérifie et applique tous les mouvements RH validés dont la date d'effet est atteinte.
      */
     @Scheduled(cron = "0 10 0 * * ?", zone = "Indian/Antananarivo")
     public void effectuerBasculementMouvementsPlanifies() {
         executionRegistry.runDaily("MOUVEMENTS_RH", this::effectuerBasculementMouvementsPlanifiesInterne);
+    }
+
+    public boolean rattraperMouvements() {
+        return executionRegistry.runDailyCatchUp("MOUVEMENTS_RH", java.time.LocalTime.of(0, 10),
+                this::effectuerBasculementMouvementsPlanifiesInterne);
     }
 
     private void effectuerBasculementMouvementsPlanifiesInterne() throws Exception {

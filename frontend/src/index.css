@@ -53,6 +53,148 @@
   .stc-context-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* Le pointage conserve sa grille comparative sur desktop et devient une fiche
+   par journée sur petit écran, sans dupliquer les champs éditables. */
+@media (max-width: 1023px) {
+  .attendance-mode-switch {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .attendance-mode-controls {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .attendance-mode-controls > span { display: none; }
+  .attendance-period-navigator {
+    width: 100%;
+    max-width: 100%;
+    justify-content: space-between;
+  }
+  .attendance-period-navigator > button[aria-haspopup="listbox"] {
+    flex: 1;
+    min-width: 0;
+  }
+  .workflow-stepper-steps {
+    min-width: 0;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+  .workflow-step-button { white-space: normal; }
+  .attendance-mode-switch > button {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .attendance-filter-toolbar { min-width: 0; }
+  .attendance-filter-chips {
+    min-width: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .attendance-week-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .attendance-week-summary {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .pointage-table-wrap { overflow-x: hidden !important; }
+  .pointage-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    table-layout: fixed;
+  }
+  .pointage-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+  .pointage-table tbody { display: block; width: 100%; }
+  .pointage-table tbody tr[role="row"] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.125rem 0.35rem;
+    width: 100%;
+    margin-block: 0.5rem;
+    padding: 0.35rem;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface);
+  }
+  .pointage-table td[role="cell"] {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0.4rem !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+  .pointage-table td[role="cell"]::before {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--color-fg-muted);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1.25;
+    content: attr(data-label);
+  }
+  .pointage-table td[data-mobile-span="full"] { grid-column: 1 / -1; }
+  .pointage-table td[data-label="Date"] { padding-bottom: 0 !important; }
+  .pointage-table td[data-label="Jour et horaire"] { padding-top: 0.25rem !important; }
+  .pointage-table td input:not([type="checkbox"]) { box-sizing: border-box; max-width: 100%; }
+
+  .payroll-variable-table-wrap { overflow-x: hidden !important; }
+  .payroll-variable-table { display: block; width: 100%; min-width: 0 !important; table-layout: fixed; }
+  .payroll-variable-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+  .payroll-variable-table tbody { display: block; width: 100%; }
+  .payroll-variable-table tbody tr[role="row"] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.125rem 0.35rem;
+    margin-block: 0.5rem;
+    padding: 0.35rem;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface);
+  }
+  .payroll-variable-table td[role="cell"] {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0.45rem !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+  .payroll-variable-table td[role="cell"]::before {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--color-fg-muted);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1.25;
+    content: attr(data-label);
+  }
+  .payroll-variable-table td[data-mobile-span="full"] { grid-column: 1 / -1; }
+  .payroll-variable-table td[data-label="Montant"] { text-align: left; }
+  .payroll-variable-table td[data-label="Actions"] > div { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 0.35rem; }
+}
+
 /* Active la variante `dark:` pilotée par la classe .dark sur <html> */
 @custom-variant dark (&:where(.dark, .dark *));
 

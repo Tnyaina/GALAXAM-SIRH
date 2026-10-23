@@ -44,6 +44,11 @@ public class NotificationRhScheduler {
         executionRegistry.runDaily("NOTIFICATIONS_RH", this::genererNotificationsRhInterne);
     }
 
+    public boolean rattraperNotifications() {
+        return executionRegistry.runDailyCatchUp("NOTIFICATIONS_RH", java.time.LocalTime.of(2, 30),
+                this::genererNotificationsRhInterne);
+    }
+
     private void genererNotificationsRhInterne() throws Exception {
         log.info("[NotificationRhScheduler] Lancement du cycle de génération des notifications RH (Moteur Java)...");
         try (Connection c = dataSource.getConnection()) {

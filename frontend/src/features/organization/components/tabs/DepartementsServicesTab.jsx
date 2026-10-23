@@ -4,6 +4,7 @@ import organisationService from '@/features/organization/api/organisationService
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import { useAuth } from '@/context/AuthContext';
 
 import DepartementsList from '../views/DepartementsList';
 import ServicesList from '../views/ServicesList';
@@ -12,6 +13,8 @@ import ServiceFormModal from '../modals/ServiceFormModal';
 
 export default function DepartementsServicesTab() {
     const { toast } = useToast();
+    const { hasPermission } = useAuth();
+    const canWrite = hasPermission('ORGANISATION_WRITE');
     // État local
     const [departements, setDepartements] = useState([]);
     const [services, setServices] = useState([]);
@@ -320,6 +323,7 @@ export default function DepartementsServicesTab() {
     return (
         <div className="space-y-4">
             {error && <Alert type="error" message={error} />}
+            {!canWrite && <Alert type="info" message="Mode consultation : vos droits ne permettent pas de modifier les départements ou services." />}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Colonne Gauche : Départements (5 cols sur 12) */}
@@ -329,6 +333,7 @@ export default function DepartementsServicesTab() {
                         selectedDepartement={selectedDepartement}
                         loading={loading}
                         showInactive={showInactive}
+                        canWrite={canWrite}
                         onSelectDepartement={setSelectedDepartement}
                         onOpenCreateDept={handleOpenCreateDept}
                         onOpenEditDept={handleOpenEditDept}
@@ -343,6 +348,7 @@ export default function DepartementsServicesTab() {
                         selectedDepartement={selectedDepartement}
                         services={filteredServices}
                         loadingServices={loadingServices}
+                        canWrite={canWrite}
                         onOpenCreateService={handleOpenCreateService}
                         onOpenEditService={handleOpenEditService}
                         onToggleServiceStatus={requestToggleServiceStatus}

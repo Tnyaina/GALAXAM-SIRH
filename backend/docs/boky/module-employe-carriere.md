@@ -1,14 +1,11 @@
 # GALAXAM SIRH — MODULE EMPLOYÉ, CONTRAT & CARRIÈRE
 ## Gestion du Personnel, Cycle de Vie Contractuel, Transitions de Carrière, Workflows RH & GED
 ### Document de Référence Canonique — Version Maîtresse 5.0
-### **Mis à jour le 16 octobre 2026 — Source : Code SQL canonique (`03_schema_employes_contrats.sql`), Java 17 Spring Boot 4.1.0 et React 19**
+### **Relu le 23 octobre 2026 — Sources : Code SQL canonique (`03_schema_employes_contrats.sql`), Java 17 Spring Boot 4.1.0 et React 19**
 
 ---
 
-> **État de conformité logicielle & métriques de recette certifiées (au 16 octobre 2026) :**
-> - **Tests automatisés Backend (`mg.galaxam.sirh.contrat`)** : **54/54 tests verts** (JUnit 5 / Spring Boot Test).
-> - **Tests automatisés Frontend (`src/features/employees`)** : **37/37 tests verts** (Vitest / Testing Library).
-> - **Accessibilité & Ergonomie** : Cibles tactiles mobiles $\ge 44\times 44\text{px}$ (WCAG AA) garanties sur l'historique des contrats et la timeline de carrière.
+> **État des preuves au 23 octobre 2026 :** des tests backend ciblés, dont `ContratTravailControllerPostgresTest` et `EmployeSatelliteLifecycleTest`, sont présents dans le dépôt. Le frontend utilise actuellement `node --test` via `frontend/package.json` ; les anciennes références à Vitest/Testing Library et les totaux de tests frontend ne sont pas confirmés par la configuration actuelle. Aucune évaluation WCAG AA complète n'est documentée ici. DOC-2 n'a pas exécuté de tests.
 > - **Cadre Juridique** : [Loi n° 2024-014 du 14 août 2024 portant Code du Travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf) (adoptée le 01/07/2024, validée par la HCC le 08/08/2024 Décision n° 11-HCC/D3, promulguée le 14/08/2024) & Loi n° 2003-044, Décret n° 64-195 (CIN), Décret n° 69-145 (CNaPS).
 
 ---
@@ -49,7 +46,7 @@ Toutes les spécifications, modèles relationnels, diagrammes d'état et règles
 
 ## 1. Sommaire Exécutif & Vision Métier
 
-Le module **Employé, Contrat & Carrière** constitue le cœur référentiel du SIRH de GALAXAM. Dans une entreprise multi-sites soumise aux contraintes logistiques (flux maritimes et terrestres, agences d'Antananarivo et de Toamasina), la gestion des collaborateurs doit concilier **stricte conformité réglementaire malgache** et **souplesse d'affectation opérationnelle**.
+Le module **Employé, Contrat & Carrière** constitue le cœur référentiel du SIRH de GALAXAM. Dans une entreprise multi-sites soumise aux contraintes logistiques (flux maritimes et terrestres, agences d'Antananarivo et de Toamasina), il gère les dossiers, contrats et affectations selon les règles implémentées et les références réglementaires citées. Leur conformité juridique doit être confirmée par les responsables compétents ; cette documentation ne vaut pas certification.
 
 ### 1.1 Dissociation Tripartite Fondamentale
 Le système impose une rupture conceptuelle nette par rapport aux anciens outils de gestion de personnel (fichiers Excel monolithiques) en dissociant formellement trois couches d'informations :
@@ -465,7 +462,7 @@ SELECT * FROM workflow_rh WHERE id_workflow = ? FOR UPDATE;
    - **Effet Futur ($\text{dateEffet} > \text{Aujourd'hui}$)** :
      - Le contrat cible et l'affectation cible passent au statut `PLANIFIE`.
      - Le workflow passe au statut `PLANIFIE`.
-     - L'activation effective est déléguée au scheduler nocturne [`MouvementRhScheduler.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/cron/MouvementRhScheduler.java) qui s'exécute chaque nuit à 00:00:00.
+     - L'activation effective est déléguée au scheduler nocturne [`MouvementRhScheduler.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/cron/MouvementRhScheduler.java) qui s'exécute chaque nuit à 00:10 (heure de Madagascar).
 
 ---
 
@@ -524,21 +521,21 @@ flowchart LR
 | Code Règle | Libellé Métier | Fondement Juridique / Technique | Contrôle & Comportement Système |
 |:---|:---|:---|:---|
 | **RG-EMP-01** | **Unicité stricte du matricule** | Norme d'organisation GALAXAM | Contrainte `UNIQUE` sur `employe.matricule`. Support des formats `0042` et `EMP-AAAA-XXXX`. |
-| **RG-EMP-02** | **Âge minimum d'accès à l'emploi** | **Code du Travail Malagasy, Art. 100** | Blocage absolu si `âge < 16 ans`. Levée d'exception `IllegalArgumentException`. |
+| **RG-EMP-02** | **Âge minimum d'accès à l'emploi** | **Loi 2024-014, Art. 147** & **Décret 64-195** | Blocage absolu si `âge < 16 ans` (âge légal 15 ans, délivrance CIN dès 16 ans). Levée d'exception `IllegalArgumentException`. |
 | **RG-EMP-03** | **Format et antériorité de la CIN** | **Décret n° 64-195** | Exactement 12 chiffres (`^[0-9]{12}$`). Délivrance obligatoirement postérieure au 16ème anniversaire. |
 | **RG-EMP-04** | **Unicité d'immatriculation CNaPS** | **Décret n° 69-145 (CPS)** | Contrainte SQL `UNIQUE` sur `num_affiliation_cnaps`. Empêche la création de doublons salariés. |
 | **RG-EMP-05** | **Compte bancaire principal unique** | Procédure de virement DAF | Index unique partiel `uq_compte_principal_employe`. Complétude obligatoire Banque + RIB. |
 | **RG-EMP-06** | **Désactivation motivée du dossier** | Norme d'audit et RGPD | Passage de `est_actif = FALSE` avec obligation de renseigner un motif parmi `motif_desactivation_enum`. Dossier conservé pour historique légal. |
 | **RG-CTR-01** | **Terme obligatoire des contrats temporaires** | **Loi 2024-014, Art. 23-25** (Loi 2003-044, Art. 8-10) | Date de fin obligatoire pour `CDD`, `TEMPORAIRE` et `STAGE`. Bloqué par `ContratValidationEngine`. |
 | **RG-CTR-02** | **Cohérence chronologique des termes** | Logique temporelle relationnelle | Contrainte `chk_contrat_dates` imposant `date_fin >= date_debut`. |
-| **RG-CTR-03** | **Plafonnement des renouvellements de CDD** | **Loi 2024-014, Art. 28** | Limité à `NB_MAX_RENOUVELLEMENTS_CDD` (2 max) et durée totale $\le 72$ mois. Au-delà, requalification CDI obligatoire. |
+| **RG-CTR-03** | **Plafonnement des renouvellements de CDD** | **Loi 2024-014, Art. 25** (ex-Art. 28) | Limité à `NB_MAX_RENOUVELLEMENTS_CDD` (2 max) et durée totale $\le 72$ mois. Au-delà, requalification CDI obligatoire. |
 | **RG-ESS-01** | **Encadrement légal de la période d'essai** | **Loi 2024-014, Art. 52-54** (Loi 2003-044, Art. 35 & 36) | Durée initiale comprise entre 0 et 6 mois. Calcul : $\text{dateFin} = \text{dateDebut} + M\text{ mois} - 1\text{ jour}$. |
-| **RG-ESS-02** | **Limitation du renouvellement d'essai** | **Loi 2024-014, Art. 54** (Loi 2003-044, Art. 36) | Renouvellement unique (`MAX_RENOUVELLEMENTS_ESSAI = 1`). Doit être notifié par écrit avant l'expiration de la 1ère période. |
+| **RG-ESS-02** | **Limitation du renouvellement d'essai** | **Loi 2024-014, Art. 52-54** (Loi 2003-044, Art. 36) | Renouvellement unique (`MAX_RENOUVELLEMENTS_ESSAI = 1`). Doit être notifié par écrit avant l'expiration de la 1ère période. |
 | **RG-WFL-01** | **Admissibilité matricielle des transitions** | Matrice de domaine RH | Rejet par `CarriereTransitionValidator` de toute transition incohérente (ex: avenant direct sur convention de stage). |
 | **RG-WFL-02** | **Verrouillage pessimiste de workflow** | Concurrence transactionnelle | `SELECT ... FOR UPDATE` sur la ligne du workflow. Seul le statut `BROUILLON` est éligible à la validation DAF. |
-| **RG-WFL-03** | **Bascule temporelle des mouvements** | Découplage temporel | Date d'effet future $\rightarrow$ statut `PLANIFIE`. Activation automatique à minuit par le cron `MouvementRhScheduler`. |
+| **RG-WFL-03** | **Bascule temporelle des mouvements** | Découplage temporel | Date d'effet future $\rightarrow$ statut `PLANIFIE`. Activation automatique par le cron quotidien `MouvementRhScheduler` à 00:10, heure de Madagascar. |
 | **RG-DOC-01** | **Affectation originelle sur contrat Word** | Intégrité documentaire | Le document `.docx` résout la première affectation historique, interdisant la pollution du contrat originel par des avenants ultérieurs. |
-| **RG-DOC-02** | **Obligation légale du certificat de travail** | **Loi 2024-014, Art. 40 al. 4** (Loi 2003-044, Art. 24 al. 3) | Production du certificat officiel `.docx` à la clôture du contrat, mentionnant exclusivement dates d'entrée/sortie et fonctions occupées. |
+| **RG-DOC-02** | **Obligation légale du certificat de travail** | **Loi 2024-014, Art. 50** (Loi 2003-044, Art. 24 al. 3) | Production du certificat officiel `.docx` à la clôture du contrat, mentionnant exclusivement dates d'entrée/sortie, fonctions et catégories. |
 | **RG-SEC-01** | **Sécurisation IDOR de la photo d'identité** | Norme OWASP API Security Top 10 | Route `GET /employes/{id}/photo` protégée par Spring Security avec vérification des droits de consultation. |
 
 ---
@@ -572,40 +569,14 @@ flowchart LR
   * [`EmployeFicheDetailPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/pages/EmployeFicheDetailPage.jsx) : Fiche salarié avec 7 onglets métier intégrés.
   * [`CarrieresSupervisionPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/pages/CarrieresSupervisionPage.jsx) : Cockpit RH de supervision des alertes (fins d'essai, CDD, départs).
 * **Composants Clés (`components/`)** :
-  * [`CarriereTimeline.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/components/carriere/CarriereTimeline.jsx) : Timeline interactive et sélecteur de mode (parcours narratif vs tableaux détaillés, boutons tactiles WCAG AA $\ge 44\text{px}$).
+  * [`CarriereTimeline.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/components/carriere/CarriereTimeline.jsx) : Timeline interactive et sélecteur de mode (parcours narratif vs tableaux détaillés, commandes tactiles prévues pour mobile ; aucune certification WCAG AA n'est établie ici).
   * [`HistoriqueContratsTable.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/components/carriere/timeline/HistoriqueContratsTable.jsx) : Tableau de l'historique contractuel avec génération d'attestation et consultation des contrats.
   * [`DocumentsRhTab.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/components/tabs/DocumentsRhTab.jsx) : GED avec contrôle de complétude des pièces obligatoires.
 
 ### 10.3 Bilan de Recette Automatisée
 
-```
-======================================================================
-  MODULE EMPLOYÉ & CARRIÈRE : BILAN DES TESTS AUTOMATISÉS
-======================================================================
-  Backend Java (JUnit 5 / Spring Boot) :
-    • ContractDocumentTest                : 35 tests (100% verts)
-    • EmployePhotoNamingTest              :  6 tests (100% verts)
-    • ContratSupervisionReadTest          :  2 tests (100% verts)
-    • EmploymentContextResolverTest       :  5 tests (100% verts)
-    • CareerWorkflowIntegrationTest       :  3 tests (100% verts)
-    • RefTypeDocumentUploadRulesTest      :  2 tests (100% verts)
-    • ContractDocumentPermissionsTest     :  1 test  (100% verts)
-    ──────────────────────────────────────────────────────────────────
-    Total Backend                         : 54/54 tests VERTS (100%)
-
-  Frontend React (Vitest / Testing Library) :
-    • ContractDocuments.test.jsx          : 17 tests (100% verts)
-    • EmployePaieTab.test.jsx             :  5 tests (100% verts)
-    • EmployeeCareerUxAccessibility.test  :  5 tests (100% verts - WCAG AA)
-    • ContractDocumentApi.test.js         :  4 tests (100% verts)
-    • CarrieresSupervisionPage.test.jsx   :  3 tests (100% verts)
-    • documentUploadRules.test.js         :  2 tests (100% verts)
-    • RuptureStcSimulation.test.jsx       :  1 test  (100% verts)
-    ──────────────────────────────────────────────────────────────────
-    Total Frontend                        : 37/37 tests VERTS (100%)
-======================================================================
-```
+Les classes de test backend citées plus haut constituent des preuves ciblées de comportements et non un décompte exhaustif de recette. Les noms et totaux de tests historiques qui ne correspondent pas à des fichiers présents ou à une exécution datée identifiable sont retirés. La suite frontend actuelle est lancée par `npm run test:api` (`node --test test/*.test.js`) ; ce runner ne constitue ni une preuve de rendu navigateur ni une certification d'accessibilité.
 
 ---
 
-*Document officiel d'ingénierie logicielle, de gestion des carrières et de conformité légale GALAXAM SIRH — Conforme Loi n° 2024-014, Loi n° 2003-044, Décrets CNaPS et CIN.*
+*Documentation technique du module Employé, Contrat & Carrière. Les descriptions d'implémentation et les tests cités ne constituent pas une certification de conformité légale.*

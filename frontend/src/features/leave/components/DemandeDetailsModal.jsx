@@ -6,7 +6,9 @@ import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import Alert from '@/components/ui/feedback/Alert';
 import congeService from '@/features/leave/api/congeService';
+import { formatLeaveDaysPreview } from '@/features/leave/utils/leavePreviewPresentation';
 
 const formatDate = (dateVal) => {
   if (!dateVal) return '-';
@@ -33,24 +35,25 @@ export default function DemandeDetailsModal({
   const targetDemande = demande || selectedDemande;
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [simulation, setSimulation] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     if (!isOpen || !targetDemande?.idEmploye) {
       setSoldeEmploye(null);
       setSimulation(null);
+      setPreviewLoading(false);
+      setPreviewError(false);
       return;
     }
 
     const fetchSolde = async () => {
-      try {
-        const res = await congeService.getSoldeEmploye(targetDemande.idEmploye);
-        if (isMounted) setSoldeEmploye(res);
-      } catch {
-        if (isMounted) setSoldeEmploye(null);
-      }
-      try {
-        const result = await congeService.simulerDemande({
+      setPreviewLoading(true);
+      setPreviewError(false);
+      const [soldeResult, simulationResult] = await Promise.allSettled([
+        congeService.getSoldeEmploye(targetDemande.idEmploye),
+        congeService.simulerDemande({
           idEmploye: targetDemande.idEmploye,
           idTypeConge: targetDemande.idTypeConge,
           idMotifEvenementFamilial: targetDemande.idMotifEvenementFamilial,
@@ -60,11 +63,13 @@ export default function DemandeDetailsModal({
           derogationSoldeNegatif: Boolean(targetDemande.derogationSoldeNegatif),
           derogationDelaiPreavis: Boolean(targetDemande.derogationDelaiPreavis),
           extensionPathologiqueMaternite: Boolean(targetDemande.extensionPathologiqueMaternite),
-        });
-        if (isMounted) setSimulation(result);
-      } catch {
-        if (isMounted) setSimulation(null);
-      }
+        }),
+      ]);
+      if (!isMounted) return;
+      setSoldeEmploye(soldeResult.status === 'fulfilled' ? soldeResult.value : null);
+      setSimulation(simulationResult.status === 'fulfilled' ? simulationResult.value : null);
+      setPreviewError(soldeResult.status === 'rejected' || simulationResult.status === 'rejected');
+      setPreviewLoading(false);
     };
 
     fetchSolde();
@@ -107,7 +112,7 @@ export default function DemandeDetailsModal({
   // - Pour une demande en attente : le solde avant est le solde actuel, et le solde après est le résultat de la simulation.
   const effectifsJoursDebites = isValide
     ? (estRemunere ? joursDemandes : 0)
-    : (joursDebites != null ? Number(joursDebites) : (estRemunere ? joursDemandes : 0));
+    : (joursDebites != null ? Number(joursDebites) : null);
 
   const soldeAvant = isValide
     ? (currentSolde != null ? Number(currentSolde) + effectifsJoursDebites : null)
@@ -115,9 +120,7 @@ export default function DemandeDetailsModal({
 
   const effectifSoldeApres = isValide
     ? currentSolde
-    : (soldeApresSimulation != null
-        ? Number(soldeApresSimulation)
-        : (soldeAvant != null ? Math.max(0, Number(soldeAvant) - effectifsJoursDebites) : null));
+    : (soldeApresSimulation != null ? Number(soldeApresSimulation) : null);
 
   const hasDerogations = Boolean(
     targetDemande.derogationSoldeNegatif ||
@@ -135,6 +138,9 @@ export default function DemandeDetailsModal({
   const canModifyDates = targetDemande.availableActions?.MODIFY_DATES?.allowed === true && !!handleEdit;
   const canEdit = targetDemande.availableActions?.EDIT?.allowed === true && !!handleEdit;
   const canCancel = targetDemande.availableActions?.CANCEL?.allowed === true && !!handleCancel;
+  const lockedByPointage = ['VALIDATE', 'CANCEL', 'MODIFY_DATES'].some((action) =>
+    targetDemande.availableActions?.[action]?.reasonCodes?.includes('CONGE_POINTAGE_VERROUILLE')
+  );
 
   // Règle ergonomique :
   // Sur une demande en attente examinée par un valideur/manager, les actions décisionnelles sont Valider et Refuser.
@@ -264,6 +270,13 @@ export default function DemandeDetailsModal({
           />
         </div>
 
+        {lockedByPointage && (
+          <Alert
+            type="warning"
+            message="Ce congé ne peut plus être annulé ou modifié : le pointage de la période concernée est déjà validé."
+          />
+        )}
+
         {/* Grille dates */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           {[
@@ -281,7 +294,7 @@ export default function DemandeDetailsModal({
 
         {/* Motif familial */}
         {targetDemande.libelleMotifEvenement && (
-          <div className="p-3 border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/5 text-xs text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-semibold">
+          <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg)] font-medium">
             Motif d'événement familial : {targetDemande.libelleMotifEvenement}
           </div>
         )}
@@ -318,24 +331,26 @@ export default function DemandeDetailsModal({
             <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
               <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde avant</span>
               <span className="font-mono text-xs font-bold text-[var(--color-fg)]">
-                {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '—'}
+                {formatLeaveDaysPreview(soldeAvant, { loading: previewLoading, error: previewError })}
               </span>
             </div>
             <Minus size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
             <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
               <span className="block text-[10px] text-[var(--color-fg-muted)]">Jours débités</span>
               <span className="font-mono text-xs font-bold text-[var(--color-danger-600)]">
-                {effectifsJoursDebites != null ? `${Number(effectifsJoursDebites).toFixed(2)} j` : '0.00 j'}
+                {formatLeaveDaysPreview(effectifsJoursDebites > 0 ? -Number(effectifsJoursDebites) : effectifsJoursDebites, { loading: previewLoading, error: previewError })}
               </span>
             </div>
             <Equal size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
             <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
               <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde après</span>
               <span className={`font-mono text-xs font-bold ${effectifSoldeApres != null && effectifSoldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                {effectifSoldeApres != null ? `${Number(effectifSoldeApres).toFixed(2)} j` : '—'}
+                {formatLeaveDaysPreview(effectifSoldeApres, { loading: previewLoading, error: previewError })}
               </span>
             </div>
           </div>
+          {previewLoading && <p role="status" className="text-[11px] text-[var(--color-fg-muted)]">Actualisation du solde et de la simulation…</p>}
+          {previewError && <Alert type="info" message="L’aperçu du solde n’a pas pu être actualisé. Les valeurs indisponibles restent affichées comme telles ; le serveur vérifiera la demande au moment de la décision." />}
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-[var(--color-border-subtle)] pt-2 text-[11px] text-[var(--color-fg-subtle)]">
             <span>Jours demandés : <strong className="font-mono text-[var(--color-fg)]">{Number(joursDemandes).toFixed(2)} j</strong></span>
             <span>Impact Paie : <strong>{estRemunere ? 'Congé Rémunéré (TCONGE valorisé)' : 'Sans Solde (Retenue absence)'}</strong></span>

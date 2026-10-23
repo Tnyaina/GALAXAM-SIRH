@@ -108,10 +108,10 @@ public class AuditLog extends ClassMere {
 
             log.save(c);
         } catch (Exception e) {
-            System.err.println("Erreur d'audit log : " + e.getMessage());
             if (sp != null && c != null) {
-                try { c.rollback(sp); } catch (Exception ignored) {}
+                try { c.rollback(sp); } catch (Exception rollbackFailure) { e.addSuppressed(rollbackFailure); }
             }
+            throw new IllegalStateException("Écriture du journal d'audit impossible", e);
         }
     }
 
@@ -161,7 +161,7 @@ public class AuditLog extends ClassMere {
             }
             return objectMapper.writeValueAsString(state);
         } catch (Exception e) {
-            return "{}";
+            throw new IllegalStateException("Sérialisation de l'état audité impossible", e);
         }
     }
 

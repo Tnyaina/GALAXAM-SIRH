@@ -5,7 +5,7 @@ import { getMenuIcon } from '@/utils/iconRegistry';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import Button from '@/components/ui/forms/Button';
-import { findActiveLeafId, hasActiveDescendant } from '@/utils/sidebarUtils';
+import { filterMenuByUser, findActiveLeafId, hasActiveDescendant } from '@/utils/sidebarUtils';
 
 const COLLAPSE_STORAGE_KEY = 'galaxam-sidebar-collapsed';
 
@@ -132,10 +132,11 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
 export default function Sidebar({ open, onClose, menu = [], loading, error, onRetry }) {
     // Contexte, navigation et état local de la barre latérale.
     const location = useLocation();
-    const sorted = sortByRang(menu);
-    const activeLeafId = useMemo(() => findActiveLeafId(menu, location), [menu, location]);
     const { user, logout, getDefaultHomeRoute } = useAuth();
     const navigate = useNavigate();
+    const accessibleMenu = useMemo(() => filterMenuByUser(menu, user), [menu, user]);
+    const sorted = sortByRang(accessibleMenu);
+    const activeLeafId = useMemo(() => findActiveLeafId(accessibleMenu, location), [accessibleMenu, location]);
 
     const [collapsed, setCollapsed] = useState(() => {
         if (typeof window === 'undefined') return false;

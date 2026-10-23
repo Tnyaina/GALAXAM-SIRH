@@ -2,6 +2,7 @@ import { Calendar, Clock, ArrowDownCircle, ShieldAlert, Coins, ChevronDown } fro
 import StatCard from '@/components/ui/data-display/StatCard';
 import Button from '@/components/ui/forms/Button';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import Alert from '@/components/ui/feedback/Alert';
 
 const formatJours = (value) => {
   const number = Number(value ?? 0);
@@ -9,7 +10,7 @@ const formatJours = (value) => {
 };
 
 /** Présentation des valeurs servies par le backend ; aucune décision d'éligibilité ni valeur en dur ici. */
-export default function SoldeCongeWidget({ soldeData, situationData = null, consommationPool, employe, onOpenPeriodesModal }) {
+export default function SoldeCongeWidget({ soldeData, situationData = null, valorisationLots = null, valorisationError = null, valorisationLoading = false, consommationPool, consommationError = null, employe, onOpenPeriodesModal }) {
   if (!soldeData && !situationData) return null;
 
   const solde = situationData?.soldeJours ?? soldeData?.soldeActuel ?? soldeData?.soldeDisponible;
@@ -31,7 +32,7 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
 
   return (
     <section aria-label="Situation des congés" className="space-y-3 font-sans">
-      <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_minmax(0,2fr)]">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           title="Solde disponible"
           value={soldeNumber == null ? '-' : `${soldeNumber > 0 ? '+' : ''}${formatJours(soldeNumber)} j`}
@@ -39,6 +40,16 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
           color={soldeNumber != null && soldeNumber < 0 ? 'danger' : 'brand'}
           subtext={soldeSubtext}
         />
+        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3.5 flex flex-col justify-center gap-2">
+          <div>
+            <p className="text-xs font-semibold text-[var(--color-fg-muted)]">Valeur restante du stock (FIFO)</p>
+            <p className="text-lg font-bold text-[var(--color-fg)]">
+              {valorisationError ? 'Indisponible' : valorisationLoading && !valorisationLots ? 'Chargement…' : valorisationLots?.soldeValorisation == null ? 'Non déterminée' : formatMoneyAr(valorisationLots.soldeValorisation)}
+            </p>
+            <p className="text-[11px] text-[var(--color-fg-subtle)]">Valeur issue des lots restants, pas du solde multiplié par le TCONGE.</p>
+          </div>
+          {valorisationError && <Alert type="error" message={`Valeur des lots : ${valorisationError}`} />}
+        </div>
         <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3.5 flex flex-col justify-center gap-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
@@ -66,6 +77,7 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
           </div>
         </div>
       </div>
+      <p className="text-[11px] text-[var(--color-fg-muted)]">Le solde en jours, la valeur historique du stock et le TCONGE applicable sont trois informations distinctes.</p>
 
       <details className="group border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
         <summary className="cursor-pointer list-none flex items-center justify-between gap-3 p-3 text-xs font-semibold text-[var(--color-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]">
@@ -93,7 +105,7 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
               value={pool ? `${formatJours(pool.joursConsommes)} / ${formatJours(pool.plafond)} j` : '-'}
               icon={<ShieldAlert size={18} />}
               color="neutral"
-              subtext={pool ? `${formatJours(pool.joursEnAttente)} j réservés · ${formatJours(pool.joursEngages)} j engagés` : 'Quota non initialisé'}
+              subtext={pool ? `${formatJours(pool.joursEnAttente)} j réservés · ${formatJours(pool.joursEngages)} j engagés` : consommationError ? 'Données du quota indisponibles' : 'Quota non initialisé'}
             />
           </div>
           {(sourceTaux || cycle) && (

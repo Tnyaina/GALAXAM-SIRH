@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, History, CheckCircle } from 'lucide-react';
+import { Calendar, History } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
@@ -183,7 +183,7 @@ export default function InitialisationSoldeModal({
         {/* Contexte d'usage */}
         <div className="p-2.5 border-l-4 border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/6">
           <p className="text-xs text-[var(--color-fg-muted)]">
-            Réservé aux salariés ayant un historique arrêté par la DAF avant leur entrée dans le SIRH.
+            Réservé aux salariés qui avaient des droits acquis avant la mise en service du SIRH et dont la situation est arrêtée par la DAF.
             Pour une nouvelle embauche sans droits antérieurs, ne saisissez rien ici : la première clôture de paie crée automatiquement la période civile et l'acquisition.
             La date d'arrêté inclut les acquisitions déjà comptées dans les cumuls saisis ; les paies closes à cette date ou avant ne les recréent pas.
           </p>
@@ -379,31 +379,21 @@ export default function InitialisationSoldeModal({
             value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
         </div>
 
-        {/* Prévisualisation Récapitulative */}
-        <div className="p-3 bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 text-xs">
-          <div className="font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] mb-1.5 flex items-center gap-1.5">
-            <CheckCircle size={14} />
-            <span>Données enregistrées :</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[var(--color-fg)]">
-            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-              <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Solde disponible :</span>
-              <strong className="font-mono text-xs text-[var(--color-brand-600)]">{soldeJours || '0'} jours</strong>
-            </div>
-            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-              <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Valeur du stock :</span>
-              <strong className="font-mono text-xs text-[var(--color-brand-600)]">{formatMoneyAr(valeurSoldeOuverture || 0)}</strong>
-            </div>
-            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)] col-span-2">
-              <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Exercice de référence :</span>
-              <strong className="font-mono text-xs">{dateDebutReference || '-'} → {dateFinCalculee || '-'}</strong>
-            </div>
-            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)] col-span-2">
-              <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Acquisitions de l'année déjà reprises :</span>
-              <strong className="font-mono text-xs">{cumulDroitsOuverture || '0'} jours · {formatMoneyAr(cumulValorisationOuverture || 0)}</strong>
-            </div>
-          </div>
-        </div>
+        {/* Résumé à vérifier avant écriture */}
+        <section aria-labelledby="cutover-review-title" className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs">
+          <h3 id="cutover-review-title" className="font-semibold text-[var(--color-fg)] mb-2">Vérifier avant validation</h3>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+            <div><dt className="text-[var(--color-fg-muted)]">Date d’arrêté</dt><dd className="font-medium">{dateCutover ? new Date(`${dateCutover}T00:00:00`).toLocaleDateString('fr-FR') : 'À renseigner'}</dd></div>
+            <div><dt className="text-[var(--color-fg-muted)]">Période de référence</dt><dd className="font-medium">{dateDebutReference || '—'} → {dateFinCalculee || '—'}</dd></div>
+            <div><dt className="text-[var(--color-fg-muted)]">Stock certifié</dt><dd className="font-medium">{soldeJours === '' ? 'À renseigner' : `${soldeJours} jours`} · {valeurSoldeOuverture === '' ? 'valeur à renseigner' : formatMoneyAr(valeurSoldeOuverture)}</dd></div>
+            <div><dt className="text-[var(--color-fg-muted)]">TCONGE applicable</dt><dd className="font-medium">{tauxApplicable ? `${formatMoneyAr(tauxApplicable)} / jour` : 'À renseigner'}</dd></div>
+            <div className="sm:col-span-2"><dt className="text-[var(--color-fg-muted)]">Cumul acquis cette année</dt><dd className="font-medium">{cumulDroitsOuverture === '' ? 'jours à renseigner' : `${cumulDroitsOuverture} jours`} · {cumulValorisationOuverture === '' ? 'valeur à renseigner' : formatMoneyAr(cumulValorisationOuverture)}</dd></div>
+            <div className="sm:col-span-2"><dt className="text-[var(--color-fg-muted)]">Référence DAF</dt><dd className="font-medium break-words">{referenceArrete.trim() || 'À renseigner'}</dd></div>
+          </dl>
+          <p className="mt-2 border-t border-[var(--color-border-subtle)] pt-2 text-[var(--color-fg-muted)]">
+            La reprise enregistre un stock historique agrégé ; elle ne reconstitue pas les anciens lots ni leurs dates d’acquisition.
+          </p>
+        </section>
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[var(--color-border-subtle)]">

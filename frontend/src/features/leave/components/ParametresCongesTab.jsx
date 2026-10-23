@@ -272,10 +272,10 @@ export default function ParametresCongesTab() {
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
                       <ShieldAlert className="w-5 h-5 text-[var(--color-warning-500)]" />
-                      <CardTitle>Barème des Événements Familiaux</CardTitle>
+                      <CardTitle>Motifs des événements familiaux</CardTitle>
                     </div>
                     <p className="text-xs text-[var(--color-fg-muted)]">
-                      Forfait accordé par occurrence. Cumul annuel automatique plafonné à <strong className="text-[var(--color-fg)]">10 jours ouvrables</strong> (Loi n° 2024-014 Art. 133).
+                      Les motifs décrivent les événements ; les dates déterminent la durée. Le cumul est limité à <strong className="text-[var(--color-fg)]">10 jours par an</strong> (Loi n° 2024-014, art. 126(4)).
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -316,7 +316,6 @@ export default function ParametresCongesTab() {
                   <Thead>
                     <Tr>
                       <Th>Motif (Code du Travail)</Th>
-                      <Th className="text-center">Durée par Événement</Th>
                       <Th className="text-center">Statut</Th>
                       <Th className="text-right">Actions</Th>
                     </Tr>
@@ -325,7 +324,6 @@ export default function ParametresCongesTab() {
                       {motifs.filter(m => showInactive || m.estActif !== false).map((motif) => (
                         <Tr key={motif.idMotif}>
                           <Td className="font-semibold">{motif.libelle} ({motif.code})</Td>
-                          <Td className="text-center font-data font-bold">{motif.nbJoursAutorises} jours</Td>
                           <Td className="text-center">
                             <Badge variant={motif.estActif ? 'success' : 'neutral'} size="sm">
                               {motif.estActif ? 'Actif' : 'Inactif'}

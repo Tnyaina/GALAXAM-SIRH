@@ -281,7 +281,6 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
   const [formData, setFormData] = useState({
     code: '',
     libelle: '',
-    nbJoursAutorises: '',
     justificatifRequis: true,
   });
   const [loading, setLoading] = useState(false);
@@ -292,14 +291,12 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
       setFormData({
         code: initialData.code || '',
         libelle: initialData.libelle || '',
-        nbJoursAutorises: initialData.nbJoursAutorises || '',
         justificatifRequis: initialData.justificatifRequis !== false,
       });
     } else {
       setFormData({
         code: '',
         libelle: '',
-        nbJoursAutorises: '',
         justificatifRequis: true,
       });
     }
@@ -319,7 +316,6 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
       const payload = {
         code: formData.code.trim().toUpperCase(),
         libelle: formData.libelle.trim(),
-        nbJoursAutorises: parseInt(formData.nbJoursAutorises, 10),
         justificatifRequis: formData.justificatifRequis,
       };
 
@@ -344,7 +340,7 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? 'Modifier le Barème de l\'Événement' : 'Nouvel Événement Familial'}
+      title={initialData ? 'Modifier le motif familial' : 'Nouvel événement familial'}
       icon={<Users size={18} />}
       size="lg"
       footer={
@@ -380,17 +376,9 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
           />
         </div>
 
-        <Input
-          label="Nombre de jours accordés par événement"
-          type="number"
-          min="1"
-          max="30"
-          required
-          value={formData.nbJoursAutorises}
-          onChange={(e) => handleChange('nbJoursAutorises', e.target.value)}
-          placeholder="Ex: 3"
-          hint="Durée forfaitaire accordée pour cet événement. Le pool global annuel reste automatiquement plafonné à 10 jours ouvrables par salarié (Loi n° 2024-014 Art. 133)."
-        />
+        <p className="text-xs text-[var(--color-fg-muted)]">
+          Le motif décrit l’événement. Les dates saisies déterminent la durée ; le cumul annuel des permissions familiales est limité au plafond configuré.
+        </p>
 
         <div className="pt-1">
           <label className="flex items-center gap-2 cursor-pointer">

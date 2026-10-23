@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.cron;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -33,6 +34,9 @@ public class RattrapageAutomatiqueService {
 
     private final AtomicReference<LocalDate> dernierRattrapageJournalier = new AtomicReference<>(null);
     private final AtomicBoolean enCoursExecution = new AtomicBoolean(false);
+
+    @Autowired
+    private SchedulerExecutionRegistry schedulerExecutionRegistry;
 
     @Value("${app.rattrapage.enabled:true}")
     private boolean enabled;
@@ -76,11 +80,7 @@ public class RattrapageAutomatiqueService {
     @Scheduled(fixedDelay = 900000, initialDelay = 30000)
     public void battementCoeurPeriodique() {
         if (!enabled) return;
-        LocalDate aujourdhui = LocalDate.now();
-        if (!aujourdhui.equals(dernierRattrapageJournalier.get())) {
-            log.info("[RATTRAPAGE] Battement de cœur périodique : rattrapage requis pour la date du {}", aujourdhui);
-            verifierEtExecuterRattrapage(false);
-        }
+        verifierEtExecuterRattrapage(true);
     }
 
     /**
@@ -89,7 +89,7 @@ public class RattrapageAutomatiqueService {
      */
     public void verifierEtExecuterRattrapageAsync() {
         if (!enabled) return;
-        LocalDate aujourdhui = LocalDate.now();
+        LocalDate aujourdhui = LocalDate.now(ZoneId.of("Indian/Antananarivo"));
         if (!aujourdhui.equals(dernierRattrapageJournalier.get())) {
             CompletableFuture.runAsync(() -> verifierEtExecuterRattrapage(false));
         }
@@ -101,7 +101,7 @@ public class RattrapageAutomatiqueService {
      */
     public void verifierEtExecuterRattrapage(boolean forcer) {
         if (!enabled) return;
-        LocalDate aujourdhui = LocalDate.now();
+        LocalDate aujourdhui = LocalDate.now(ZoneId.of("Indian/Antananarivo"));
 
         if (!forcer && aujourdhui.equals(dernierRattrapageJournalier.get())) {
             return;
@@ -114,44 +114,54 @@ public class RattrapageAutomatiqueService {
 
         try {
             log.info("[RATTRAPAGE] Démarrage du cycle de rattrapage quotidien autonome pour le {}...", aujourdhui);
+            boolean succes = true;
 
             // 1. Mouvements RH échus (contrats planifiés -> actifs, ruptures, etc.)
             try {
-                mouvementRhScheduler.effectuerBasculementMouvementsPlanifies();
+                succes &= mouvementRhScheduler.rattraperMouvements();
             } catch (Exception e) {
+                succes = false;
                 log.error("[RATTRAPAGE] Erreur basculement mouvements RH : {}", e.getMessage());
             }
 
             // 2. Alertes et notifications RH (échéances d'essai, CDD, etc.)
             try {
-                notificationRhScheduler.genererNotificationsRh();
+                succes &= notificationRhScheduler.rattraperNotifications();
             } catch (Exception e) {
+                succes = false;
                 log.error("[RATTRAPAGE] Erreur génération alertes RH : {}", e.getMessage());
             }
 
             // 3. Bonification mensuelle de congés
             try {
-                acquisitionCongeScheduler.acquerirCongesMensuels();
+                succes &= acquisitionCongeScheduler.rattraperBonificationMensuelle();
             } catch (Exception e) {
+                succes = false;
                 log.error("[RATTRAPAGE] Erreur bonification mensuelle congés : {}", e.getMessage());
             }
 
             // 4. Nettoyage de sécurité (sessions + tokens expirés)
             try {
-                sessionSecurityScheduler.nettoyerSecurite();
+                succes &= sessionSecurityScheduler.rattraperSecurite();
             } catch (Exception e) {
+                succes = false;
                 log.error("[RATTRAPAGE] Erreur nettoyage sécurité : {}", e.getMessage());
             }
 
             // 5. Purge des logs d'audit (mensuelle, sans risque de doublon : idempotente par seuil date)
             try {
-                auditLogPurgeScheduler.purgerAnciensLogsAudit();
+                succes &= auditLogPurgeScheduler.rattraperPurgeMensuelle();
             } catch (Exception e) {
+                succes = false;
                 log.error("[RATTRAPAGE] Erreur purge logs audit : {}", e.getMessage());
             }
 
-            dernierRattrapageJournalier.set(aujourdhui);
-            log.info("[RATTRAPAGE] Cycle de rattrapage quotidien terminé avec succès pour le {}.", aujourdhui);
+            if (succes) {
+                dernierRattrapageJournalier.set(aujourdhui);
+                log.info("[RATTRAPAGE] Cycle de rattrapage quotidien terminé avec succès pour le {}.", aujourdhui);
+            } else {
+                log.warn("[RATTRAPAGE] Cycle incomplet pour {} ; une nouvelle tentative sera faite au prochain battement.", aujourdhui);
+            }
 
         } finally {
             enCoursExecution.set(false);

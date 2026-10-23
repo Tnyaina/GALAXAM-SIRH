@@ -10,6 +10,7 @@ export default function ServicesList({
     selectedDepartement,
     services = [],
     loadingServices = false,
+    canWrite = false,
     onOpenCreateService,
     onOpenEditService,
     onToggleServiceStatus,
@@ -28,7 +29,7 @@ export default function ServicesList({
                                 Code Département : <span className="font-mono font-bold">{selectedDepartement.codeDepartement}</span>
                             </p>
                         </div>
-                        {services.length > 0 && (
+                        {canWrite && services.length > 0 && (
                             <Button
                                 onClick={onOpenCreateService}
                                 variant="primary"
@@ -51,7 +52,7 @@ export default function ServicesList({
                                     <Th>Code Service</Th>
                                     <Th>Nom du Service</Th>
                                     <Th>Statut</Th>
-                                    <Th className="text-right">Actions</Th>
+                                {canWrite && <Th className="text-right">Actions</Th>}
                                 </Thead>
                                 <Tbody>
                                     {services.length > 0 ? (
@@ -69,7 +70,7 @@ export default function ServicesList({
                                                         {srv.estActif ? "Actif" : "Désactivé"}
                                                     </Badge>
                                                 </Td>
-                                                <Td className="text-right">
+                                                {canWrite && <Td className="text-right">
                                                     <div className="flex justify-end items-center gap-1.5">
                                                         <button
                                                             onClick={() => onOpenEditService(srv)}
@@ -92,18 +93,18 @@ export default function ServicesList({
                                                             {srv.estActif ? <Power size={14} /> : <Check size={14} />}
                                                         </button>
                                                     </div>
-                                                </Td>
+                                                </Td>}
                                             </Tr>
                                         ))
                                     ) : (
                                         <Tr>
-                                            <Td colSpan={4} className="p-0">
+                                            <Td colSpan={canWrite ? 4 : 3} className="p-0">
                                                 <EmptyState
                                                     icon={Layers}
                                                     title="Aucun service rattaché"
-                                                    description={`Créez le premier service sous le département "${selectedDepartement.libelle}".`}
-                                                    actionLabel="Ajouter un service"
-                                                    onAction={onOpenCreateService}
+                                                    description={canWrite ? `Créez le premier service sous le département "${selectedDepartement.libelle}".` : `Aucun service n'est rattaché au département "${selectedDepartement.libelle}".`}
+                                                    actionLabel={canWrite ? "Ajouter un service" : undefined}
+                                                    onAction={canWrite ? onOpenCreateService : undefined}
                                                     bordered={false}
                                                 />
                                             </Td>

@@ -227,18 +227,22 @@ export default function Router() {
                     </Route>
 
                     {/* ---------------------------------------------------- */}
+                    {/* Organisation : permission d'écriture métier         */}
+                    <Route element={<ProtectedRoute requiredPermission="ORGANISATION_WRITE" />}>
+                        <Route path="/admin/organisation" element={<OrganisationAdminPanel />} />
+                        <Route path="/parametres" element={<Navigate to="/admin/organisation" replace />} />
+                        <Route path="/parametres/organisation" element={<Navigate to="/admin/organisation" replace />} />
+                    </Route>
+
                     {/* Module Admin (Rôle ROLE_ADMIN requis)               */}
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
                         <Route path="/admin" element={<Navigate to="/admin/securite" replace />} />
                         <Route path="/admin/securite" element={<SecuriteAdminPanel />} />
-                        <Route path="/admin/organisation" element={<OrganisationAdminPanel />} />
                         <Route path="/admin/referentiels-rh" element={<ReferentielsRhAdminPanel />} />
                         <Route path="/admin/parametres" element={<ParametresModulesPanel />} />
 
                         {/* Alias et redirections de compatibilité pour /parametres */}
-                        <Route path="/parametres" element={<Navigate to="/admin/organisation" replace />} />
-                        <Route path="/parametres/organisation" element={<Navigate to="/admin/organisation" replace />} />
                         <Route path="/parametres/referentiels" element={<Navigate to="/admin/referentiels-rh" replace />} />
                         <Route path="/parametres/securite" element={<Navigate to="/admin/securite" replace />} />
                         <Route path="/parametres/modules" element={<Navigate to="/admin/parametres" replace />} />

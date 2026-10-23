@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarDays, FileSpreadsheet, CheckCircle2, Circle, Clock3 } from 'lucide-react';
+import { CalendarDays, FileSpreadsheet } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 
@@ -8,6 +8,8 @@ import { getErrorMessage } from '@/api/apiClient';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
+import Loading from '@/components/ui/feedback/Loading';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import Button from '@/components/ui/forms/Button';
@@ -15,6 +17,7 @@ import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
 import { useAuth } from '@/context/AuthContext';
 import { fmtDateInput } from '@/utils/dateUtils';
+import { resolvePendingTcongeResult } from '@/features/leave/utils/pendingTcongeState';
 
 // Sous-composants Onglets
 const SoldesOverviewTab     = lazy(() => import('@/features/leave/components/SoldesOverviewTab'));
@@ -30,6 +33,7 @@ export default function GestionCongesPage() {
   const [nbEnAttente, setNbEnAttente] = useState(null);
   const [referentiels, setReferentiels] = useState(null);
   const [periodesEnAttente, setPeriodesEnAttente] = useState([]);
+  const [pendingRatesStatus, setPendingRatesStatus] = useState('loading');
   const [error, setError] = useState(null);
   const [showGrandRecap, setShowGrandRecap] = useState(false);
   const [dateFin, setDateFin] = useState(() => fmtDateInput(new Date()));
@@ -41,19 +45,19 @@ export default function GestionCongesPage() {
   // Données dérivées
   const tabFromUrl = searchParams.get('tab');
   const activeTab = ['demandes', 'periodes'].includes(tabFromUrl) ? tabFromUrl : 'planning';
-  const nbTauxAActiver = periodesEnAttente?.length || 0;
+  const nbTauxAActiver = pendingRatesStatus === 'success' ? periodesEnAttente.length : null;
   const tabsList = [
     { id: 'planning', label: 'Planning des absences' },
     { id: 'demandes', label: 'Demandes et décisions', badge: nbEnAttente > 0 ? nbEnAttente : undefined },
     { id: 'periodes', label: 'Contrôle des droits', badge: nbTauxAActiver > 0 ? nbTauxAActiver : undefined }
   ];
 
-  const leaveCycleAtControl = activeTab === 'periodes';
-
   // Effets
   const loadGlobalData = useCallback(async () => {
     const requestId = ++requestSequence.current;
     setError(null);
+    setPendingRatesStatus('loading');
+    setPeriodesEnAttente([]);
     const needsReferentiels = activeTab !== 'periodes';
     const [pendingResult, refsResult, pendingRatesResult] = await Promise.allSettled([
         congeService.getAllDemandes({ statut: 'EN_ATTENTE', page: 1, size: 1 }),
@@ -65,9 +69,9 @@ export default function GestionCongesPage() {
     if (needsReferentiels) {
       setReferentiels(refsResult.status === 'fulfilled' ? refsResult.value?.data || refsResult.value || null : null);
     }
-    const pendingRates = pendingRatesResult.status === 'fulfilled' && Array.isArray(pendingRatesResult.value)
-      ? pendingRatesResult.value : [];
-    setPeriodesEnAttente(pendingRates);
+    const pendingRates = resolvePendingTcongeResult(pendingRatesResult);
+    setPendingRatesStatus(pendingRates.status);
+    setPeriodesEnAttente(pendingRates.periods);
     const failed = [pendingResult, refsResult].find(result => result.status === 'rejected');
     if (failed) setError(getErrorMessage(failed.reason, 'Certaines données des congés sont indisponibles.'));
   }, [activeTab]);
@@ -123,38 +127,33 @@ export default function GestionCongesPage() {
       {error && (
         <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />
       )}
-
-      {/* Indicateur informatif du cycle : la navigation entre les vues reste dans les onglets. */}
-      <section aria-label="Cycle de gestion des congés" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3">
-          <div aria-current={!leaveCycleAtControl ? 'step' : undefined} className="flex items-center gap-2">
-            {!leaveCycleAtControl
-              ? <CheckCircle2 size={17} className="shrink-0 text-[var(--color-brand-600)]" aria-hidden="true" />
-              : <Circle size={17} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />}
-            <div>
-              <p className={`text-xs font-semibold ${!leaveCycleAtControl ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-fg-muted)]'}`}>Demandes & planning</p>
-              <p className="text-[11px] text-[var(--color-fg-muted)]">{nbEnAttente > 0 ? `${nbEnAttente} demande(s) en attente` : 'Gestion au fil de l’eau'}</p>
-            </div>
-          </div>
-          <span className="hidden md:block h-px bg-[var(--color-border)]" aria-hidden="true" />
-          <div className="flex items-center gap-2">
-            <Clock3 size={17} className="shrink-0 text-[var(--color-info-600)]" aria-hidden="true" />
-            <div>
-              <p className="text-xs font-semibold text-[var(--color-fg)]">Acquisition mensuelle <span className="ml-1 text-[10px] uppercase tracking-wide text-[var(--color-info-700)]">Automatique</span></p>
-              <p className="text-[11px] text-[var(--color-fg-muted)]">Après validation de la paie</p>
-            </div>
-          </div>
-          <span className="hidden md:block h-px bg-[var(--color-border)]" aria-hidden="true" />
-          <div aria-current={leaveCycleAtControl ? 'step' : undefined} className="flex items-center gap-2">
-            {leaveCycleAtControl
-              ? <CheckCircle2 size={17} className="shrink-0 text-[var(--color-brand-600)]" aria-hidden="true" />
-              : <Circle size={17} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />}
-            <div>
-              <p className={`text-xs font-semibold ${leaveCycleAtControl ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-fg-muted)]'}`}>Contrôle annuel DAF</p>
-              <p className="text-[11px] text-[var(--color-fg-muted)]">Contrôle des droits</p>
-            </div>
-          </div>
+      {pendingRatesStatus === 'error' && (
+        <Alert type="error" title="Activations TCONGE indisponibles"
+          message="Impossible de vérifier les périodes en attente. Aucune conclusion ne peut être tirée sur les activations nécessaires."
+          actionLabel="Réessayer" onAction={loadGlobalData} />
+      )}
+      {pendingRatesStatus === 'loading' && activeTab !== 'periodes' && (
+        <div role="status" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
+          <Loading size="sm" label="Vérification des activations TCONGE en attente…" />
         </div>
+      )}
+
+      <section aria-label="Étapes annuelles des droits à congé" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3">
+        <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            ['1', 'Acquisitions mensuelles', 'Après chaque clôture de paie'],
+            ['2', 'Clôture de la période', 'Calcul du TCONGE à partir des cumuls'],
+            ['3', 'Activation datée par la DAF', 'Le nouveau taux s’applique à sa date d’effet'],
+          ].map(([number, title, description]) => (
+            <li key={number} className="flex min-w-0 items-start gap-2">
+              <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center border border-[var(--color-border)] bg-[var(--color-bg-subtle)] text-[10px] font-semibold text-[var(--color-fg-muted)]">{number}</span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-[var(--color-fg)]">{title}</p>
+                <p className="text-[11px] text-[var(--color-fg-muted)]">{description}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       {/* Barre d'onglets sobre de premier niveau */}
@@ -163,6 +162,7 @@ export default function GestionCongesPage() {
         activeTab={activeTab}
         onChange={handleTabChange}
         variant="underline"
+        showScrollHint
       />
 
       <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés" size="lg">
@@ -210,12 +210,29 @@ export default function GestionCongesPage() {
           )}
 
           {activeTab === 'periodes' && (
-            <PeriodesReferenceTab
+            pendingRatesStatus === 'loading' ? (
+              <div role="status" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
+                <Loading size="sm" label="Vérification des activations TCONGE en attente…" />
+              </div>
+            ) : pendingRatesStatus === 'success' && periodesEnAttente.length === 0 ? (
+              <>
+                <EmptyState title="Aucune activation TCONGE en attente"
+                  description="Aucun taux calculé ne nécessite actuellement une activation DAF." />
+                <PeriodesReferenceTab
+                  initialIdEmploye={Number(searchParams.get('employe')) || null}
+                  canValidate={hasPermission('CONGE_VALIDATE')}
+                  periodesEnAttente={periodesEnAttente}
+                  onReload={loadGlobalData}
+                />
+              </>
+            ) : (
+              <PeriodesReferenceTab
               initialIdEmploye={Number(searchParams.get('employe')) || null}
               canValidate={hasPermission('CONGE_VALIDATE')}
               periodesEnAttente={periodesEnAttente}
               onReload={loadGlobalData}
-            />
+              />
+            )
           )}
         </Suspense>
       </div>

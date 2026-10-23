@@ -8,6 +8,8 @@ Ce dossier est le point d'entrée unique du backend pour la structure de l'entre
 
 Les routes REST restent sous le préfixe `/referentiel/*` (exposées sous `/api/referentiel/*` via le context-path). Le contrat d'intégration avec le frontend React est intégralement préservé.
 
+L'écran `/admin/organisation` est accessible à `ROLE_ADMIN` et aux comptes dotés de `ORGANISATION_WRITE`. Côté API, les lectures de `OrganisationController` exigent une authentification et les écritures exigent `ORGANISATION_WRITE` ou `ROLE_ADMIN` ; le contrôle serveur reste la source d'autorité. Les rôles délégués doivent recevoir le menu `ADMIN_ORGANISATION` pour voir son lien dans la barre latérale. Une écriture d'audit en échec interrompt les opérations transactionnelles du service.
+
 Les classes de `persistence/` conservent la rigueur Active Record : `Connection`, `PreparedStatement` et `ResultSet` sans aucun framework ORM lourd.
 
 ## Cohérence des affectations de carrière

@@ -86,6 +86,8 @@ export default function MouvementsSoldeTable({
   matricule = '',
   onAjustementSuccess,
   onVoirDemande,
+  loadError = null,
+  loading: sourceLoading = false,
 }) {
   const toast = useToast();
 
@@ -286,7 +288,7 @@ export default function MouvementsSoldeTable({
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-[var(--color-brand-500)]" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-            Registre des Mouvements & Crédits de Solde ({filteredMouvements.length})
+            Registre des Mouvements & Crédits de Solde{loadError ? ' (indisponible)' : ` (${filteredMouvements.length})`}
           </h4>
         </div>
 
@@ -346,7 +348,7 @@ export default function MouvementsSoldeTable({
               Cumul crédits & reprises
             </span>
             <span className="font-mono text-base font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-0.5 block">
-              +{statsMouvements.totalAcquis.toFixed(2)} j
+              {loadError ? 'Indisponible' : `+${statsMouvements.totalAcquis.toFixed(2)} j`}
             </span>
           </div>
           <div className="w-8 h-8 rounded-full bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] flex items-center justify-center shrink-0">
@@ -359,11 +361,11 @@ export default function MouvementsSoldeTable({
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
               Cumul débits & prises
             </span>
-            <span className="font-mono text-base font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] mt-0.5 block">
-              -{statsMouvements.totalConsomme.toFixed(2)} j
+            <span className="font-mono text-base font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] mt-0.5 block">
+              {loadError ? 'Indisponible' : `-${statsMouvements.totalConsomme.toFixed(2)} j`}
             </span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] flex items-center justify-center shrink-0">
             <ArrowDownRight size={16} />
           </div>
         </div>
@@ -397,7 +399,11 @@ export default function MouvementsSoldeTable({
       </div>
 
       <div className="overflow-x-auto">
-        {filteredMouvements.length === 0 ? (
+        {loadError ? (
+          <div className="p-5"><Alert type="error" title="Registre indisponible" message={loadError} /></div>
+        ) : sourceLoading ? (
+          <div className="p-8 flex justify-center"><span className="text-xs text-[var(--color-fg-muted)]">Chargement du registre…</span></div>
+        ) : filteredMouvements.length === 0 ? (
           <div className="p-8">
             <EmptyState
               icon={History}

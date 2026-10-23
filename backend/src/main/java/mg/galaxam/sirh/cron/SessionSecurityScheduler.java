@@ -36,6 +36,11 @@ public class SessionSecurityScheduler {
         executionRegistry.runDaily("SECURITE_SESSIONS", this::nettoyerSecuriteInterne);
     }
 
+    public boolean rattraperSecurite() {
+        return executionRegistry.runDailyCatchUp("SECURITE_SESSIONS", java.time.LocalTime.of(3, 30),
+                this::nettoyerSecuriteInterne);
+    }
+
     private void nettoyerSecuriteInterne() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             Timestamp now = Timestamp.valueOf(LocalDateTime.now());

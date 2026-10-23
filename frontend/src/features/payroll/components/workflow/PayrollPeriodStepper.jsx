@@ -112,7 +112,10 @@ export default function PayrollPeriodStepper({
             aria-label="Workflow de campagne de paie"
             className="relative bg-[var(--color-surface)] border border-[var(--color-border-subtle)]"
         >
-            <ol className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9" aria-label="Étapes de la campagne">
+            <p className="border-b border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-fg-muted)] sm:hidden">
+                Faites défiler les étapes horizontalement pour parcourir la campagne.
+            </p>
+            <ol className="relative z-10 flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain sm:grid sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7" aria-label="Étapes de la campagne">
                 {steps.map((step, index) => {
                     const conf = stateConfig[step.state] || stateConfig.BLOCKED;
                     const isActive = step.code === activeCode;
@@ -124,7 +127,7 @@ export default function PayrollPeriodStepper({
                         <li
                             key={step.code}
                             className={`
-                                min-w-0 flex items-stretch group border-b border-r border-[var(--color-border-subtle)]
+                                min-w-[14rem] max-w-[16rem] shrink-0 snap-start flex items-stretch group border-b border-r border-[var(--color-border-subtle)] sm:min-w-0 sm:max-w-none sm:shrink
                                 ${isActive ? 'bg-[var(--color-brand-500)]/5' : ''}
                             `}
                         >
@@ -135,7 +138,7 @@ export default function PayrollPeriodStepper({
                                 title={step.issues?.length > 0 ? step.issues[0] : step.label}
                                 aria-current={isActive ? 'step' : undefined}
                                 className={`
-                                    w-full min-w-0 flex items-center gap-2 px-2 py-2 transition-colors duration-150
+                                    w-full min-h-[68px] min-w-0 flex items-start gap-2.5 px-3 py-3 text-left transition-colors duration-150
                                     ${accessible ? 'cursor-pointer hover:bg-[var(--color-bg-subtle)]' : 'cursor-not-allowed opacity-80'}
                                     ${isActive ? 'bg-[var(--color-brand-500)]/8' : ''}
                                     focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[var(--color-brand-500)]/40
@@ -145,8 +148,8 @@ export default function PayrollPeriodStepper({
                                 {conf.icon(num)}
 
                                 {/* Label & sous-texte — conforme V1 Full V3 */}
-                                <span className="flex min-w-0 flex-1 flex-col items-center text-center">
-                                    <span className={`break-words text-xs font-semibold uppercase leading-snug ${conf.label}`}>
+                                <span className="flex min-w-0 flex-1 flex-col items-start text-left">
+                                    <span className={`break-words text-xs font-semibold leading-snug ${conf.label}`}>
                                         {step.label}
                                         {isActive && (
                                             <span className="sr-only"> (page actuelle)</span>
@@ -159,12 +162,12 @@ export default function PayrollPeriodStepper({
                                         </span>
                                     )}
                                     {step.warnings?.length > 0 && (
-                                        <span className="break-words text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] leading-snug mt-0.5">
+                                        <span className="break-words text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] leading-snug mt-1">
                                             ⚠ {step.warnings[0]}
                                         </span>
                                     )}
                                     {step.issues?.length > 0 && step.state !== 'COMPLETED' && step.state !== 'LOCKED' && (
-                                        <span className="break-words text-xs text-[var(--color-fg-muted)] leading-snug mt-0.5">
+                                        <span className="break-words text-[11px] text-[var(--color-fg-muted)] leading-snug mt-1">
                                             {step.issues[0]}
                                         </span>
                                     )}

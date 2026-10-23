@@ -20,6 +20,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import BulletinVariableCorrection from './BulletinVariableCorrection';
 import { summarizeNetDeductions } from '@/features/payroll/utils/netDeductions';
+import { libelleRubriqueBulletin } from '@/features/payroll/utils/payrollPresentation';
 
 /** Consultation du bulletin calculé. */
 export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onRecalculateSuccess }) {
@@ -189,12 +190,13 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                 )}
 
                                 {/* Montants principaux du bulletin */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <StatCard title="Salaire de base" value={formatAr(bulletin.salaireBase ?? bulletin.salaire_base)} color="neutral" />
                                     <StatCard title="Brut" value={formatAr(bulletin.totalGainsBruts)} color="neutral" />
                                     <StatCard title="Cotisations salariales" value={formatAr(bulletin.totalCotisationsSalariales)} color="neutral" />
                                     {retenueIsi > 0
                                         ? <StatCard title="ISI" value={formatAr(bulletin.retenueIsi5)} color="neutral" />
-                                        : estIrsa && <StatCard title="IRSA" value={formatAr(bulletin.irsaNet)} color="neutral" />}
+                                        : estIrsa && <StatCard title="IRSA dû (net)" value={formatAr(bulletin.irsaNet)} color="neutral" />}
                                     <StatCard title="Net à payer" value={formatAr(bulletin.netAPayer)} color="brand" />
                                 </div>
 
@@ -232,7 +234,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 <>
                                                     {[...gainsBruts, ...retenuesBrut].sort((a, b) => Number(a.ordre || 0) - Number(b.ordre || 0)).map((l, index) => (
                                                         <div key={`${l.codeRubrique}-${index}`} className="flex justify-between gap-4 py-1 text-[var(--color-fg)]">
-                                                            <span className="font-sans">{l.libelleRubrique}{l.commentaire && <span className="block text-xs font-normal text-[var(--color-fg-muted)]">{l.commentaire}</span>}</span>
+                                                            <span className="font-sans">{libelleRubriqueBulletin(l)}{l.commentaire && <span className="block text-xs font-normal text-[var(--color-fg-muted)]">{l.commentaire}</span>}</span>
                                                             <span className={`font-bold whitespace-nowrap ${l.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                                                 {l.sens === 'GAIN' ? '+' : '−'}{formatAr(l.montantSalarial)}
                                                             </span>
@@ -444,7 +446,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                     </p>
                                                 )}
                                                 <div className="grid grid-cols-2 gap-2 px-3.5 py-2.5 bg-[var(--color-bg-subtle)] text-[11px] border-t border-[var(--color-border-subtle)]">
-                                                    <span className="text-[var(--color-fg-muted)]">IRSA calculé</span>
+                                                    <span className="text-[var(--color-fg-muted)]">IRSA calculé avant arrondi</span>
                                                     <span className="text-right font-data font-semibold">{formatAr(fiscalite?.irsaCalcule ?? bulletin.irsaCalcule ?? bulletin.irsaBrut)}</span>
                                                     <span className="text-[var(--color-fg-muted)]">Réduction charges familiales</span>
                                                     <span className="text-right font-data">-{formatAr(fiscalite?.reductionChargeFamille ?? bulletin.reductionChargeFamille ?? bulletin.reductionEnfants)}</span>
@@ -513,7 +515,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                                     return (
                                                                         <Tr key={i} className="font-data text-[11px]">
                                                                             <Td className="font-sans font-medium text-[var(--color-fg)]">
-                                                                                {l.libelleRubrique}
+                                                                                {libelleRubriqueBulletin(l)}
                                                                                 {isInfo && (
                                                                                     <Badge variant="default" size="xs" className="ml-1.5 font-data">
                                                                                         info

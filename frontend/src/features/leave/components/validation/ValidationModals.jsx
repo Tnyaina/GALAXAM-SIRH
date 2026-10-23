@@ -8,6 +8,13 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
 import congeService from '@/features/leave/api/congeService';
 import DemandeDetailsModal from '@/features/leave/components/DemandeDetailsModal';
+import { formatLeaveDaysPreview } from '@/features/leave/utils/leavePreviewPresentation';
+
+const formatDate = (value) => {
+  if (!value) return 'date non renseignée';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('fr-FR');
+};
 
 export default function ValidationModals({
   selectedDemande,
@@ -44,6 +51,8 @@ export default function ValidationModals({
   const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [simulation, setSimulation] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
 
   // Effets : réinitialise et charge le solde pour la demande sélectionnée.
   useEffect(() => {
@@ -52,16 +61,15 @@ export default function ValidationModals({
       if (!selectedDemande?.idEmploye) {
         setSoldeEmploye(null);
         setSimulation(null);
+        setPreviewLoading(false);
+        setPreviewError(false);
         return;
       }
-      try {
-        const res = await congeService.getSoldeEmploye(selectedDemande.idEmploye);
-        if (isMounted) setSoldeEmploye(res);
-      } catch {
-        if (isMounted) setSoldeEmploye(null);
-      }
-      try {
-        const result = await congeService.simulerDemande({
+      setPreviewLoading(true);
+      setPreviewError(false);
+      const [soldeResult, simulationResult] = await Promise.allSettled([
+        congeService.getSoldeEmploye(selectedDemande.idEmploye),
+        congeService.simulerDemande({
           idEmploye: selectedDemande.idEmploye,
           idTypeConge: selectedDemande.idTypeConge,
           idMotifEvenementFamilial: selectedDemande.idMotifEvenementFamilial,
@@ -71,11 +79,13 @@ export default function ValidationModals({
           derogationSoldeNegatif: Boolean(derogationSoldeNegatif),
           derogationDelaiPreavis: Boolean(selectedDemande.derogationDelaiPreavis),
           extensionPathologiqueMaternite: Boolean(selectedDemande.extensionPathologiqueMaternite),
-        });
-        if (isMounted) setSimulation(result);
-      } catch {
-        if (isMounted) setSimulation(null);
-      }
+        }),
+      ]);
+      if (!isMounted) return;
+      setSoldeEmploye(soldeResult.status === 'fulfilled' ? soldeResult.value : null);
+      setSimulation(simulationResult.status === 'fulfilled' ? simulationResult.value : null);
+      setPreviewError(soldeResult.status === 'rejected' || simulationResult.status === 'rejected');
+      setPreviewLoading(false);
     };
     if (showValiderModal || showDetailModal) {
       fetchSolde();
@@ -94,6 +104,9 @@ export default function ValidationModals({
   }, [showValiderModal, selectedDemande]);
 
   const joursDemandes = Number(selectedDemande?.nbJoursDecomptes ?? 0);
+  const joursDemandesLabel = selectedDemande?.estDemiJournee
+    ? `0,5 jour ${selectedDemande?.momentDemiJournee === 'APRES_MIDI' ? 'après-midi' : 'matin'}`
+    : selectedDemande?.nbJoursDecomptes == null ? 'durée inconnue' : `${joursDemandes} jour${joursDemandes === 1 ? '' : 's'}`;
   const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? selectedDemande?.soldeRestant ?? selectedDemande?.soldeActuel ?? null;
   const joursDebites = simulation?.joursDebites ?? null;
   const soldeApres = simulation?.soldeApres ?? null;
@@ -117,7 +130,7 @@ export default function ValidationModals({
       <ConfirmDialog
         isOpen={showValiderModal}
         title="Confirmer la validation"
-        message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${selectedDemande?.estDemiJournee ? `0,5 jour ${selectedDemande?.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}` : `${selectedDemande?.nbJoursDecomptes} jours`} de ${selectedDemande?.codeTypeConge}) ?`}
+        message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${joursDemandesLabel} de ${selectedDemande?.libelleTypeConge || selectedDemande?.codeTypeConge || 'type non renseigné'}, du ${formatDate(selectedDemande?.dateDebut)} au ${formatDate(selectedDemande?.dateFin)}) ?`}
         confirmLabel="Valider la demande"
         variant="success"
         onConfirm={() => onConfirmValider(justificatifFourni, estRemunere, false)}
@@ -132,17 +145,28 @@ export default function ValidationModals({
             />
           )}
 
+          <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-3 py-2 text-xs">
+            <p className="font-semibold text-[var(--color-fg)]">Conséquence de la décision</p>
+            <p className="mt-0.5 text-[var(--color-fg-muted)]">
+              {estRemunere
+                ? 'La demande validée sera rémunérée et valorisée selon les droits à congé applicables.'
+                : 'La demande validée sera sans solde et entraînera une retenue d’absence en paie.'}
+            </p>
+          </div>
+          {previewLoading && <p role="status" className="text-xs text-[var(--color-fg-muted)]">Actualisation du solde et de la simulation…</p>}
+          {previewError && <Alert type="info" title="Aperçu partiellement indisponible" message="Une donnée de solde ou la simulation n’a pas pu être chargée. Les valeurs inconnues restent affichées comme indisponibles ; le serveur vérifiera la demande au moment de la décision." />}
+
           {/* Audit comptable solde dans la modale de validation */}
           <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-xs space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block flex items-center gap-1.5">
-              <Calculator size={13} className="text-brand-500" />
-              Impact Comptable sur le Solde & Paie
+              <Calculator size={13} className="text-[var(--color-brand-500)]" />
+              Vérification du solde et impact paie
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Avant</span>
                 <span className="font-mono font-bold text-xs text-[var(--color-fg)]">
-                  {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '-'}
+                  {formatLeaveDaysPreview(soldeAvant, { loading: previewLoading, error: previewError })}
                 </span>
               </div>
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
@@ -154,13 +178,13 @@ export default function ValidationModals({
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Débités</span>
                 <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                  {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '-'}
+                  {formatLeaveDaysPreview(joursDebites > 0 ? -Number(joursDebites) : joursDebites, { loading: previewLoading, error: previewError })}
                 </span>
               </div>
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
                 <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)] font-bold' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                  {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '-'}
+                  {formatLeaveDaysPreview(soldeApres, { loading: previewLoading, error: previewError })}
                 </span>
               </div>
             </div>

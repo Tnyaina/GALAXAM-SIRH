@@ -241,18 +241,19 @@ public class DemandeConge extends ClassMere {
             }
         }
 
-        // 6. Contrôle Maternité (98 jours standard, ou 119 jours si extension
+        // 6. Contrôle Maternité (98 jours standard, ou 126 jours si extension
         // pathologique)
         if ("MATERNITE".equals(typeConge.getCode())) {
             int dureeMaxStd = getParamGlobalInt("DUREE_MAX_MATERNITE_STANDARD_JOURS", c);
             int dureeMaxPatho = getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", c);
-            int maxPlafond = extensionPathologiqueMaternite ? dureeMaxPatho : dureeMaxStd;
+            int maxPlafond = CONGE_ENGINE.plafondMaternite(
+                    extensionPathologiqueMaternite, dureeMaxStd, dureeMaxPatho);
 
             if (nbJoursDecomptes.compareTo(BigDecimal.valueOf(maxPlafond)) > 0) {
                 throw new IllegalArgumentException("La durée maximale autorisée pour un congé maternité est de " +
                         maxPlafond + " jours (" + nbJoursDecomptes + "j demandés)." +
                         (!extensionPathologiqueMaternite
-                                ? " Activez l'extension pathologique si un justificatif médical le justifie (119j max)."
+                                ? " Activez l'extension pathologique si un justificatif médical le justifie (126j max)."
                                 : ""));
             }
         }

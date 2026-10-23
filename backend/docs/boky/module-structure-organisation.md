@@ -1,13 +1,11 @@
 # GALAXAM SIRH — MODULE STRUCTURE, ORGANISATION & ADMINISTRATION
 ## Référentiels, Paramétrage Système, Gouvernance Organisationnelle et Sécurité IAM
 ### Document de Référence Canonique — Version Maîtresse 5.0
-### **Mis à jour le 16 octobre 2026 — Source : Code SQL canonique (`01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql`), Java 17 Spring Boot 4.1.0 et React 19**
+### **Relu le 23 octobre 2026 — Sources : Code SQL canonique (`01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql`), Java 17 Spring Boot 4.1.0 et React 19**
 
 ---
 
-> **État de conformité logicielle & métriques de recette certifiées (au 16 octobre 2026) :**
-> - **Tests automatisés Backend (`mg.galaxam.sirh.organisation`)** : **7/7 tests verts** (JUnit 5 / Spring Boot Test).
-> - **Tests automatisés Frontend (`src/features/organization`, `src/features/administration`)** : **17/17 tests verts** (Vitest / Testing Library).
+> **État des preuves au 23 octobre 2026 :** les schémas canoniques et le contrôleur d'organisation décrivent le modèle et les API. Aucun rapport de recette Organisation dédié ni exécution datée des totaux de tests précédemment cités n'a été retrouvé dans le dépôt. Les contrôles de navigation et d'accès rapportés en UX-20/21 proviennent des comptes rendus communiqués séparément ; ils ne constituent pas une certification globale.
 > - **Périmètre modélisé** : 32 tables de référentiels `ref_*`, 37 paramètres globaux versionnés à date d'effet, gouvernance multi-filiales et multi-sites.
 > - **Cadre Juridique** : [Loi n° 2024-014 du 14 août 2024 portant Code du Travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf) (adoptée le 01/07/2024, validée par la HCC le 08/08/2024 Décision n° 11-HCC/D3, promulguée le 14/08/2024) & Loi n° 2003-044, CGI 2026, Décret n° 72-226, Décret n° 64-161, Décret n° 69-145 (CNaPS), Loi n° 2014-038 (Données personnelles).
 
@@ -34,9 +32,11 @@
 
 Le présent document constitue le document maître du domaine **Structure, Organisation, Référentiels et Administration** du SIRH GALAXAM. Le périmètre Sécurité est décrit plus en détail dans `module-securite-audit.md` ; `parametre_global` reste partagé avec les domaines consommateurs.
 
-Conformément aux exigences de rigueur méthodologique et académique applicables à un mémoire d'ingénierie logicielle ou de recherche appliquée, **les spécifications textuelles historiques ou documents informels antérieurs ne constituent en aucun cas une source de vérité**. Les évolutions successives de l'architecture logicielle, les refactorings d'architecture et les consolidations de base de données (notamment : unification du plancher d'arrivée consolidé dans [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql), refonte unifiée du contrôleur de domaine [`OrganisationController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java), sécurisation de l'audit log dans [`01_schema_core_securite.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql) et gestion du triétat avec verrouillage futur dans [`ParametreGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java)) ont rendu caduques plusieurs hypothèses antérieures.
+L'écran `/admin/organisation` est protégé côté React par `ORGANISATION_WRITE` ; la navigation n'affiche son lien qu'à `ROLE_ADMIN` ou à un utilisateur disposant de cette permission, sous réserve du menu `ADMIN_ORGANISATION`. `ROLE_ADMIN` hérite des permissions, dont `ORGANISATION_READ` et `ORGANISATION_WRITE`, dans `SecurityConfig`. Dans `OrganisationController`, les endpoints GET demandent `isAuthenticated()` et n'exigent pas explicitement `ORGANISATION_READ` ; les mutations exigent `ORGANISATION_WRITE` ou `ROLE_ADMIN`. La permission `ORGANISATION_READ` existe dans la hiérarchie backend mais ne gouverne actuellement ni cette route frontend ni les annotations GET du contrôleur. Le contrôle serveur reste l'autorité pour les API.
 
-La seule et unique source de vérité exploitée pour établir ce traité est l'état technique effectif du dépôt croisé avec le corpus juridique en vigueur à Madagascar :
+Le CDC initial définit le périmètre fonctionnel du mémoire. Les schémas canoniques et le code décrivent l'implémentation actuelle ; les tests et recettes datés déterminent le niveau de vérification. Les évolutions d'architecture et de base de données (notamment l'unification du plancher d'arrivée, le contrôleur unifié et la résolution triétat des paramètres) peuvent rendre certaines descriptions historiques obsolètes, sans effacer les exigences du CDC.
+
+Les sources utilisées pour décrire le module sont :
 1. **Le code backend Java 17** : packages [`mg.galaxam.sirh.organisation`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation), [`mg.galaxam.sirh.admin`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin), [`mg.galaxam.sirh.paieconfig`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig), [`mg.galaxam.sirh.securite`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite) et la couche Active Record JDBC pure ([`bean.ClassMere`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/bean/ClassMere.java)) ;
 2. **Le schéma physique de la base de données PostgreSQL** : scripts canoniques [`01_schema_core_securite.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql), [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql), [`03_schema_employes_contrats.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/03_schema_employes_contrats.sql), [`04_schema_conges.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/04_schema_conges.sql), [`05_schema_pointage.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/05_schema_pointage.sql), [`06_schema_paie.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/06_schema_paie.sql) dans [`backend/conception/bdd/`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd) ;
 3. **La suite de tests automatisés ciblés** : tests unitaires et d'intégration ciblés ([`ContratTravailControllerPostgresTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/contrat/api/ContratTravailControllerPostgresTest.java), [`EmployeSatelliteLifecycleTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/contrat/application/EmployeSatelliteLifecycleTest.java), [`PayrollCalculationTargetedTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/paie/PayrollCalculationTargetedTest.java)) ;
@@ -594,8 +594,8 @@ consommateur et traiter une configuration ambiguë comme une erreur.
 
 | ID | Clé Paramètre | Catégorie | Valeur Seed | Type | Désactivable ? | Fondement Légal / Règle Métier |
 | :---: | :--- | :--- | :---: | :---: | :---: | :--- |
-| **3** | `SEUIL_NUIT_DEBUT` | `POINTAGE` | `22:00` | LocalTime | **NON** | *Art. 83 Code Travail* : début de la tranche de nuit |
-| **4** | `SEUIL_NUIT_FIN` | `POINTAGE` | `05:00` | LocalTime | **NON** | *Art. 83 Code Travail* : fin de la tranche légale de nuit |
+| **3** | `SEUIL_NUIT_DEBUT` | `POINTAGE` | `22:00` | LocalTime | **NON** | *Art. 117-124 Loi 2024-014* (ex-Art. 83) : début de la tranche légale de nuit |
+| **4** | `SEUIL_NUIT_FIN` | `POINTAGE` | `05:00` | LocalTime | **NON** | *Art. 117-124 Loi 2024-014* (ex-Art. 83) : fin de la tranche légale de nuit |
 | **5** | `MONTANT_REPAS_MIDI` | `POINTAGE` | `2000` | Montant Ar | **NON** | Forfait journalier repas du midi (si présent) |
 | **6** | `SEUIL_2ND_REPAS_1` | `POINTAGE` | `19:30` | LocalTime | OUI | Sortie ouvrant droit au 2nd repas distinct (tranche 1) |
 | **7** | `MONTANT_2ND_REPAS_1` | `POINTAGE` | `2000` | Montant Ar | OUI | Montant du deuxième repas, tranche 1 |
@@ -603,23 +603,23 @@ consommateur et traiter une configuration ambiguë comme une erreur.
 | **9** | `MONTANT_2ND_REPAS_2` | `POINTAGE` | `4000` | Montant Ar | OUI | Montant du deuxième repas majoré |
 | **10**| `SEUIL_PAUSE_MIDI_MIN` | `POINTAGE` | `60` | Minutes | **NON** | Seuil de détection « ne rentre pas midi » (site TMM) |
 | **11**| `REDUCTION_DEPLACT_REPAS_MIDI` | `POINTAGE` | `1000` | Montant Ar | OUI | Déduction transport si repas midi alloué sur site |
-| **12**| `SEUIL_HEURES_JOUR` | `RH_GENERAL` | `8` | Heures | **NON** | *Art. 75 Code Travail* : durée légale journalière (8h) |
-| **14**| `DUREE_MAX_CDD_MOIS` | `CONTRAT` | `72` | Mois | **NON** | *Art. 20 Code Travail* : durée max cumulée CDD (6 ans) |
-| **15**| `NB_MAX_RENOUVELLEMENTS_CDD` | `CONTRAT` | `2` | Entier | **NON** | *Art. 20 Code Travail* : max 2 renouvellements d'avenant |
-| **37**| `DUREE_MAX_CONTRAT_CDD_MOIS`| `CONTRAT` | `24` | Mois | **NON** | *Art. 19 Code Travail* : durée max contrat CDD unitaire |
-| **16**| `MAX_RENOUVELLEMENTS_ESSAI`| `RH_GENERAL` | `1` | Entier | **NON** | *Art. 18 Code Travail* : période d'essai (1 seul renouvellement) |
+| **12**| `SEUIL_HEURES_JOUR` | `RH_GENERAL` | `8` | Heures | **NON** | *Art. 109-110 Loi 2024-014* (ex-Art. 75) : durée légale journalière (8h) |
+| **14**| `DUREE_MAX_CDD_MOIS` | `CONTRAT` | `72` | Mois | **NON** | *Art. 25 Loi 2024-014* (ex-Art. 20) : durée max cumulée CDD (6 ans) |
+| **15**| `NB_MAX_RENOUVELLEMENTS_CDD` | `CONTRAT` | `2` | Entier | **NON** | *Art. 25 Loi 2024-014* (ex-Art. 20) : max 2 renouvellements d'avenant |
+| **37**| `DUREE_MAX_CONTRAT_CDD_MOIS`| `CONTRAT` | `24` | Mois | **NON** | *Art. 24 Loi 2024-014* (ex-Art. 19) : durée max contrat CDD unitaire |
+| **16**| `MAX_RENOUVELLEMENTS_ESSAI`| `RH_GENERAL` | `1` | Entier | **NON** | *Art. 52-54 Loi 2024-014* (ex-Art. 18) : période d'essai (1 seul renouvellement) |
 | **18**| `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` | `CONGE` | `90` | Jours | OUI | Plafond optionnel ; désactivé = cumul sans plafond |
-| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | **NON** | *Art. 85 & 87 Code Travail* : prescription 3 ans (signalement DAF) |
+| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | **NON** | *Art. 129 Loi 2024-014* (ex-Art. 87) : prescription 3 ans (signalement DAF) |
 | **20**| `PLAFOND_SOLDE_CONGE_NEGATIF` | `CONGE` | `-10` | Jours | OUI | Anticipation max autorisée par dérogation RH |
 | **21**| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` | `CONGE` | `3` | Jours | OUI | Déclenchement de l'indicateur visuel de solde faible |
 | **22**| `DELAI_PREAVIS_COURT_JOURS` | `CONGE` | `2` | Jours | **NON** | Préavis minimum pour demande de courte durée |
 | **23**| `DELAI_PREAVIS_LONG_JOURS` | `CONGE` | `15` | Jours | **NON** | Préavis minimum pour demande de longue durée |
 | **24**| `SEUIL_JOURS_PREAVIS_LONG` | `CONGE` | `3` | Jours | **NON** | Seuil de jours posés basculant vers le préavis long |
-| **26**| `DUREE_MAX_MATERNITE_STANDARD_JOURS` | `CONGE` | `98` | Jours | **NON** | *Art. 97 Code Travail* : maternité standard (14 semaines) |
-| **27**| `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS` | `CONGE` | `119` | Jours | **NON** | *Art. 97 Code Travail* : extension pathologique (98 + 21j) |
-| **28**| `SEUIL_ANCIENNETE_BONIFICATION_ANS` | `CONGE` | `3` | Années | OUI | *Art. 86 Code Travail* : ancienneté ouvrant bonification |
-| **29**| `PALIER_ANNEES_BONIFICATION`| `CONGE` | `5` | Années | OUI | *Art. 86 Code Travail* : années par tranche de bonification |
-| **30**| `JOURS_BONIFICATION_PAR_PALIER` | `CONGE` | `1` | Jours | OUI | *Art. 86 Code Travail* : jours accordés par palier d'ancienneté |
+| **26**| `DUREE_MAX_MATERNITE_STANDARD_JOURS` | `CONGE` | `98` | Jours | **NON** | *Art. 142 Loi 2024-014* (ex-Art. 97) : maternité standard (14 semaines) |
+| **27**| `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS` | `CONGE` | `119` | Jours | **NON** | *Art. 143 Loi 2024-014* (ex-Art. 97) : extension pathologique (98 + 21j) |
+| **28**| `SEUIL_ANCIENNETE_BONIFICATION_ANS` | `CONGE` | `3` | Années | OUI | *Art. 126 Loi 2024-014* (ex-Art. 86) : ancienneté ouvrant bonification |
+| **29**| `PALIER_ANNEES_BONIFICATION`| `CONGE` | `5` | Années | OUI | *Art. 126 Loi 2024-014* (ex-Art. 86) : années par tranche de bonification |
+| **30**| `JOURS_BONIFICATION_PAR_PALIER` | `CONGE` | `1` | Jours | OUI | *Art. 126 Loi 2024-014* (ex-Art. 86) : jours accordés par palier d'ancienneté |
 | **31**| `SEUIL_RETARD_ASSIDUITE_MIN`| `PAIE` | **`70`** | Minutes | OUI | Retard mensuel max pour conserver la prime d'assiduité ← **corrigé** (ancienne doc = 45) |
 | **32**| `SEUIL_RETARD_PENALITE_PP_MIN` | `PAIE` | **`70`** | Minutes | OUI | Seuil retard mensuel déclenchant la pénalité PP si congés > seuil |
 | **33**| `SEUIL_CONGES_PENALITE_PP_JOURS` | `PAIE` | `1.0` | Jours | OUI | Jours congés cumulés conditionnant la pénalité PP |
@@ -630,8 +630,9 @@ consommateur et traiter une configuration ambiguë comme une erreur.
 | **40**| `PLAFOND_MENSUEL_HS_EXONEREES` | `PAIE` | — | — | — | **Absent du seed SQL actuel** (porté par `paie_config_legale.plafond_mensuel_hs_exonerees`) |
 | **41**| `TAUX_ISI` | `PAIE` | — | — | — | **Absent du seed SQL actuel** — ISI général désactivé en 2026 |
 | **42**| `MONTANT_PRIME_ASSIDUITE` | `PAIE` | `50000` | Montant Ar | OUI | Montant forfaitaire mensuel de la prime d'assiduité |
-| — | `DIVISEUR_JOURS_CALENDAIRE_CONGE` | `CONGE` | `30` | Jours | **NON** | *Art. 85 Code Travail* : diviseur mensuel de valorisation congé |
-| — | `CONGE_DECOMPTE_FERIES` | `CONGE` | `INCLUS` | Enum | OUI | Décompte des fériés dans les congés : `INCLUS` ou `EXCLUS` |
+| — | `DIVISEUR_JOURS_CALENDAIRE_CONGE` | `CONGE` | `30` | Jours | **NON** | *Art. 125 & 131 Loi 2024-014* : diviseur mensuel de valorisation congé |
+| — | `CONGE_DECOMPTE_FERIES` | `CONGE` | `INCLUS` | Enum | OUI | *Art. 127 Loi 2024-014* : décompte des fériés dans les congés (`INCLUS` ou `EXCLUS`) |
+| — | `DUREE_TRANCHE_MIN_FRACTIONNEMENT_JOURS` | `CONGE` | `15` | Jours | **NON** | *Art. 130 Loi 2024-014* : durée minimale de la première tranche continue de congé annuel |
 
 ---
 
@@ -747,7 +748,7 @@ graph TD
 ### 21.1. Comptes Utilisateurs (`utilisateur`)
 - **Table** : `utilisateur`
 - **Colonnes** : `id_utilisateur`, `identifiant` (indexé sans unicité), `email` (unique sans distinction de casse), `mot_de_passe_hache` (BCrypt avec salage), `id_role` (un rôle principal), `est_actif`, `date_desactivation`, `motif_desactivation`, `refresh_token`, `refresh_token_expiration`.
-- **Désactivation/réactivation** : efface le refresh token et son expiration ; le cookie antérieur ne peut pas être rafraîchi après réactivation. Le filtre JWT bloque l'accès tant que le compte est inactif. Un access token ancien non expiré peut cependant redevenir valable après réactivation, faute de version de session ou de date de révocation.
+- **Désactivation/réactivation** : efface le refresh token et son expiration et révoque les sessions ; le cookie antérieur ne peut pas être rafraîchi après réactivation. Le filtre JWT vérifie le compte actif et la session `sid` non révoquée, donc un ancien access token reste refusé.
 - **Suppression physique** : interdite par `Utilisateur.delete` pour conserver les historiques. La base garde une FK `journal_connexion -> utilisateur ON DELETE CASCADE` et `audit_log -> utilisateur ON DELETE SET NULL` ; un `DELETE` SQL direct contournerait la politique applicative et ne doit pas servir à supprimer un compte.
 - **Politique de Sécurité Mot de Passe** ([`Utilisateur.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/Utilisateur.java)) :
   - Longueur minimale de **8 caractères** ;
@@ -839,7 +840,7 @@ frontend/src/
 | Route Frontend | Page React Hôte | Onglets Réels Disponibles | API Backend Consommées | Habilitation |
 | :--- | :--- | :--- | :--- | :---: |
 | `/admin/securite` | [`SecuriteAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/securite/SecuriteAdminPanel.jsx) | • Utilisateurs (`UserManagementTab`)<br>• Rôles & permissions (`RolesAndPermissionsTab`)<br>• Menus (`MenuManagementTab`) | `/api/securite/utilisateurs`<br>`/api/referentiel/roles`<br>`/api/referentiel/menus` | `ROLE_ADMIN` |
-| `/admin/organisation` | [`OrganisationAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/organization/pages/OrganisationAdminPanel.jsx) | • Filiales & Sites (`FilialesSitesTab`)<br>• Départements & Services (`DepartementsServicesTab`)<br>• Postes & Fonctions (`FonctionsTab`) | `/api/referentiel/filiales`<br>`/api/referentiel/sites`<br>`/api/referentiel/departements`<br>`/api/referentiel/services`<br>`/api/referentiel/fonctions` | `ROLE_ADMIN` |
+| `/admin/organisation` | [`OrganisationAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/organization/pages/OrganisationAdminPanel.jsx) | • Filiales & Sites (`FilialesSitesTab`)<br>• Départements & Services (`DepartementsServicesTab`)<br>• Postes & Fonctions (`FonctionsTab`) | `/api/referentiel/filiales`<br>`/api/referentiel/sites`<br>`/api/referentiel/departements`<br>`/api/referentiel/services`<br>`/api/referentiel/fonctions` | `ROLE_ADMIN` ou `ORGANISATION_WRITE` |
 | `/admin/referentiels-rh`| [`ReferentielsRhAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/referentiels/ReferentielsRhAdminPanel.jsx)| • Catégories (`CareerReferenceDataManagementTab`)<br>• Calcul du salaire (Modes de paie)<br>• Motifs de mouvements<br>• Événements RH<br>• Documents (`DocumentTypeManagementTab`)<br>• Contrats & intervenants (`ReferentielsRhTab`) | `/api/ref-carriere/categories-pro`<br>`/api/ref-carriere/modes-paie`<br>`/api/ref-carriere/motifs-mouvement`<br>`/api/ref-types-documents`<br>`/api/referentiel/types-contrat`<br>`/api/referentiel/types-intervenant`<br>`/api/referentiel/banques` | `ROLE_ADMIN` |
 | `/admin/parametres` | [`ParametresModulesPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/modules/ParametresModulesPanel.jsx) | • **Règles communes** (Constantes Système & Contrats CDD)<br>• **Paie** (Cadre fiscal, Cotisations, Règles paie, Indemnités sites & dérogations, Modes de paiement)<br>• **Congés** (Constantes Congés, Types & Motifs)<br>• **Pointage** (Constantes Pointage)<br>• **Calendrier** (Jours fériés & périodes chômées) | `/api/referentiel/parametres-globaux`<br>`/api/paie/config-legale`<br>`/api/referentiel/cotisations`<br>`/api/referentiel/indemnites`<br>`/api/referentiel/calendrier-ferie`<br>`/api/pointages/parametres/derogations` | `ROLE_ADMIN` |
 
@@ -1153,7 +1154,7 @@ Le système unifie la gestion de ses exceptions via [`SirhErrorCode.java`](file:
 
 ## 30. Dettes Techniques & Recommandations d'Architecture
 
-Bien que le système soit parfaitement opérationnel et validé par des tests complets, l'audit du code actuel met en lumière quatre points d'attention architecturale :
+Le code implémente les parcours Organisation décrits dans ce document, mais aucune recette complète ni couverture de tests exhaustive n'est établie ici. La lecture du code met en lumière quatre points d'attention architecturale :
 
 1. **TECHNICAL_DEBT (Modélisation JDBC Active Record manuelle)** :
    - *Constat* : L'absence de framework de mapping impose une écriture manuelle répétitive des requêtes SQL et des `mapResultSet`.
@@ -1203,11 +1204,12 @@ Bien que le système soit parfaitement opérationnel et validé par des tests co
 1. **[Loi n° 2024-014 du 14 août 2024 portant Code du Travail de la République de Madagascar](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf)** (adoptée le 01/07/2024, Décision HCC n° 11-HCC/D3 du 08/08/2024, promulguée le 14/08/2024) & **[Loi n° 2003-044 du 28 juillet 2004](https://www.assemblee-nationale.mg/media/archives_textes/pl/2003-044/Loi-n-2003-044-finale-Portant-Code-du-Travail-1.pdf)** :
    - *Articles 23 à 25 & 28 (Loi 2003-044 : Articles 8 à 10)* : Typologie des contrats, durée maximale d'un contrat CDD unitaire de 24 mois (`DUREE_MAX_CONTRAT_CDD_MOIS = 24`), limitation à 2 renouvellements d'avenant CDD (`NB_MAX_RENOUVELLEMENTS_CDD = 2`) et cumul max de 6 ans soit 72 mois (`DUREE_MAX_CDD_MOIS = 72`) avant requalification en CDI.
    - *Articles 52 à 54 (Loi 2003-044 : Articles 35 et 36)* : Période d'essai, écrit obligatoire sous peine de nullité, renouvellement unique (`MAX_RENOUVELLEMENTS_ESSAI = 1`).
-   - *Article 40 al. 4 (Loi 2003-044 : Article 24 al. 3)* : Délivrance obligatoire du certificat de travail à la cessation du contrat sans mention préjudiciable.
+   - *Article 50 (Loi 2003-044 : Article 24 al. 3)* : Délivrance obligatoire du certificat de travail à la cessation du contrat sans mention préjudiciable (mentions exclusives : dates d'entrée/sortie, nature des emplois occupés et catégories professionnelles).
    - *Article 109 & Décret n° 72-226 du 6 juillet 1972* : Durée légale hebdomadaire de 40 heures (173,33h/mois dans les entreprises non agricoles).
    - *Article 108* : Définition légale du temps de travail effectif. L'écrêtage matinal au plancher d'arrivée par site repose sur la clause d'interdiction d'accès anticipé du Règlement Intérieur homologué par l'Inspection du Travail.
    - *Article 114* : Repos hebdomadaire obligatoire de 24 heures consécutives.
-   - *Article 115* : Définition du travail de nuit entre 22h00 et 05h00 (`SEUIL_NUIT_DEBUT = 22:00`, `SEUIL_NUIT_FIN = 05:00`).
+   - *Article 115 & 116* : Jours fériés et ponts chômés et payés, majoration légale du travail du dimanche et des jours fériés.
+   - *Article 117 à 124 (Section 3)* : Définition du travail de nuit entre 22h00 et 05h00 (`SEUIL_NUIT_DEBUT = 22:00`, `SEUIL_NUIT_FIN = 05:00`, ex-Art. 83 de la loi de 2003).
    - *Article 125 & Décret n° 64-161 du 22 avril 1964 (Loi 2003-044 : Article 86)* : Droit au congé payé de 2,5 jours par mois, diviseur 30 jours, prescription triennale (`DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS = 36`).
    - *Article 126* : Bonification du congé pour ancienneté (`SEUIL_ANCIENNETE_BONIFICATION_ANS = 3`, `PALIER_ANNEES_BONIFICATION = 5`, `JOURS_BONIFICATION_PAR_PALIER = 1`).
    - *Article 126 & 133* : Permissions d'absence pour événements familiaux dans la limite légale globale de 10 jours ouvrables / an (`ref_pool_conge_annuel`). La ventilation par motif relève de la Convention Collective d'entreprise.

@@ -5,6 +5,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
 import Button from '@/components/ui/forms/Button';
+import { Link } from 'react-router-dom';
 
 const formatDateEmbauche = (dateStr) => {
     if (!dateStr) return '-';
@@ -143,8 +144,7 @@ export default function EmployeTable({
                     return (
                         <Tr
                             key={emp.idEmploye}
-                            onClick={() => onOpenDetail(emp)}
-                            className="group cursor-pointer hover:bg-[var(--color-bg-subtle)]/70 transition-colors"
+                            className="group hover:bg-[var(--color-bg-subtle)]/70 transition-colors"
                         >
                             {/* 1. Collaborateur & Identité */}
                             <Td>
@@ -166,12 +166,13 @@ export default function EmployeTable({
                                         />
                                     </div>
                                     <div className="min-w-0">
-                                        <div
-                                            className="font-bold text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)] text-xs sm:text-sm leading-snug truncate transition-colors"
-                                            title={fullName}
+                                        <Link
+                                            to={`/employes/${emp.idEmploye}`}
+                                            className="block font-bold text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] text-xs sm:text-sm leading-snug truncate transition-colors"
+                                            title={`Ouvrir le dossier de ${fullName}`}
                                         >
                                             {fullName}
-                                        </div>
+                                        </Link>
                                         <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)] mt-0.5 flex-wrap">
                                             <span className="font-mono font-semibold text-[var(--color-brand-500)]">{emp.matricule}</span>
                                         </div>

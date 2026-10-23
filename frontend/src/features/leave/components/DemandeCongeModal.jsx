@@ -18,12 +18,15 @@ import { useDemandeCongeForm } from '@/features/leave/hooks/useDemandeCongeForm'
 // Sections UI
 import DatesCongeSection from './formulaire/DatesCongeSection';
 import ConflitsPostePreview from './formulaire/ConflitsPostePreview';
+import SimulationValorisationConge from './formulaire/SimulationValorisationConge';
+import { defaultLeavePayable } from '@/features/leave/utils/defaultLeavePayable';
 
 export default function DemandeCongeModal({
   idEmploye: idEmployeProp,
   initialDemande,
   initialDateDebut,
   initialDateFin,
+  employeeContext,
   referentiels,
   isOpen,
   onClose,
@@ -55,6 +58,7 @@ export default function DemandeCongeModal({
     // Variables calculées & Conflits
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres, nbJoursFeries,
     conflitReport, simulationReport, simulationError, checkingConflits,
+    simulationLotsReport, simulationLotsError, simulationLotsLoading,
     loading, error, fieldErrors, setFieldErrors,
 
     typesConge, motifsFamiliaux, selectedType,
@@ -148,16 +152,16 @@ export default function DemandeCongeModal({
           {/* Colonne Gauche (Formulaire de saisie) */}
           <div className="lg:col-span-7 space-y-4">
             {/* Section 0 : Employé concerné */}
-            {!idEmployeProp && (
-              initialDemande ? (
+            {(idEmployeProp || initialDemande || employeeContext) ? (
                 <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-between">
                   <div>
                     <span className="text-[11px] text-[var(--color-fg-muted)] block font-medium">Employé concerné</span>
                     <span className="font-semibold text-sm text-[var(--color-fg)]">
-                      {initialDemande.prenom} {initialDemande.nom} {initialDemande.matricule ? `(${initialDemande.matricule})` : ''}
+                      {employeeContext?.nom || `${initialDemande?.prenom || ''} ${initialDemande?.nom || ''}`.trim() || 'Employé sélectionné'}
+                      {(employeeContext?.matricule || initialDemande?.matricule) ? ` (${employeeContext?.matricule || initialDemande.matricule})` : ''}
                     </span>
                   </div>
-                  {initialDemande.codeStatutDemande && (
+                  {initialDemande?.codeStatutDemande && (
                     <Badge variant={initialDemande.codeStatutDemande === 'VALIDE' ? 'success' : 'brand'} size="xs">
                       {initialDemande.libelleStatutDemande || initialDemande.codeStatutDemande}
                     </Badge>
@@ -174,8 +178,7 @@ export default function DemandeCongeModal({
                   }}
                   error={fieldErrors.idEmploye}
                 />
-              )
-            )}
+              )}
 
             {/* Section 1 : type de congé et, si nécessaire, motif familial. */}
             <div className="space-y-1.5">
@@ -185,6 +188,8 @@ export default function DemandeCongeModal({
                 value={idTypeConge}
                 onChange={(value) => {
                   setIdTypeConge(value);
+                  const selected = typesConge.find((type) => String(type.idTypeConge) === String(value));
+                  setEstRemunere(defaultLeavePayable(selected));
                   setIdMotifEvenementFamilial('');
                   setFieldErrors((current) => ({ ...current, idTypeConge: null }));
                 }}
@@ -214,8 +219,7 @@ export default function DemandeCongeModal({
                     .filter((motif) => motif.estActif !== false && motif.actif !== false || String(motif.idMotif) === String(idMotifEvenementFamilial))
                     .map((motif) => ({
                       value: motif.idMotif,
-                      label: motif.libelle || motif.libelleMotif || motif.code,
-                      sublabel: `${motif.nbJoursAutorises} jours autorisés`
+                      label: motif.libelle || motif.libelleMotif || motif.code
                     }))}
                   placeholder="Sélectionner un motif…"
                   error={fieldErrors.idMotifEvenementFamilial}
@@ -250,6 +254,12 @@ export default function DemandeCongeModal({
               setShowOptionsAvancees={setShowOptionsAvancees}
               fieldErrors={fieldErrors}
               setFieldErrors={setFieldErrors}
+            />
+
+            <SimulationValorisationConge
+              report={simulationLotsReport}
+              error={simulationLotsError}
+              loading={simulationLotsLoading}
             />
 
             {/* Section 3 : Justificatif & commentaire */}

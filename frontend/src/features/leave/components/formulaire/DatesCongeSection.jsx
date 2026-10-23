@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
 import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 import FieldError from '@/components/ui/forms/FieldError';
-import { shiftIsoDate, isValidIsoDate } from '@/utils/dateUtils';
+import { getDateFinFromRepriseInput, getRepriseInputValue } from '@/features/leave/utils/leaveDateRange';
+import { shiftIsoDate } from '@/utils/dateUtils';
 
 export default function DatesCongeSection({
   dateDebut, setDateDebut,
@@ -26,26 +26,12 @@ export default function DatesCongeSection({
   const isSoldeInsuffisant = simulationReport?.violations?.includes('LEAVE_BALANCE_INSUFFICIENT')
     || simulationReport?.warnings?.includes('LEAVE_BALANCE_INSUFFICIENT');
 
-  const targetReprise = shiftIsoDate(estDemiJournee ? dateDebut : dateFin, 1);
-  const [repriseInput, setRepriseInput] = useState(targetReprise);
-
-  // Synchronisation lorsque dateFin ou dateDebut change depuis l'extérieur (ex: initialisation, bascule demi-journée, calcul durée fixe)
-  useEffect(() => {
-    if (targetReprise !== shiftIsoDate(repriseInput, -1)) {
-      setRepriseInput(targetReprise);
-    }
-  }, [targetReprise]);
+  const repriseInput = getRepriseInputValue({ estDemiJournee, dateDebut, dateFin });
 
   const handleRepriseChange = (e) => {
     const val = e.target.value;
-    setRepriseInput(val);
     setFieldErrors((prev) => ({ ...prev, dateFin: null }));
-
-    if (!val) {
-      setDateFin('');
-    } else if (isValidIsoDate(val)) {
-      setDateFin(shiftIsoDate(val, -1));
-    }
+    setDateFin(getDateFinFromRepriseInput(val));
   };
 
   return (
@@ -312,7 +298,7 @@ export default function DatesCongeSection({
           <span className="text-sm text-[var(--color-fg)]">
             <span className="font-semibold text-[var(--color-warning-600)]">Extension pathologique</span>
             <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
-              Porte le congé maternité à 119 jours maximum (17 semaines).
+              Porte le congé maternité à 126 jours maximum (18 semaines), selon justification médicale.
             </span>
           </span>
         </label>

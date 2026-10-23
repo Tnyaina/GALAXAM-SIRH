@@ -72,6 +72,14 @@ public class CongeCalculateurEngine {
     /** Plafond d'arrêt maladie continu avec maintien de salaire (Art. 13) */
     public static final int PLAFOND_MALADIE_MAINTIEN_JOURS = 30;
 
+    /** Retourne le plafond maternité configuré selon l'extension médicale choisie. */
+    public int plafondMaternite(boolean extensionPathologique, int dureeStandard, int dureeMaxAvecExtension) {
+        if (dureeStandard <= 0 || dureeMaxAvecExtension < dureeStandard) {
+            throw new IllegalArgumentException("Les plafonds de durée maternité configurés sont incohérents.");
+        }
+        return extensionPathologique ? dureeMaxAvecExtension : dureeStandard;
+    }
+
     /**
      * Calcule le nombre de jours décomptés (calendaires stricts).
      */

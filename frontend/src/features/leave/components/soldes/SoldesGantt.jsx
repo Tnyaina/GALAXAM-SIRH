@@ -371,7 +371,7 @@ export default function SoldesGantt({
               Congé validé
             </span>
             <span className="flex items-center gap-1.5 font-semibold text-[var(--color-fg)]">
-              <span className="inline-block h-2.5 w-2.5 border border-[var(--color-warning-600)] bg-[var(--color-warning-500)] shadow-2xs" />
+              <span className="inline-block h-2.5 w-2.5 border border-[var(--color-warning-600)]/70 bg-[var(--color-warning-500)]/15" />
               En attente
             </span>
             <span className="flex items-center gap-1.5">
@@ -641,9 +641,9 @@ export default function SoldesGantt({
                         const isEnAttente = item.statut === 'EN_ATTENTE' || item.statut === 'SOUMIS';
 
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={item.id}
-                            role="img"
                             aria-label={`${row.employe} — ${item.type}, ${isEnAttente ? 'en attente' : 'validé'}, ${dureeLabel}`}
                             onMouseDown={(e) => e.stopPropagation()}
                             onMouseUp={(e) => e.stopPropagation()}
@@ -651,9 +651,9 @@ export default function SoldesGantt({
                               e.stopPropagation();
                               if (onLeaveClick) onLeaveClick(item, row);
                             }}
-                            className={`absolute flex items-center overflow-hidden rounded-none border shadow-xs transition-transform hover:scale-[1.01] hover:brightness-105 z-20 px-2 select-none pointer-events-auto cursor-pointer ${
+                            className={`absolute flex appearance-none items-center overflow-hidden rounded-none border text-left shadow-xs transition-colors z-20 px-2 select-none pointer-events-auto cursor-pointer ${
                               isEnAttente
-                                ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-600)] text-[var(--color-on-color)] font-semibold'
+                                ? 'bg-[var(--color-warning-500)]/15 border-[var(--color-warning-600)]/70 text-[var(--color-fg)] font-semibold'
                                 : 'bg-[var(--color-brand-600)] border-[var(--color-brand-700)] text-[var(--color-on-color)] font-semibold'
                             }`}
                             style={{
@@ -669,7 +669,7 @@ export default function SoldesGantt({
                               <span>{item.typeLibelle || item.type}</span>
                               <span className="font-mono text-[9.5px] opacity-90 font-bold">({dureeLabel})</span>
                             </span>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>

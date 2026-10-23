@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path';
 import { fileURLToPath } from 'url';
+import process from 'node:process';
 import tailwindcss from '@tailwindcss/vite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,7 +15,7 @@ export default defineConfig({
     strictPort: true,
     // Docker Desktop ne transmet pas toujours les événements fs du bind mount.
     watch: { usePolling: true, interval: 500 },
-    hmr: { clientPort: 8088 },
+    hmr: { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) || 8088 },
     proxy: {
       '/api': {
         target: 'http://backend:8080',

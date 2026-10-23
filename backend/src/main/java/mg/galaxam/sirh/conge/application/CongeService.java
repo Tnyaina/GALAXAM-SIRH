@@ -63,6 +63,7 @@ public class CongeService {
         boolean future = demande.getDateDebut() != null
                 && demande.getDateDebut().toLocalDate().isAfter(LocalDate.now());
         boolean periodeFermee = false;
+        boolean pointageVerrouille = false;
         if (demande.getDateDebut() != null && demande.getDateFin() != null) {
             String sql = "SELECT 1 FROM periode_paie p " +
                     "WHERE p.date_debut <= ? AND p.date_fin >= ? " +
@@ -72,6 +73,10 @@ public class CongeService {
                 ps.setDate(2, demande.getDateDebut());
                 try (ResultSet rs = ps.executeQuery()) { periodeFermee = rs.next(); }
             }
+            if (valide || attente) {
+                pointageVerrouille = periodePointageVerrouille(demande.getIdEmploye(),
+                        demande.getDateDebut(), demande.getDateFin(), c, false) != null;
+            }
         }
 
         java.util.Map<String, ActionCapability> actions = new java.util.LinkedHashMap<>();
@@ -79,16 +84,22 @@ public class CongeService {
                 periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
         actions.put("SUBMIT", capability(canWrite, brouillon && !periodeFermee,
                 periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
-        ActionCapability validation = capability(canValidate, attente && !periodeFermee,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE");
+        ActionCapability validation = capability(canValidate, attente && !periodeFermee && !pointageVerrouille,
+                periodeFermee ? "PAYROLL_PERIOD_CLOSED"
+                        : pointageVerrouille && attente ? "CONGE_POINTAGE_VERROUILLE" : "INVALID_STATE");
         actions.put("VALIDATE", validation);
         actions.put("APPROVE", validation); // compatibilité du frontend existant
         actions.put("REJECT", capability(canValidate, attente && !periodeFermee,
                 periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
-        actions.put("CANCEL", capability(canWrite || canValidate, (brouillon || attente || valide) && !periodeFermee,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
-        actions.put("MODIFY_DATES", capability(canValidate, valide && future && !periodeFermee,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED" : (valide ? "LEAVE_ALREADY_STARTED" : "INVALID_STATE")));
+        boolean cancelAllowed = (brouillon || attente || valide) && !periodeFermee
+                && !(valide && pointageVerrouille);
+        actions.put("CANCEL", capability(canWrite || canValidate, cancelAllowed,
+                periodeFermee ? "PAYROLL_PERIOD_CLOSED"
+                        : valide && pointageVerrouille ? "CONGE_POINTAGE_VERROUILLE" : "INVALID_STATE"));
+        actions.put("MODIFY_DATES", capability(canValidate, valide && future && !periodeFermee && !pointageVerrouille,
+                periodeFermee ? "PAYROLL_PERIOD_CLOSED"
+                        : valide && pointageVerrouille ? "CONGE_POINTAGE_VERROUILLE"
+                        : (valide ? "LEAVE_ALREADY_STARTED" : "INVALID_STATE")));
         demande.setAvailableActions(actions);
     }
 
@@ -674,8 +685,12 @@ public class CongeService {
 
         BigDecimal dureeFixe = type.getDureeFixeJours();
         if (idMotifEvenementFamilial != null) {
+            // Le motif décrit l'événement, il ne fixe pas une durée légale par catégorie.
+            // Les dates saisies déterminent la durée et le pool annuel partagé borne le cumul.
             RefMotifEvenementFamilial motif = RefMotifEvenementFamilial.rechercherParId(idMotifEvenementFamilial, c);
-            if (motif != null) dureeFixe = motif.getNbJoursAutorises();
+            if (motif == null || !motif.isEstActif()) {
+                throw new IllegalArgumentException("Le motif familial est introuvable ou inactif.");
+            }
         }
         if (extensionPathologiqueMaternite && "MATERNITE".equals(type.getCode())) {
             dureeFixe = BigDecimal.valueOf(getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", dateDebut.toLocalDate(), c));
@@ -717,6 +732,23 @@ public class CongeService {
                 soldeAvant, type.isDecompteSoldeAcquis(), joursDebites, joursDemandes, derogationSoldeNegatif,
                 type.isSoumisDelaiPreavis(), derogationDelaiPreavis, LocalDate.now(),
                 seuilLong, delaiCourt, delaiLong, consommationPool, plafondPool));
+    }
+
+    /** Identifiants des demandes à venir qui ne débitent pas encore le ledger avant validation. */
+    public java.util.List<Integer> demandesSoldeEnAttente(Integer idEmploye, LocalDate datePrise,
+            Connection c) throws SQLException {
+        if (idEmploye == null || datePrise == null) return java.util.List.of();
+        java.util.List<Integer> ids = new java.util.ArrayList<>();
+        String sql = "SELECT d.id_demande_conge FROM demande_conge d "
+                + "JOIN ref_statut_demande_conge s ON s.id_statut_demande_conge=d.id_statut_demande_conge "
+                + "JOIN ref_type_conge t ON t.id_type_conge=d.id_type_conge "
+                + "WHERE d.id_employe=? AND t.decompte_solde_acquis=TRUE AND d.date_debut<=? "
+                + "AND s.code IN ('EN_ATTENTE','BROUILLON') ORDER BY d.date_debut,d.id_demande_conge";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye); ps.setDate(2, Date.valueOf(datePrise));
+            try (ResultSet rs = ps.executeQuery()) { while (rs.next()) ids.add(rs.getInt(1)); }
+        }
+        return java.util.List.copyOf(ids);
     }
 
     public DemandeConge creerDemande(DemandeConge d, Integer currentUserId, Connection c) throws Exception {
@@ -846,6 +878,7 @@ public class CongeService {
 
         // Sécurisation Phase 2A-2C (RG-CONGE) : Interdire la modification sur une période de paie clôturée ou payée
         if (etaitValide && d.getDateDebut() != null && d.getDateFin() != null) {
+            verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
             String sqlCheckPeriode = "SELECT p.code FROM periode_paie p " +
                     "WHERE p.date_debut <= ? AND p.date_fin >= ? AND p.statut IN ('CLOTUREE', 'PAIE_VALIDEE')";
             try (PreparedStatement psP = c.prepareStatement(sqlCheckPeriode)) {
@@ -893,6 +926,7 @@ public class CongeService {
         }
 
         if (etaitValide) {
+            verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
             try (PreparedStatement psP = c.prepareStatement(
                     "SELECT p.code FROM periode_paie p "
                             + "WHERE p.date_debut <= ? AND p.date_fin >= ? "
@@ -989,6 +1023,7 @@ public class CongeService {
                 }
             }
         }
+        verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
         try (PreparedStatement ps = c.prepareStatement("SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
             ps.setInt(1, d.getIdEmploye());
             try (ResultSet rs = ps.executeQuery()) {
@@ -1111,6 +1146,9 @@ public class CongeService {
         if ("ANNULE".equals(statut) || "REFUSE".equals(statut)) {
             throw new IllegalStateException("Une demande refusée ou annulée ne peut plus être annulée.");
         }
+        if ("VALIDE".equals(statut)) {
+            verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
+        }
         verifierPeriodePaieModifiable(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
 
         try (PreparedStatement ps = c.prepareStatement(
@@ -1154,6 +1192,46 @@ public class CongeService {
             }
         }
         return annulee;
+    }
+
+    private String periodePointageVerrouille(Integer idEmploye, Date debut, Date fin, Connection c,
+            boolean lockPeriods) throws SQLException {
+        if (idEmploye == null || debut == null || fin == null) return null;
+        String sql = "SELECT p.id_periode_paie,p.code,p.statut FROM periode_paie p "
+                + "WHERE p.date_debut <= ? AND p.date_fin >= ? ORDER BY p.date_debut"
+                + (lockPeriods ? " FOR UPDATE" : "");
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, fin);
+            ps.setDate(2, debut);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int periodId = rs.getInt("id_periode_paie");
+                    if (java.util.Set.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(rs.getString("statut"))) {
+                        return rs.getString("code");
+                    }
+                    try (PreparedStatement snapshot = c.prepareStatement(
+                            "SELECT 1 FROM pointage_cumul_periode WHERE id_periode_paie=? AND id_employe=? "
+                                    + "AND statut_snapshot IN ('GELE','CONSOMME') LIMIT 1")) {
+                        snapshot.setInt(1, periodId);
+                        snapshot.setInt(2, idEmploye);
+                        try (ResultSet frozen = snapshot.executeQuery()) {
+                            if (frozen.next()) return rs.getString("code");
+                        }
+                    }
+                }
+                return null;
+            }
+        }
+    }
+
+    private void verifierPointageNonVerrouille(Integer idEmploye, Date debut, Date fin, Connection c)
+            throws SQLException {
+        String periode = periodePointageVerrouille(idEmploye, debut, fin, c, true);
+        if (periode != null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_POINTAGE_VERROUILLE,
+                    "Ce congé ne peut plus être modifié : le pointage de la période " + periode + " est déjà validé.");
+        }
     }
 
     private void verifierPeriodePaieModifiable(Integer idEmploye, Date debut, Date fin, Connection c) throws Exception {

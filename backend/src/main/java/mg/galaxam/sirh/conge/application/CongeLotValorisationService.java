@@ -49,6 +49,13 @@ public class CongeLotValorisationService {
     public record CorrectionCutover(int idCorrection, BigDecimal ancienReliquatJours, BigDecimal nouveauReliquatJours,
             BigDecimal ancienneValeur, BigDecimal nouvelleValeur, BigDecimal regularisationAExaminer) {}
 
+    public record SimulationLot(int idSource, String origine, LocalDate dateAcquisition,
+            BigDecimal jours, BigDecimal valeur, BigDecimal tauxHistorique) {}
+
+    public record SimulationPrise(LocalDate datePrise, BigDecimal joursDemandes, BigDecimal soldeAvant,
+            BigDecimal soldeApres, BigDecimal valeurEstimee, boolean soldeSuffisant,
+            List<SimulationLot> lots, String avertissement) {}
+
     /** Corrige seulement le reliquat de reprise. L'écart sur les prises antérieures reste à examiner en paie. */
     public CorrectionCutover corrigerReliquatCutover(int employe, BigDecimal nouveauxJours,
             BigDecimal nouvelleValeur, String motif, int auteur, Connection c) throws SQLException {
@@ -142,6 +149,30 @@ public class CongeLotValorisationService {
     public CongeLotValorisationEngine.Situation situation(int idEmploye, LocalDate date, Connection c)
             throws SQLException {
         return situations(List.of(idEmploye), date, c).get(idEmploye);
+    }
+
+    /**
+     * Projection en lecture seule à une date donnée, partagée avec le moteur qui rejoue les lots.
+     * Les demandes validées sont déjà représentées dans le ledger. Les demandes non validées ne
+     * débitent pas le stock avant validation et leur concurrence reste signalée à l'appelant.
+     */
+    public SimulationPrise simulerPrise(int idEmploye, LocalDate datePrise, BigDecimal joursDemandes,
+            Connection c) throws SQLException {
+        if (datePrise == null || joursDemandes == null || joursDemandes.signum() <= 0) {
+            throw new IllegalArgumentException("La date et un nombre positif de jours sont requis.");
+        }
+        var situation = situation(idEmploye, datePrise, c);
+        var projection = engine.simulerPrise(situation, joursDemandes);
+        List<SimulationLot> ventile = projection.imputations().stream().map(trace -> {
+            var source = situation.lots().stream().filter(lot -> lot.idSource() == trace.idSource()).findFirst().orElseThrow();
+            return new SimulationLot(trace.idSource(), trace.origine(), source.dateAcquisition(),
+                    trace.jours(), trace.valeur(), trace.tauxHistorique());
+        }).toList();
+        String avertissement = "Estimation basée sur les mouvements enregistrés à la date de prise. "
+                + "Les droits non encore acquis et les demandes en attente ne sont pas réservés.";
+        return new SimulationPrise(datePrise, joursDemandes, projection.soldeAvant(), projection.soldeApres(),
+                projection.valeurEstimee(), projection.soldeSuffisant(),
+                List.copyOf(ventile), avertissement);
     }
 
     /** Calcule plusieurs situations FIFO avec des lectures groupées par date de situation. */

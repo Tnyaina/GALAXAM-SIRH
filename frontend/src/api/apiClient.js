@@ -303,6 +303,7 @@ const BUSINESS_ERROR_MESSAGES = {
     PAYROLL_NOT_CALCULATED: "La paie doit être calculée avant cette opération.",
     PAYROLL_NOT_VALIDATED: "Les bulletins doivent être validés avant de générer ce document.",
     PAYROLL_CALCULATION_STALE: "Le calcul est obsolète. Recalculez la paie avant de poursuivre.",
+    CONGE_POINTAGE_VERROUILLE: "Ce congé ne peut plus être annulé ou modifié : le pointage de la période concernée est déjà validé.",
     PERIOD_CLOSED: "Cette période est clôturée et ne peut plus être modifiée.",
     FORBIDDEN: "Vous ne disposez pas des autorisations nécessaires pour cette opération."
 };

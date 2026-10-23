@@ -76,7 +76,7 @@ export default function Login() {
                 <Card shadow="sm" bordered className="border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
                     <CardBody className="px-8 py-10 sm:px-10 sm:pb-12">
                         {/* Logo et Nom de l'application */}
-                        <div className="flex flex-col items-center gap-4">
+                        <div className="flex flex-col items-center gap-1">
                             <img
                                 src={galaxamLogo}
                                 alt="Galaxam Logistics"
@@ -85,7 +85,7 @@ export default function Login() {
                                 fetchPriority="high"
                                 decoding="async"
                             />
-                            <div className="text-center flex flex-col items-center justify-center -mt-2">
+                            <div className="text-center flex flex-col items-center justify-center">
                                 <span className="text-[26px] font-black tracking-tighter text-[var(--color-fg)] uppercase leading-none block">
                                     Galaxam
                                 </span>

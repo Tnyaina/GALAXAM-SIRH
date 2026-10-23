@@ -8,11 +8,12 @@ import { AbsentsWidget, ActiviteRhWidget, EcheancesWidget, OperationalQueueWidge
 import HasPermission from '@/features/auth/components/HasPermission';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
+import { canAccessRoleGatedRoute } from '@/utils/sidebarUtils';
 
 export default function DashboardPage() {
     // Hook métier
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
 
     // Données dérivées
     const kpis = data?.kpis;
@@ -28,7 +29,7 @@ export default function DashboardPage() {
 
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
     const modules = [
-        { icon: Building2, title: 'Organisation', text: 'Sites, structures et paramètres', to: '/parametres/organisation', visible: hasPermission('ORGANISATION_READ') },
+        { icon: Building2, title: 'Organisation', text: 'Sites, structures et paramètres', to: '/admin/organisation', visible: hasPermission('ORGANISATION_WRITE') && canAccessRoleGatedRoute('/admin/organisation', user) },
         { icon: Users, title: 'Employés', text: `${kpis?.totalEffectifActif ?? 0} actif(s) · ${kpis?.contratsExpirant30j ?? 0} échéance(s)`, to: '/employes', visible: hasPermission('EMPLOYE_READ') },
         { icon: CalendarDays, title: 'Congés & absences', text: `${absentsAujourdhui.length} absent(s) · ${demandesCongeAValider.length} à valider`, to: '/conges', visible: hasPermission('CONGE_READ') },
         { icon: Clock3, title: 'Pointage', text: 'Saisie, anomalies et validation', to: '/pointages?tab=suivi', visible: hasPermission('POINTAGE_READ') },

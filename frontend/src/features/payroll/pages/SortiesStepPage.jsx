@@ -13,14 +13,7 @@ import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
-
-const CLOSE_REASONS = {
-    PERIOD_NOT_ENDED: 'La période doit être terminée avant sa clôture.',
-    PAYROLL_NOT_VALIDATED: 'Validez la paie avant de clôturer la période.',
-    PAYROLL_CALCULATION_STALE: 'Le calcul est obsolète. Recalculez la paie avant la clôture.',
-    PAYROLL_POPULATION_INCOMPLETE: 'Chaque salarié inclus doit avoir un bulletin validé.',
-    FORBIDDEN: 'Vous ne disposez pas du droit de clôturer cette période.',
-};
+import { explainPayrollCloseReasons } from '@/features/payroll/utils/validationActionReasons';
 
 /** Dernière étape : contrôle des sorties disponibles et clôture de la période. */
 export default function SortiesStepPage() {
@@ -38,7 +31,7 @@ export default function SortiesStepPage() {
     const outputsStep = context?.campaignSteps?.find(step => step.code === 'OUTPUTS');
     const validated = outputsStep?.accessible === true;
     const canClose = context?.availableActions?.CLOSE?.allowed === true;
-    const closeReasonCode = context?.availableActions?.CLOSE?.reasonCodes?.[0];
+    const closeReasons = explainPayrollCloseReasons(context?.availableActions?.CLOSE?.reasonCodes || []);
     const periodCode = period?.code || `Période ${periodId}`;
 
     useEffect(() => {
@@ -81,7 +74,7 @@ export default function SortiesStepPage() {
             primaryAction={!closed ? {
                 label: 'Clôturer la période', icon: <LockKeyhole size={14} />,
                 onClick: () => setConfirmOpen(true), disabled: !canClose || closing,
-                disabledReason: CLOSE_REASONS[closeReasonCode] || 'La clôture doit être autorisée par le contrôle de la campagne.',
+                disabledReason: closeReasons[0] || 'La clôture doit être autorisée par le contrôle de la campagne.',
             } : undefined}
             footerCenter={closed ? 'Période clôturée · consultation des documents maintenue' : undefined}>
             <div className="space-y-4">

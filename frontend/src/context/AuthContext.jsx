@@ -382,9 +382,6 @@ export const AuthProvider = ({ children }) => {
         if (hasPermission('PAIE_READ')) {
             return '/paie/dossiers-sortie';
         }
-        if (hasPermission('ORGANISATION_READ')) {
-            return '/admin/organisation';
-        }
         return '/non-autorise';
     }, [user, hasPermission]);
 

@@ -212,6 +212,10 @@ public enum SirhErrorCode {
             HttpStatus.NOT_FOUND,
             "La demande de congé demandée n'existe pas."),
 
+    CONGE_POINTAGE_VERROUILLE(
+            HttpStatus.CONFLICT,
+            "Ce congé ne peut plus être modifié : le pointage de la période concernée est déjà validé."),
+
     LEAVE_RATE_MISSING(
             HttpStatus.CONFLICT,
             "Aucun taux de congé n'est configuré pour cet employé à cette date. Configurez le taux avant de générer la paie."),

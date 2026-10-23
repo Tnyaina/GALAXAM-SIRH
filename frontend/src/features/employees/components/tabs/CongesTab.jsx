@@ -19,6 +19,7 @@ import Input from '@/components/ui/forms/Input';
 
 import SoldeCongeWidget from '@/features/leave/components/SoldeCongeWidget';
 import MouvementsSoldeTable from '@/features/leave/components/MouvementsSoldeTable';
+import DroitsLotsPanel from '@/features/leave/components/DroitsLotsPanel';
 
 const DemandeCongeModal = lazy(() => import('@/features/leave/components/DemandeCongeModal'));
 const DemandeDetailsModal = lazy(() => import('@/features/leave/components/DemandeDetailsModal'));
@@ -64,6 +65,8 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [situationData, setSituationData] = useState(null);
   const [mouvements, setMouvements] = useState([]);
+  const [valorisationLots, setValorisationLots] = useState(null);
+  const [sourceErrors, setSourceErrors] = useState({});
   const [demandesEmploye, setDemandesEmploye] = useState([]);
   const [totalDemandes, setTotalDemandes] = useState(0);
   const [consommationPool, setConsommationPool] = useState([]);
@@ -116,18 +119,29 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
     try {
       if (!background) setLoading(true);
       setError(null);
-      const [soldeRes, situationRes, mvtRes, poolRes, refRes] = await Promise.all([
-        congeService.getSoldeEmploye(idEmploye).catch(() => null),
-        congeService.getSituationEmploye(idEmploye).catch(() => null),
-        congeService.getMouvementsEmploye(idEmploye).catch(() => []),
-        congeService.getConsommationPool(idEmploye).catch(() => []),
-        congeService.getAllReferentiels().catch(() => null),
+      const results = await Promise.allSettled([
+        congeService.getSoldeEmploye(idEmploye),
+        congeService.getSituationEmploye(idEmploye),
+        congeService.getValorisationLots(idEmploye),
+        congeService.getMouvementsEmploye(idEmploye),
+        congeService.getConsommationPool(idEmploye),
+        congeService.getAllReferentiels(),
       ]);
+      const value = (index) => results[index].status === 'fulfilled' ? results[index].value : null;
+      const failures = {};
+      const keys = ['solde', 'situation', 'lots', 'mouvements', 'pool', 'referentiels'];
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') failures[keys[index]] = getErrorMessage(result.reason, 'Source indisponible.');
+      });
+      const soldeRes = value(0);
+      const situationRes = value(1);
       setSoldeEmploye(soldeRes);
       setSituationData(situationRes);
-      setMouvements(mvtRes || []);
-      setConsommationPool(poolRes || []);
-      setReferentiels(refRes);
+      setValorisationLots(value(2));
+      setMouvements(value(3) || []);
+      setConsommationPool(value(4) || []);
+      setReferentiels(value(5));
+      setSourceErrors(failures);
       if (!soldeRes && !situationRes) setError('Situation des congés indisponible. Réessayez plus tard.');
     } catch (err) {
       setError(getErrorMessage(err, "Erreur de chargement des congés de l'employé."));
@@ -228,6 +242,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
 
   const subTabs = [
     { id: 'demandes', label: `Demandes (${totalDemandes})` },
+    { id: 'droits', label: 'Droits et lots' },
     { id: 'registre', label: 'Mouvements de solde' },
   ];
 
@@ -319,12 +334,25 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
 
       {error && <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />}
       {demandesError && <Alert type="error" message={demandesError} />}
+      {Object.entries(sourceErrors).some(([key]) => !['lots', 'mouvements'].includes(key)) && (
+        <Alert type="warning" title="Chargement partiel des congés">
+          <ul className="list-disc pl-4 space-y-0.5">
+            {Object.entries(sourceErrors).filter(([key]) => !['lots', 'mouvements'].includes(key)).map(([key, message]) => (
+              <li key={key}>{({ solde: 'Solde', situation: 'Cycle et TCONGE', pool: 'Quota événementiel', referentiels: 'Référentiels' })[key] || key} : {message}</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
 
       {/* ── Synthèse des Soldes & Situation TCONGE (StatCards en tête) ── */}
       <SoldeCongeWidget
         soldeData={soldeEmploye}
         situationData={situationData}
+        valorisationLots={valorisationLots}
+        valorisationError={sourceErrors.lots}
+        valorisationLoading={loading && !valorisationLots}
         consommationPool={consommationPool}
+        consommationError={sourceErrors.pool}
         employe={employe}
         onOpenPeriodesModal={() => navigate(`/conges?tab=periodes&employe=${idEmploye}`)}
       />
@@ -535,6 +563,8 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
         <MouvementsSoldeTable
           idEmploye={idEmploye}
           mouvements={mouvements}
+          loadError={sourceErrors.mouvements}
+          loading={loading && !sourceErrors.mouvements && mouvements.length === 0}
           soldeActuel={situationData?.soldeJours ?? soldeEmploye?.soldeActuel ?? soldeEmploye?.soldeDisponible}
           canWrite={canWrite}
           canValidate={canValidateConges}
@@ -547,6 +577,25 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                 setDetailDemande(res);
                 setShowDetailModal(true);
               }
+            } catch (err) {
+              toast.error(getErrorMessage(err, `Impossible de charger la demande #${idDemande}`));
+            }
+          }}
+        />
+      )}
+
+      {activeSubTab === 'droits' && (
+        <DroitsLotsPanel
+          situation={valorisationLots}
+          movements={mouvements}
+          loading={loading && !valorisationLots}
+          error={sourceErrors.lots}
+          movementsError={sourceErrors.mouvements}
+          onRetry={() => loadData()}
+          onVoirDemande={async (idDemande) => {
+            try {
+              const res = await congeService.getDemandeParId(idDemande);
+              if (res) { setDetailDemande(res); setShowDetailModal(true); }
             } catch (err) {
               toast.error(getErrorMessage(err, `Impossible de charger la demande #${idDemande}`));
             }

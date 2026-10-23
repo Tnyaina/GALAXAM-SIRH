@@ -9,9 +9,11 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
 import TimeInput from '@/components/ui/forms/TimeInput';
+import Modal from '@/components/ui/overlays/Modal';
+import { getConfiguredHoursPreview } from '@/features/attendance/utils/pointageStandardHours';
 import StatusPickerPopover from '@/features/attendance/components/controls/StatusPickerPopover';
 import ActionMenu from '@/components/ui/overlays/ActionMenu';
-import { formatHeuresDecimal, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { formatHeuresDecimal, formatHeuresMinutes, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { isAttendanceUnentered } from '@/features/attendance/utils/attendanceStatus';
 
 export default function PeriodeEmployeeTable({
@@ -19,6 +21,7 @@ export default function PeriodeEmployeeTable({
     filterJour = 'ALL',
     canEditPeriod = false,
     isAutonome = false,
+    siteParams = null,
     displayedIndemnites = [],
     initialRows = [],
     isDayRowModified,
@@ -31,6 +34,7 @@ export default function PeriodeEmployeeTable({
     handleResetDay,
     openRegularisation
 }) {
+    const [pendingWeekFill, setPendingWeekFill] = useState(null);
     // ── Navigation clavier rapide et saut automatique ────────────────────────
     const inputRefs = useRef({});
     const [expandedWeeks, setExpandedWeeks] = useState({});
@@ -191,6 +195,22 @@ export default function PeriodeEmployeeTable({
         }
     }, [focusNext, allFilteredDates]);
 
+    const requestWeekFill = (weekRows) => {
+        const eligibleRows = weekRows.filter(row => row.canCorrect && !row.weekend && !row.ferie && !row.conge);
+        const hoursPreview = getConfiguredHoursPreview(siteParams);
+        if (!eligibleRows.length || !hoursPreview) return;
+        const existingRows = eligibleRows.filter(row =>
+            row.heureEntreeMatin || row.heureSortieMatin || row.heureEntreeAm || row.heureSortieAm
+        );
+        setPendingWeekFill({ rows: eligibleRows, existingRows, hoursPreview });
+    };
+
+    const confirmWeekFill = () => {
+        if (!pendingWeekFill) return;
+        handleApplyWeekStandard(pendingWeekFill.rows);
+        setPendingWeekFill(null);
+    };
+
     return (
         <div className="space-y-4">
             {/* Bandeau d'assistance & Raccourcis Clavier */}
@@ -221,7 +241,7 @@ export default function PeriodeEmployeeTable({
                 return (
                     <div key={week.weekKey || wIdx} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
                         {/* En-tête de la Semaine */}
-                        <div className="px-3.5 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3 text-xs font-bold text-[var(--color-fg)]">
+                        <div className="attendance-week-header px-3.5 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3 text-xs font-bold text-[var(--color-fg)]">
                             <button type="button" aria-expanded={isExpanded} aria-controls={`week-${week.weekKey}`}
                                 onClick={() => setExpandedWeeks(previous => ({ ...previous, [week.weekKey]: !isExpanded }))}
                                 className="flex items-center gap-2 text-left cursor-pointer hover:text-[var(--color-brand-700)]">
@@ -231,7 +251,7 @@ export default function PeriodeEmployeeTable({
                                     ({summaryRows[0]?.date} au {summaryRows[summaryRows.length - 1]?.date})
                                 </span>
                             </button>
-                            <div className="flex items-center gap-3 text-[11px] tabular-nums">
+                            <div className="attendance-week-summary flex items-center gap-3 text-[11px] tabular-nums">
                                 <span>
                                     Total réalisé : <strong className="text-[var(--color-fg)]">{formatHeuresDecimal(weekTotalHeures)}</strong>
                                     <span className="text-[var(--color-fg-muted)] font-normal ml-1">
@@ -250,7 +270,7 @@ export default function PeriodeEmployeeTable({
                                 )}
                                 {weekMissing > 0 && <span className="text-[var(--color-warning-700)]">{weekMissing} à saisir</span>}
                                 {canEditPeriod && (
-                                    <Button variant="outline" size="xs" onClick={() => handleApplyWeekStandard(summaryRows)}>
+                                    <Button variant="outline" size="xs" onClick={() => requestWeekFill(summaryRows)}>
                                         <ClockCheck size={13} /> Remplir semaine
                                     </Button>
                                 )}
@@ -258,9 +278,9 @@ export default function PeriodeEmployeeTable({
                         </div>
 
                         {isExpanded && <div id={`week-${week.weekKey}`} className="overflow-x-auto">
-                            <Table bordered={false} density="compact" className="w-full text-left text-xs">
-                                <Thead>
-                                    <Tr className="border-b border-[var(--color-border-subtle)] text-[10px] uppercase font-bold text-[var(--color-fg-muted)] bg-[var(--color-surface)]">
+                            <Table bordered={false} density="compact" className="w-full text-left text-xs pointage-table-wrap" tableClassName="pointage-table">
+                                <Thead role="rowgroup">
+                                    <Tr role="row" className="border-b border-[var(--color-border-subtle)] text-[10px] uppercase font-bold text-[var(--color-fg-muted)] bg-[var(--color-surface)]">
                                         <Th className="w-20 px-3 py-2">Date</Th>
                                         <Th className="w-24 px-2 py-2">Jour</Th>
                                         <Th className="w-24 px-2 py-2 text-center">Entrée Matin</Th>
@@ -278,7 +298,7 @@ export default function PeriodeEmployeeTable({
                                         <Th className="w-12 px-1.5 py-2 text-center">Actions</Th>
                                     </Tr>
                                 </Thead>
-                                <Tbody>
+                                <Tbody role="rowgroup">
                                     {week.rows.map((row) => {
                                         const isWeekend = row.weekend;
                                         const isFerie = row.ferie;
@@ -303,6 +323,7 @@ export default function PeriodeEmployeeTable({
 
                                         return (
                                             <Tr
+                                                role="row"
                                                 key={row.datePointage}
                                                 id={`pointage-day-${row.datePointage}`}
                                                 className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue} ${
@@ -316,12 +337,12 @@ export default function PeriodeEmployeeTable({
                                                 }`}
                                             >
                                                 {/* 1. Date */}
-                                                <Td className="font-semibold tabular-nums text-xs px-3 py-2 whitespace-nowrap">
+                                                <Td role="cell" data-label="Date" data-mobile-span="full" className="font-semibold tabular-nums text-xs px-3 py-2 whitespace-nowrap">
                                                     {row.date}
                                                 </Td>
 
                                                 {/* 2. Jour avec bouton continu / pause inline */}
-                                                <Td className="text-xs text-[var(--color-fg-muted)] px-2 py-2 whitespace-nowrap">
+                                                <Td role="cell" data-label="Jour et horaire" data-mobile-span="full" className="text-xs text-[var(--color-fg-muted)] px-2 py-2 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         <span>{row.jour}</span>
                                                         {isFerie && hasPunches && <span className="text-[10px] font-semibold text-[var(--color-purple-700)]" title={row.libelleFerie || 'Jour férié'}>Férié{row.libelleFerie ? ` · ${row.libelleFerie}` : ''}</span>}
@@ -348,13 +369,13 @@ export default function PeriodeEmployeeTable({
 
                                                 {/* Le congé validé prime sur l'affichage calendrier du week-end ou du férié. */}
                                                 {isConge && !hasPunches ? (
-                                                    <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] font-medium">
+                                                    <Td role="cell" data-label="Situation" data-mobile-span="full" colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] font-medium">
                                                         <div className="flex items-center justify-center gap-2">
                                                             <Badge variant="info" size="sm">Congé payé validé</Badge>
                                                         </div>
                                                     </Td>
                                                 ) : isFerie && !hasPunches ? (
-                                                    <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-medium">
+                                                    <Td role="cell" data-label="Situation" data-mobile-span="full" colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-medium">
                                                         <div className="flex items-center justify-center gap-2">
                                                             <Badge variant="purple" size="sm">Férié chômé</Badge>
                                                             <span className="text-[10px] text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)]">
@@ -373,7 +394,7 @@ export default function PeriodeEmployeeTable({
                                                         </div>
                                                     </Td>
                                                 ) : isWeekend && !hasPunches ? (
-                                                    <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-fg-muted)]">
+                                                    <Td role="cell" data-label="Situation" data-mobile-span="full" colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-fg-muted)]">
                                                         <div className="flex items-center justify-center gap-2">
                                                             <span>Repos hebdomadaire</span>
                                                             {canEditRow && (
@@ -391,7 +412,7 @@ export default function PeriodeEmployeeTable({
                                                 ) : (
                                                     <>
                                                         {/* 3. Entrée Matin */}
-                                                        <Td className="px-1.5 py-2 text-center">
+                                                        <Td role="cell" data-label="Entrée matin" className="px-1.5 py-2 text-center">
                                                             <TimeInput
                                                                 inputRef={(el) => registerInputRef(row.datePointage, 0, el)}
                                                                 value={row.heureEntreeMatin}
@@ -406,7 +427,7 @@ export default function PeriodeEmployeeTable({
 
                                                         {/* 4 & 5. Pause ou Continu */}
                                                         {row.horaireContinu ? (
-                                                            <Td colSpan={2} className="px-1.5 py-1 text-center bg-[var(--color-brand-500)]/5 dark:bg-[var(--color-brand-500)]/10">
+                                                            <Td role="cell" data-label="Pause et retour" data-mobile-span="full" colSpan={2} className="px-1.5 py-1 text-center bg-[var(--color-brand-500)]/5 dark:bg-[var(--color-brand-500)]/10">
                                                                 <div className="flex items-center justify-center gap-1.5">
                                                                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
                                                                         <FastForward size={10} className="shrink-0 text-[var(--color-brand-600)]" />
@@ -423,7 +444,7 @@ export default function PeriodeEmployeeTable({
                                                             </Td>
                                                         ) : (
                                                             <>
-                                                                <Td className="px-1.5 py-2 text-center">
+                                                                <Td role="cell" data-label="Sortie matin" className="px-1.5 py-2 text-center">
                                                                     <TimeInput
                                                                         inputRef={(el) => registerInputRef(row.datePointage, 1, el)}
                                                                         value={row.heureSortieMatin}
@@ -435,7 +456,7 @@ export default function PeriodeEmployeeTable({
                                                                         className="h-7 text-xs text-center"
                                                                     />
                                                                 </Td>
-                                                                <Td className="px-1.5 py-2 text-center">
+                                                                <Td role="cell" data-label="Retour après-midi" className="px-1.5 py-2 text-center">
                                                                     <TimeInput
                                                                         inputRef={(el) => registerInputRef(row.datePointage, 2, el)}
                                                                         value={row.heureEntreeAm}
@@ -451,7 +472,7 @@ export default function PeriodeEmployeeTable({
                                                         )}
 
                                                         {/* 6. Sortie Fin */}
-                                                        <Td className="px-1.5 py-2 text-center">
+                                                        <Td role="cell" data-label="Sortie fin" className="px-1.5 py-2 text-center">
                                                             <TimeInput
                                                                 inputRef={(el) => registerInputRef(row.datePointage, 3, el)}
                                                                 value={row.heureSortieAm}
@@ -465,7 +486,7 @@ export default function PeriodeEmployeeTable({
                                                         </Td>
 
                                                         {/* 7. Retard */}
-                                                        <Td className="px-1 py-2 text-center tabular-nums text-xs">
+                                                        <Td role="cell" data-label="Retard" className="px-1 py-2 text-center tabular-nums text-xs">
                                                             {isAutonome ? (
                                                                 <span className="text-[var(--color-fg-muted)] opacity-50">—</span>
                                                             ) : row.minutesRetard > 0 ? (
@@ -478,7 +499,7 @@ export default function PeriodeEmployeeTable({
                                                         </Td>
 
                                                         {/* 8. Heures Faites */}
-                                                        <Td className="px-2 py-2 text-center tabular-nums font-bold text-xs text-[var(--color-fg)]">
+                                                        <Td role="cell" data-label="Heures réalisées" className="px-2 py-2 text-center tabular-nums font-bold text-xs text-[var(--color-fg)]">
                                                             <div>{row.heuresFaites}</div>
                                                             {row.totalHeuresDecimal > 0 && (
                                                                 <div className="text-[10px] text-[var(--color-fg-muted)] font-normal">
@@ -488,7 +509,7 @@ export default function PeriodeEmployeeTable({
                                                         </Td>
 
                                                         {/* 9. Statut */}
-                                                        <Td className="px-2 py-2 text-center">
+                                                        <Td role="cell" data-label="Statut" data-mobile-span="full" className="px-2 py-2 text-center">
                                                                 <StatusPickerPopover
                                                                 row={row}
                                                                 currentStatus={row.codeStatut}
@@ -502,7 +523,7 @@ export default function PeriodeEmployeeTable({
 
                                                 {/* 10. Indemnités regroupées */}
                                                 {displayedIndemnites.length > 0 && (
-                                                    <Td className="px-1.5 py-2 border-l border-[var(--color-border-subtle)]">
+                                                    <Td role="cell" data-label="Indemnités" data-mobile-span="full" className="px-1.5 py-2 border-l border-[var(--color-border-subtle)]">
                                                         {isWeekend && !hasPunches && !isConge ? (
                                                             <div className="text-center text-[var(--color-fg-muted)] opacity-40">—</div>
                                                         ) : (
@@ -549,7 +570,7 @@ export default function PeriodeEmployeeTable({
                                                 )}
 
                                                 {/* Les actions secondaires partagent le même menu dans toute la grille. */}
-                                                <Td className="px-1.5 py-2 text-center whitespace-nowrap">
+                                                <Td role="cell" data-label="Actions" data-mobile-span="full" className="px-1.5 py-2 text-center whitespace-nowrap">
                                                     <ActionMenu label={`Actions du ${row.datePointage}`}
                                                         disabled={!canEditRow || Boolean(row.congeApprouve)}
                                                         items={[
@@ -572,6 +593,50 @@ export default function PeriodeEmployeeTable({
                     </div>
                 );
             })}
+            <Modal
+                isOpen={Boolean(pendingWeekFill)}
+                onClose={() => setPendingWeekFill(null)}
+                title="Vérifier les horaires de la semaine"
+                size="md"
+                footer={(
+                    <>
+                        <Button variant="ghost" size="sm" onClick={() => setPendingWeekFill(null)}>Annuler</Button>
+                        <Button variant="primary" size="sm" onClick={confirmWeekFill}>
+                            Appliquer {pendingWeekFill?.rows.length || 0} journée(s)
+                        </Button>
+                    </>
+                )}
+            >
+                {pendingWeekFill && (() => {
+                    const { rows, existingRows, hoursPreview } = pendingWeekFill;
+                    const dailyPeriods = hoursPreview.periods.map(([start, end]) => `${start}–${end}`).join(' et ');
+                    const weeklyMinutes = rows.length * hoursPreview.totalMinutes;
+                    return (
+                        <div className="space-y-3 text-xs text-[var(--color-fg)]">
+                            <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 space-y-1">
+                                <p><strong>Plages appliquées :</strong> {dailyPeriods}</p>
+                                <p><strong>Type :</strong> {hoursPreview.continuous ? 'journée continue, sans pause déduite' : 'journée fractionnée'}</p>
+                                <p><strong>Durée calculée :</strong> {hoursPreview.totalHoursLabel} par jour, soit {formatHeuresMinutes(weeklyMinutes / 60)} pour {rows.length} journée(s).</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold">Journées concernées ({rows.length})</p>
+                                <p className="mt-1 text-[var(--color-fg-muted)]">{rows.map(row => row.datePointage).join(' · ')}</p>
+                            </div>
+                            {hoursPreview.continuous && (
+                                <p className="border-l-2 border-[var(--color-warning-500)] pl-3 text-[var(--color-fg-muted)]">
+                                    La durée couvre toute la plage entre l’entrée et la sortie. Aucune pause n’est déduite pour un horaire continu.
+                                </p>
+                            )}
+                            {existingRows.length > 0 && (
+                                <p className="border-l-2 border-[var(--color-warning-500)] pl-3 text-[var(--color-fg-muted)]">
+                                    Les horaires déjà saisis seront remplacés pour {existingRows.length} journée(s).
+                                </p>
+                            )}
+                            <p className="text-[var(--color-fg-muted)]">Cette confirmation prépare la saisie dans le tableau. Le serveur ne sera modifié qu’après l’enregistrement des modifications.</p>
+                        </div>
+                    );
+                })()}
+            </Modal>
         </div>
     );
 }

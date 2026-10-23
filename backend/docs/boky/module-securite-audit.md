@@ -17,7 +17,9 @@
 | CONSULTANT (type intervenant) | soumis_sante=OUI, +60 ans | `soumis_sante=FALSE`, `soumis_cnaps=FALSE`, `soumis_irsa=FALSE` |
 | Matrice permissions DAF/RH/MANAGER | Décrite en détail | **Aucune ligne** — seuls ROLE_ADMIN (tout TRUE) et ROLE_AGENT_POINTAGE seedés |
 | `scheduler_execution` | Non documentée | Table avec verrou distribué `(job_code, execution_key)` PK |
-| Menus seeedés | Liste partielle | 21 menus total (6 niv.1 + 15 niv.2) détaillés ci-dessous |
+| Menus seeedés | Liste partielle | **25 menus total** (6 niv.1 + 19 niv.2) seedés dans `ref_menu` et rattachés à `ROLE_ADMIN` |
+
+**Lecture par rapport au CDC initial :** le CDC regroupe « Administrateur / DAF » dans un profil fonctionnel, et distingue l'Agent de Pointage. Ce libellé ne signifie pas qu'un rôle technique `DAF` existe ou a été seedé. Le seed actuel contient `ROLE_ADMIN` et `ROLE_AGENT_POINTAGE` ; des permissions granulaires peuvent être attribuées aux rôles, mais une recette effectuée avec `ROLE_ADMIN` ne démontre pas un profil DAF à privilèges limités.
 
 ---
 
@@ -26,6 +28,8 @@
 La gestion RH manipule des données hautement sensibles : identités civiles (CIN), données bancaires (RIB), salaires, motifs de rupture contractuelle. Dans le contexte multi-sites de GALAXAM, le système applique trois principes fondamentaux :
 
 1. **Stateless API** : Aucune session HTTP côté serveur. Chaque requête est authentifiée par un token JWT signé HMAC-SHA512.
+
+Les écritures métier qui nécessitent un auteur exigent une identité authentifiée dans le contexte Spring Security. En l'absence de cette identité, la requête est refusée ; aucun identifiant d'administrateur par défaut n'est attribué. L'octroi automatique de toutes les permissions est réservé au code de rôle exact `ROLE_ADMIN`.
 2. **Double niveau d'autorisation** : Filtrage HTTP grossier (`SecurityConfig`) + vérification fine `@PreAuthorize` sur chaque contrôleur REST.
 3. **Piste d'audit conservée par le cycle applicatif** : `audit_log` est liée par `ON DELETE SET NULL`. La suppression physique d'un utilisateur est refusée par `Utilisateur.delete`; le fonctionnement normal est la désactivation. Une suppression SQL directe contournerait cette règle et supprimerait les lignes de `journal_connexion` (`ON DELETE CASCADE`), tout en détachant l'audit de l'utilisateur.
 
@@ -137,9 +141,16 @@ présenté comme unique par la base.
 La désactivation et la réactivation effacent `refresh_token` et
 `refresh_token_expiration`. L'ancien cookie ne peut pas être rafraîchi après
 réactivation ; l'utilisateur doit se reconnecter. Le filtre JWT vérifie que le
-compte chargé est actif à chaque requête. Toutefois, un access token non expiré
-peut redevenir accepté après réactivation, car le mécanisme actuel ne vérifie
-pas de version de session ou de date de révocation.
+compte chargé est actif et que la session `sid` du jeton n'est pas révoquée à
+chaque requête. La désactivation révoque ces sessions en base ; un ancien access
+token reste refusé après réactivation. Une nouvelle connexion est nécessaire.
+
+Les appels `/auth/refresh` et `/auth/logout`, qui utilisent le cookie de session,
+exigent une origine explicitement autorisée par `app.cors.allowed-origins`.
+L'en-tête `Origin` est prioritaire ; `Referer` sert de repli. Une origine absente
+ou non autorisée est refusée. L'écriture d'un événement d'audit remonte une
+erreur en cas d'échec ; les opérations métier transactionnelles sont annulées
+par leur gestionnaire de transaction.
 
 `journal_connexion.id_utilisateur` référence actuellement `utilisateur` avec
 `ON DELETE CASCADE`, contrairement à `audit_log`. L'API applicative interdit
@@ -167,6 +178,13 @@ Le login consigne les statuts `SUCCES`, `ECHEC` et `COMPTE_DESACTIVE` lorsque
 le compte est connu. Une tentative avec email inconnu n'a pas de `id_utilisateur`
 à rattacher et ne peut pas être auditée par le modèle actuel de
 `journal_connexion`.
+
+La route de connexion limite dix échecs par email normalisé sur quinze minutes.
+Le compteur en mémoire est borné et se réinitialise après connexion réussie ;
+il convient à l'instance unique de `docker-compose.prod.yml`. Une architecture
+multi-instance doit ajouter une limite partagée. `/auth/ping` exécute `SELECT 1`
+et renvoie `503` si la base est inaccessible, afin de servir de contrôle de
+disponibilité.
 
 ### 2.6 Table `scheduler_execution` (registre de tentatives et bail)
 ```sql
@@ -197,43 +215,46 @@ une limite de renouvellement à 23 heures.
 
 ---
 
-## 3. Arborescence des Menus Seeedés (21 menus)
+## 3. Arborescence des Menus Seedés (25 menus réels)
 
 **Niveau 1 (6 racines) :**
 
-| id_menu | Libellé | Route |
-|---|---|---|
-| `DASHBOARD` | Tableau de bord | `/dashboard` |
-| `GESTION_PERSONNEL` | Gestion du Personnel | *(parent)* |
-| `CONGES_MODULE` | Congés & Absences | `/conges` |
-| `POINTAGE` | Pointage & Présences | `/pointages` |
-| `PAIE_MODULE` | Paie & Rémunération | *(parent)* |
-| `ADMIN_MODULE` | Administration & Paramétrage | *(parent)* |
+| id_menu | Libellé | Route | Rang |
+|---|---|---|:---:|
+| `DASHBOARD` | Tableau de bord | `/dashboard` | 1 |
+| `GESTION_PERSONNEL` | Gestion du Personnel | *(parent)* | 2 |
+| `CONGES_MODULE` | Congés & Absences | `/conges` | 3 |
+| `POINTAGE` | Pointage & Présences | `/pointages` | 4 |
+| `PAIE_MODULE` | Paie & Rémunération | *(parent)* | 5 |
+| `ADMIN_MODULE` | Administration & Paramétrage | *(parent)* | 6 |
 
-**Niveau 2 (15 enfants) :**
+**Niveau 2 (19 enfants) :**
 
-| id_menu | Libellé | Route | Parent |
-|---|---|---|---|
-| `PERS_EMPLOYES` | Fiches Employés | `/employes` | `GESTION_PERSONNEL` |
-| `PERS_CARRIERES` | Contrats & Carrières | `/carrieres` | `GESTION_PERSONNEL` |
-| `CONGES_GENERAL` | Vue Générale | `/conges?tab=planning` | `CONGES_MODULE` |
-| `CONGES_DEMANDES` | Demandes & Validation | `/conges?tab=demandes` | `CONGES_MODULE` |
-| `CONGES_PERIODES` | Contrôle des droits | `/conges?tab=periodes` | `CONGES_MODULE` |
-| `POINTAGE_JOURNALIER` | Saisie Quotidienne | `/pointages?tab=saisie` | `POINTAGE` |
-| `POINTAGE_SUIVI` | Suivi & Anomalies | `/pointages?tab=suivi` | `POINTAGE` |
-| `POINTAGE_VALIDATION` | Contrôle & Validation | `/pointages?tab=validation` | `POINTAGE` |
-| `PAIE_CENTRE` | Centre de paie | `/paie` | `PAIE_MODULE` |
-| `PAIE_CAMPAGNE` | Cycles de paie | `/paie?tab=periodes` | `PAIE_MODULE` |
-| `PAIE_ACOMPTES` | Acomptes & avances | `/paie/acomptes-avances` | `PAIE_MODULE` |
-| `PAIE_PRESTATAIRES` | Prestataires indépendants | `/paie/prestataires` | `PAIE_MODULE` |
-| `PAIE_CONFIGURATION` | Configuration de paie | `/paie/configuration` | `PAIE_MODULE` |
-| `PAIE_DECLARATIONS` | Déclarations & sorties | `/paie/declarations` | `PAIE_MODULE` |
-| `ADMIN_SECURITE` | Sécurité & Accès | `/admin/securite` | `ADMIN_MODULE` |
-| `ADMIN_ORGANISATION` | Organisation & Structure | `/admin/organisation` | `ADMIN_MODULE` |
-| `ADMIN_REFERENTIELS` | Référentiels RH | `/admin/referentiels-rh` | `ADMIN_MODULE` |
-| `ADMIN_PARAMETRES` | Paramétrage des Modules | `/admin/parametres` | `ADMIN_MODULE` |
+| id_menu | Libellé | Route | Parent | Rang |
+|---|---|---|---|:---:|
+| `PERS_EMPLOYES` | Fiches Employés | `/employes` | `GESTION_PERSONNEL` | 1 |
+| `PERS_CARRIERES` | Contrats & Carrières | `/carrieres` | `GESTION_PERSONNEL` | 2 |
+| `CONGES_GENERAL` | Vue Générale | `/conges?tab=planning` | `CONGES_MODULE` | 1 |
+| `CONGES_DEMANDES` | Demandes & Validation | `/conges?tab=demandes` | `CONGES_MODULE` | 2 |
+| `CONGES_PERIODES` | Contrôle des droits | `/conges?tab=periodes` | `CONGES_MODULE` | 3 |
+| `POINTAGE_JOURNALIER` | Saisie Quotidienne | `/pointages?tab=saisie` | `POINTAGE` | 1 |
+| `POINTAGE_SUIVI` | Suivi & Anomalies | `/pointages?tab=suivi` | `POINTAGE` | 2 |
+| `POINTAGE_VALIDATION` | Contrôle & Validation | `/pointages?tab=validation` | `POINTAGE` | 3 |
+| `PAIE_CENTRE` | Centre de paie | `/paie` | `PAIE_MODULE` | 1 |
+| `PAIE_CAMPAGNE` | Cycles de paie | `/paie?tab=periodes` | `PAIE_MODULE` | 2 |
+| `PAIE_ACOMPTES` | Acomptes & avances | `/paie/acomptes-avances` | `PAIE_MODULE` | 3 |
+| `PAIE_PRESTATAIRES` | Prestataires indépendants | `/paie/prestataires` | `PAIE_MODULE` | 4 |
+| `PAIE_DOSSIERS_SORTIE` | Dossiers de sortie & STC | `/paie/dossiers-sortie` | `PAIE_MODULE` | 5 |
+| `PAIE_DECLARATIONS` | Déclarations & sorties | `/paie/declarations` | `PAIE_MODULE` | 6 |
+| `PAIE_CONFIGURATION` | Configuration de paie | `/paie/configuration` | `PAIE_MODULE` | 7 |
+| `ADMIN_SECURITE` | Sécurité & Accès | `/admin/securite` | `ADMIN_MODULE` | 1 |
+| `ADMIN_ORGANISATION` | Organisation & Structure | `/admin/organisation` | `ADMIN_MODULE` | 2 |
+| `ADMIN_REFERENTIELS` | Référentiels RH | `/admin/referentiels-rh` | `ADMIN_MODULE` | 3 |
+| `ADMIN_PARAMETRES` | Paramétrage des Modules | `/admin/parametres` | `ADMIN_MODULE` | 4 |
 
-**Habilitations seed :** `ROLE_ADMIN` → tous les 21 menus. `ROLE_AGENT_POINTAGE` → `POINTAGE`, `POINTAGE_JOURNALIER`, `POINTAGE_SUIVI`, `POINTAGE_VALIDATION`.
+**Habilitations seed :**
+- `ROLE_ADMIN` (id=1) : Accès complet aux 25 menus (6 racines + 19 sous-menus).
+- `ROLE_AGENT_POINTAGE` (id=2) : Accès strict à l'exploitation pointage (`POINTAGE`, `POINTAGE_JOURNALIER`, `POINTAGE_SUIVI`, `POINTAGE_VALIDATION`). La page de validation reste accessible pour consultation et préparation ; les commandes sensibles restent filtrées par `droit_validation` côté API et interface.
 
 ---
 
@@ -252,34 +273,47 @@ une limite de renouvellement à 23 heures.
 
 ## 5. Catalogue des Endpoints API (Code réel)
 
-| Action | Méthode | Endpoint |
-|---|---|---|
-| **Utilisateurs** | | |
-| Liste | GET | `/securite/utilisateurs` |
-| Créer | POST | `/securite/utilisateurs` |
-| Modifier | PUT | `/securite/utilisateurs/{id}` |
-| Désactiver | PUT | `/securite/utilisateurs/{id}/desactiver` ← body `{motifDesactivation}` |
-| Réactiver | PUT | `/securite/utilisateurs/{id}/activer` |
-| **Rôles** | | |
-| Liste | GET | `/referentiel/roles` |
-| Par ID | GET | `/referentiel/roles/{id}` |
-| Créer | POST | `/referentiel/roles` |
-| Modifier | PUT | `/referentiel/roles/{id}` |
-| Désactiver | PUT | `/referentiel/roles/{id}/desactiver` |
-| Activer | PUT | `/referentiel/roles/{id}/activer` |
-| **Permissions** | | |
-| Lire permissions rôle | GET | `/referentiel/roles/{id}/permissions` |
-| Mettre à jour permissions | POST | `/referentiel/roles/{id}/permissions` ← body `{permissions}` |
-| **Menus** | | |
-| Lire menus rôle | GET | `/referentiel/roles/{id}/menus` |
-| Mettre à jour menus | POST | `/referentiel/roles/{id}/menus` ← body `{idMenus}` |
-| Menus (arbre) | GET | `/referentiel/menus` |
-| Menus (plat) | GET | `/referentiel/menus/flat` |
-| Créer menu | POST | `/referentiel/menus` |
-| Modifier menu | PUT | `/referentiel/menus/{id}` |
-| Supprimer menu | DELETE | `/referentiel/menus/{id}` |
-| **Modules** | | |
-| Liste | GET | `/referentiel/modules` |
+| Action | Méthode | Endpoint | Habilitation |
+|---|:---:|---|---|
+| **Authentification & Session (`/auth`)** | | | |
+| Disponibilité API + base | GET | `/auth/ping` | Public |
+| Connexion (login) | POST | `/auth/login` ← `{email, motDePasse}` | Public |
+| Rafraîchissement JWT | POST | `/auth/refresh` ← Cookie HttpOnly `refreshToken` | Public |
+| Déconnexion (logout) | POST | `/auth/logout` ← Cookie HttpOnly + origine autorisée | Public (session par cookie) |
+| Prolongation d'activité | POST | `/auth/activity` ← Header Bearer | Authentifié |
+| Arbre des menus autorisés | GET | `/auth/menu` | Authentifié |
+| Création compte direct | POST | `/auth/register` ← `{identifiant, email, motDePasse, idRole}` | `ROLE_ADMIN` |
+| **Utilisateurs (`/securite/utilisateurs`)** | | | |
+| Liste des utilisateurs | GET | `/securite/utilisateurs` | `ROLE_ADMIN` |
+| Utilisateur par ID | GET | `/securite/utilisateurs/{id}` | `ROLE_ADMIN` |
+| Créer utilisateur | POST | `/securite/utilisateurs` | `ROLE_ADMIN` |
+| Modifier utilisateur | PUT | `/securite/utilisateurs/{id}` | `ROLE_ADMIN` |
+| Désactiver utilisateur | PUT | `/securite/utilisateurs/{id}/desactiver` ← body `{motifDesactivation}` | `ROLE_ADMIN` |
+| Réactiver utilisateur | PUT | `/securite/utilisateurs/{id}/activer` | `ROLE_ADMIN` |
+| **Rôles (`/referentiel/roles`)** | | | |
+| Liste des rôles | GET | `/referentiel/roles` | Authentifié |
+| Rôle par ID | GET | `/referentiel/roles/{id}` | Authentifié |
+| Créer rôle | POST | `/referentiel/roles` | `ROLE_ADMIN` |
+| Modifier rôle | PUT | `/referentiel/roles/{id}` | `ROLE_ADMIN` |
+| Désactiver rôle | PUT | `/referentiel/roles/{id}/desactiver` | `ROLE_ADMIN` |
+| Activer rôle | PUT | `/referentiel/roles/{id}/activer` | `ROLE_ADMIN` |
+| **Permissions (`/referentiel/roles/{id}/permissions`)** | | | |
+| Lire permissions rôle | GET | `/referentiel/roles/{id}/permissions` | Authentifié |
+| Mettre à jour permissions | POST | `/referentiel/roles/{id}/permissions` ← body `{permissions}` | `ROLE_ADMIN` |
+| **Menus (`/referentiel/menus`)** | | | |
+| Lire menus rôle | GET | `/referentiel/roles/{id}/menus` | Authentifié |
+| Mettre à jour menus rôle | POST | `/referentiel/roles/{id}/menus` ← body `{idMenus}` | `ROLE_ADMIN` |
+| Menus (arbre hiérarchique) | GET | `/referentiel/menus` | Authentifié |
+| Menus (liste plate) | GET | `/referentiel/menus/flat` | Authentifié |
+| Créer menu | POST | `/referentiel/menus` | `ROLE_ADMIN` |
+| Modifier menu | PUT | `/referentiel/menus/{id}` | `ROLE_ADMIN` |
+| Supprimer menu | DELETE | `/referentiel/menus/{id}` | `ROLE_ADMIN` |
+| **Modules (`/referentiel/modules`)** | | | |
+| Liste des modules SIRH | GET | `/referentiel/modules` | Authentifié |
+| **Support Desktop & Cycle de Vie (`/desktop` & `/admin`)** | | | |
+| Amorçage admin initial | POST | `/desktop/setup/admin` (Profile `desktop`, boucle locale, capability) | Capability Bearer |
+| Arrêt gracieux service | POST | `/desktop/internal/shutdown` (Profile `desktop`, token SCM supervisor) | Token interne |
+| Autorisation backup natif | GET | `/admin/desktop-backup/authorize` (Confirme session administrateur vivante) | Authentifié |
 
 **Cache frontend** : `referentielService.js` cache `modules`, `roles`, `menusFlat`, `menusTree`. Toute mutation appelle `invalidateReferentielCache()` + `notifyMenuChanged()` (bus d'événements pour rafraîchir la navigation immédiatement).
 
@@ -327,6 +361,23 @@ sequenceDiagram
 | **OWASP SQL Injection** | Requêtes JDBC paramétrées exclusivement (`PreparedStatement`) |
 | **BCrypt** | Hachage adaptatif des mots de passe |
 | **SessionSecurityScheduler** | Nettoyage nocturne des refresh tokens expirés ; son exécution est inscrite dans `scheduler_execution` |
+
+---
+
+## 8. Catalogue des Règles de Gestion de Sécurité & IAM (RG)
+
+| Code Règle | Énoncé Formel de la Règle | Fondement & Standard | Contrôle & Comportement Système |
+|:---|:---|:---|:---|
+| **RG-SEC-01** | **Authentification Stateless JWT (HS512)** | NIST SP 800-107 & OWASP Top 10 | Signature cryptographique HMAC-SHA512 avec clé secrète $\ge 64$ octets vérifiée au démarrage (`JwtService`). Les requêtes HTTP ne créent aucune session servlet côté serveur. |
+| **RG-SEC-02** | **Expiration d'Inactivité Glissante (900s)** | Norme de sécurité des sessions bancaires/RH | Session invalidée après 900 secondes (paramètre `idle-timeout-seconds`) sans interaction explicite (clics, frappes). Les requêtes API en arrière-plan et les timers ne prolongent pas le délai. |
+| **RG-SEC-03** | **Rotation Stricte des Refresh Tokens** | Recommandations OAuth2 / IETF BCP | Chaque appel à `/auth/refresh` invalide immédiatement le refresh token consommé et en délivre un nouveau au sein de la même famille de session (`utilisateur_session`). |
+| **RG-SEC-04** | **Révocation en Cascade des Sessions** | Sécurité réactive et IAM | La déconnexion manuelle (`POST /auth/logout`) révoque la session active ; la désactivation d'un compte utilisateur révoque instantanément toutes ses sessions actives et refresh tokens. |
+| **RG-SEC-05** | **Politique et Hachage des Mots de Passe** | OWASP Authentication Cheat Sheet | Hachage adaptatif en BCrypt avec sel aléatoire. Politique de complexité minimale : au moins 8 caractères, une majuscule et un chiffre. |
+| **RG-SEC-06** | **Double Barrière d'Autorisation (RBAC)** | Défense en profondeur | Filtrage grossier par URI dans `SecurityConfig` (Spring Security Filter Chain) + contrôle granulaire `@PreAuthorize("hasAuthority('...')")` sur chaque méthode de contrôleur REST. |
+| **RG-SEC-07** | **Arborescence Dynamique Filtrée par Rôle** | Moindre privilège d'interface | L'API `GET /auth/menu` ne renvoie au client React que les menus et sous-menus (parmi les 25 du référentiel `ref_menu`) explicitement habilités pour le rôle de l'utilisateur dans `role_menu`. |
+| **RG-SEC-08** | **Immutabilité de la Piste d'Audit** | Loi n° 2014-038 & Traçabilité légale | La table `audit_log` est protégée contre la suppression en cascade (`ON DELETE SET NULL`). La suppression physique des utilisateurs est interdite par `Utilisateur.delete` au profit d'une désactivation logique motivée. |
+| **RG-SEC-09** | **Bootstrap Sécurisé de l'Administrateur** | Sécurité d'initialisation en environnement Desktop | L'endpoint `/desktop/setup/admin` exige un jeton de capacité éphémère à usage unique généré par le superviseur natif, et refuse toute création si un compte administrateur actif existe déjà. |
+| **RG-SEC-10** | **Éradication des Injections SQL et XSS** | OWASP Top 10 A01/A03 | Utilisation exclusive de requêtes paramétrées JDBC (`PreparedStatement`) et sanitisation des entrées/sorties textuelles et CSV contre les injections de formules (`=+-@`). |
 
 ---
 

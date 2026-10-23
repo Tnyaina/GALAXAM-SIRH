@@ -8,6 +8,7 @@ import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIss
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 import { fmtDate } from '@/utils/dateUtils';
+import { etapesAfficheesCampagnePaie, progressionCampagnePaie } from '@/features/payroll/utils/payrollPresentation';
 
 /**
  * PayrollCampaignShell — Shell visuel invariant pour les 7 étapes de campagne de paie.
@@ -42,6 +43,9 @@ export default function PayrollCampaignShell({
     const recalcReason = context?.recalculationReason;
     const activeStepObj = campaignSteps.find(s => s.code === activeStep);
     const population = context?.populationCount ?? context?.employeeCount ?? activePeriod?.employeeCount;
+    const payrollClosed = activePeriod?.workflowStatuses?.paie?.code === 'CLOTUREE';
+    const progress = progressionCampagnePaie(campaignSteps, payrollClosed);
+    const displayedCampaignSteps = etapesAfficheesCampagnePaie(campaignSteps, payrollClosed);
 
     // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
 
@@ -74,7 +78,7 @@ export default function PayrollCampaignShell({
             </nav>
 
             {/* 2. Header Invariant de Campagne */}
-            <header className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-4 sm:p-5 mb-3">
+            <header className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-4 sm:p-5 mb-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="space-y-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
@@ -157,18 +161,28 @@ export default function PayrollCampaignShell({
                     </div>
                 )}
 
-                {/* 3. Stepper Invariant 7 étapes */}
-                {campaignSteps.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-[var(--color-border-subtle)]">
-                        <PayrollPeriodStepper
-                            steps={campaignSteps}
-                            currentStep={currentStepCode}
-                            activeCode={activeStep}
-                            loading={loading}
-                        />
-                    </div>
-                )}
             </header>
+
+            {/* La progression est séparée des métadonnées pour rester lisible à chaque étape. */}
+            {campaignSteps.length > 0 && (
+                <section aria-label="Progression de la campagne" className="mb-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:p-4">
+                    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                        <div>
+                            <h2 className="text-xs font-bold text-[var(--color-fg)]">Étapes de la campagne</h2>
+                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Étape active : {activeStepObj?.label || 'indisponible'}</p>
+                        </div>
+                        <span className="text-[11px] tabular-nums text-[var(--color-fg-muted)]">
+                            {progress.completed} / {progress.total} terminées
+                        </span>
+                    </div>
+                    <PayrollPeriodStepper
+                        steps={displayedCampaignSteps}
+                        currentStep={currentStepCode}
+                        activeCode={activeStep}
+                        loading={loading}
+                    />
+                </section>
+            )}
 
             {/* 4. En-tête de l'étape active */}
             {(title || subtitle) && (

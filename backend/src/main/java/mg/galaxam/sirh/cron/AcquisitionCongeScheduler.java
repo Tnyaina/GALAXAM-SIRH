@@ -2,6 +2,7 @@ package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.application.CongeService;
 import org.slf4j.Logger;
@@ -10,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Déclencheur de bonification ; l'acquisition des congés est effectuée à la clôture de paie. */
+/** Vérifie les bonifications d'ancienneté du mois clos ; l'acquisition reste liée à la clôture de paie. */
 @Component
 public class AcquisitionCongeScheduler {
 
@@ -21,10 +22,27 @@ public class AcquisitionCongeScheduler {
     @Autowired private SchedulerExecutionRegistry executionRegistry;
 
     @Scheduled(cron = "0 0 1 1 * ?", zone = "Indian/Antananarivo")
-    public void acquerirCongesMensuels() {
-        LocalDate moisClos = LocalDate.now().withDayOfMonth(1).minusDays(1);
-        executionRegistry.run("BONIFICATION_CONGES", moisClos.withDayOfMonth(1),
-                () -> executer(moisClos));
+    public boolean bonifierCongesAnciennete() {
+        LocalDate moisClos = LocalDate.now(ZoneId.of("Indian/Antananarivo")).withDayOfMonth(1).minusDays(1);
+        return executionRegistry.run("BONIFICATION_CONGES", moisClos.withDayOfMonth(1), () -> executer(moisClos));
+    }
+
+    public boolean rattraperBonificationMensuelle() {
+        if (LocalDate.now(ZoneId.of("Indian/Antananarivo")).getDayOfMonth() == 1
+                && java.time.LocalTime.now(ZoneId.of("Indian/Antananarivo")).isBefore(java.time.LocalTime.of(1, 0))) {
+            return true;
+        }
+        LocalDate dernierMoisEchu = LocalDate.now(ZoneId.of("Indian/Antananarivo"))
+                .withDayOfMonth(1).minusMonths(1);
+        LocalDate premierMoisDuRattrapage = executionRegistry.firstRecordedPeriod("BONIFICATION_CONGES", dernierMoisEchu);
+        for (LocalDate periode : executionRegistry.findIncompletePeriods("BONIFICATION_CONGES",
+                premierMoisDuRattrapage, dernierMoisEchu.withDayOfMonth(1), 6)) {
+            boolean periodeOk = executionRegistry.run("BONIFICATION_CONGES", periode,
+                    () -> executer(periode.plusMonths(1).minusDays(1)));
+            if (!periodeOk) return false;
+        }
+        return !executionRegistry.hasMoreIncompletePeriods("BONIFICATION_CONGES",
+                premierMoisDuRattrapage, dernierMoisEchu.withDayOfMonth(1));
     }
 
     private void executer(LocalDate moisClos) throws Exception {
@@ -33,7 +51,7 @@ public class AcquisitionCongeScheduler {
             try {
                 int nbEmployes = congeService.executerBonificationMensuelle(moisClos, c);
                 c.commit();
-                log.info("[AcquisitionCongeScheduler] Bonification vérifiée pour {} employé(s).", nbEmployes);
+                log.info("[AcquisitionCongeScheduler] Bonification vérifiée pour {} employé(s), référence {}.", nbEmployes, moisClos);
             } catch (Exception e) {
                 c.rollback();
                 throw e;

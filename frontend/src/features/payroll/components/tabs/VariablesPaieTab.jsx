@@ -132,7 +132,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         } finally {
             if (requestIdRef.current === requestId) setLoading(false);
         }
-    }, [idPeriodeActive]);
+    }, [idPeriodeActive, toast]);
 
     // Effet : recharge les variables quand la période active change.
     useEffect(() => {
@@ -598,51 +598,54 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
             {!canMutate && idPeriodeActive && <Alert type="info" message={disabledExplanation || 'La période est en lecture seule.'} />}
 
-            {/* Barre de filtre et Action */}
-            {listVariables.length > 0 && <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto flex-1">
-                    <div className="flex-1 sm:w-72 min-w-[200px]">
-                        <Input
-                            type="search"
-                            placeholder="Rechercher par collaborateur, matricule, motif…"
-                            value={searchQuery}
-                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                            iconLeft={<Search size={14} />}
-                            aria-label="Rechercher une variable de paie"
-                        />
+            {/* L’action principale reste séparée des contrôles de recherche. */}
+            {listVariables.length > 0 && <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3" aria-label="Gestion des variables">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 className="text-sm font-semibold text-[var(--color-fg)]">Variables de la campagne</h3>
+                        <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">Recherchez un salarié ou filtrez les gains et retenues.</p>
                     </div>
-                    <div className="w-56">
-                        <SearchSelect
-                            value={filterSens}
-                            onChange={(val) => { setFilterSens(val); setCurrentPage(1); }}
-                            options={[
-                                { value: 'ALL', label: 'Tous les éléments (Gains & Retenues)' },
-                                { value: 'GAIN', label: '+ Primes & Gains' },
-                                { value: 'RETENUE', label: '- Acomptes & Retenues' },
-                            ]}
-                            aria-label="Filtrer par sens"
-                        />
+                    <div className="flex flex-wrap items-center gap-2">
+                        {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/paie/configuration?vue=types', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
+                            Catalogue des types
+                        </Button>}
+                        {cancelledCount > 0 && <Button variant="ghost" size="sm" onClick={() => { setShowCancelled(value => !value); setCurrentPage(1); }}>
+                            {showCancelled ? 'Masquer les annulées' : `Afficher les annulées (${cancelledCount})`}
+                        </Button>}
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => { setFormError(''); setIsModalOpen(true); }}
+                            iconLeft={<Plus size={14} />}
+                            className="w-full sm:w-auto justify-center shrink-0"
+                            disabled={!canMutate}
+                            title={!canMutate ? disabledExplanation : undefined}
+                        >
+                            Ajouter une variable
+                        </Button>
                     </div>
                 </div>
-
-                {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/paie/configuration?vue=types', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
-                    Catalogue des types
-                </Button>}
-                {cancelledCount > 0 && <Button variant="ghost" size="sm" onClick={() => { setShowCancelled(value => !value); setCurrentPage(1); }}>
-                    {showCancelled ? 'Masquer les annulées' : `Afficher les annulées (${cancelledCount})`}
-                </Button>}
-                <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => { setFormError(''); setIsModalOpen(true); }}
-                    iconLeft={<Plus size={14} />}
-                    className="w-full sm:w-auto justify-center shrink-0"
-                    disabled={!canMutate}
-                    title={!canMutate ? disabledExplanation : undefined}
-                >
-                    Ajouter une variable
-                </Button>
-            </div>}
+                <div className="mt-3 grid grid-cols-1 gap-2 border-t border-[var(--color-border-subtle)] pt-3 sm:grid-cols-[minmax(14rem,1fr)_14rem]">
+                    <Input
+                        type="search"
+                        placeholder="Nom, matricule ou motif…"
+                        value={searchQuery}
+                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                        iconLeft={<Search size={14} />}
+                        aria-label="Rechercher une variable de paie"
+                    />
+                    <SearchSelect
+                        value={filterSens}
+                        onChange={(val) => { setFilterSens(val); setCurrentPage(1); }}
+                        options={[
+                            { value: 'ALL', label: 'Tous les éléments' },
+                            { value: 'GAIN', label: 'Primes et gains' },
+                            { value: 'RETENUE', label: 'Acomptes et retenues' },
+                        ]}
+                        aria-label="Filtrer par sens"
+                    />
+                </div>
+            </section>}
 
             {/* Table des variables */}
             {loading ? (
@@ -662,7 +665,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 />
             ) : (
                 <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-                <Table aria-label="Variables de paie" density="compact">
+                <Table aria-label="Variables de paie" density="compact" className="payroll-variable-table-wrap" tableClassName="payroll-variable-table">
                     <Thead>
                         <Tr>
                             <Th>Salarié</Th>
@@ -673,7 +676,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             <Th className="text-right">Actions</Th>
                         </Tr>
                     </Thead>
-                    <Tbody>
+                    <Tbody role="rowgroup">
                         {pagedVariables.map((v, index) => {
                             const idAvance = v.idAvance ?? v.id_avance;
                             const nomComplet = v.nomComplet || v.nom_complet;
@@ -683,33 +686,33 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             const taxable = v.imposable ?? configuredType?.imposable;
                             const social = v.cotisable ?? configuredType?.cotisable;
                             return (
-                                <Tr key={idAvance || index} className={v.statut === 'EN_ATTENTE' ? 'bg-[var(--color-warning-50)]/50' : ''}>
-                                    <Td className="font-semibold text-[var(--color-fg)]">
+                                <Tr role="row" key={idAvance || index}>
+                                    <Td role="cell" data-label="Salarié" data-mobile-span="full" className="font-semibold text-[var(--color-fg)]">
                                         <span className="block">{nomComplet || 'Collaborateur'}</span>
                                         <span className="block font-data font-normal text-[11px] text-[var(--color-fg-muted)]">{v.matricule || '—'}</span>
                                     </Td>
-                                    <Td>
+                                    <Td role="cell" data-label="Variable et régime" data-mobile-span="full">
                                         <span className="font-medium text-[var(--color-fg)] block">
                                             {typeLibelle || 'Variable'}
                                         </span>
                                         <span className="block text-[11px] text-[var(--color-fg-muted)]">{regimeLabel(v.sens, taxable, social)}</span>
                                     </Td>
-                                    <Td className="text-right font-data font-bold whitespace-nowrap">
+                                    <Td role="cell" data-label="Montant" className="text-right font-data font-bold whitespace-nowrap">
                                         <span className={v.sens === 'GAIN' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
                                             {v.sens === 'GAIN' ? '+' : '-'}{formatAr(v.montant)}
                                         </span>
                                     </Td>
-                                    <Td className="text-[var(--color-fg-muted)] max-w-xs whitespace-normal">
+                                    <Td role="cell" data-label="Justification" data-mobile-span="full" className="text-[var(--color-fg-muted)] max-w-xs whitespace-normal">
                                         <span className="block">{v.motif || '—'}</span>
                                         {v.typeMouvement === 'NOTE_DE_FRAIS' && <span className="block text-[11px]">{v.justificatifPresent ? `Pièce : ${v.justificatifNom}` : 'Pièce à joindre avant approbation'}</span>}
                                         {(v.dateDemande || v.date_demande) && <span className="block text-[11px] text-[var(--color-fg-subtle)]">Saisie le {fmtDate(v.dateDemande || v.date_demande)}</span>}
                                     </Td>
-                                    <Td>
+                                    <Td role="cell" data-label="Statut">
                                         <Badge variant={statInfo.variant} size="xs" dot>
                                             {statInfo.label}
                                         </Badge>
                                     </Td>
-                                    <Td className="text-right whitespace-nowrap">
+                                    <Td role="cell" data-label="Actions" data-mobile-span="full" className="text-right whitespace-nowrap">
                                         <div className="inline-flex items-center justify-end gap-1.5">
                                             {v.workflowActions?.APPROVE && idAvance && (
                                                 <Button
@@ -754,7 +757,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 </div>
             )}
 
-            <section className={`flex flex-wrap items-center justify-between gap-3 border px-3 py-2.5 ${pendingCount > 0 ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10' : 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'}`} aria-live="polite">
+            <section className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-brand-500)] bg-[var(--color-bg-subtle)] px-3 py-2.5" aria-live="polite">
                 <div>
                     <h3 className="text-xs font-bold text-[var(--color-fg)]">Avant le calcul réel</h3>
                     <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">

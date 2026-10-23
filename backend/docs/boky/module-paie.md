@@ -1,9 +1,9 @@
 # Module Paie & Rémunération — document maître
 
 > **Projet** : GALAXAM SIRH — GALAXAM Logistics Madagascar  
-> **Version documentaire** : 5.7  
-> **État du code examiné** : 18 octobre 2026 (règlements mensuels et justificatifs obligatoires)  
-> **Périmètre** : interfaces React, API Java, services applicatifs spécialisés, moteurs, persistance immuable, schéma SQL et migrations du domaine Paie/PaieConfig (SP01 à SP84).  
+> **Version documentaire** : 5.7
+> **État du code examiné** : vérification documentaire DOC-2, 23 octobre 2026
+> **Périmètre technique documenté** : interfaces React, API Java, services applicatifs spécialisés, moteurs, persistance et schéma SQL canonique. Les scripts de migration SP01 à SP84 ne sont pas présents dans ce dépôt ; leurs identifiants sont des références historiques, pas une procédure de mise à niveau reproductible ici.
 > **Usage** : référence métier et technique du module. Les taux et interprétations juridiques doivent être confirmés par la DAF à la date de paie. La génération d’un export ne vaut pas dépôt ni acceptation par une autorité ou une banque.
 
 Ce fichier est le document maître de Paie dans `backend/docs/boky`. Il regroupe les parcours utilisateurs, les règles métier implémentées, l’architecture, les données, les sorties, les limites connues et les points de contrôle. Les README du code restent des aides de navigation technique ; ils ne remplacent pas cette référence.
@@ -18,7 +18,7 @@ Ce fichier est le document maître de Paie dans `backend/docs/boky`. Il regroupe
 6. [Données et modèle de persistance](#6-données-et-modèle-de-persistance)
 7. [Règles de calcul du bulletin](#7-règles-de-calcul-du-bulletin)
 8. [Configuration et rubriques](#8-configuration-et-rubriques)
-9. [Variables, acomptes, avances et prêts](#9-variables-acomptes-avances-et-prêts)
+9. [Variables, acomptes et avances d'entreprise](#9-variables-acomptes-et-avances-dentreprise)
 10. [Solde de tout compte (STC) & Dossiers de sortie](#10-solde-de-tout-compte-stc--dossiers-de-sortie)
 11. [Prestataires indépendants](#11-prestataires-indépendants)
 12. [Bulletins, documents, exports et paiements](#12-bulletins-documents-exports-et-paiements)
@@ -30,7 +30,9 @@ Ce fichier est le document maître de Paie dans `backend/docs/boky`. Il regroupe
 
 ## 1. Finalité et périmètre
 
-Le module transforme des périodes de pointage validées, les situations d’emploi et de salaire, les congés, les paramètres fiscaux et sociaux ainsi que les variables approuvées en bulletins de paie détaillés. Il couvre également le suivi des acomptes et avances, les retenues de prêts déjà constitués, l'orchestration administrative et financière des départs collaborateurs (dossiers de sortie, décompte STC scellé, journal des règlements, documents légaux et clôture administrative), les sorties de paie et un parcours distinct pour les prestataires indépendants.
+Le CDC initial demande la paie des salariés et des consultants/personnels temporaires selon leurs régimes, les bulletins PDF, les états de cotisations, les barèmes datés, les primes et retenues. Le module transforme les périodes de pointage validées, les situations d’emploi et de salaire, les congés, les paramètres fiscaux et sociaux ainsi que les variables approuvées en bulletins détaillés. Les acomptes/avances, les sorties de paie et le parcours des prestataires sont des fonctions présentes dans le code actuel.
+
+**Extension hors périmètre initial du CDC :** le STC et les dossiers de sortie détaillés dans la section 10 ont été ajoutés ultérieurement. Ils sont documentés pour décrire le produit actuel, mais ne doivent pas être attribués aux exigences initiales du mémoire.
 
 Le domaine est réparti entre :
 
@@ -42,13 +44,15 @@ Une relation de travail salariée (y compris un consultant sous contrat de trava
 
 Pour le parcours 2026, la retenue ISI générale sur honoraires n’est plus calculée par la paie et l’ancien endpoint EDI ISI répond HTTP 410. Des colonnes et historiques associés restent dans la base pour compatibilité. Ne pas réactiver une retenue fiscale uniquement en changeant un libellé ou une rubrique.
 
+**Écart à arbitrer avec le CDC initial :** celui-ci demande un régime ISI de 5 % pour les consultants de plus de 60 ans et le personnel temporaire. Le comportement décrit ci-dessus (ISI générale désactivée en 2026, `soumis_isi_5 = FALSE` dans le modèle actuel) ne satisfait pas cette exigence telle qu'elle est écrite. Il s'agit d'une contradiction de périmètre/règle à faire valider par la DAF et les responsables du mémoire ; elle n'est pas résolue par la seule présence du code actuel.
+
 ## 2. Acteurs et permissions
 
 Le menu et les routes du frontend sont placés sous la permission `PAIE_READ` ou le rôle `ROLE_ADMIN`. Les contrôles backend restent obligatoires et certains actes requièrent une permission supplémentaire.
 
 | Permission | Usage observé |
 |---|---|
-| `PAIE_READ` | Consulter campagnes, bulletins, synthèses, configurations, documents, prêts, dossiers de sortie et décomptes STC en lecture |
+| `PAIE_READ` | Consulter campagnes, bulletins, synthèses, configurations, documents, dossiers de sortie et décomptes STC en lecture |
 | `PAIE_WRITE` | Saisir variables, demandes, versements, lancer les calculs, préparer/simuler/sceller les dossiers de sortie, enregistrer/annuler les règlements STC et clôturer les dossiers |
 | `PAIE_VALIDATE` | Valider la paie de période et valider/régler certains parcours, notamment les factures prestataires |
 | `ROLE_ADMIN` | Accès administrateur explicitement admis par les contrôleurs protégés |
@@ -70,6 +74,7 @@ Routes déclarées dans `frontend/src/routes/Router.jsx` :
 | Contrôle | `/paie/periodes/:periodId/controle` | Examiner les montants et alertes par salarié |
 | Validation | `/paie/periodes/:periodId/validation` | Revoir les contrôles et valider la campagne de paie |
 | Sorties | `/paie/periodes/:periodId/sorties` | Ouvrir les documents disponibles et clôturer la période |
+| Règlements des bulletins | `/paie/periodes/:periodId/reglements` | Suivi des règlements mensuels, versements individuels avec justificatif binaire obligatoire, lots de virement bancaire et exports CSV |
 | Acomptes/avances | `/paie/acomptes-avances` | Décider les demandes, confirmer les versements et suivre les imputations |
 | Déclarations | `/paie/declarations` | Catalogue de documents mensuels, trimestriels et annuels |
 | Configuration | `/paie/configuration` | Carte des phases, rubriques et types de mouvement |
@@ -78,7 +83,7 @@ Routes déclarées dans `frontend/src/routes/Router.jsx` :
 | Fiche dossier de sortie | `/paie/dossiers-sortie/:id`, `/nouveau` | Préparation, checklist, simulation, scellement, journal des versements, documents et clôture |
 | Historique | `/paie/historique` | Redirection vers le registre des périodes du Centre de paie |
 
-L’accès aux dossiers de sortie est directement disponible dans le menu Paie (`PAIE_DOSSIERS_SORTIE`, icône `UserMinus`, rang 6 sous `PAIE_MODULE`, migration SP82). Les actions « Établir le STC » de la fiche Paie employé et de la chronologie Carrière ouvrent directement la page du dossier de sortie concerné. Seul l'aperçu prévisionnel rapide (`StcPreparationModal`, simulation immédiate sans persistance) conserve une ouverture par modale directe depuis la fiche collaborateur. Le code de données comprend les prêts, mais aucun écran dédié complet de création de prêt n’a été trouvé.
+L'accès aux dossiers de sortie est directement disponible dans le menu Paie (`PAIE_DOSSIERS_SORTIE`). Les références SP82, SP83 et SP84 présentes dans les descriptions renvoient à des évolutions historiques ; leurs scripts ne sont pas fournis dans ce dépôt. Les actions « Établir le STC » de la fiche Paie employé et de la chronologie Carrière ouvrent directement la page du dossier de sortie concerné. Seul l'aperçu prévisionnel rapide (`StcPreparationModal`, simulation immédiate sans persistance) conserve une ouverture par modale directe depuis la fiche collaborateur. Conformément à l'assainissement d'octobre 2026, les anciens prêts d'entreprise ont été purgés du modèle et de l'interface ; les retenues sur salaire sont concentrées sur les acomptes et avances d'entreprise (`paie_avance_acompte`).
 
 Les anciennes routes `/paie/periods/...` sont redirigées vers le format courant. Les alias `calculation` et `outputs` redirigent respectivement vers `calcul` et `sorties`.
 
@@ -129,11 +134,46 @@ API / PaieController
   → PayrollCalculationContextAssembler (lectures et garde-fous)
   → PayrollCalculationInput (contexte résolu)
   → PayrollExecutionEngine (calcul métier sans SQL)
-  → bulletin_paie / bulletin_paie_ligne
-  → imputations d’avances et d’échéances de prêt
+  → BulletinPaieComplet (DTO conteneur canonique)
+      ├── BulletinPaie (en-tête persistant dans bulletin_paie)
+      ├── List<BulletinPaieLigne> (lignes ventilées dans bulletin_paie_ligne)
+      ├── CompositionBrutDTO (détail des gains bruts et contrôles d'arrondi)
+      ├── ExplicationPaieDTO (décomposition transparente pointage/congés/HS sans recalcul UI)
+      ├── ExplicationFiscaliteDTO (tranches IRSA, réductions et minimum de perception)
+      └── List<MouvementImputation> (traçabilité des retenues paie_avance_acompte)
+  → persistance transactionnelle dans bulletin_paie, bulletin_paie_ligne et paie_mouvement_imputation
 ```
 
-`PayrollService.preparerInput` est une façade d’assemblage. L’assembleur charge période, contexte emploi/salaire, paramètres légaux, pointage figé, congés, mouvements et échéance de prêt. Il vérifie les données nécessaires et interdit les configurations absentes ou ambiguës. Le moteur reçoit les valeurs résolues : il ne va pas lire la base.
+`PayrollService.preparerInput` est une façade d’assemblage. L’assembleur charge période, contexte emploi/salaire, paramètres légaux, pointage figé, congés et mouvements d'acomptes/avances en cours. Il vérifie les données nécessaires et interdit les configurations absentes ou ambiguës. Le moteur reçoit les valeurs résolues : il ne va pas lire la base.
+
+### Le conteneur central `BulletinPaieComplet`
+
+Le résultat du moteur et des consultations de bulletins (`PayrollService.obtenirBulletinComplet`) est encapsulé dans `BulletinPaieComplet.java`, qui structure l'intégralité des données calculées et garantit une approche **backend-driven** stricte (le frontend React n'exécute aucune formule de recalcul) :
+
+1. **En-tête de bulletin (`BulletinPaie`)** : porte les 17 agrégats scalaires enregistrés en base (`salaireBase`, `totalGainsBruts`, `totalCotisationsSalariales`, `totalCotisationsPatronales`, `baseImposableIrsa`, `montantIrsa`, `totalGainsNet`, `totalRetenuesNet`, `totalRetenuesAvancesAcomptes`, `netAvantArrondi`, `netAPayer`, `coutGlobalEmployeur`, `statut`, `version`).
+2. **Lignes ventilées (`List<BulletinPaieLigne>`)** : détail de chaque écriture comptable de paie :
+   - Catégorie (`SALAIRE_BASE`, `HEURE_SUPPLEMENTAIRE`, `PRIME`, `INDEMNITE`, `COTISATION_SALARIALE`, `COTISATION_PATRONALE`, `IMPOT_REVENU`, `ACOMPTE_AVANCE`, `NET_A_PAYER`) ;
+   - Code rubrique normalisé (ex. `SALBASE`, `HS30`, `HS50`, `NUIT`, `DIMANCHE`, `FERIE`, `CNAPS_SAL`, `SANTE_SAL`, `IRSA`, `ACOMPTE`, `AVANCE`) ;
+   - Sens (`GAIN`, `RETENUE`) et étape de calcul (`BRUT`, `COTISATION`, `IRSA`, `NET`) ;
+   - Base de calcul, taux salarial, montant salarial, taux patronal, montant patronal ;
+   - Indicateurs d'assujettissement (`imposable`, `soumisCnaps`, `soumisSante`, `soumisFmfp`) ;
+   - Organisme social figé (`idOrganismeSocial`, `codeOrganismeSocial`, `nomOrganismeSocial`).
+3. **Contrôle et composition du brut (`CompositionBrutDTO`)** :
+   - `lignes` : sous-ensemble des lignes entrant dans l'assiette brute (`GAIN` à l'étape `BRUT` ou retenues sur salaire de base) ;
+   - `totalLignes` : somme algébrique exacte des lignes brutes ;
+   - `gainsExoneresIrsa` : montants bruts exonérés d'IRSA (notamment les majorations d'heures supplémentaires selon le CGI LF 2026) ;
+   - `ecartAvecTotalEnregistre` : contrôle d'intégrité entre la somme des lignes et `bulletin.totalGainsBruts` ;
+   - `ecartArrondiNet` : traçabilité de l'arrondi monétaire (écart entre `netAPayer` et `netAvantArrondi`).
+4. **Explication transparente du calcul (`ExplicationPaieDTO`)** :
+   - *Absences et retards* : `minutesAbsenceRetenues`, `heuresAbsenceRetenues`, `minutesRetard`, `diviseurMensuelHeures` (173.3333h), `tauxHoraire`, `montantRetenueAbsence`.
+   - *Congés payés* : `nbJoursConge`, `salaireBaseContractuel`, `tauxJournalierTrentieme`, `deductionCongeTrentieme`, `tauxJournalierConge`, `indemniteConge`, `impactNetConge`.
+   - *Heures majorées* : `heuresHs30`, `montantHs30`, `heuresHs50`, `montantHs50`, `heuresNuit`, `montantNuit`, `heuresDimanche`, `montantDimanche`, `heuresFerie`, `montantFerie`.
+5. **Détail de la fiscalité IRSA (`ExplicationFiscaliteDTO`)** :
+   - `revenuNetAvantImpot`, `remunerationHsExonereeIrsa`, `revenuNetImposable`, `assietteIrsa`, `irsaCalcule`, `irsaAvantReduction`, `reductionChargeFamille` (2 000 MGA par enfant/personne à charge), `minimumPerceptionApplicable` (3 000 MGA), `irsaDu`.
+   - `detailsTranches` (`List<TrancheDetail>`) : barème progressif par tranche (tranche, taux, assiette tranche, impôt tranche).
+6. **Imputations d'avances et acomptes** :
+   - `idsAvancesImputees` (`List<Integer>`) : liste des identifiants des mouvements retenus ;
+   - `imputationsMouvements` (`List<MouvementImputation>`) : détail unitaire `(idMouvement, montantImpute)`.
 
 La simulation utilise le même contexte métier mais ne doit ni créer un bulletin persistant ni consommer un mouvement. Le calcul effectif enregistre bulletin, lignes et imputations de façon transactionnelle. Lors du recalcul d’un brouillon, les imputations antérieures sont restituées puis recalculées pour éviter le double prélèvement.
 
@@ -144,13 +184,13 @@ La simulation utilise le même contexte métier mais ne doit ni créer un bullet
 - Heures majorées : date de la tranche de pointage.
 - Congés consommés : valeur historique du lot au moment d’acquisition/valorisation.
 - STC : date de départ, qui constitue un contexte distinct de la fin de campagne mensuelle.
-- Échéance de prêt : ne devient candidate à une retenue que si sa date est atteinte à la fin de la campagne.
+- Acomptes et avances versés : imputés sur le net de la campagne sous réserve de versement effectif confirmé et de capacité disponible.
 
 Les dates de couverture ne sont pas toutes équivalentes. Une règle de fin de mois ne doit pas remplacer silencieusement une règle journalière.
 
 ## 6. Données et modèle de persistance
 
-Le schéma canonique de référence est `backend/conception/bdd/06_schema_paie.sql`, complété par les migrations courantes. Les migrations constituent l’historique des évolutions : leur ordre d’application est décrit dans le README migrations.
+Le schéma canonique de référence est `backend/conception/bdd/06_schema_paie.sql`. Les scripts SP01–SP84 et le README migrations ne sont pas présents dans ce dépôt ; les mentions SP conservées dans ce document repèrent des évolutions historiques et ne fournissent pas une procédure d'installation ou de mise à niveau exécutable.
 
 | Table / famille | Rôle |
 |---|---|
@@ -188,33 +228,85 @@ Les tables d’origine Pointage, Contrat et Congés restent possédées par leur
 
 ## 7. Règles de calcul du bulletin
 
-L’ordre fonctionnel général du moteur est le suivant ; les sous-calculs et catégories de ligne sont détaillés par les classes métier et la configuration :
+L’ordre fonctionnel général du moteur est strictement ordonnancé selon le cycle de paie :
 
-1. Salaire contractuel/prorata, gains bruts et majorations.
-2. Retenues liées à absence/congé et intégration des gains applicables.
-3. Calcul des assiettes et cotisations salariales/patronales selon profil et configuration.
-4. Net imposable et fiscalité IRSA selon barème daté et situation familiale applicable.
-5. Gains ajoutés après impôt lorsqu’ils sont configurés comme `GAIN_NET`.
-6. Retenues de trésorerie sur le net (acompte, avance, prêt et retenues permises).
-7. Arrondi et montant net à payer.
+1. **Salaire de base et prorata temporis** (contrat, entrées/sorties en cours de mois).
+2. **Retenues d'absence et retards** (valorisation horaire et décompte au trentième).
+3. **Majorations légales d'heures supplémentaires, de nuit, dimanches et fériés** (Loi 2024-014).
+4. **Indemnités de congés payés** (déstockage des lots FIFO et indemnité compensatrice).
+5. **Primes et indemnités brutes** (assujetties ou exonérées).
+6. **Calcul des assiettes sociales et cotisations salariales/patronales** (CNaPS, FMFP, Santé).
+7. **Net imposable et barème progressif IRSA** (CGI LF 2026, déductions pour charges de famille et minimum de perception).
+8. **Gains nets non imposables** (indemnités de transport, paniers, remboursements de frais).
+9. **Retenues de trésorerie sur le net** (acomptes de quinzaine et avances sur salaire `paie_avance_acompte`).
+10. **Arrondi monétaire et net à payer définitif**.
 
-Le code et la configuration gouvernent l’éligibilité d’une rubrique à chaque assiette : IRSA, CNaPS, Santé, FMFP. Une rubrique ajoutée au net ne doit pas modifier rétroactivement les assiettes brutes. Les contraintes de cohérence bloquent une configuration incompatible.
+### Catalogue des Règles de Gestion Métier (RG de A à Z)
 
-### Pointage, heures supplémentaires et congés
+#### RG-PAIE-01 : Taux horaire de référence
+Le taux horaire conventionnel ($TH$) sert de pivot à l'ensemble des valorisations horaires (retenues pour absence, retards, majorations d'heures supplémentaires, heures de nuit). Il est calculé avec une précision de 4 décimales sur la base de la durée légale hebdomadaire de 40 heures (Art. 109 Loi 2024-014), soit un diviseur mensuel invariable de $173{,}3333$ heures :
+$$TH = \frac{\text{Salaire de Base Contractuel}}{173{,}3333\dots} = \frac{\text{Salaire de Base Contractuel} \times 12}{52 \times 40}$$
 
-La paie utilise les résultats figés du pointage. Les heures sont ventilées à partir des buckets/tranches validés et des règles de majoration datées ; des contrôles bloquent une incohérence entre cumul hebdomadaire et snapshot. La rémunération d’heures supplémentaires utilise le taux horaire applicable à leur date.
+#### RG-PAIE-02 : Retenues pour absence et retards
+Toute absence non rémunérée ou retard non justifié constaté dans le snapshot de pointage donne lieu à une retenue sur salaire calculée comme suit :
+- **Absence horaire / Retard** : $\text{Retenue} = \frac{\text{Minutes Retenues}}{60} \times TH$.
+- **Absence journalière complète (décompte au trentième)** : conformément aux usages et à l'Art. 125/131 de la Loi 2024-014, le salaire journalier moyen est égal à :
+$$T30 = \frac{\text{Salaire de Base Contractuel}}{30}$$
+$$\text{Retenue Journalière} = \text{Jours d'absence} \times T30$$
 
-Les congés pris et les absences sont présentés comme des lignes distinctes selon les règles des domaines Paie et Congés. La valorisation des congés consommés peut provenir des lots historiques ; elle n’est pas réévaluée automatiquement au salaire courant. Une absence résiduelle relève des heures/minutes du snapshot. Les valeurs sont arrondies par les politiques monétaires prévues par le moteur ; toute présentation d’une formule doit préciser son assiette et son diviseur applicables.
+#### RG-PAIE-03 : Heures supplémentaires et majorations (Loi 2024-014, Art. 109 à 124)
+La durée légale du travail est fixée à 40 heures par semaine (Art. 109). Les heures excédentaires hebdomadaires validées dans le snapshot de pointage sont ventilées selon le barème légal :
+- **Tranche 1 (41e à 48e heure hebdomadaire)** : majoration de $+30\%$ sur le taux horaire ($1{,}30 \times TH$, Décret 72-226). Code rubrique `HS30`.
+- **Tranche 2 (au-delà de la 48e heure hebdomadaire)** : majoration de $+50\%$ sur le taux horaire ($1{,}50 \times TH$, Décret 72-226). Code rubrique `HS50`.
+- **Heures de nuit (22h00 à 05h00)** : majoration légale de nuit de $+30\%$ (Art. 117-124, ex-Art. 83). Code rubrique `NUIT`.
+- **Dimanches travaillés** : majoration conventionnelle de $+40\%$ (ou $+50\%$, Art. 114 & 116). Code rubrique `DIMANCHE`.
+- **Jours fériés chômés et payés travaillés** : majoration légale de $+100\%$ ($2{,}00 \times TH$, Art. 115 & 116). Code rubrique `FERIE`.
 
-### Cotisations et fiscalité
+#### RG-PAIE-04 : Exonération fiscale des heures supplémentaires (CGI LF 2026)
+Conformément aux dispositions de la Loi de Finances 2026, la rémunération brute des heures supplémentaires et de leurs majorations est exonérée de l'Impôt sur les Revenus Salariaux et Assimilés (IRSA) dans la limite du plafond mensuel configuré (`paie_config_legale.plafond_mensuel_hs_exonerees`). Cette fraction exonérée est déduite du net imposable pour constituer l'assiette IRSA effective.
 
-`SocialContributionContextResolver` résout les paramètres sociaux datés (CNaPS, FMFP et organisme de santé) ainsi que l'organisme déclaratif applicable (`RefOrganismeSocial`) pour la période et le site donnés. La résolution priorise toute surcharge définie au niveau du site (`site_cotisation.id_organisme_social`), puis se replie sur l’organisme par défaut du type de cotisation (`ref_type_cotisation.id_organisme_social`).
+#### RG-PAIE-05 : Assiettes et cotisations sociales obligatoires
+`SocialContributionContextResolver` résout les paramètres sociaux datés (CNaPS, FMFP et organisme de santé) ainsi que l'organisme déclaratif applicable (`RefOrganismeSocial`) pour la période et le site donnés (priorisant toute surcharge définie sur `site_cotisation.id_organisme_social`).
+- **CNaPS (Caisse Nationale de Prévoyance Sociale)** :
+  - Assiette : salaire brut plafonné à $8 \times \text{SME}$ (Salaire Minimum d'Embauche).
+  - Part salariale : $1\%$ retenu sur le brut.
+  - Part patronale : $13\%$ à la charge de l'employeur.
+- **FMFP (Fonds Malgache de Formation Professionnelle)** :
+  - Assiette : salaire brut plafonné à $8 \times \text{SME}$.
+  - Part patronale : $1\%$ à la charge de l'employeur (aucune part salariale).
+- **Organismes de Santé (OSTIE, AMIT, etc.)** :
+  - Assiette : salaire brut plafonné à $8 \times \text{SME}$.
+  - Part salariale : $1\%$ retenu sur le brut.
+  - Part patronale : taux paramétrable par site ($1\%$ à $5\%$).
 
-`SocialContributionCalculator` calcule les montants salariaux et patronaux à partir des assiettes construites. Lors de l'émission des lignes de bulletin dans `PayrollExecutionEngine`, les métadonnées de l'organisme résolu (`id_organisme_social`, `code_organisme_social`, `nom_organisme_social`) sont figées directement dans `bulletin_paie_ligne`. Cette immutabilité garantit que les récapitulatifs internes et historiques demeurent fidèles à la paie calculée même si la configuration d'un site ou d'un type est modifiée ultérieurement.
+Lors de l'émission des lignes dans `PayrollExecutionEngine`, les métadonnées de l'organisme résolu (`id_organisme_social`, `code_organisme_social`, `nom_organisme_social`) sont scellées directement dans `bulletin_paie_ligne`.
 
-`PayrollFiscalRulesResolver` et `PayrollTaxCalculations` portent la résolution et le calcul IRSA. Les tranches, minimum et déduction pour charges de famille proviennent de la configuration applicable. Les montants fixes d’une version historique de ce document ne sont pas des valeurs contractuelles : confirmer la configuration et les textes de la période auprès de la DAF.
+#### RG-PAIE-06 : Barème progressif de l'IRSA (CGI LF 2026)
+L'impôt est calculé par `PayrollTaxCalculations` sur l'assiette imposable nette de cotisations sociales salariales et hors heures supplémentaires exonérées :
+- Tranche de $0$ à $350\,000\text{ MGA}$ : $0\%$
+- Tranche de $350\,001$ à $400\,000\text{ MGA}$ : $5\%$
+- Tranche de $400\,001$ à $500\,000\text{ MGA}$ : $10\%$
+- Tranche de $500\,001$ à $600\,000\text{ MGA}$ : $15\%$
+- Tranche supérieure à $600\,000\text{ MGA}$ : $20\%$
+- **Déduction pour charges de famille** : déduction fiscale de $2\,000\text{ MGA}$ par enfant ou personne à charge par mois.
+- **Minimum de perception légal** : l'IRSA dû ne peut être inférieur à $3\,000\text{ MGA}$, même si le calcul par tranches ou la déduction aboutit à une valeur inférieure (sauf exonération totale de base).
+- Le calcul 2026 rejette tout calcul ISI sur bulletin salarié (réservé aux factures prestataires spécifiques).
 
-Le calcul 2026 rejette le calcul ISI sur bulletin salarié. Le cas particulier d’une activité indépendante doit être traité selon le parcours prestataire et les règles fiscales applicables à sa situation ; aucun taux général ISI n’est appliqué ici.
+#### RG-PAIE-07 : Priorité et quotité d'imputation des acomptes et avances
+Les retenues de trésorerie sur le salaire net s'exécutent selon un ordre de priorité strict :
+1. **Acompte de quinzaine** : priorité absolue sur le net disponible (créance sur salaire déjà acquis).
+2. **Avance spéciale / exceptionnelle** : prélevée sur le net restant après acompte, dans la limite de la quotité saisissable légale configurée. Le montant prélevé est débité de `paie_avance_acompte.solde_restant` et tracé dans `paie_mouvement_imputation`.
+
+#### RG-PAIE-08 : Sécurisation des règlements et preuve binaire (SP84)
+Tout paiement de bulletin mensuel confirmé exige une pièce justificative binaire authentique ($\le 5\text{ Mo}$, formats PDF/PNG/JPEG) contrôlée par signature MIME et stockée dans la même transaction. Le reste à payer est calculé dynamiquement sous verrou pessimiste du bulletin (`FOR UPDATE`) :
+$$\text{Reste à Payer} = \text{Net à Payer} - \sum(\text{Règlements non annulés})$$
+
+#### RG-PAIE-09 : Solde de Tout Compte (STC) et rupture contractuelle
+Le décompte STC scelle irréversiblement les droits de rupture :
+- **Indemnité Compensatrice de Congés Payés (ICCP)** : valorisation des jours restants par déstockage virtuel des lots FIFO (`conge_lot_droit`), conservant les salaires historiques d'acquisition.
+- **Indemnité de préavis (Art. 52-54)** : due en cas de dispense de préavis par l'employeur.
+- **Certificat de travail (Art. 50)** : délivrance obligatoire horodatée mentionnant dates d'entrée/sortie et poste occupé.
+- **Journal des règlements STC** : contrainte d'idempotence (`cle_idempotence`) et interdiction de double paiement actif sur même référence (`uk_stc_reglement_stc_ref_active`).
 
 ## 8. Configuration et rubriques
 
@@ -242,9 +334,9 @@ Une rubrique manuelle peut intervenir au `BRUT`, `GAIN_NET` ou `RETENUE_NET`. Le
 
 Le serveur recalcule les méthodes dérivées. Chaque version doit couvrir toute la période ; un chevauchement ou une période coupée entre versions bloque le calcul au lieu d’inventer un prorata. Une règle déjà consommée par des mouvements ou bulletins est gouvernée par ses contraintes de modification ; créer une nouvelle version datée quand le contrat de configuration l’exige.
 
-Les calculateurs dédiés (fiscalité, cotisations, heures, congés, acomptes, avances, prêts) ne deviennent pas des rubriques génériques configurables. Le registre des capacités décrit le moteur mais ne remplace pas le code de calcul.
+Les calculateurs dédiés (fiscalité, cotisations, heures, congés, acomptes, avances) ne deviennent pas des rubriques génériques configurables. Le registre des capacités décrit le moteur mais ne remplace pas le code de calcul.
 
-## 9. Variables, acomptes, avances et prêts
+## 9. Variables, acomptes et avances d'entreprise
 
 ### Variables de paie
 
@@ -277,7 +369,7 @@ Le domaine sépare strictement les responsabilités pour préserver la traçabil
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │ 1. DOSSIER DE SORTIE ADMINISTRATIF (paie_dossier_sortie)               │
-│    Orchestration RH, checklist offboarding, matériel, arbitrage prêts, │
+│    Orchestration RH, checklist offboarding, matériel, créances,       │
 │    simulation tracée (snapshot_simulation), certificat & clôture       │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ scelle (POST /{id}/sceller)
@@ -296,7 +388,7 @@ Le domaine sépare strictement les responsabilités pour préserver la traçabil
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Orchestration administrative (`paie_dossier_sortie`)** : pilote le départ du collaborateur dès l'intention ou la notification, sans altérer prématurément le contrat de travail (qui relève du module Carrière) ni perturber les paies mensuelles en cours. Elle conserve la checklist d'offboarding (restitution badge, matériel informatique, clés, désactivation accès), consigne l'arbitrage formel sur les prêts d'entreprise éventuels, fige le snapshot de simulation avant scellement, enregistre la remise du certificat de travail et porte la décision finale de clôture administrative.
+1. **Orchestration administrative (`paie_dossier_sortie`)** : pilote le départ du collaborateur dès l'intention ou la notification, sans altérer prématurément le contrat de travail (qui relève du module Carrière) ni perturber les paies mensuelles en cours. Elle conserve la checklist d'offboarding (restitution badge, matériel informatique, clés, désactivation accès), consigne l'arbitrage formel sur les avances subsistantes et matériels, fige le snapshot de simulation avant scellement, enregistre la remise du certificat de travail et porte la décision finale de clôture administrative.
 2. **Décompte financier scellé (`paie_stc`)** : émis une seule fois lors du scellement. Il génère transactionnellement le bulletin de paie de type STC (`bulletin_paie`) et ses lignes détaillées, liquide le solde positif de congés (ICCP) par mouvement d'ajustement dans le grand-livre congés, neutralise le prorata mensuel si un bulletin normal existe, capture l'instantané employeur légal (`bulletin_paie_employeur_snapshot`) et fige les montants bruts, cotisations et net à payer.
 3. **Journal des règlements (`paie_stc_reglement`)** : enregistre de manière échelonnée ou intégrale les paiements financiers effectivement exécutés par la trésorerie. Il est protégé contre toute suppression en cascade (`ON DELETE RESTRICT`), autorise les acquittements à solde nul (`montant_regle >= 0`), garantit l'unicité de la référence de paiement active (`uk_stc_reglement_stc_ref_active`), supporte l'idempotence technique (`cle_idempotence`) et trace toute annulation exceptionnelle.
 
@@ -305,7 +397,7 @@ Le domaine sépare strictement les responsabilités pour préserver la traçabil
 ```mermaid
 flowchart TD
     A[Notification de rupture RH<br/>Contrat Carrière] --> B[1. Ouverture Dossier de Sortie<br/>paie_dossier_sortie : EN_PREPARATION]
-    B --> C[2. Préparation & Checklist<br/>Pointage, congés, prêts, acomptes, bulletin mensuel]
+    B --> C[2. Préparation & Checklist<br/>Pointage, congés, acomptes, avances, bulletin mensuel]
     C --> D[3. Simulation contrôlée<br/>Génération référence & snapshot_simulation]
     D --> E{Données RH & financières conformes ?}
     E -- Non --> F[Régulariser Carrière / Pointage / Paie mensuelle]
@@ -324,12 +416,12 @@ flowchart TD
 #### Les étapes du parcours opérationnel :
 
 1. **Ouverture du dossier** (`POST /api/paie/dossier-sortie`) : sélection du salarié, saisie de la date effective de départ et du motif. Cette création n'interrompt pas le contrat de travail et ne modifie pas le statut de l'employé.
-2. **Préparation & Checklist** : l'écran de travail (`DossierSortieModal` / `DossierSortieWorkspaceShell`) présente l'état réel des modules connexes : gel du pointage, bulletin mensuel de la période, solde de congés, prêts actifs et acomptes en cours. L'arbitrage sur un prêt subsistant (retenue convenue, protocole séparé, abandon) doit être consigné avant clôture.
+2. **Préparation & Checklist** : l'écran de travail (`DossierSortieModal` / `DossierSortieWorkspaceShell`) présente l'état réel des modules connexes : gel du pointage, bulletin mensuel de la période, solde de congés, acomptes et avances en cours. L'arbitrage sur une créance subsistante doit être consigné avant clôture.
 3. **Simulation contrôlée vs Aperçu immédiat** :
    - *Aperçu UI immédiat* (`POST /api/paie/stc/calculer`) : lancé depuis l'onglet Paie de la fiche collaborateur (`simulationOnly=true`), il calcule les montants à la volée sans créer de dossier, sans réservation et sans persistance.
    - *Simulation contrôlée du dossier* (`POST /api/paie/dossier-sortie/{id}/simuler`) : exécutée au sein du dossier préparatoire, elle vérifie la cohérence du contrat, gèle un `snapshot_simulation` et délivre une `reference_simulation` unique et traçable.
 4. **Scellement irréversible du STC** (`POST /api/paie/dossier-sortie/{id}/sceller`) : exige la `reference_simulation` et le numéro de `version` pour prévenir tout conflit concurrent. L'opération est transactionnelle : elle persiste `paie_stc`, crée le bulletin STC et ses lignes, impute les acomptes confirmés, liquide l'ICCP en congés et fige l'identité employeur.
-5. **Délivrance du certificat de travail** (`POST /{id}/certificat`, téléchargements PDF/DOCX) : conforme à l'Art. 50 de la Loi 2024-014. Exige un contrat non actif (`ROMPU`, `CLOTURE` ou `TERMINE`) avec date de fin enregistrée.
+5. **Délivrance du certificat de travail** (`POST /{id}/certificat`, téléchargements PDF/DOCX) : le contenu est conçu au regard de l'Art. 50 de la Loi 2024-014. L'application de l'article et la conformité du document produit doivent être confirmées par les responsables compétents. Le parcours exige un contrat non actif (`ROMPU`, `CLOTURE` ou `TERMINE`) avec date de fin enregistrée.
 6. **Enregistrement des versements** (`POST /{id}/reglement`) : saisie des règlements réels (date, référence, mode, montant, commentaire, clé d'idempotence). Les montants nets, totaux réglés et restes à payer sont recalculés dynamiquement par le serveur.
 7. **Clôture administrative finale** (`POST /{id}/cloturer`) : clôture irréversible du dossier de sortie, soumise à des règles de gouvernance strictes (voir § 10.5).
 
@@ -355,7 +447,7 @@ Le journal des règlements (`paie_stc_reglement`) respecte les standards bancair
 - **Unicité de la référence de paiement active (`uk_stc_reglement_stc_ref_active`)** : une référence de transaction ou de virement ne peut être active qu'une seule fois pour un même STC. En cas d'annulation formelle d'un versement, la référence est libérée et peut être réutilisée.
 - **Idempotence technique (`X-Idempotency-Key` / `cle_idempotence`)** : le contrôleur et le service acceptent une clé d'idempotence (via l'en-tête HTTP `X-Idempotency-Key` ou le champ JSON `idempotencyKey`). L'index unique partiel `uk_stc_reglement_idempotence` prévient tout double débit suite à un double clic ou un retry réseau : la répétition d'une même clé avec les mêmes paramètres renvoie immédiatement la situation enregistrée sans créer de nouvelle écriture ; une modification du payload sous la même clé est rejetée avec une erreur de conflit.
 - **Annulation motivée et traçable** : une écriture de versement ne peut jamais être supprimée physiquement. L'annulation (`POST /{id}/reglement/{idReglement}/annuler`) horodate l'acte, enregistre l'identifiant de l'utilisateur (`annule_par`), passe `est_annule = TRUE` et exige un `motif_annulation` textuel obligatoire.
-- **Protection contre la suppression en cascade** : la contrainte `FOREIGN KEY (id_stc) REFERENCES paie_stc(id_stc) ON DELETE RESTRICT` (migration SP73) interdit la suppression accidentelle d'un décompte STC dès lors qu'une écriture comptable de règlement existe.
+- **Protection contre la suppression en cascade** : la contrainte `FOREIGN KEY (id_stc) REFERENCES paie_stc(id_stc) ON DELETE RESTRICT` (évolution référencée historiquement SP73) interdit la suppression accidentelle d'un décompte STC dès lors qu'une écriture comptable de règlement existe. Le script de migration correspondant n'est pas fourni dans ce dépôt ; vérifier le schéma effectif de la base cible avant une mise à niveau.
 
 ### 10.5 Clôture administrative du dossier & Gouvernance de la dérogation (SP78 & SP81)
 
@@ -369,7 +461,7 @@ La clôture administrative du dossier de sortie (`POST /api/paie/dossier-sortie/
 #### 2. Règle d'or financière et dérogation formelle gouvernée (SP81)
 - Si le STC est **intégralement réglé** (`resteAPayer == 0`), la clôture standard est prononcée.
 - Si un **solde restant dû subsiste**, la clôture est **strictement interdite**, sauf si une dérogation formelle motivée est expressément accordée.
-- Conformément à la migration **SP81** et à la contrainte de base de données `chk_dossier_derogation_gouvernance`, toute dérogation de clôture exige obligatoirement quatre attributs indissociables :
+- Conformément à l'évolution référencée historiquement **SP81** et à la contrainte de base de données `chk_dossier_derogation_gouvernance`, toute dérogation de clôture exige les cinq attributs indissociables listés ci-dessous. Le script SP81 n'est pas présent dans ce dépôt :
   1. `derogationReglementIncomplet = TRUE` ;
   2. `justificationDerogation` : justification textuelle circonstanciée obligatoire ;
   3. `autoriteDecisionDerogation` : autorité décisionnaire formelle ayant approuvé l'acte (ex. `DIRECTION_GENERALE`, `DAF`, `TRIBUNAL_DU_TRAVAIL`) ;
@@ -398,7 +490,7 @@ Les documents de sortie sont générés à la volée par `StcDocumentService` av
 | **Décompte STC scellé** | `/{id}/documents/decompte/pdf` | Reprend les postes et montants scellés de `paie_stc`. Porte la mention expresse : *« Ce décompte détaille les éléments financiers arrêtés mais ne constitue pas une preuve de paiement bancaire »*. |
 | **Reçu STC (Projet)** | `/{id}/documents/recu-stc/pdf` | Titré visiblement **PROJET**. Il reflète l'état des versements enregistrés à l'instant de l'impression. Mention légale de forclusion : en droit positif malgache (Loi n° 2024-014, art. 95-96 / Loi n° 2003-044, art. 64-66), le délai légal de dénonciation ou contestation du reçu pour solde de tout compte est strictement de **deux (02) mois** (et non 6 mois comme en droit français). |
 | **Quittance de versement** | `/{id}/documents/quittance/{idReglement}/pdf` | Justificatif individuel d'une écriture du journal des règlements. Affiche le montant versé, le mode, la référence, l'auteur, le cumul réglé et le reste à payer à la date de l'écriture. |
-| **Certificat de travail légal** | `/{id}/documents/certificat/pdf` et `.docx` | Établi en stricte conformité avec l'**Article 50 de la Loi n° 2024-014** (Code du travail malgache) : indique exclusivement les dates d'entrée et de sortie, la nature des emplois successivement occupés, leurs périodes et les catégories professionnelles correspondantes. Exclut toute mention de dette, appréciation subjective ou motif de rupture. |
+| **Certificat de travail** | `/{id}/documents/certificat/pdf` et `.docx` | Le modèle vise à reprendre les éléments prévus à l'**Article 50 de la Loi n° 2024-014** : dates d'entrée/sortie, emplois occupés, périodes et catégories professionnelles. Le document généré et son usage doivent être revus par les responsables compétents avant d'être présentés comme juridiquement conformes. |
 | **Bordereau de remise** | `/{id}/documents/bordereau-remise/pdf` | Récapitule l'état des formalités administratives et de la checklist d'offboarding consignées en base. Le téléchargement ne modifie aucune donnée. |
 
 ### 10.7 API REST détaillées
@@ -411,7 +503,7 @@ Tous les endpoints sont préfixés par `/api/paie/dossier-sortie` (URL canonique
 |---|---|---|---|
 | `GET` | `/liste` | `PAIE_READ` | Liste l'ensemble des dossiers de sortie avec salarié, contrat, motif, statut, montants et dates. |
 | `GET` | `/employes?q=...` | `PAIE_READ` | Recherche minimale (matricule, nom, prénom) limitée à 20 résultats pour l'ouverture d'un dossier sans exposer la fiche complète. |
-| `GET` | `/{id}` | `PAIE_READ` | Détail complet d'un dossier avec checklist dynamique, simulation, prêts et statuts. |
+| `GET` | `/{id}` | `PAIE_READ` | Détail complet d'un dossier avec checklist dynamique, simulation, créances et statuts. |
 | `GET` | `/employe/{idEmploye}` | `PAIE_READ` | Récupère ou initialise la vue du dossier d'un employé avec date et motif prévisionnels. |
 | `POST` | `/` | `PAIE_WRITE` | Crée ou met à jour un dossier préparatoire (`DossierSortieSaveRequest`). |
 | `POST` | `/{id}/certificat` | `PAIE_WRITE` | Constate la délivrance effective du certificat de travail (date et mode de remise). |
@@ -465,7 +557,7 @@ Le parcours indépendant figure dans `/paie/prestataires` et comprend :
 
 La création du contrat dans l’application enregistre les informations de mission ; elle ne rédige ni ne signe le document contractuel. La validation exige les pièces prévues. L’action « payer » consigne un paiement déjà fait et ne lance pas de transfert. Un brouillon peut être annulé selon les règles du contrôleur ; une facture validée ou payée reste conservée.
 
-Ce flux ne crée ni bulletin salarié ni STC. La relation d’emploi doit être qualifiée avant de choisir ce parcours. Le détail des contraintes et du déploiement des tables est dans les sources `PrestataireController`, les migrations prestataires et le schéma canonique ; le présent document reste la référence de module.
+Ce flux ne crée ni bulletin salarié ni STC. La relation d’emploi doit être qualifiée avant de choisir ce parcours. Les contraintes sont décrites dans `PrestataireController` et le schéma canonique ; les éventuels scripts d'évolution prestataires ne sont pas fournis dans ce dépôt.
 
 ### Pièces jointes et noms de fichiers
 
@@ -570,7 +662,7 @@ la banque. Un lot préparé peut être annulé sans effacer sa trace.
 Le serveur calcule `reste = net_a_payer - somme(règlements non annulés)` sous
 verrou du bulletin ; un virement en attente bloque un autre versement sur ce
 bulletin. L'API est `BulletinReglementController` sous `/paie/reglements` ; le
-schéma canonique 06 et la migration SP84 ajoutent les tables. La migration
+schéma canonique 06 décrit les tables. La référence SP84 désigne une évolution historique ; son script n'est pas présent dans le dépôt. Le code actuel
 conserve les anciennes lignes sans preuve comme historiques à régulariser ; elles
 sont signalées dans l’interface et ne disposent d’aucun justificatif à télécharger.
 L’API refuse toute nouvelle écriture sans pièce. Une ancienne ligne ne doit être
@@ -610,8 +702,10 @@ Les routes de paie acceptent généralement les préfixes `/api/v1/paie`, `/v1/p
 | `PaieController` | `GET /periode/{id}/cockpit`, `GET /periode/{id}/bulletins` | Résumé et bulletins de campagne |
 | `PaieController` | `GET /employe/{id}/bulletins`, `/synthese` | Historique et synthèse des bulletins du salarié |
 | `PaieController` | `/periode/{id}/export/*`, `/annee/{annee}/export/recap-paie`, `/trimestre/{annee}/{trimestre}/export/{type}` | Exports de paie |
-| `BulletinReglementController` | `/paie/reglements/periode/{id}`, `/bulletin/{id}`, `/bulletin/{id}/situation`, `/bulletin/{id}/justificatif/{idReglement}` | Consultation du solde, de l'historique et des preuves |
-| `BulletinReglementController` | `POST /bulletin`, `/bulletin/{idReglement}/annuler`, `/periode/{id}/lots`, `/lots/{id}/transmettre`, `/lots/lignes/{id}/confirmer`, `/rejeter` | Versements individuels et lots bancaires ; pièce multipart obligatoire pour tout règlement confirmé |
+| `BulletinReglementController` | `GET /paie/reglements/periode/{id}`, `GET /bulletin/{id}`, `GET /bulletin/{id}/situation`, `GET /bulletin/{id}/justificatif/{idReglement}` | Consultation de la situation financière, du reste à payer, de l'historique et téléchargement des justificatifs binaires |
+| `BulletinReglementController` | `POST /paie/reglements/bulletin` (Multipart), `POST /bulletin/{idReglement}/annuler` | Enregistrement de versement individuel avec pièce jointe obligatoire (<= 5 Mo) et annulation motivée |
+| `BulletinReglementController` | `POST /paie/reglements/periode/{id}/lots`, `GET /periode/{id}/lots`, `GET /lots/{id}/lignes`, `GET /lots/{id}/csv` | Préparation de lots bancaires, listing, détail des lignes et export CSV sécurisé (avec BOM UTF-8 et assainissement des formules) |
+| `BulletinReglementController` | `POST /paie/reglements/lots/{id}/transmettre`, `POST /lots/{id}/annuler`, `POST /lots/lignes/{id}/confirmer` (Multipart), `POST /lots/lignes/{id}/rejeter` | Cycle de vie des lots : transmission, annulation, confirmation avec avis bancaire joint et rejet libérant le bulletin |
 | `PaieAjustementController` | CRUD commandes sur `/ajustements`, types, imputations, justificatifs | Variables, acomptes et avances |
 | `PaieAjustementController` | `POST /{id}/versement`, `POST /{id}/commands` | Confirmation de versement et workflow de décision |
 | `PaieRubriqueController` | `/paie/rubriques` et `/{id}/versions` | Catalogue et versions de rubriques |
@@ -654,20 +748,13 @@ La liste ci-dessus donne les points d’entrée principaux. Pour le détail exac
 - Vérifier les lignes de retenue et le solde sur chaque bulletin suivant.
 - Rapprocher les dossiers historiques « versement à vérifier » avec les preuves de paiement avant toute imputation.
 
-### Pour un prêt
-
-- Vérifier contrat/autorisation, montant, date de première échéance, montants et dates de toutes les échéances, statut et capital restant.
-- Contrôler que l’échéance est arrivée avant le calcul de paie et que son prélèvement respecte la capacité configurée.
-- Vérifier après paie la ligne de bulletin, l’imputation d’échéance et le capital restant.
-- À la sortie du salarié, rapprocher le prêt avec les pièces et modalités convenues ; le moteur STC n'en applique pas actuellement le solde.
-
 ### Pour un dossier de sortie et STC
 
 1. Vérifier que la cessation effective du contrat de travail a été initiée et validée par le module Carrière (`ROMPU`, `CLOTURE` ou `TERMINE` avec date de fin).
 2. Contrôler que le pointage final de la période de départ est gelé et que toutes les indemnités variables sont rattachées selon la règle SP80.
 3. Rapprocher le bulletin mensuel s'il a déjà été calculé/validé pour imputer le salaire déjà perçu et éviter tout double paiement au décompte.
 4. Lancer la simulation contrôlée du dossier (`POST /{id}/simuler`) pour vérifier le prorata trentième, la valorisation FIFO des congés et les cotisations différentielles.
-5. Résoudre les points bloquants de la checklist d'offboarding (restitution matériels et arbitrage des prêts) puis procéder au scellement optimiste (`POST /{id}/sceller`).
+5. Résoudre les points bloquants de la checklist d'offboarding (restitution matériels et arbitrage des créances/avances) puis procéder au scellement optimiste (`POST /{id}/sceller`).
 6. Télécharger le certificat de travail Art. 50 (PDF/DOCX) et le décompte scellé, puis enregistrer chaque versement réel dans le journal (`POST /{id}/reglement`) avec sa clé d'idempotence.
 7. Ne prononcer la clôture administrative (`POST /{id}/cloturer`) que si le solde restant est nul, ou si une dérogation formelle dument motivée comporte l'autorité décisionnaire, la référence écrite et la date d'effet (contrainte SP81).
 

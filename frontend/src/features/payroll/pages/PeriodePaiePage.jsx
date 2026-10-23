@@ -32,6 +32,7 @@ import HasPermission from '@/features/auth/components/HasPermission';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
+import Badge from '@/components/ui/data-display/Badge';
 
 const STATUT_CONFIG = {
     'BROUILLON': {
@@ -46,12 +47,12 @@ const STATUT_CONFIG = {
     },
     'A_VALIDER': {
         variant: 'warning',
-        label: 'Transmise pour arbitrage',
+        label: 'À arbitrer',
         desc: 'Saisie terminée, arbitrage en cours'
     },
     'TRANSMIS_DAF': {
         variant: 'warning',
-        label: 'Transmise pour arbitrage',
+        label: 'Transmise par le terrain',
         desc: 'Saisie terrain clôturée, arbitrage en cours'
     },
     'VALIDEE': {
@@ -356,7 +357,8 @@ export default function PeriodePaiePage() {
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Cycle actuellement piloté</p>
-                            <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{activeCycle.libelle} <span className="font-data text-sm font-medium text-[var(--color-fg-muted)]">· {activeCycle.dateDebut} → {activeCycle.dateFin}</span></h2>
+                            <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{activeCycle.libelle}</h2>
+                            <p className="mt-1 font-data text-xs text-[var(--color-fg-muted)]">{activeCycle.dateDebut} → {activeCycle.dateFin}</p>
                         </div>
                         {(() => {
                             const dest = activeCycle.nextStep?.destination
@@ -368,20 +370,22 @@ export default function PeriodePaiePage() {
                             );
                         })()}
                     </div>
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 border border-[var(--color-border-subtle)] divide-y sm:divide-y-0 sm:divide-x divide-[var(--color-border-subtle)]">
-                        <div className="p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">1. Pointage</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{activeCycle.workflowStatuses?.pointage?.label || '—'}</p>
-                        </div>
-                        <div className="p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">2. Paie</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{activeCycle.workflowStatuses?.paie?.label || '—'}</p>
-                        </div>
-                        <div className="p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">3. Variables</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{(variablesByPeriod[activeCycle.idPeriodePaie] || []).length} élément(s) rattaché(s)</p>
-                        </div>
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {[
+                            ['Pointage', activeCycle.workflowStatuses?.pointage],
+                            ['Paie', activeCycle.workflowStatuses?.paie],
+                        ].map(([label, status]) => (
+                            <div key={label} className="flex min-w-0 items-start justify-between gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2.5">
+                                <span className="text-xs font-medium text-[var(--color-fg-muted)]">{label}</span>
+                                <Badge variant={status?.tone || 'neutral'} size="xs" className="max-w-[70%] whitespace-normal text-right normal-case tracking-normal">
+                                    {status?.label || 'Statut indisponible'}
+                                </Badge>
+                            </div>
+                        ))}
                     </div>
+                    <p className="mt-3 text-xs text-[var(--color-fg-muted)]">
+                        Variables rattachées à la campagne : <strong className="font-data text-[var(--color-fg)]">{(variablesByPeriod[activeCycle.idPeriodePaie || activeCycle.id] || []).length}</strong>
+                    </p>
                 </section>
             )}
 
@@ -389,6 +393,13 @@ export default function PeriodePaiePage() {
 
             {/* Campagnes et actions de suivi */}
             <section className="space-y-3" aria-labelledby="campagnes-creees-title">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <h2 id="campagnes-creees-title" className="text-base font-bold text-[var(--color-fg)]">Campagnes créées</h2>
+                        <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">Recherchez une période, vérifiez son état et reprenez le travail à l’étape disponible.</p>
+                    </div>
+                    {periodes.length > 0 && <span className="text-xs tabular-nums text-[var(--color-fg-muted)]">{filteredPeriodes.length} / {periodes.length} période{periodes.length > 1 ? 's' : ''}</span>}
+                </div>
 
                 {loading && periodes.length === 0 ? (
                     <SkeletonTable rows={3} cols={3} />
@@ -551,10 +562,10 @@ export default function PeriodePaiePage() {
             >
                 <form onSubmit={handleCreate} className="space-y-4">
                     {isCustomCreate && nextSuggestion && (
-                        <div className="p-3 bg-[var(--color-warning-500)]/10 dark:bg-[var(--color-warning-950)]/25 border border-[var(--color-warning-500)]/30 flex items-center justify-between gap-3 text-xs">
+                        <div className="p-3 bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]/25 border border-[var(--color-brand-200)] dark:border-[var(--color-brand-700)]/50 flex items-center justify-between gap-3 text-xs">
                             <div className="flex items-center gap-2">
-                                <Sparkles size={16} className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] shrink-0" />
-                                <span className="text-[var(--color-warning-950)] dark:text-[var(--color-warning-200)]">
+                                <Sparkles size={16} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-300)] shrink-0" />
+                                <span className="text-[var(--color-fg)]">
                                     Suite suggérée : <strong>{nextSuggestion?.libelle}</strong> ({nextSuggestion?.dateDebut} au {nextSuggestion?.dateFin})
                                 </span>
                             </div>

@@ -183,9 +183,9 @@ export default function PeriodeEmployeeHeader({
             )}
 
             {/* 3. Barre d'outils Assistants & Filtres */}
-            <div className="p-2.5 flex flex-wrap items-center justify-between gap-2.5 bg-[var(--color-surface)]">
+            <div className="attendance-filter-toolbar p-2.5 flex flex-wrap items-center justify-between gap-2.5 bg-[var(--color-surface)]">
                 {/* Filtres d'état */}
-                <div className="flex items-center gap-1">
+                <div className="attendance-filter-chips flex items-center gap-1">
                     {[
                         { key: 'ALL', label: 'Tous', count: filterCounts.ALL ?? grilleRows.length },
                         { key: 'MISSING', label: 'À saisir', count: filterCounts.MISSING ?? 0 },

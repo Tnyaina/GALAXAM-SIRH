@@ -42,7 +42,8 @@ CREATE TABLE ref_motif_evenement_familial (
     id_motif SERIAL PRIMARY KEY,
     code VARCHAR(30) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
-    nb_jours_autorises NUMERIC(4,1) NOT NULL,
+    -- Legacy compatibility only; a motif identifies the event and never fixes leave duration.
+    nb_jours_autorises NUMERIC(4,1),
     justificatif_requis BOOLEAN DEFAULT TRUE,
     est_actif BOOLEAN DEFAULT TRUE
 );
@@ -336,7 +337,7 @@ LEFT JOIN utilisateur uv ON uv.id_utilisateur = d.valide_par;
 
 -- Pool partagé "permissions exceptionnelles"
 INSERT INTO ref_pool_conge_annuel (id_pool, code, libelle, plafond_jours_an) VALUES
-(1, 'PERMISSIONS_FAMILIALES', 'Permissions exceptionnelles pour événements familiaux (Art. 88)', 10);
+(1, 'PERMISSIONS_FAMILIALES', 'Permissions exceptionnelles pour événements familiaux (Art. 126(4), Loi 2024-014)', 10);
 SELECT setval('ref_pool_conge_annuel_id_pool_seq', (SELECT GREATEST(MAX(id_pool), 1) FROM ref_pool_conge_annuel));
 
 -- Types de congé
@@ -358,14 +359,19 @@ INSERT INTO ref_type_conge (id_type_conge, code, libelle, est_paye, decompte_sol
 (9, 'FORMATION',  'Congé formation',    FALSE, FALSE, 0,  NULL, FALSE, TRUE,  TRUE),
 (10,'SANS_SOLDE', 'Congé sans solde',   FALSE, FALSE, 0,  NULL, FALSE, FALSE, TRUE);
 
+-- Les deux types de permission familiale partagent le plafond annuel de l'article 126(4).
+UPDATE ref_type_conge
+SET id_pool_conge_annuel = 1
+WHERE code = 'PERMISSION';
+
 SELECT setval('ref_type_conge_id_type_conge_seq', (SELECT GREATEST(MAX(id_type_conge), 10) FROM ref_type_conge));
 
--- Motifs d'événements familiaux
-INSERT INTO ref_motif_evenement_familial (id_motif, code, libelle, nb_jours_autorises, justificatif_requis) VALUES
-(1, 'MARIAGE',              'Mariage du salarié',               3, TRUE),
-(2, 'NAISSANCE',            'Naissance / baptême d un enfant',  2, TRUE),
-(3, 'DECES_CONJOINT_ENFANT','Décès du conjoint ou d un enfant', 3, TRUE),
-(4, 'DECES_PARENT',         'Décès d un parent ou beau-parent', 2, TRUE);
+-- Motifs descriptifs seulement : les dates demandées déterminent la durée.
+INSERT INTO ref_motif_evenement_familial (id_motif, code, libelle, justificatif_requis) VALUES
+(1, 'MARIAGE',              'Mariage du salarié',               TRUE),
+(2, 'NAISSANCE',            'Naissance / baptême d un enfant',  TRUE),
+(3, 'DECES_CONJOINT_ENFANT','Décès du conjoint ou d un enfant', TRUE),
+(4, 'DECES_PARENT',         'Décès d un parent ou beau-parent', TRUE);
 SELECT setval('ref_motif_evenement_familial_id_motif_seq', (SELECT GREATEST(MAX(id_motif), 4) FROM ref_motif_evenement_familial));
 
 -- Statuts du circuit de demande
@@ -378,27 +384,27 @@ INSERT INTO ref_statut_demande_conge (id_statut_demande_conge, code, libelle) VA
 SELECT setval('ref_statut_demande_conge_id_statut_demande_conge_seq', (SELECT GREATEST(MAX(id_statut_demande_conge), 5) FROM ref_statut_demande_conge));
 
 -- =====================================================================
--- REPRISE INITIALE / CUTOVER DE CONGÉS FICTIF (AU 25/12/2025)
--- Préparation du démarrage des cycles 2026 (Période 2026-01 dès le 26/12/2025)
+-- REPRISE INITIALE / CUTOVER DE CONGÉS FICTIF (AU 25/07/2026)
+-- Le cycle de paie d'août est du 26/07 au 25/08 ; la référence TCONGE reste civile.
 -- =====================================================================
 
 -- 1. Cycles de référence annuels 2026 ouverts avec report des droits acquis
 INSERT INTO conge_periode_reference (id_periode_reference, id_employe, date_debut, date_fin, statut, mode_reprise, date_cutover, cumul_droits_ouverture, cumul_valorisation_ouverture) VALUES
-(1, 1, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2025-12-25', 15.0000, 2500000.00),
-(2, 2, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2025-12-25', 12.5000, 1458333.38);
+(1, 1, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2026-07-25', 15.0000, 2500000.00),
+(2, 2, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2026-07-25', 12.5000, 1458333.38);
 
 SELECT setval('conge_periode_reference_id_periode_reference_seq', (SELECT GREATEST(MAX(id_periode_reference), 2) FROM conge_periode_reference));
 
 -- 2. Taux journaliers initiaux applicables TCONGE (base salaire / 30)
 INSERT INTO conge_taux_applicable (id_taux_applicable, id_employe, taux_journalier, date_effet, date_fin, source_provenance, id_periode_reference, commentaire) VALUES
-(1, 1, 166666.67, '2025-12-25', NULL, 'REPRISE_CUTOVER', 1, 'Reprise cutover initial - Solde fictif arrêté au 25/12/2025'),
-(2, 2, 116666.67, '2025-12-25', NULL, 'REPRISE_CUTOVER', 2, 'Reprise cutover initial - Solde fictif arrêté au 25/12/2025');
+(1, 1, 166666.67, '2026-07-25', NULL, 'REPRISE_CUTOVER', 1, 'Reprise cutover initial - Solde fictif arrêté au 25/07/2026'),
+(2, 2, 116666.67, '2026-07-25', NULL, 'REPRISE_CUTOVER', 2, 'Reprise cutover initial - Solde fictif arrêté au 25/07/2026');
 
 SELECT setval('conge_taux_applicable_id_taux_applicable_seq', (SELECT GREATEST(MAX(id_taux_applicable), 2) FROM conge_taux_applicable));
 
 -- 3. Mouvements de reprise de solde consommable (format canonique [SOLDE_INITIAL])
 INSERT INTO mouvement_solde_conge (id_mouvement, id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, valeur_source) VALUES
-(1, 1, 'AJUSTEMENT', 15.00, '2025-12-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2025-12-25 (exclut acquisition 2026-01)', 2500000.00),
-(2, 2, 'AJUSTEMENT', 12.50, '2025-12-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2025-12-25 (exclut acquisition 2026-01)', 1458333.38);
+(1, 1, 'AJUSTEMENT', 15.00, '2026-07-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2026-07-25 (paie 2026-08 à partir du 26/07)', 2500000.00),
+(2, 2, 'AJUSTEMENT', 12.50, '2026-07-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2026-07-25 (paie 2026-08 à partir du 26/07)', 1458333.38);
 
 SELECT setval('mouvement_solde_conge_id_mouvement_seq', (SELECT GREATEST(MAX(id_mouvement), 2) FROM mouvement_solde_conge));

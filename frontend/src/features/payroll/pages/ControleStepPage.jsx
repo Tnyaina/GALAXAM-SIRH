@@ -93,6 +93,8 @@ export default function ControleStepPage() {
     const blockers = context?.issueSummary?.blockerCount ?? 0;
     const matchingCount = cockpit?.bulletinsPage?.totalElements ?? bulletins.length;
     const canContinue = context?.availableActions?.VALIDATE?.allowed === true;
+    const payrollStatus = context?.selectedPeriod?.workflowStatuses?.paie?.code;
+    const payrollValidated = ['VALIDEE', 'CLOTUREE'].includes(payrollStatus);
     const filterTabs = [
         { id: 'ALL', label: 'Tous', count: totalBulletins },
         { id: 'ALERTS', label: 'À examiner', count: alerts },
@@ -110,6 +112,7 @@ export default function ControleStepPage() {
                 label: 'Continuer vers la validation',
                 onClick: () => navigate(`/paie/periodes/${numericPeriodId}/validation`),
                 disabled: !canContinue,
+                disabledReason: payrollValidated ? 'La paie est déjà validée. Consultez les bulletins et les sorties à l’étape suivante.' : undefined,
                 icon: <ArrowRight size={14} />,
             }}
         >
@@ -165,19 +168,23 @@ export default function ControleStepPage() {
 
                 <section className={`flex flex-wrap items-center justify-between gap-3 border px-4 py-3 ${canContinue ? 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5' : 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10'}`} role="status">
                     <div>
-                        <h2 className="text-sm font-bold text-[var(--color-fg)]">{canContinue ? 'Campagne prête pour validation' : 'Contrôle à compléter'}</h2>
+                        <h2 className="text-sm font-bold text-[var(--color-fg)]">
+                            {canContinue ? 'Campagne prête pour validation' : payrollValidated ? 'Paie déjà validée' : 'Contrôle à compléter'}
+                        </h2>
                         <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
                             {canContinue
                                 ? 'Les prérequis de validation sont satisfaits. Vous pouvez transmettre la campagne à l’étape suivante.'
-                                : blockers > 0
+                                : payrollValidated
+                                    ? 'Les bulletins sont scellés. Consultez-les et accédez aux sorties depuis l’étape « Bulletins & Exports ».'
+                                    : blockers > 0
                                     ? `${blockers} point(s) bloquant(s) empêchent la validation.`
                                     : alerts > 0
                                         ? `${alerts} signal(aux) à examiner avant la validation.`
                                         : 'La validation reste indisponible selon les règles et autorisations de la campagne.'}
                         </p>
                     </div>
-                    <Badge variant={canContinue ? 'success' : blockers > 0 ? 'danger' : 'warning'} size="sm">
-                        {canContinue ? 'Prêt' : blockers > 0 ? 'Bloqué' : 'À vérifier'}
+                    <Badge variant={canContinue || payrollValidated ? 'success' : blockers > 0 ? 'danger' : 'warning'} size="sm">
+                        {canContinue ? 'Prêt' : payrollValidated ? 'Validée' : blockers > 0 ? 'Bloqué' : 'À vérifier'}
                     </Badge>
                 </section>
 

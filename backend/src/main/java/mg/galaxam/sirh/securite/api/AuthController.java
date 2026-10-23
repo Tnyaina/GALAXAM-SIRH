@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.net.URI;
+import java.util.Arrays;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.securite.api.dto.LoginRequest;
 import mg.galaxam.sirh.securite.api.dto.RegisterRequest;
@@ -14,6 +16,7 @@ import mg.galaxam.sirh.securite.AuditLog;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import mg.galaxam.sirh.securite.CustomUserDetailsService;
 import mg.galaxam.sirh.securite.JournalConnexion;
+import mg.galaxam.sirh.securite.LoginAttemptRateLimiter;
 import mg.galaxam.sirh.securite.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -32,11 +35,33 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping("/auth")
 public class AuthController {
 
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins}")
+    private String[] allowedOrigins;
+
+    private void requireTrustedOrigin(HttpServletRequest request) {
+        String origin = request.getHeader("Origin");
+        if (origin == null || origin.isBlank()) {
+            try {
+                URI referrer = URI.create(request.getHeader("Referer"));
+                origin = referrer.getScheme() + "://" + referrer.getRawAuthority();
+            } catch (RuntimeException e) {
+                throw new org.springframework.security.access.AccessDeniedException("Origine de la requête absente.");
+            }
+        }
+        final String requestOrigin = origin;
+        if (Arrays.stream(allowedOrigins).map(String::trim).noneMatch(requestOrigin::equals)) {
+            throw new org.springframework.security.access.AccessDeniedException("Origine de la requête non autorisée.");
+        }
+    }
+
     @Autowired
     private DataSource dataSource;
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private LoginAttemptRateLimiter loginAttemptRateLimiter;
 
     @Autowired
     private mg.galaxam.sirh.securite.IdleSessionService idleSessionService;
@@ -60,14 +85,31 @@ public class AuthController {
 
     @GetMapping("/ping")
     public ResponseEntity<java.util.Map<String, String>> ping() {
-        return ResponseEntity.ok(java.util.Map.of("status", "UP"));
+        try (Connection connection = dataSource.getConnection();
+             java.sql.PreparedStatement statement = connection.prepareStatement("SELECT 1")) {
+            statement.executeQuery().close();
+            return ResponseEntity.ok(java.util.Map.of("status", "UP"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(java.util.Map.of("status", "DOWN"));
+        }
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         
-        if (request.getEmail() == null || request.getMotDePasse() == null) {
+        if (request.getEmail() == null || request.getEmail().isBlank() || request.getEmail().length() > 254
+                || request.getMotDePasse() == null || request.getMotDePasse().isBlank()
+                || request.getMotDePasse().length() > 256) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'adresse e-mail et le mot de passe sont requis.");
+        }
+
+        String email = request.getEmail().trim();
+        long retryAfterSeconds = loginAttemptRateLimiter.retryAfterSeconds(email);
+        if (retryAfterSeconds > 0) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds))
+                    .body(Map.of("code", "LOGIN_RATE_LIMITED", "message", "Trop de tentatives. Réessayez plus tard."));
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -75,7 +117,7 @@ public class AuthController {
             c.setAutoCommit(false); 
             
             try {
-                Utilisateur u = Utilisateur.rechercherParEmail(request.getEmail(), c);
+                Utilisateur u = Utilisateur.rechercherParEmail(email, c);
                 JournalConnexion journal = new JournalConnexion();
                 if (httpRequest != null) {
                     String ip = httpRequest.getHeader("X-Forwarded-For");
@@ -115,6 +157,7 @@ public class AuthController {
                         String sessionId = idleSessionService.create(u.getIdUtilisateur(), refreshToken, expirationTs, c);
                         String accessToken = jwtService.generateAccessToken(userDetails, sessionId);
                         c.commit();
+                        loginAttemptRateLimiter.recordSuccess(email);
 
                         // Création du cookie HTTP-Only pour le Refresh Token
                         boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
@@ -145,6 +188,7 @@ public class AuthController {
                 }
                 
                 c.commit(); 
+                loginAttemptRateLimiter.recordFailure(email);
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                         mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,
                         "Identifiant ou mot de passe incorrect.");
@@ -166,6 +210,7 @@ public class AuthController {
             @CookieValue(name = "refreshToken", required = false) String refreshToken,
             HttpServletRequest httpRequest
     ) {
+        requireTrustedOrigin(httpRequest);
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,
@@ -230,10 +275,12 @@ public class AuthController {
             @CookieValue(name = "refreshToken", required = false) String refreshToken,
             HttpServletRequest httpRequest
     ) {
+        requireTrustedOrigin(httpRequest);
         if (refreshToken != null && !refreshToken.isBlank()) {
             try (Connection c = dataSource.getConnection()) {
                 idleSessionService.revoke(null, refreshToken, c);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         }
 

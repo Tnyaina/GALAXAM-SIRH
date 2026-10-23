@@ -217,21 +217,21 @@ export default function CalculStepPage() {
                 {cockpitError && <Alert type="error" title="Résultats indisponibles" message={cockpitError} />}
                 {!cockpitLoaded && <Card className="border border-[var(--color-border)] p-5 text-sm text-[var(--color-fg-muted)]">Chargement des résultats de la campagne…</Card>}
                 {pendingVariables && !hasPersistedBulletins && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 p-3">
-                        <p className="text-sm text-[var(--color-fg)]">Des variables attendent une décision avant le calcul réel.</p>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-warning-500)] bg-[var(--color-surface)] p-3">
+                        <p className="text-sm text-[var(--color-fg)]"><span className="font-semibold">Calcul réel en attente.</span> Des variables doivent être approuvées ou supprimées.</p>
                         <Button variant="secondary" size="sm" onClick={() => navigate(`/paie/periodes/${numericPeriodId}/variables`)}>Traiter les variables</Button>
                     </div>
                 )}
 
                 {/* 1. ÉTAT STALE (CALCUL OBSOLÈTE) */}
                 {isStale && (
-                    <div className="p-4 bg-[var(--color-warning-500)]/10 border-2 border-[var(--color-warning-500)] rounded-none space-y-3">
+                    <div className="border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-warning-500)] bg-[var(--color-surface)] p-4 space-y-3">
                         <div className="flex items-start gap-3">
                             <AlertTriangle size={20} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
                             <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] uppercase tracking-wide">
-                                        Calcul à relancer
+                                    <h3 className="text-sm font-bold text-[var(--color-fg)]">
+                                        Recalcul requis avant validation
                                     </h3>
                                     <Badge variant="warning" size="xs">Résultats obsolètes</Badge>
                                 </div>
@@ -397,15 +397,15 @@ export default function CalculStepPage() {
                             const blockedPageSafe = Math.min(blockedPage, blockedPageCount);
                             const blockedSlice = blockedFiltered.slice((blockedPageSafe - 1) * BLOCKED_PAGE_SIZE, blockedPageSafe * BLOCKED_PAGE_SIZE);
                             return (
-                                <section className="border border-[var(--color-warning-500)]/50 bg-[var(--color-warning-500)]/10" aria-labelledby="blocked-payroll-title">
+                                <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]" aria-labelledby="blocked-payroll-title">
                                     {/* En-tête + recherche */}
                                     <div className="flex flex-wrap items-center justify-between gap-3 p-4">
                                         <div className="flex items-start gap-3">
-                                            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-[var(--color-warning-600)]" />
+                                            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-[var(--color-danger-600)]" />
                                             <div>
                                                 <h4 id="blocked-payroll-title" className="text-sm font-bold text-[var(--color-fg)]">
                                                     {result.blocked.length} salarié(s) non calculé(s)
-                                                    {blockedSearch && <span className="ml-2 text-xs font-normal text-[var(--color-warning-600)]">· {blockedFiltered.length} résultat(s)</span>}
+                                                    {blockedSearch && <span className="ml-2 text-xs font-normal text-[var(--color-fg-muted)]">· {blockedFiltered.length} résultat(s)</span>}
                                                 </h4>
                                                 <p className="text-xs text-[var(--color-fg-muted)] mt-1">Consultez les dossiers concernés avant une nouvelle exécution.</p>
                                             </div>
@@ -428,7 +428,7 @@ export default function CalculStepPage() {
                                         </div>
                                     </div>
                                     {/* Liste */}
-                                    <div className="divide-y divide-[var(--color-border-subtle)] border-t border-[var(--color-warning-500)]/30 bg-[var(--color-surface)]">
+                                    <div className="divide-y divide-[var(--color-border-subtle)] border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
                                         {blockedSlice.length === 0 ? (
                                             <p className="px-4 py-6 text-sm text-center text-[var(--color-fg-muted)]">Aucun résultat pour « {blockedSearch} »</p>
                                         ) : blockedSlice.map(outcome => (

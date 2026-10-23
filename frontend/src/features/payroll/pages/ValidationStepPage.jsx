@@ -10,6 +10,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import CollapsibleSection from '@/components/ui/data-display/CollapsibleSection';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Skeleton, SkeletonStatCard } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
@@ -17,6 +18,7 @@ import paieService from '@/features/payroll/api/paieService';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
+import { explainPayrollActionReasons } from '@/features/payroll/utils/validationActionReasons';
 
 const CHECK_PRESENTATION = {
     PASS: { label: 'Conforme', variant: 'success' },
@@ -49,6 +51,7 @@ export default function ValidationStepPage() {
 
     const actions = context?.availableActions || {};
     const canValidate = actions.VALIDATE?.allowed === true;
+    const validationReasons = explainPayrollActionReasons(actions.VALIDATE?.reasonCodes || []);
     const canReopen = actions.REOPEN?.allowed === true;
     const reopenBlockedByPayment = actions.REOPEN?.reasonCodes?.includes('PAYMENT_OR_STC_ALREADY_RECORDED') === true;
     const periode = context?.selectedPeriod || context?.currentPeriod;
@@ -152,6 +155,11 @@ export default function ValidationStepPage() {
                 onClick: () => setConfirmModalOpen(true),
                 loading: actionLoading,
                 disabled: !canValidate || cockpitLoading || !cockpit,
+                disabledReason: cockpitLoading
+                    ? 'Chargement des contrôles de validation.'
+                    : !cockpit
+                        ? 'Le résumé de campagne doit être disponible avant la validation.'
+                        : validationReasons[0],
                 icon: <ShieldCheck size={14} />,
             }}
         >
@@ -215,12 +223,16 @@ export default function ValidationStepPage() {
                         )}
 
                         {!isValidee && !canValidate && !cockpitLoading && (
-                            <Alert
-                                type="warning"
-                                className="mt-4"
-                                title="Validation indisponible"
-                                message="Les règles du serveur ne permettent pas encore de valider cette campagne."
-                            />
+                            <div className="mt-4 border-l-2 border-[var(--color-warning-500)] bg-[var(--color-bg-subtle)] px-3 py-2.5">
+                                <p className="text-xs font-semibold text-[var(--color-fg)]">Validation indisponible</p>
+                                {validationReasons.length > 0 ? (
+                                    <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-[var(--color-fg-muted)]">
+                                        {validationReasons.map(reason => <li key={reason}>{reason}</li>)}
+                                    </ul>
+                                ) : (
+                                    <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Les contrôles et les droits de votre compte ne permettent pas encore de valider cette campagne.</p>
+                                )}
+                            </div>
                         )}
                     </CardBody>
                 </Card>
@@ -240,12 +252,20 @@ export default function ValidationStepPage() {
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                 <StatCard title="Salariés calculés" value={kpis.effectifCalcule ?? 0} color="neutral" subtext={`Population attendue : ${readiness.effectifAttendu ?? 'Non renseignée'}`} />
                                 <StatCard title="Masse brute" value={formatAmount(kpis.totalBrut)} color="brand" subtext="Salaires bruts imposables" />
-                                <StatCard title="Cotisations salariales" value={formatAmount(kpis.totalCotisationsSalariales)} color="info" subtext="Charges sociales déduites" />
-                                <StatCard title="IRSA" value={formatAmount(kpis.totalIrsa)} color="warning" subtext="Impôt salarial retenu à la source" />
                                 <StatCard title="Net à payer" value={formatAmount(summary.netTotal ?? kpis.totalNetAPayer)} color="success" subtext="Montant net des virements" />
-                                <StatCard title="Charges patronales" value={formatAmount(summary.employerContributions ?? kpis.totalCotisationsPatronales)} color="neutral" subtext="Coût employeur CNaPS / Santé" />
                             </div>
                         )}
+                        {!cockpitLoading && <CollapsibleSection
+                            className="mt-3"
+                            title="Détail des retenues et charges"
+                            description={`Cotisations ${formatAmount(kpis.totalCotisationsSalariales)} · IRSA ${formatAmount(kpis.totalIrsa)} · patronales ${formatAmount(summary.employerContributions ?? kpis.totalCotisationsPatronales)}`}
+                        >
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                <StatCard title="Cotisations salariales" value={formatAmount(kpis.totalCotisationsSalariales)} color="info" subtext="Charges sociales déduites" />
+                                <StatCard title="IRSA" value={formatAmount(kpis.totalIrsa)} color="neutral" subtext="Impôt salarial retenu à la source" />
+                                <StatCard title="Charges patronales" value={formatAmount(summary.employerContributions ?? kpis.totalCotisationsPatronales)} color="neutral" subtext="Coût employeur CNaPS / Santé" />
+                            </div>
+                        </CollapsibleSection>}
                     </CardBody>
                 </Card>
 

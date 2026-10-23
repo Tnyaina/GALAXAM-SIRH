@@ -29,6 +29,7 @@ import organisationService from '@/features/organization/api/organisationService
 import { periodePaieService, pointageSyntheseService } from '@/features/attendance/api/attendanceApi';
 import usePointageAnomalies from '@/features/attendance/hooks/usePointageAnomalies';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { getAnomalyTypeLabel } from '@/features/attendance/utils/anomalyLabels';
 
 const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
@@ -766,7 +767,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 placeholder="Tous les types"
                                 options={[
                                     { value: 'ALL', label: 'Tous les types' },
-                                    { value: 'ABSENCE', label: 'ABSENCE — Absence non justifiée' },
+                                    { value: 'ABSENCE', label: 'ABSENCE — Absences à traiter' },
                                     { value: 'INCOMPLET', label: 'INCOMPLET — Pointage incomplet' },
                                     { value: 'RETARD', label: 'RETARD — Retards' },
                                 ]}
@@ -948,10 +949,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                             {/* Type & Description */}
                                             <Td>
                                                 <div className="font-semibold text-xs text-[var(--color-fg)]">
-                                                    {ano.typeAnomalie === 'INCOMPLET' ? 'Pointage incomplet' :
-                                                     ano.typeAnomalie === 'RETARD' ? `Retard (${ano.minutesRetard} min)` :
-                                                     ano.typeAnomalie === 'ABSENCE' ? (ano.demandeEnAttenteLibelle ? `Absence (${ano.demandeEnAttenteLibelle} en attente)` : 'Absence non justifiée') :
-                                                     ano.typeAnomalie}
+                                                    {getAnomalyTypeLabel(ano)}
                                                 </div>
                                                 <div className="text-[11px] text-[var(--color-fg-muted)] truncate max-w-xs">
                                                     {ano.motifAjustement ? (
