@@ -1,4 +1,4 @@
-name: Windows desktop sprint 1
+name: Windows desktop sprint 2
 
 on:
   push:
@@ -85,7 +85,26 @@ jobs:
             }
             Start-Sleep -Seconds 1
           }
-          if (-not $apiReady) { throw 'Installed service did not make the local API ready' }
+          if (-not $apiReady) {
+            Write-Host 'Service status at API readiness timeout:'
+            Get-CimInstance Win32_Service -Filter "Name='$serviceName'" | Format-List Name,State,StartMode,StartName,ProcessId,ExitCode,PathName
+            & sc.exe queryex $serviceName
+            foreach ($log in @(
+              (Join-Path $dataHome 'data\postgresql\logs\initdb.log'),
+              (Join-Path $dataHome 'data\postgresql\logs\postgres.log'),
+              (Join-Path $dataHome 'logs\backend.log')
+            )) {
+              if (Test-Path $log) {
+                Write-Host "Recent service log: $log"
+                Get-Content -Path $log -Tail 120
+              }
+            }
+            Get-WinEvent -FilterHashtable @{ LogName = 'System'; StartTime = (Get-Date).AddMinutes(-20) } -ErrorAction SilentlyContinue |
+              Where-Object ProviderName -eq 'Service Control Manager' |
+              Select-Object TimeCreated,Id,LevelDisplayName,Message |
+              Format-List
+            throw 'Installed service did not make the local API ready'
+          }
           if (-not (Test-Path (Join-Path $dataHome 'data\postgresql\config\installation.ready'))) { throw 'Service did not initialize PostgreSQL' }
           $defaultExe = Join-Path $defaultInstall 'galaxam-sirh-desktop.exe'
           $userTokenDir = Join-Path $env:LOCALAPPDATA 'GALAXAM SIRH'
