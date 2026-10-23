@@ -92,12 +92,19 @@ jobs:
             foreach ($log in @(
               (Join-Path $dataHome 'data\postgresql\logs\initdb.log'),
               (Join-Path $dataHome 'data\postgresql\logs\postgres.log'),
-              (Join-Path $dataHome 'logs\backend.log')
+              (Join-Path $dataHome 'logs\backend.log'),
+              (Join-Path $dataHome 'logs\service.log')
             )) {
               if (Test-Path $log) {
                 Write-Host "Recent service log: $log"
                 Get-Content -Path $log -Tail 120
               }
+            }
+            if (Test-Path $dataHome) {
+              Write-Host 'Created data files at API readiness timeout:'
+              Get-ChildItem -Path $dataHome -Force -Recurse -Depth 4 -ErrorAction SilentlyContinue |
+                Select-Object FullName,Length,LastWriteTime |
+                Format-Table -AutoSize
             }
             Get-WinEvent -FilterHashtable @{ LogName = 'System'; StartTime = (Get-Date).AddMinutes(-20) } -ErrorAction SilentlyContinue |
               Where-Object ProviderName -eq 'Service Control Manager' |

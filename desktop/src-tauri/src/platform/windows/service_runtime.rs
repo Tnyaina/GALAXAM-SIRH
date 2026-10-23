@@ -29,6 +29,10 @@ pub fn dispatch() -> Result<(), String> {
 fn service_main(_arguments: Vec<OsString>) {
     if let Err(problem) = run_service() {
         eprintln!("GALAXAM Windows service failed: {problem}");
+        record_service_diagnostic(
+            &crate::connection::config::DesktopConfig::new_for_setup().home,
+            &format!("Service dispatcher failed: {problem}"),
+        );
         if has_argument("--galaxam-pg-smoke") || has_argument("--galaxam-full-smoke") {
             write_smoke_result(
                 &crate::connection::config::DesktopConfig::new_for_setup().home,
@@ -86,6 +90,10 @@ fn run_service() -> windows_service::Result<()> {
         }
         Err(problem) => {
             eprintln!("GALAXAM Windows service startup/runtime error: {problem}");
+            record_service_diagnostic(
+                &crate::connection::config::DesktopConfig::new_for_setup().home,
+                &format!("Service startup/runtime error: {problem}"),
+            );
             if has_argument("--galaxam-pg-smoke") || has_argument("--galaxam-full-smoke") {
                 write_smoke_result(
                     &crate::connection::config::DesktopConfig::new_for_setup().home,
@@ -113,6 +121,7 @@ fn supervise(
     let _child_job = crate::platform::create_service_child_job()?;
     let postgres = crate::database::postgres::PostgresProcess::new();
     let checkpoint = std::sync::atomic::AtomicU32::new(2);
+    record_service_diagnostic(&config.home, "Preparing PostgreSQL resources");
     handle
         .set_service_status(status(
             ServiceState::StartPending,
@@ -120,6 +129,7 @@ fn supervise(
             2,
         ))
         .map_err(|problem| problem.to_string())?;
+    record_service_diagnostic(&config.home, "Starting PostgreSQL initialization");
     let database = postgres
         .start_with_resources(&resources, &config, |stage| {
             eprintln!("GALAXAM Windows service: préparation PostgreSQL ({stage})");
@@ -130,6 +140,7 @@ fn supervise(
             ));
         })
         .map_err(str::to_string)?;
+    record_service_diagnostic(&config.home, "PostgreSQL initialized and validated");
 
     let smoke_mode = has_argument("--galaxam-pg-smoke") || has_argument("--galaxam-full-smoke");
     if smoke_mode && has_argument("--galaxam-pg-smoke") && !has_argument("--galaxam-full-smoke") {
@@ -164,6 +175,7 @@ fn supervise(
         ))
         .map_err(|problem| problem.to_string())?;
     let api_port = config.local_port.unwrap_or(18081);
+    record_service_diagnostic(&config.home, "Starting Spring Boot API");
     let shutdown_token = random_shutdown_token()?;
     let mut backend = spawn_backend(
         &resources,
@@ -180,7 +192,9 @@ fn supervise(
         received,
         Duration::from_secs(180),
     ) {
-        Ok(ApiWait::Ready) => {}
+        Ok(ApiWait::Ready) => {
+            record_service_diagnostic(&config.home, "Spring Boot API is ready");
+        }
         Ok(ApiWait::StopRequested) => {
             handle
                 .set_service_status(status(
@@ -242,6 +256,24 @@ fn supervise(
     shutdown_backend(&mut backend, api_port, &shutdown_token);
     postgres.stop();
     Ok(())
+}
+
+fn record_service_diagnostic(home: &Path, message: &str) {
+    let log_path = home.join("logs/service.log");
+    if let Some(parent) = log_path.parent() {
+        if fs::create_dir_all(parent).is_err() {
+            return;
+        }
+    }
+    let Ok(mut log) = OpenOptions::new().create(true).append(true).open(log_path) else {
+        return;
+    };
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|value| value.as_secs())
+        .unwrap_or_default();
+    let _ = writeln!(log, "{timestamp} {message}");
+    let _ = log.sync_all();
 }
 
 fn spawn_backend(
