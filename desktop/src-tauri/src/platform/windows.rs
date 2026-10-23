@@ -242,25 +242,88 @@ fn run_restore_helper() -> Result<(), String> {
             let _safety_has_docs =
                 crate::backup::archive::extract_for_restore(&rollback_archive, &safety)?;
             run_service_control("stop")?;
-            let pg = resources.join("postgresql/bin/pg_ctl.exe");
+            let postgres = resources.join("postgresql/bin/postgres.exe");
+            let pg_ctl = resources.join("postgresql/bin/pg_ctl.exe");
+            let pg_isready = resources.join("postgresql/bin/pg_isready.exe");
             let cluster = home.join("data/postgresql/cluster");
             let config = home.join("data/postgresql/config/postgresql.conf");
-            let log = home.join("data/postgresql/logs/postgres.log");
-            let options = format!("-c config_file=\"{}\"", config.display());
-            let started = Command::new(&pg)
+            let log = home.join("logs/restore-postgres.log");
+            let log_file = std::fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&log)
+                .map_err(|_| "Journal temporaire PostgreSQL inaccessible".to_string())?;
+            let error_file = log_file
+                .try_clone()
+                .map_err(|_| "Journal temporaire PostgreSQL inaccessible".to_string())?;
+            let mut postgres_command = Command::new(&postgres);
+            postgres_command
                 .args(["-D"])
                 .arg(&cluster)
-                .args(["-l"])
-                .arg(&log)
-                .args(["-o", &options, "-w", "-t", "30", "start"])
+                .arg("-c")
+                .arg(format!("config_file={}", config.display()))
                 .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .map_err(|_| "Démarrage temporaire de PostgreSQL impossible".to_string())?;
-            if !started.success() {
+                .stdout(Stdio::from(log_file))
+                .stderr(Stdio::from(error_file));
+            configure_restore_postgres_environment(&mut postgres_command, &resources);
+            let mut postgres_process = postgres_command.spawn().map_err(|problem| {
+                format!("Démarrage temporaire de PostgreSQL impossible : {problem}")
+            })?;
+            let ready_deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            let mut postgres_ready = false;
+            while std::time::Instant::now() < ready_deadline {
+                if postgres_process
+                    .try_wait()
+                    .map_err(|problem| {
+                        format!("Vérification de PostgreSQL impossible : {problem}")
+                    })?
+                    .is_some()
+                {
+                    break;
+                }
+                let cluster_started = Command::new(&pg_ctl)
+                    .args(["-D"])
+                    .arg(&cluster)
+                    .arg("status")
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status()
+                    .is_ok_and(|status| status.success());
+                let ready = cluster_started
+                    && Command::new(&pg_isready)
+                        .args(["-h", "127.0.0.1", "-p"])
+                        .arg(port.to_string())
+                        .arg("-q")
+                        .status()
+                        .is_ok_and(|status| status.success());
+                if ready {
+                    postgres_ready = true;
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+            if !postgres_ready {
+                let _ = postgres_process.kill();
+                let _ = postgres_process.wait();
                 let _ = run_service_control("start");
-                return Err("Démarrage temporaire de PostgreSQL impossible".into());
+                let details = std::fs::read_to_string(&log)
+                    .unwrap_or_default()
+                    .lines()
+                    .rev()
+                    .take(8)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                let message = if details.is_empty() {
+                    "Démarrage temporaire de PostgreSQL impossible".to_string()
+                } else {
+                    format!("Démarrage temporaire de PostgreSQL impossible : {details}")
+                };
+                return Err(message);
             }
             let restored = crate::backup::archive::apply_database_restore(
                 &resources,
@@ -281,15 +344,16 @@ fn run_restore_helper() -> Result<(), String> {
                     port,
                     &safety.join("database.dump"),
                 ) {
-                    let _ = Command::new(&pg)
+                    let _ = Command::new(&pg_ctl)
                         .args(["-D"])
                         .arg(&cluster)
                         .args(["-m", "fast", "-w", "-t", "30", "stop"])
                         .status();
+                    let _ = postgres_process.wait();
                     return Err(format!("Restauration échouée ({original}) et retour arrière impossible ({rollback}). Les services restent arrêtés. Sauvegarde de sécurité : {}", rollback_archive.display()));
                 }
             }
-            let stopped = Command::new(&pg)
+            let stopped = Command::new(&pg_ctl)
                 .args(["-D"])
                 .arg(&cluster)
                 .args(["-m", "fast", "-w", "-t", "30", "stop"])
@@ -300,6 +364,7 @@ fn run_restore_helper() -> Result<(), String> {
             if stopped.map_or(true, |status| !status.success()) {
                 return Err("Arrêt temporaire de PostgreSQL après restauration impossible. Le service reste arrêté pour éviter de démarrer Spring Boot sur un état incertain.".into());
             }
+            let _ = postgres_process.wait();
             run_service_control("start")?;
             restored
         })();
@@ -321,6 +386,23 @@ fn argument_path(prefix: &str) -> Option<PathBuf> {
             .strip_prefix(prefix)
             .map(PathBuf::from)
     })
+}
+
+fn configure_restore_postgres_environment(command: &mut Command, resources: &Path) {
+    let bin = resources.join("postgresql/bin");
+    let system_root = std::env::var_os("SystemRoot")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+    let system32 = system_root.join("System32");
+    let path = std::env::join_paths([bin.as_path(), system32.as_path(), system_root.as_path()]);
+    command.env_clear();
+    command.env("PATH", path.unwrap_or_else(|_| system32.into_os_string()));
+    for variable in ["SystemRoot", "WINDIR", "SystemDrive", "TEMP", "TMP"] {
+        if let Some(value) = std::env::var_os(variable) {
+            command.env(variable, value);
+        }
+    }
+    command.env("HOME", resources.parent().unwrap_or(resources));
 }
 
 pub fn elevated_bootstrap_token(home: &Path) -> Result<String, String> {
