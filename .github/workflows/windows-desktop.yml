@@ -157,6 +157,18 @@ jobs:
           $token = Get-Content $bootstrapToken -Raw
           if ($token.Trim().Length -ne 64) { throw 'Bootstrap helper returned an invalid token' }
           Remove-Item $bootstrapToken -Force
+          $secretFile = Join-Path $dataHome 'data\postgresql\config\installation.secrets'
+          $secrets = Get-Content $secretFile
+          $appPassword = ($secrets | Where-Object { $_.StartsWith('app=') } | Select-Object -First 1).Substring(4)
+          if (-not $appPassword) { throw 'Database application password is missing for restore verification' }
+          $env:PGPASSWORD = $appPassword
+          $psql = Join-Path $defaultInstall 'postgresql\bin\psql.exe'
+          & $psql -X -w -h 127.0.0.1 -p 15432 -U galaxam_app -d sirh_galaxam -c "CREATE TABLE IF NOT EXISTS public.galaxam_restore_ci_probe (id integer PRIMARY KEY, value text NOT NULL); INSERT INTO public.galaxam_restore_ci_probe VALUES (1, 'snapshot') ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value;" *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Could not seed the restore verification marker' }
+          $documents = Join-Path $dataHome 'documents'
+          New-Item -ItemType Directory -Force -Path $documents | Out-Null
+          $documentProbe = Join-Path $documents 'preuve été.txt'
+          Set-Content -Path $documentProbe -Value 'snapshot document' -Encoding utf8
           $exportDirectory = Join-Path $env:RUNNER_TEMP 'Export sauvegarde été'
           New-Item -ItemType Directory -Force -Path $exportDirectory | Out-Null
           $manualExport = Join-Path $exportDirectory 'Copie locale été.tar'
@@ -175,16 +187,9 @@ jobs:
           if ($backupOutcome -notmatch '^OK:[0-9]+$' -or -not (Test-Path $manualExport)) { throw "Manual Windows backup export failed: $backupOutcome" }
           & $tar -tf $manualExport *> $null
           if ($LASTEXITCODE -ne 0) { throw 'Manual exported archive is invalid' }
-          $secretFile = Join-Path $dataHome 'data\postgresql\config\installation.secrets'
-          $secrets = Get-Content $secretFile
-          $appPassword = ($secrets | Where-Object { $_.StartsWith('app=') } | Select-Object -First 1).Substring(4)
-          if (-not $appPassword) { throw 'Database application password is missing for restore verification' }
-          $env:PGPASSWORD = $appPassword
-          $psql = Join-Path $defaultInstall 'postgresql\bin\psql.exe'
-          & $psql -X -w -h 127.0.0.1 -p 15432 -U galaxam_app -d sirh_galaxam -c "CREATE TABLE IF NOT EXISTS public.galaxam_restore_ci_probe (id integer PRIMARY KEY, value text NOT NULL); INSERT INTO public.galaxam_restore_ci_probe VALUES (1, 'snapshot') ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value;" *> $null
-          if ($LASTEXITCODE -ne 0) { throw 'Could not seed the restore verification marker' }
           & $psql -X -w -h 127.0.0.1 -p 15432 -U galaxam_app -d sirh_galaxam -c "UPDATE public.galaxam_restore_ci_probe SET value = 'changed' WHERE id = 1;" *> $null
           if ($LASTEXITCODE -ne 0) { throw 'Could not mutate the restore verification marker' }
+          Set-Content -Path $documentProbe -Value 'changed document' -Encoding utf8
           $restoreResult = Join-Path $userTokenDir 'restore.result'
           $restoreArguments = @(
             '--galaxam-restore-helper'
@@ -199,7 +204,8 @@ jobs:
           if ($restoreOutcome -ne 'OK') { throw "Windows restore returned an unexpected result: $restoreOutcome" }
           $probeOutput = Join-Path $env:RUNNER_TEMP 'restore-probe.txt'
           & $psql -X -A -t -w -h 127.0.0.1 -p 15432 -U galaxam_app -d sirh_galaxam -c 'SELECT value FROM public.galaxam_restore_ci_probe WHERE id = 1;' *> $probeOutput
-          if ($LASTEXITCODE -ne 0 -or (Get-Content $probeOutput -join '').Trim() -ne 'snapshot') { throw 'Restored database does not contain the saved verification marker' }
+          if ($LASTEXITCODE -ne 0 -or (Get-Content $probeOutput -Raw).Trim() -ne 'snapshot') { throw 'Restored database does not contain the saved verification marker' }
+          if (-not (Test-Path $documentProbe) -or (Get-Content $documentProbe -Raw).Trim() -ne 'snapshot document') { throw 'Restored documents do not contain the saved verification marker' }
           $restoreApiReady = $false
           for ($attempt = 0; $attempt -lt 240; $attempt++) {
             if ((Get-Service $serviceName).Status -eq 'Running') {
