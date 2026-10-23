@@ -73,6 +73,29 @@ jobs:
             if (-not (Test-Path (Join-Path $install $relative))) { throw "Installed resource missing: $relative" }
           }
           $exe = Join-Path $install 'galaxam-sirh-desktop.exe'
+          $serviceName = 'GalaxamSirhLocal'
+          $binaryPath = '"' + $exe + '" --galaxam-service'
+          & sc.exe create $serviceName 'binPath=' $binaryPath 'start=' 'demand' 'obj=' 'NT AUTHORITY\LocalService'
+          if ($LASTEXITCODE -ne 0) { throw 'SCM service registration failed' }
+          try {
+            & sc.exe start $serviceName
+            if ($LASTEXITCODE -ne 0) { throw 'SCM service start failed' }
+            for ($attempt = 0; $attempt -lt 20; $attempt++) {
+              if ((Get-Service $serviceName).Status -eq 'Running') { break }
+              Start-Sleep -Milliseconds 500
+            }
+            if ((Get-Service $serviceName).Status -ne 'Running') { throw 'SCM service did not report Running' }
+            & sc.exe stop $serviceName
+            if ($LASTEXITCODE -ne 0) { throw 'SCM service stop failed' }
+            for ($attempt = 0; $attempt -lt 20; $attempt++) {
+              if ((Get-Service $serviceName).Status -eq 'Stopped') { break }
+              Start-Sleep -Milliseconds 500
+            }
+            if ((Get-Service $serviceName).Status -ne 'Stopped') { throw 'SCM service did not stop' }
+          } finally {
+            & sc.exe delete $serviceName
+            if ($LASTEXITCODE -ne 0) { throw 'SCM service cleanup failed' }
+          }
           $data = Join-Path $env:RUNNER_TEMP 'galaxam-ci-data'
           $app = Start-Process -FilePath $exe -ArgumentList "--galaxam-data-home=$data",'--galaxam-web-port=18999' -PassThru
           try {

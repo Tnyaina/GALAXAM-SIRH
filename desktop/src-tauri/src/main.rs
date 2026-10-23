@@ -20,6 +20,14 @@ use connection::config::DesktopConfig;
 const DEFAULT_WEB_PORT: u16 = 18888;
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    if std::env::args_os().any(|argument| argument == "--galaxam-service") {
+        if let Err(problem) = platform::windows_service_runtime::dispatch() {
+            eprintln!("GALAXAM Windows service: {problem}");
+            std::process::exit(1);
+        }
+        return;
+    }
     let web_port = std::env::args_os()
         .find_map(|arg| {
             arg.to_string_lossy()

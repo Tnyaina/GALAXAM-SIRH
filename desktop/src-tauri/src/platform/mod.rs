@@ -8,23 +8,26 @@ pub mod service;
 
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(target_os = "windows")]
-mod windows;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod unsupported;
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+#[path = "windows/service_runtime.rs"]
+pub mod windows_service_runtime;
 
 #[cfg(target_os = "macos")]
 pub use macos::{
     choose_export_destination, default_data_home, fallback_data_home, restart_with_installation,
     reveal_backups,
 };
-#[cfg(target_os = "windows")]
-pub use windows::{
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub use unsupported::{
     choose_export_destination, default_data_home, fallback_data_home, restart_with_installation,
     reveal_backups,
 };
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-pub use unsupported::{
+#[cfg(target_os = "windows")]
+pub use windows::{
     choose_export_destination, default_data_home, fallback_data_home, restart_with_installation,
     reveal_backups,
 };

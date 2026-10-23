@@ -18,7 +18,7 @@ Règle de passage : le sprint suivant ne commence qu'après réussite de tous le
 - Installation et désinstallation du programme sur Windows 10 et 11, avec dossier par défaut puis dossier personnalisé. Les données restent intactes à la désinstallation.
 - Vérification du lancement de l'interface et du mode distant. Le mode local n'est pas déclaré prêt à ce stade.
 
-État : **validé sur runner Windows Server 2022 pour le parcours personnalisé** (CI `39893723575`, commit `9f8ee79e`). Le setup NSIS a été construit, installé dans `C:\GalaxamCI`, ses ressources Java et PostgreSQL ont été contrôlées, l'interface HTTP locale a répondu et la désinstallation a réussi. Le build DMG macOS et les neuf tests Rust ont également réussi. Un contrôle CI supplémentaire du dossier par défaut et de la conservation des données à la désinstallation est en cours. L'essai visuel sur Windows 10/11 reste à faire avant diffusion publique ; le runner ne reproduit pas ces environnements à l'identique. Ce résultat autorise le travail du sprint 2 sur la base du runner choisi pour cette phase.
+État : **validé sur runner Windows Server 2022** (CI `39902854098`, commit `24a4b78a`). Le setup NSIS a été construit, installé dans son dossier par défaut puis dans `C:\GalaxamCI`, ses ressources Java et PostgreSQL ont été contrôlées, l'interface HTTP locale a répondu, les deux désinstallations ont réussi et le dossier des données a été conservé. Le build DMG macOS et les neuf tests Rust ont également réussi. L'essai visuel sur Windows 10/11 reste à faire avant diffusion publique ; le runner ne reproduit pas ces environnements à l'identique.
 
 ## Sprint 2 — Base locale et service Windows
 
@@ -35,7 +35,7 @@ Règle de passage : le sprint suivant ne commence qu'après réussite de tous le
 - Conflit de ports, manque d'espace, interruption d'`initdb`, installation sur autre disque local et compte non administrateur vérifiés.
 - Mesure de la réactivité de l'interface et de la mémoire pendant le premier lancement.
 
-État : **non commencé**.
+État : **en cours**. Le point d'entrée du Service Control Manager et ses transitions démarrer/arrêter sont préparés, avec un contrôle CI sous le compte `LocalService`. Le service n'est pas encore enregistré par le setup : la supervision de PostgreSQL et Spring, les ACL des données et l'initialisation locale restent à implémenter et à valider.
 
 ## Sprint 3 — Sauvegardes, restauration et livraison
 
