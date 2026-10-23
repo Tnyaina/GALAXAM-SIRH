@@ -78,8 +78,12 @@ jobs:
             if (-not (Test-Path (Join-Path $install $relative))) { throw "Installed resource missing: $relative" }
           }
           $exe = Join-Path $install 'galaxam-sirh-desktop.exe'
+          $serviceData = 'C:\GalaxamPgCI'
+          New-Item -ItemType Directory -Force -Path $serviceData | Out-Null
+          & icacls.exe $serviceData '/inheritance:r' '/grant:r' '*S-1-5-19:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F'
+          if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL service data ACL failed' }
           $serviceName = 'GalaxamSirhLocal'
-          $binaryPath = '"' + $exe + '" --galaxam-service'
+          $binaryPath = '"' + $exe + '" --galaxam-service --galaxam-pg-smoke --galaxam-data-home=' + $serviceData
           & sc.exe create $serviceName 'binPath=' $binaryPath 'start=' 'demand' 'obj=' 'NT AUTHORITY\LocalService'
           if ($LASTEXITCODE -ne 0) { throw 'SCM service registration failed' }
           try {
@@ -90,14 +94,36 @@ jobs:
               Start-Sleep -Milliseconds 500
             }
             if ((Get-Service $serviceName).Status -ne 'Running') { throw 'SCM service did not report Running' }
+            $postgresResult = Join-Path $serviceData 'service\ci-postgres-result.txt'
+            for ($attempt = 0; $attempt -lt 240; $attempt++) {
+              if (Test-Path $postgresResult) { break }
+              Start-Sleep -Seconds 1
+            }
+            if (-not (Test-Path $postgresResult)) { throw 'PostgreSQL service smoke did not complete' }
+            $result = Get-Content $postgresResult -Raw
+            if ($result.Trim() -ne 'READY') {
+              $initLog = Join-Path $serviceData 'data\postgresql\logs\initdb.log'
+              if (Test-Path $initLog) { Get-Content $initLog -Tail 80 }
+              throw "PostgreSQL service smoke failed: $result"
+            }
+            if (-not (Test-Path (Join-Path $serviceData 'data\postgresql\config\installation.ready'))) { throw 'PostgreSQL installation marker missing' }
             & sc.exe stop $serviceName
             if ($LASTEXITCODE -ne 0) { throw 'SCM service stop failed' }
-            for ($attempt = 0; $attempt -lt 20; $attempt++) {
+            for ($attempt = 0; $attempt -lt 60; $attempt++) {
               if ((Get-Service $serviceName).Status -eq 'Stopped') { break }
               Start-Sleep -Milliseconds 500
             }
             if ((Get-Service $serviceName).Status -ne 'Stopped') { throw 'SCM service did not stop' }
+            & (Join-Path $install 'postgresql\bin\pg_isready.exe') -h 127.0.0.1 -p 15432 -q
+            if ($LASTEXITCODE -eq 0) { throw 'PostgreSQL remained active after service stop' }
           } finally {
+            if ((Get-Service $serviceName).Status -ne 'Stopped') {
+              & sc.exe stop $serviceName | Out-Null
+              for ($attempt = 0; $attempt -lt 60; $attempt++) {
+                if ((Get-Service $serviceName).Status -eq 'Stopped') { break }
+                Start-Sleep -Milliseconds 500
+              }
+            }
             & sc.exe delete $serviceName
             if ($LASTEXITCODE -ne 0) { throw 'SCM service cleanup failed' }
           }

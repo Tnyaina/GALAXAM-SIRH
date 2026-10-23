@@ -3,6 +3,7 @@
 //! Spring lifecycle, data ACLs, and recovery path are ready.
 
 use std::ffi::OsString;
+use std::fs;
 use std::sync::mpsc;
 use std::time::Duration;
 use windows_service::service::{
@@ -53,11 +54,32 @@ fn run_service() -> windows_service::Result<()> {
         ServiceState::Running,
         ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN,
     ))?;
+    let postgres = crate::database::postgres::PostgresProcess::new();
+    if std::env::args_os().any(|argument| argument == "--galaxam-pg-smoke") {
+        let config = crate::connection::config::DesktopConfig::new_for_setup();
+        let result_path = config.home.join("service/ci-postgres-result.txt");
+        let result = std::env::current_exe()
+            .ok()
+            .and_then(|executable| executable.parent().map(ToOwned::to_owned))
+            .ok_or("Ressources du service introuvables")
+            .and_then(|resources| {
+                postgres
+                    .start_with_resources(&resources, &config, |_| {})
+                    .map_err(str::to_string)
+            });
+        let text = match result {
+            Ok(_) => "READY".to_string(),
+            Err(problem) => format!("ERROR: {problem}"),
+        };
+        let _ = fs::create_dir_all(config.home.join("service"));
+        let _ = fs::write(result_path, text);
+    }
     let _ = received.recv();
     handle.set_service_status(status(
         ServiceState::StopPending,
         ServiceControlAccept::empty(),
     ))?;
+    postgres.stop();
     handle.set_service_status(status(ServiceState::Stopped, ServiceControlAccept::empty()))?;
     Ok(())
 }

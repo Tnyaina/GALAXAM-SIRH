@@ -258,7 +258,7 @@ impl PostgresProcess {
                 .arg("--auth-host=scram-sha-256")
                 .arg(format!("--pwfile={}", password_path.display()));
             configure_pg_environment(&mut initdb, &paths.bin);
-            let init_result = run_quiet(&mut initdb);
+            let init_result = run_quiet(&mut initdb, &paths.logs.join("initdb.log"));
             let _ = fs::remove_file(&password_path);
             init_result.map_err(|_| "initdb a échoué ; cluster provisoire conservé")?;
             self.launch(
@@ -676,13 +676,17 @@ fn psql_output(
     String::from_utf8(output.stdout).map_err(|_| "Réponse PostgreSQL invalide")
 }
 
-fn run_quiet(command: &mut Command) -> Result<(), &'static str> {
-    let status = command
+fn run_quiet(command: &mut Command, error_log: &Path) -> Result<(), &'static str> {
+    let output = command
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
+        .stderr(Stdio::piped())
+        .output()
         .map_err(|_| "Commande PostgreSQL impossible")?;
-    if !status.success() {
+    if !output.status.success() {
+        if let Ok(mut log) = private_append(error_log) {
+            let _ = log.write_all(&output.stderr);
+            let _ = log.sync_all();
+        }
         return Err("Commande PostgreSQL échouée");
     }
     Ok(())

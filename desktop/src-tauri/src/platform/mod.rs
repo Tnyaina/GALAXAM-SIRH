@@ -2,7 +2,10 @@
 #[cfg(target_os = "macos")]
 #[path = "macos/service.rs"]
 pub mod service;
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+#[path = "windows/service.rs"]
+pub mod service;
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 #[path = "unsupported_service.rs"]
 pub mod service;
 
