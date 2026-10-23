@@ -61,7 +61,7 @@ fn run_service() -> windows_service::Result<()> {
         let result = std::env::current_exe()
             .ok()
             .and_then(|executable| executable.parent().map(ToOwned::to_owned))
-            .ok_or("Ressources du service introuvables")
+            .ok_or_else(|| "Ressources du service introuvables".to_string())
             .and_then(|resources| {
                 postgres
                     .start_with_resources(&resources, &config, |_| {})
