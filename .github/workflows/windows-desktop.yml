@@ -117,9 +117,9 @@ jobs:
           $userTokenDir = Join-Path $env:LOCALAPPDATA 'GALAXAM SIRH'
           New-Item -ItemType Directory -Force -Path $userTokenDir | Out-Null
           $bootstrapToken = Join-Path $userTokenDir 'bootstrap.token'
-          & $defaultExe '--galaxam-bootstrap-helper' "--galaxam-data-home=$dataHome" "--galaxam-token-output=$bootstrapToken"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Bootstrap helper exit code: $LASTEXITCODE"
+          $helperProcess = Start-Process -FilePath $defaultExe -ArgumentList @('--galaxam-bootstrap-helper', "--galaxam-data-home=$dataHome", "--galaxam-token-output=$bootstrapToken") -PassThru -Wait
+          if ($helperProcess.ExitCode -ne 0) {
+            Write-Host "Bootstrap helper exit code: $($helperProcess.ExitCode)"
             Write-Host "Bootstrap token file created: $(Test-Path $bootstrapToken)"
             if (Test-Path $bootstrapToken) { Get-Item $bootstrapToken | Select-Object FullName,Length,LastWriteTime | Format-List }
             $serviceLog = Join-Path $dataHome 'logs\service.log'
