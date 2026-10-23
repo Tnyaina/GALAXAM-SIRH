@@ -332,51 +332,18 @@ pub fn extract_for_restore(archive_path: &Path, staging: &Path) -> Result<bool, 
         if !listing.status.success() {
             return Err("Archive de sauvegarde illisible".into());
         }
-        let names = String::from_utf8(listing.stdout)
-            .map_err(|_| "Noms de fichiers d’archive invalides".to_string())?;
-        let mut database = false;
-        let mut manifest = false;
-        for name in names.lines() {
-            let normalized = name.trim_end_matches('/');
-            let path = Path::new(normalized);
-            if normalized.is_empty()
-                || normalized.contains('\\')
-                || path.is_absolute()
-                || path
-                    .components()
-                    .any(|part| !matches!(part, std::path::Component::Normal(_)))
-            {
-                return Err("L’archive contient un chemin non autorisé".into());
-            }
-            let parts = path
-                .components()
-                .filter_map(|part| match part {
-                    std::path::Component::Normal(value) => {
-                        Some(value.to_string_lossy().into_owned())
-                    }
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            if parts == ["database.dump"] {
-                database = true;
-            } else if parts == ["manifest.json"] {
-                manifest = true;
-            } else if parts.first().map(String::as_str) != Some("documents") {
-                return Err("L’archive contient un fichier inattendu".into());
-            }
-        }
-        if !database || !manifest {
-            return Err("L’archive ne contient pas la base et son manifeste".into());
-        }
+        validate_archive_listing(&listing.stdout)?;
         let verbose = Command::new(&tar)
             .arg("-tvf")
             .arg(archive_path)
             .output()
             .map_err(|_| "Vérification des types d’entrée impossible".to_string())?;
         if !verbose.status.success()
-            || String::from_utf8_lossy(&verbose.stdout)
-                .lines()
-                .any(|line| line.starts_with('l') || line.starts_with('h'))
+            || verbose
+                .stdout
+                .split(|byte| *byte == b'\n')
+                .filter(|line| !line.is_empty())
+                .any(|line| !matches!(line.first(), Some(b'-' | b'd')))
         {
             return Err(
                 "Les liens symboliques et liens physiques sont interdits dans une sauvegarde"
@@ -411,6 +378,42 @@ pub fn extract_for_restore(archive_path: &Path, staging: &Path) -> Result<bool, 
         let _ = fs::remove_dir_all(staging);
     }
     result
+}
+
+fn validate_archive_listing(listing: &[u8]) -> Result<(), String> {
+    let mut database = false;
+    let mut manifest = false;
+    let listing = listing.strip_suffix(b"\n").unwrap_or(listing);
+    for line in listing.split(|byte| *byte == b'\n') {
+        let name = line.strip_suffix(b"\r").unwrap_or(line);
+        let name = name.strip_suffix(b"/").unwrap_or(name);
+        if name.is_empty()
+            || name[0] == b'/'
+            || name
+                .iter()
+                .any(|byte| *byte == b'\\' || *byte == b':' || *byte < b' ')
+        {
+            return Err("L’archive contient un chemin non autorisé".into());
+        }
+        let parts = name.split(|byte| *byte == b'/').collect::<Vec<_>>();
+        if parts
+            .iter()
+            .any(|part| part.is_empty() || *part == b"." || *part == b"..")
+        {
+            return Err("L’archive contient un chemin non autorisé".into());
+        }
+        if parts.len() == 1 && parts[0] == &b"database.dump"[..] {
+            database = true;
+        } else if parts.len() == 1 && parts[0] == &b"manifest.json"[..] {
+            manifest = true;
+        } else if parts[0] != &b"documents"[..] {
+            return Err("L’archive contient un fichier inattendu".into());
+        }
+    }
+    if !database || !manifest {
+        return Err("L’archive ne contient pas la base et son manifeste".into());
+    }
+    Ok(())
 }
 
 fn tar_executable() -> PathBuf {
@@ -647,6 +650,29 @@ mod tests {
             b"document"
         );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn archive_listing_accepts_localized_names_and_rejects_unsafe_paths() {
+        let prefix = b"database.dump\r\nmanifest.json\r\ndocuments/\r\n";
+        let mut localized = prefix.to_vec();
+        localized.extend_from_slice(b"documents/preuve \xe9t\xe9.txt\r\n");
+        assert!(validate_archive_listing(&localized).is_ok());
+
+        for path in [
+            &b"../secret"[..],
+            &b"documents/../secret"[..],
+            &b"documents/./secret"[..],
+            &b"documents//secret"[..],
+            &b"documents\\secret"[..],
+            &b"C:/secret"[..],
+            &b"/secret"[..],
+        ] {
+            let mut listing = prefix.to_vec();
+            listing.extend_from_slice(path);
+            listing.push(b'\n');
+            assert!(validate_archive_listing(&listing).is_err());
+        }
     }
 
     #[cfg(unix)]
