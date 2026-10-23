@@ -370,8 +370,7 @@ fn prepare_service_data_home(home: &Path) -> Result<(), String> {
     let config = home.join("config");
     let data = home.join("data");
     let logs = home.join("logs");
-    let backups = home.join("data/postgresql/backups");
-    for path in [&config, &data, &logs, &backups] {
+    for path in [&config, &data, &logs] {
         std::fs::create_dir_all(path)
             .map_err(|_| "Dossier de données GALAXAM inaccessible".to_string())?;
     }
@@ -417,16 +416,7 @@ fn prepare_service_data_home(home: &Path) -> Result<(), String> {
             "*S-1-5-18:(OI)(CI)F",
         ],
     )?;
-    apply_acl(
-        &backups,
-        &[
-            "/inheritance:r",
-            "/grant:r",
-            "*S-1-5-19:(OI)(CI)F",
-            "*S-1-5-32-544:(OI)(CI)F",
-            "*S-1-5-18:(OI)(CI)F",
-        ],
-    )
+    Ok(())
 }
 
 fn apply_acl(path: &Path, rules: &[&str]) -> Result<(), String> {
@@ -745,4 +735,33 @@ pub fn reveal_backups(backups: &Path) -> Result<(), String> {
         .spawn()
         .map_err(|_| "Impossible d’ouvrir le dossier des sauvegardes".to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::prepare_service_data_home;
+
+    #[test]
+    fn preparing_service_home_does_not_create_postgres_cluster_parent() {
+        let root = std::env::temp_dir().join(format!(
+            "galaxam-windows-service-home-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let home = root.join("GALAXAM SIRH");
+
+        prepare_service_data_home(&home).expect("service data folders and ACLs should be prepared");
+
+        assert!(home.join("config").is_dir());
+        assert!(home.join("data").is_dir());
+        assert!(home.join("logs").is_dir());
+        assert!(
+            !home.join("data/postgresql").exists(),
+            "the PostgreSQL parent must be created by first-run initialization"
+        );
+        std::fs::remove_dir_all(root).expect("temporary home should be removable");
+    }
 }
