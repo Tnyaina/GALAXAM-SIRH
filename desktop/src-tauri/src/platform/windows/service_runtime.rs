@@ -118,6 +118,9 @@ fn supervise(
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| "Ressources du service introuvables".to_string())?;
+    if config.home.join("config/restore.failed").exists() {
+        return Err("Restauration précédente sans retour arrière : intervention requise".into());
+    }
     let _child_job = crate::platform::create_service_child_job()?;
     let postgres = crate::database::postgres::PostgresProcess::new();
     let checkpoint = std::sync::atomic::AtomicU32::new(2);
@@ -141,6 +144,21 @@ fn supervise(
         })
         .map_err(str::to_string)?;
     record_service_diagnostic(&config.home, "PostgreSQL initialized and validated");
+    if config.home.join("config/restore.request").exists() {
+        let mut restoring = status(
+            ServiceState::StartPending,
+            ServiceControlAccept::empty(),
+            100,
+        );
+        restoring.wait_hint = Duration::from_secs(900);
+        handle
+            .set_service_status(restoring)
+            .map_err(|problem| problem.to_string())?;
+    }
+    if let Err(problem) = process_pending_restore(&config.home, &resources, config.postgres_port) {
+        postgres.stop();
+        return Err(problem);
+    }
 
     let smoke_mode = has_argument("--galaxam-pg-smoke") || has_argument("--galaxam-full-smoke");
     if smoke_mode && has_argument("--galaxam-pg-smoke") && !has_argument("--galaxam-full-smoke") {
@@ -262,6 +280,97 @@ fn supervise(
 
     shutdown_backend(&mut backend, api_port, &shutdown_token);
     postgres.stop();
+    Ok(())
+}
+
+fn process_pending_restore(home: &Path, resources: &Path, port: u16) -> Result<(), String> {
+    let request = home.join("config/restore.request");
+    if !request.exists() {
+        return Ok(());
+    }
+    record_service_diagnostic(home, "Restoring local backup as LocalService");
+    let failed_marker = home.join("config/restore.failed");
+    let mut rollback_failed = false;
+    let outcome = (|| {
+        let contents = fs::read_to_string(&request)
+            .map_err(|_| "Demande de restauration illisible".to_string())?;
+        let mut lines = contents.lines();
+        let name = lines.next().ok_or("Dossier de restauration absent")?;
+        let suffix = name
+            .strip_prefix(".restore-work-")
+            .ok_or("Dossier de restauration invalide")?;
+        if suffix.is_empty() || !suffix.bytes().all(|value| value.is_ascii_digit()) {
+            return Err("Dossier de restauration invalide".into());
+        }
+        let requested_port = lines
+            .next()
+            .and_then(|value| value.parse::<u16>().ok())
+            .ok_or("Port de restauration invalide")?;
+        if requested_port != port || lines.next().is_some() {
+            return Err("Configuration de restauration différente du service".into());
+        }
+        let work = home.join("backups").join(name);
+        let imported = work.join("incoming");
+        let safety = work.join("safety");
+        if !imported.join("database.dump").is_file() || !safety.join("database.dump").is_file() {
+            return Err("Archives de restauration préparées introuvables".into());
+        }
+        let restored = crate::backup::archive::apply_database_restore(
+            resources,
+            home,
+            port,
+            &imported.join("database.dump"),
+        )
+        .and_then(|_| {
+            crate::backup::archive::replace_documents(
+                home,
+                &imported,
+                imported.join("documents").is_dir(),
+            )
+        });
+        if let Err(original) = restored {
+            if let Err(rollback) = crate::backup::archive::apply_database_restore(
+                resources,
+                home,
+                port,
+                &safety.join("database.dump"),
+            ) {
+                rollback_failed = true;
+                let problem = format!("Restauration échouée ({original}) et retour arrière impossible ({rollback}). Sauvegarde de sécurité conservée dans {}", home.join("backups").display());
+                fs::write(&failed_marker, &problem).map_err(|_| {
+                    "Blocage de sécurité après échec du retour arrière impossible".to_string()
+                })?;
+                return Err(problem);
+            }
+            return Err(original);
+        }
+        Ok(())
+    })();
+    let payload = match &outcome {
+        Ok(()) => "OK".to_string(),
+        Err(problem) => format!("ERROR:{problem}"),
+    };
+    let pending = home.join("config/restore-service.result.pending");
+    let result = home.join("config/restore-service.result");
+    fs::write(&pending, payload)
+        .map_err(|_| "Résultat de restauration impossible à écrire".to_string())?;
+    fs::rename(&pending, &result)
+        .map_err(|_| "Résultat de restauration impossible à publier".to_string())?;
+    if !rollback_failed || failed_marker.exists() {
+        fs::remove_file(&request)
+            .map_err(|_| "Demande de restauration impossible à terminer".to_string())?;
+    }
+    if rollback_failed {
+        return Err(outcome.unwrap_err());
+    }
+    record_service_diagnostic(
+        home,
+        if outcome.is_ok() {
+            "Local backup restoration completed"
+        } else {
+            "Local backup restoration failed; safety copy restored"
+        },
+    );
     Ok(())
 }
 

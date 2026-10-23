@@ -216,6 +216,14 @@ fn run_restore_helper() -> Result<(), String> {
         })
         .filter(|value| *value != 0)
         .unwrap_or(15432);
+    let api_port = std::env::args_os()
+        .find_map(|arg| {
+            arg.to_string_lossy()
+                .strip_prefix("--galaxam-api-port=")
+                .and_then(|value| value.parse::<u16>().ok())
+        })
+        .filter(|value| *value != 0)
+        .unwrap_or(18081);
     let result = (|| {
         let resources = std::env::current_exe()
             .map_err(|_| "Exécutable GALAXAM introuvable".to_string())?
@@ -237,138 +245,52 @@ fn run_restore_helper() -> Result<(), String> {
                 crate::backup::archive::create_from_resources(&resources, &home, port)?;
             let stable_source = work.join("import.tar");
             crate::backup::archive::export_copy(&source, &stable_source)?;
-            let incoming_has_docs =
+            let _incoming_has_docs =
                 crate::backup::archive::extract_for_restore(&stable_source, &incoming)?;
             let _safety_has_docs =
                 crate::backup::archive::extract_for_restore(&rollback_archive, &safety)?;
             run_service_control("stop")?;
-            let postgres = resources.join("postgresql/bin/postgres.exe");
-            let pg_ctl = resources.join("postgresql/bin/pg_ctl.exe");
-            let pg_isready = resources.join("postgresql/bin/pg_isready.exe");
-            let cluster = home.join("data/postgresql/cluster");
-            let config = home.join("data/postgresql/config/postgresql.conf");
-            let log = home.join("logs/restore-postgres.log");
-            let log_file = std::fs::OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(&log)
-                .map_err(|_| "Journal temporaire PostgreSQL inaccessible".to_string())?;
-            let error_file = log_file
-                .try_clone()
-                .map_err(|_| "Journal temporaire PostgreSQL inaccessible".to_string())?;
-            let mut postgres_command = Command::new(&postgres);
-            postgres_command
-                .args(["-D"])
-                .arg(&cluster)
-                .arg("-c")
-                .arg(format!("config_file={}", config.display()))
-                .stdin(Stdio::null())
-                .stdout(Stdio::from(log_file))
-                .stderr(Stdio::from(error_file));
-            configure_restore_postgres_environment(&mut postgres_command, &resources);
-            let mut postgres_process = postgres_command.spawn().map_err(|problem| {
-                format!("Démarrage temporaire de PostgreSQL impossible : {problem}")
-            })?;
-            let ready_deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-            let mut postgres_ready = false;
-            while std::time::Instant::now() < ready_deadline {
-                if postgres_process
-                    .try_wait()
-                    .map_err(|problem| {
-                        format!("Vérification de PostgreSQL impossible : {problem}")
-                    })?
-                    .is_some()
-                {
-                    break;
-                }
-                let cluster_started = Command::new(&pg_ctl)
-                    .args(["-D"])
-                    .arg(&cluster)
-                    .arg("status")
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .status()
-                    .is_ok_and(|status| status.success());
-                let ready = cluster_started
-                    && Command::new(&pg_isready)
-                        .args(["-h", "127.0.0.1", "-p"])
-                        .arg(port.to_string())
-                        .arg("-q")
-                        .status()
-                        .is_ok_and(|status| status.success());
-                if ready {
-                    postgres_ready = true;
-                    break;
+            let request = home.join("config/restore.request");
+            let service_result = home.join("config/restore-service.result");
+            if request.exists() {
+                return Err("Une restauration Windows précédente doit être vérifiée".into());
+            }
+            if service_result.exists() {
+                std::fs::remove_file(&service_result).map_err(|_| {
+                    "Ancien résultat de restauration impossible à supprimer".to_string()
+                })?;
+            }
+            std::fs::write(
+                &request,
+                format!(".restore-work-{}\n{port}\n", std::process::id()),
+            )
+            .map_err(|_| "Demande de restauration au service impossible".to_string())?;
+            run_service_control("start")?;
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
+            while std::time::Instant::now() < deadline {
+                if let Ok(response) = std::fs::read_to_string(&service_result) {
+                    let _ = std::fs::remove_file(&service_result);
+                    return match response.strip_prefix("ERROR:") {
+                        Some(problem) => Err(problem.to_string()),
+                        None if response == "OK" => {
+                            while std::time::Instant::now() < deadline {
+                                if windows_api_ping(api_port) {
+                                    return Ok(());
+                                }
+                                std::thread::sleep(std::time::Duration::from_millis(500));
+                            }
+                            Err("L'API locale n'a pas redémarré après la restauration".into())
+                        }
+                        None => Err("Résultat de restauration du service invalide".into()),
+                    };
                 }
                 std::thread::sleep(std::time::Duration::from_millis(250));
             }
-            if !postgres_ready {
-                let _ = postgres_process.kill();
-                let _ = postgres_process.wait();
-                let _ = run_service_control("start");
-                let details = std::fs::read_to_string(&log)
-                    .unwrap_or_default()
-                    .lines()
-                    .rev()
-                    .take(8)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect::<Vec<_>>()
-                    .join(" | ");
-                let message = if details.is_empty() {
-                    "Démarrage temporaire de PostgreSQL impossible".to_string()
-                } else {
-                    format!("Démarrage temporaire de PostgreSQL impossible : {details}")
-                };
-                return Err(message);
-            }
-            let restored = crate::backup::archive::apply_database_restore(
-                &resources,
-                &home,
-                port,
-                &incoming.join("database.dump"),
-            );
-            let restored = match restored {
-                Ok(()) => {
-                    crate::backup::archive::replace_documents(&home, &incoming, incoming_has_docs)
-                }
-                Err(problem) => Err(problem),
-            };
-            if let Err(original) = &restored {
-                if let Err(rollback) = crate::backup::archive::apply_database_restore(
-                    &resources,
-                    &home,
-                    port,
-                    &safety.join("database.dump"),
-                ) {
-                    let _ = Command::new(&pg_ctl)
-                        .args(["-D"])
-                        .arg(&cluster)
-                        .args(["-m", "fast", "-w", "-t", "30", "stop"])
-                        .status();
-                    let _ = postgres_process.wait();
-                    return Err(format!("Restauration échouée ({original}) et retour arrière impossible ({rollback}). Les services restent arrêtés. Sauvegarde de sécurité : {}", rollback_archive.display()));
-                }
-            }
-            let stopped = Command::new(&pg_ctl)
-                .args(["-D"])
-                .arg(&cluster)
-                .args(["-m", "fast", "-w", "-t", "30", "stop"])
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-            if stopped.map_or(true, |status| !status.success()) {
-                return Err("Arrêt temporaire de PostgreSQL après restauration impossible. Le service reste arrêté pour éviter de démarrer Spring Boot sur un état incertain.".into());
-            }
-            let _ = postgres_process.wait();
-            run_service_control("start")?;
-            restored
+            Err("Le service Windows n'a pas terminé la restauration dans le délai attendu".into())
         })();
-        let _ = std::fs::remove_dir_all(&work);
+        if outcome.is_ok() {
+            let _ = std::fs::remove_dir_all(&work);
+        }
         outcome
     })();
     let payload = result
@@ -386,23 +308,6 @@ fn argument_path(prefix: &str) -> Option<PathBuf> {
             .strip_prefix(prefix)
             .map(PathBuf::from)
     })
-}
-
-fn configure_restore_postgres_environment(command: &mut Command, resources: &Path) {
-    let bin = resources.join("postgresql/bin");
-    let system_root = std::env::var_os("SystemRoot")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
-    let system32 = system_root.join("System32");
-    let path = std::env::join_paths([bin.as_path(), system32.as_path(), system_root.as_path()]);
-    command.env_clear();
-    command.env("PATH", path.unwrap_or_else(|_| system32.into_os_string()));
-    for variable in ["SystemRoot", "WINDIR", "SystemDrive", "TEMP", "TMP"] {
-        if let Some(value) = std::env::var_os(variable) {
-            command.env(variable, value);
-        }
-    }
-    command.env("HOME", resources.parent().unwrap_or(resources));
 }
 
 pub fn elevated_bootstrap_token(home: &Path) -> Result<String, String> {
@@ -549,7 +454,7 @@ pub fn elevated_backup_export(home: &Path, port: u16, destination: &Path) -> Res
 pub fn restore_local_backup(
     _app: &AppHandle,
     home: &Path,
-    _api_port: u16,
+    api_port: u16,
     port: u16,
     archive: &Path,
 ) -> Result<(), String> {
@@ -577,6 +482,7 @@ pub fn restore_local_backup(
     let arguments = [
         RESTORE_HELPER_ARG.to_string(),
         format!("--galaxam-pg-port={port}"),
+        format!("--galaxam-api-port={api_port}"),
         format!("--galaxam-restore-input={}", archive.display()),
         format!("--galaxam-restore-result={}", result_path.display()),
     ];
