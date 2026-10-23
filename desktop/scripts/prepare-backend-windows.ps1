@@ -25,11 +25,25 @@ if (Test-Path $runtime) { Remove-Item $runtime -Recurse -Force }
 $modules = 'java.base,java.compiler,java.datatransfer,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.security.sasl,java.sql,java.sql.rowset,java.transaction.xa,java.xml,java.xml.crypto,jdk.charsets,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.localedata,jdk.security.auth,jdk.security.jgss,jdk.unsupported,jdk.zipfs'
 & $jlink --module-path (Join-Path $jdk 'jmods') --add-modules $modules --add-options '-Xms64m -Xmx512m -XX:+UseSerialGC' --strip-debug --no-header-files --no-man-pages --compress=2 --output $runtime
 if ($LASTEXITCODE -ne 0) { throw 'Création du runtime Java échouée.' }
-$runtimeFlags = (& (Join-Path $runtime 'bin\java.exe') -XX:+PrintCommandLineFlags -version 2>&1 | Out-String)
+$originalPath = $env:PATH
+try {
+    # Match the restricted environment used by the Windows service so the
+    # system JDK on the CI runner cannot hide missing bundled DLLs.
+    $env:PATH = Join-Path $runtime 'bin'
+    $runtimeFlags = (& (Join-Path $runtime 'bin\java.exe') -XX:+PrintCommandLineFlags -version 2>&1 | Out-String)
+    $runtimeExitCode = $LASTEXITCODE
+} finally {
+    $env:PATH = $originalPath
+}
+if ($runtimeExitCode -ne 0) {
+    throw "Le runtime Java embarqué ne démarre pas dans son environnement isolé (code $runtimeExitCode)."
+}
 if ($runtimeFlags -notmatch 'MaxHeapSize=536870912' -or $runtimeFlags -notmatch 'UseSerialGC') {
     throw 'Le runtime Java embarqué ne respecte pas les limites mémoire desktop.'
 }
-Get-ChildItem (Join-Path $runtime 'bin') -File | Where-Object Name -ne 'java.exe' | Remove-Item -Force
+Get-ChildItem (Join-Path $runtime 'bin') -Filter '*.exe' -File |
+    Where-Object Name -ne 'java.exe' |
+    Remove-Item -Force
 $legal = Join-Path $runtime 'legal'
 if (-not (Test-Path (Join-Path $runtime 'bin\java.exe')) -or -not (Test-Path (Join-Path $legal 'java.base\LICENSE'))) {
     throw 'Runtime Java ou licences incomplets.'

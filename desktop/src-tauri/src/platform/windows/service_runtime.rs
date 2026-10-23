@@ -391,12 +391,14 @@ fn wait_for_api(
             Ok(()) | Err(mpsc::TryRecvError::Disconnected) => return Ok(ApiWait::StopRequested),
             Err(mpsc::TryRecvError::Empty) => {}
         }
-        if backend
-            .try_wait()
-            .map_err(|problem| problem.to_string())?
-            .is_some()
-        {
-            return Err("Spring Boot s’est arrêté pendant son démarrage".into());
+        if let Some(exit) = backend.try_wait().map_err(|problem| problem.to_string())? {
+            let code = exit
+                .code()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| format!("{exit:?}"));
+            return Err(format!(
+                "Spring Boot s’est arrêté pendant son démarrage (code {code})"
+            ));
         }
         if api_ping(port) {
             return Ok(ApiWait::Ready);
