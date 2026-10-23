@@ -53,6 +53,19 @@ jobs:
         run: |
           $setup = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' | Select-Object -First 1
           if (-not $setup) { throw 'Setup missing' }
+          $defaultInstall = Join-Path $env:ProgramFiles 'GRH'
+          $dataHome = Join-Path $env:ProgramData 'GALAXAM SIRH'
+          New-Item -ItemType Directory -Force -Path $dataHome | Out-Null
+          $marker = Join-Path $dataHome 'ci-preserve-marker'
+          Set-Content -Path $marker -Value 'retain local data'
+          $process = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Default installer failed: $($process.ExitCode)" }
+          if (-not (Test-Path (Join-Path $defaultInstall 'galaxam-sirh-desktop.exe'))) { throw 'Default installation is missing' }
+          $defaultUninstall = Join-Path $defaultInstall 'uninstall.exe'
+          if (-not (Test-Path $defaultUninstall)) { throw 'Default uninstaller missing' }
+          $process = Start-Process -FilePath $defaultUninstall -ArgumentList '/S' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Default uninstaller failed: $($process.ExitCode)" }
+          if (-not (Test-Path $marker)) { throw 'Uninstall deleted local data' }
           $install = 'C:\GalaxamCI'
           $process = Start-Process -FilePath $setup.FullName -ArgumentList '/S',"/D=$install" -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
@@ -79,19 +92,6 @@ jobs:
           if (-not (Test-Path $uninstall)) { throw 'Uninstaller missing' }
           $process = Start-Process -FilePath $uninstall -ArgumentList '/S' -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Uninstaller failed: $($process.ExitCode)" }
-          $defaultInstall = Join-Path $env:ProgramFiles 'GRH'
-          $dataHome = Join-Path $env:ProgramData 'GALAXAM SIRH'
-          New-Item -ItemType Directory -Force -Path $dataHome | Out-Null
-          $marker = Join-Path $dataHome 'ci-preserve-marker'
-          Set-Content -Path $marker -Value 'retain local data'
-          $process = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -PassThru -Wait
-          if ($process.ExitCode -ne 0) { throw "Default installer failed: $($process.ExitCode)" }
-          if (-not (Test-Path (Join-Path $defaultInstall 'galaxam-sirh-desktop.exe'))) { throw 'Default installation is missing' }
-          $defaultUninstall = Join-Path $defaultInstall 'uninstall.exe'
-          if (-not (Test-Path $defaultUninstall)) { throw 'Default uninstaller missing' }
-          $process = Start-Process -FilePath $defaultUninstall -ArgumentList '/S' -PassThru -Wait
-          if ($process.ExitCode -ne 0) { throw "Default uninstaller failed: $($process.ExitCode)" }
-          if (-not (Test-Path $marker)) { throw 'Uninstall deleted local data' }
       - uses: actions/upload-artifact@v4
         if: success()
         with:
