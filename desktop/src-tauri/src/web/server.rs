@@ -138,12 +138,12 @@ async fn proxy(
     body: Bytes,
 ) -> Response {
     // The desktop server accepts browser requests only from its own origin.
-    // Spring receives an internal same-origin proxy request, without a foreign Origin.
-    if let Some(origin) = headers.get(header::ORIGIN) {
-        if origin.as_bytes() != state.web_origin.as_bytes() {
-            return StatusCode::FORBIDDEN.into_response();
-        }
-    }
+    // Forward that validated origin so Spring can apply the same CSRF/origin policy
+    // to desktop refresh and logout requests as it does to browser requests.
+    let forward_origin = match validate_browser_origin(&headers, &state.web_origin) {
+        Ok(present) => present,
+        Err(status) => return status.into_response(),
+    };
     let Some(upstream) = state
         .api_upstream
         .read()
@@ -160,6 +160,9 @@ async fn proxy(
             .unwrap_or("/api/")
     );
     let mut request = state.client.request(method, target).body(body);
+    if forward_origin {
+        request = request.header(header::ORIGIN, &state.web_origin);
+    }
     for (name, value) in &headers {
         if matches!(
             name.as_str(),
@@ -198,4 +201,30 @@ async fn proxy(
         }
     }
     response
+}
+
+fn validate_browser_origin(headers: &HeaderMap, web_origin: &str) -> Result<bool, StatusCode> {
+    match headers.get(header::ORIGIN) {
+        Some(origin) if origin.as_bytes() != web_origin.as_bytes() => Err(StatusCode::FORBIDDEN),
+        Some(_) => Ok(true),
+        None => Ok(false),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_desktop_origin_is_forwarded_to_the_api() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::ORIGIN, "http://127.0.0.1:18888".parse().unwrap());
+        assert!(validate_browser_origin(&headers, "http://127.0.0.1:18888").unwrap());
+        assert_eq!(
+            validate_browser_origin(&headers, "http://127.0.0.1:19999"),
+            Err(StatusCode::FORBIDDEN)
+        );
+        headers.remove(header::ORIGIN);
+        assert!(!validate_browser_origin(&headers, "http://127.0.0.1:18888").unwrap());
+    }
 }
