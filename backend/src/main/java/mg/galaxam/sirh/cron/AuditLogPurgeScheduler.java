@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,16 +27,23 @@ public class AuditLogPurgeScheduler {
     @Autowired
     private SchedulerExecutionRegistry executionRegistry;
 
+    @Autowired
+    private BackupConsistencyGate backupGate;
+
     /**
      * Exécuté le 1er de chaque mois à 04:00:00.
      * Supprime les entrées d'audit_log antérieures au seuil calendaire de 36 mois.
      */
     @Scheduled(cron = "0 0 4 1 * ?", zone = "Indian/Antananarivo")
-    public void purgerAnciensLogsAudit() {
-        executionRegistry.runMonthly("PURGE_AUDIT", this::purgerAnciensLogsAuditInterne);
+    public void purgerAnciensLogsAudit() throws Exception {
+        backupGate.withWriteAccess(() -> executionRegistry.runMonthly("PURGE_AUDIT", this::purgerAnciensLogsAuditInterne));
     }
 
-    public boolean rattraperPurgeMensuelle() {
+    public boolean rattraperPurgeMensuelle() throws Exception {
+        return backupGate.withWriteAccess(this::rattraperPurgeMensuelleInterne);
+    }
+
+    private boolean rattraperPurgeMensuelleInterne() throws Exception {
         if (LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).getDayOfMonth() == 1
                 && java.time.LocalTime.now(java.time.ZoneId.of("Indian/Antananarivo")).isBefore(java.time.LocalTime.of(4, 0))) {
             return true;

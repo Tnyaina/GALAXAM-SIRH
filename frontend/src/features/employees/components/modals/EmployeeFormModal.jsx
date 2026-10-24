@@ -69,7 +69,7 @@ const resolveStepIndex = (step) => {
     return idx >= 0 ? idx : 0;
 };
 
-export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting, initialStep = 0 }) {
+export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting, initialStep = 0, bankOnly = false, canBankWrite = false }) {
     const [activeStep, setActiveStep] = useState(() => resolveStepIndex(initialStep));
     const [banques, setBanques] = useState([]);
     const [errorMsg, setErrorMsg] = useState('');
@@ -451,7 +451,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     const handleSave = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
 
-        if (!employeData && activeStep < STEPS.length - 1) {
+        if (!bankOnly && !employeData && activeStep < STEPS.length - 1) {
             handleNext();
             return;
         }
@@ -459,7 +459,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         if (isSubmitting) return;
 
         // Validation intégrale de l'ensemble des étapes
-        const validationResult = validerToutesEtapesEmploye(
+        const validationResult = bankOnly ? null : validerToutesEtapesEmploye(
             STEPS,
             formData,
             matriculeError,
@@ -482,6 +482,23 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         const finalNat = isCustomNat ? customNationalite : formData.nationalite;
 
         try {
+            if (bankOnly) {
+                if (!formData.supprimerCompteBanque) {
+                    const bankErrors = validerChampsEtape('banque', formData, matriculeError, { customNationalite, isCustomNat });
+                    if (!formData.compteBanquePrincipal?.idBanque) bankErrors.idBanque = 'Sélectionnez une banque.';
+                    if (!formData.compteBanquePrincipal?.numCompteRib?.trim()) bankErrors.numCompteRib = 'Le numéro de compte RIB est obligatoire.';
+                    if (Object.keys(bankErrors).length > 0) {
+                        setFieldErrors(bankErrors);
+                        return;
+                    }
+                }
+                await onSave({
+                    compteBanquePrincipal: formData.supprimerCompteBanque ? null : formData.compteBanquePrincipal,
+                    supprimerCompteBanque: formData.supprimerCompteBanque
+                });
+                setIsDirty(false);
+                return;
+            }
             await onSave({
                 ...formData,
                 dateNaissance: fmtDateInput(formData.dateNaissance) || null,
@@ -513,7 +530,8 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 }),
                 enfantsASupprimer: enfantsSupprimes.map(enf => enf.idEnfant),
                 contactsUrgenceASupprimer: contactsSupprimes.map(ct => ct.idContact),
-                compteBanquePrincipal: formData.supprimerCompteBanque ? null : formData.compteBanquePrincipal,
+                compteBanquePrincipal: undefined,
+                supprimerCompteBanque: undefined,
                 nationalite: finalNat,
                 numAffiliationCnaps: formData.numAffiliationCnaps?.trim() || null,
                 cinNumero: formData.cinNumero?.trim() || null,
@@ -533,7 +551,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             <Modal
                 isOpen={isOpen}
                 onClose={onClose}
-                title={employeData ? `Modifier la Fiche — ${formData.matricule}` : 'Nouveau Collaborateur'}
+                title={bankOnly ? 'Compte bancaire pour virement' : employeData ? `Modifier la Fiche — ${formData.matricule}` : 'Nouveau Collaborateur'}
                 icon={<User size={18} />}
                 size="3xl"
                 closeOnBackdrop={false}
@@ -562,7 +580,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                             Annuler
                         </Button>
                     <div className="flex items-center gap-2">
-                        {activeStep > 0 && (
+                        {!bankOnly && activeStep > 0 && (
                             <Button
                                 key="wizard-prev-btn"
                                 type="button"
@@ -575,7 +593,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                 {STEPS[activeStep - 1]?.label}
                             </Button>
                         )}
-                        {employeData && activeStep < STEPS.length - 1 && (
+                        {!bankOnly && employeData && activeStep < STEPS.length - 1 && (
                             <Button
                                 key="wizard-quick-save-btn"
                                 type="button"
@@ -588,7 +606,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                 Enregistrer
                             </Button>
                         )}
-                        {activeStep < STEPS.length - 1 ? (
+                        {!bankOnly && activeStep < STEPS.length - 1 ? (
                             <Button
                                 key="wizard-next-btn"
                                 type="button"
@@ -618,7 +636,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         >
             <div className="space-y-4">
                 {/* Stepper Horizontal */}
-                <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] overflow-x-auto">
+                {!bankOnly && <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] overflow-x-auto">
                     {STEPS.map((step, idx) => {
                         const isCompleted = idx < activeStep;
                         const isActive = idx === activeStep;
@@ -655,7 +673,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                             </button>
                         );
                     })}
-                </div>
+                </div>}
 
                 {/* Formulaire & Contenu de l'étape */}
                 <form id="employe-wizard-form" onSubmit={handleSave} className="p-2 space-y-4 max-h-[62vh] overflow-y-auto pr-3">
@@ -820,7 +838,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                     {/* Step 6: CNaPS & Banque */}
                     {STEPS[activeStep].id === 'banque' && (
                         <div className="space-y-4">
-                            <Card padding className="space-y-4">
+                            {!bankOnly && <Card padding className="space-y-4">
                                 <div className="pb-2 border-b border-[var(--color-border-subtle)]">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
                                         <Shield size={14} className="text-[var(--color-brand-600)]" />
@@ -841,8 +859,8 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                         onChange={(event) => set('dateDeclaration', event.target.value)} 
                                     />
                                 </div>
-                            </Card>
-                            <Card padding className="space-y-4">
+                            </Card>}
+                            {bankOnly && canBankWrite && <Card padding className="space-y-4">
                                 <div className="pb-2 border-b border-[var(--color-border-subtle)]">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
                                         <Landmark size={14} className="text-[var(--color-brand-600)]" />
@@ -892,7 +910,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                     />
                                 </div>
                                 )}
-                            </Card>
+                            </Card>}
                         </div>
                     )}
                 </form>

@@ -433,6 +433,7 @@ export default function EmployeListPage() {
                     onSave={handleSaveForm}
                     employeData={selectedEmployeForEdit}
                     isSubmitting={submitting}
+                    canBankWrite={hasPermission('PAIE_WRITE')}
                 />
             )}
 

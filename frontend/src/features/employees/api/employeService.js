@@ -37,6 +37,10 @@ const employeService = {
         return response.data;
     },
 
+    updateCompteBancaire: async (id, data) => {
+        await apiClient.put(`/employes/${id}/compte-bancaire`, data);
+    },
+
     desactiverEmploye: async (id, motif) => {
         const response = await apiClient.put(`/employes/${id}/desactiver`, { motif });
         return response.data;

@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,18 +28,21 @@ public class SessionSecurityScheduler {
     @Autowired
     private SchedulerExecutionRegistry executionRegistry;
 
+    @Autowired
+    private BackupConsistencyGate backupGate;
+
     /**
      * Exécuté chaque nuit à 03:30:00.
      * Nettoie les anciennes notifications lues de plus de 90 jours et révoque les refresh tokens expirés.
      */
     @Scheduled(cron = "0 30 3 * * ?", zone = "Indian/Antananarivo")
-    public void nettoyerSecurite() {
-        executionRegistry.runDaily("SECURITE_SESSIONS", this::nettoyerSecuriteInterne);
+    public void nettoyerSecurite() throws Exception {
+        backupGate.withWriteAccess(() -> executionRegistry.runDaily("SECURITE_SESSIONS", this::nettoyerSecuriteInterne));
     }
 
-    public boolean rattraperSecurite() {
-        return executionRegistry.runDailyCatchUp("SECURITE_SESSIONS", java.time.LocalTime.of(3, 30),
-                this::nettoyerSecuriteInterne);
+    public boolean rattraperSecurite() throws Exception {
+        return backupGate.withWriteAccess(() -> executionRegistry.runDailyCatchUp("SECURITE_SESSIONS", java.time.LocalTime.of(3, 30),
+                this::nettoyerSecuriteInterne));
     }
 
     private void nettoyerSecuriteInterne() throws Exception {

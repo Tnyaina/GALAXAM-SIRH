@@ -93,12 +93,20 @@ public class EmployeService {
     }
 
     public EmployeFicheDetailDTO getFicheDetail(int id) throws Exception {
+        return getFicheDetail(id, true);
+    }
+
+    public EmployeFicheDetailDTO getFicheDetail(int id, boolean includeBankAccounts) throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            return getFicheDetail(id, c);
+            return getFicheDetail(id, c, includeBankAccounts);
         }
     }
 
     public EmployeFicheDetailDTO getFicheDetail(int id, Connection c) throws Exception {
+        return getFicheDetail(id, c, true);
+    }
+
+    public EmployeFicheDetailDTO getFicheDetail(int id, Connection c, boolean includeBankAccounts) throws Exception {
         EmployeCPL empView = new EmployeCPL().rechercherParId(id, c);
         if (empView == null) {
             return null;
@@ -107,9 +115,46 @@ public class EmployeService {
         EmployeConjoint conjoint = EmployeConjoint.findByEmployeId(id, c);
         List<EmployeEnfant> enfants = EmployeEnfant.listByEmployeId(id, c);
         List<EmployeContactUrgence> contacts = EmployeContactUrgence.listByEmployeId(id, c);
-        List<EmployeCompteBanque> comptes = EmployeCompteBanque.listByEmployeId(id, c);
+        List<EmployeCompteBanque> comptes = includeBankAccounts
+                ? EmployeCompteBanque.listByEmployeId(id, c) : List.of();
 
         return new EmployeFicheDetailDTO(empView, conjoint, enfants, contacts, comptes);
+    }
+
+    public List<EmployeCompteBanque> getComptesBancaires(int id) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            if (new EmployeCPL().rechercherParId(id, c) == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Employé non trouvé.");
+            }
+            return EmployeCompteBanque.listByEmployeId(id, c);
+        }
+    }
+
+    public void modifierCompteBancaire(int id, EmployeRequest request) throws Exception {
+        if (request == null || request.getCompteBanquePrincipal() == null && !request.isSupprimerCompteBanque()) {
+            throw new IllegalArgumentException("Coordonnées bancaires ou suppression explicite requises.");
+        }
+        if (!request.isSupprimerCompteBanque() && (request.getCompteBanquePrincipal().getIdBanque() == null
+                || estVide(request.getCompteBanquePrincipal().getNumCompteRib()))) {
+            throw new IllegalArgumentException("La banque et le numéro de compte RIB sont obligatoires.");
+        }
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                if (new EmployeCPL().rechercherParId(id, c) == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Employé non trouvé.");
+                }
+                appliquerCompteBanque(id, request, c);
+                AuditLog.audit(c, "MODIFICATION", "employe_compte_banque", String.valueOf(id), null,
+                        request.isSupprimerCompteBanque() ? null : "Compte bancaire mis à jour");
+                c.commit();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
     }
 
     public EmployeCPL creerEmploye(EmployeRequest req) throws Exception {

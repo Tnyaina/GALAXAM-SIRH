@@ -247,7 +247,11 @@ export default function EmployeFicheDetailPage() {
         if (submitting) return;
         setSubmitting(true);
         try {
-            await employeService.updateEmploye(id, formData);
+            if (formInitialStep === 'banque') {
+                await employeService.updateCompteBancaire(id, formData);
+            } else {
+                await employeService.updateEmploye(id, formData);
+            }
             toast({ title: 'Succès', message: 'Fiche employé modifiée avec succès.', type: 'success' });
             handleCloseForm();
             loadEmployeDetail(true);
@@ -486,6 +490,8 @@ export default function EmployeFicheDetailPage() {
                                 emp={emp}
                                 comptes={comptes}
                                 canWrite={canWrite}
+                                canReadBank={canReadPaie}
+                                canWriteBank={canWritePaie}
                                 onEdit={handleOpenEdit}
                                 onAddCompte={handleOpenAddCompte}
                             />
@@ -597,6 +603,8 @@ export default function EmployeFicheDetailPage() {
                         employeData={detailData}
                         isSubmitting={submitting}
                         initialStep={formInitialStep}
+                        bankOnly={formInitialStep === 'banque'}
+                        canBankWrite={canWritePaie}
                     />
                 </Suspense>
             )}

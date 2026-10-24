@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public class EmployeCPL extends ClassMere {
 
@@ -610,24 +611,31 @@ public class EmployeCPL extends ClassMere {
     public String getConjointFonction() { return conjointFonction; }
     public void setConjointFonction(String conjointFonction) { this.conjointFonction = conjointFonction; }
 
+    @JsonIgnore
     public Integer getIdCompteBanquePrincipal() { return idCompteBanquePrincipal; }
     public void setIdCompteBanquePrincipal(Integer idCompteBanquePrincipal) { this.idCompteBanquePrincipal = idCompteBanquePrincipal; }
 
+    @JsonIgnore
     public Integer getIdBanquePrincipal() { return idBanquePrincipal; }
     public void setIdBanquePrincipal(Integer idBanquePrincipal) { this.idBanquePrincipal = idBanquePrincipal; }
 
+    @JsonIgnore
     public String getCodeBanquePrincipal() { return codeBanquePrincipal; }
     public void setCodeBanquePrincipal(String codeBanquePrincipal) { this.codeBanquePrincipal = codeBanquePrincipal; }
 
+    @JsonIgnore
     public String getNomBanquePrincipal() { return nomBanquePrincipal; }
     public void setNomBanquePrincipal(String nomBanquePrincipal) { this.nomBanquePrincipal = nomBanquePrincipal; }
 
+    @JsonIgnore
     public String getAgenceBanquePrincipal() { return agenceBanquePrincipal; }
     public void setAgenceBanquePrincipal(String agenceBanquePrincipal) { this.agenceBanquePrincipal = agenceBanquePrincipal; }
 
+    @JsonIgnore
     public String getNumCompteRibPrincipal() { return numCompteRibPrincipal; }
     public void setNumCompteRibPrincipal(String numCompteRibPrincipal) { this.numCompteRibPrincipal = numCompteRibPrincipal; }
 
+    @JsonIgnore
     public String getTitulaireComptePrincipal() { return titulaireComptePrincipal; }
     public void setTitulaireComptePrincipal(String titulaireComptePrincipal) { this.titulaireComptePrincipal = titulaireComptePrincipal; }
 

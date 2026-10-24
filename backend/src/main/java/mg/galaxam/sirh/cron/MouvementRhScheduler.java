@@ -2,6 +2,7 @@ package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
 import mg.galaxam.sirh.contrat.application.WorkflowRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,18 +26,21 @@ public class MouvementRhScheduler {
     @Autowired
     private SchedulerExecutionRegistry executionRegistry;
 
+    @Autowired
+    private BackupConsistencyGate backupGate;
+
     /**
      * Exécution automatique chaque jour à 00:10 (heure de Madagascar).
      * Vérifie et applique tous les mouvements RH validés dont la date d'effet est atteinte.
      */
     @Scheduled(cron = "0 10 0 * * ?", zone = "Indian/Antananarivo")
-    public void effectuerBasculementMouvementsPlanifies() {
-        executionRegistry.runDaily("MOUVEMENTS_RH", this::effectuerBasculementMouvementsPlanifiesInterne);
+    public void effectuerBasculementMouvementsPlanifies() throws Exception {
+        backupGate.withWriteAccess(() -> executionRegistry.runDaily("MOUVEMENTS_RH", this::effectuerBasculementMouvementsPlanifiesInterne));
     }
 
-    public boolean rattraperMouvements() {
-        return executionRegistry.runDailyCatchUp("MOUVEMENTS_RH", java.time.LocalTime.of(0, 10),
-                this::effectuerBasculementMouvementsPlanifiesInterne);
+    public boolean rattraperMouvements() throws Exception {
+        return backupGate.withWriteAccess(() -> executionRegistry.runDailyCatchUp("MOUVEMENTS_RH", java.time.LocalTime.of(0, 10),
+                this::effectuerBasculementMouvementsPlanifiesInterne));
     }
 
     private void effectuerBasculementMouvementsPlanifiesInterne() throws Exception {

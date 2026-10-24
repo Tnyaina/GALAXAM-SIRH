@@ -80,15 +80,33 @@ public class PayrollService {
 
     private void lierBulletinAuSnapshot(Integer bulletinId, PayrollCalculationInput input, Connection c)
             throws SQLException {
-        if (bulletinId == null || input.getAttendanceInput() == null) return;
+        if (bulletinId == null) throw new IllegalArgumentException("Bulletin de paie non enregistré.");
+        if (input.getAttendanceInput() == null) {
+            // Un recalcul sans snapshot ne doit pas conserver la référence de l'ancien calcul.
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE bulletin_paie SET id_snapshot_pointage = NULL, version_snapshot_pointage = NULL "
+                    + "WHERE id_bulletin = ?")) {
+                ps.setInt(1, bulletinId);
+                if (ps.executeUpdate() != 1) throw new SQLException("Bulletin introuvable pendant le recalcul.");
+            }
+            return;
+        }
         var attendance = input.getAttendanceInput();
-        String sql = "UPDATE bulletin_paie SET id_snapshot_pointage = ?, version_snapshot_pointage = ? " +
-                "WHERE id_bulletin = ?";
+        if (input.getIdEmploye() != null && input.getIdEmploye() != attendance.employeeId()
+                || input.getIdPeriodePaie() != null && input.getIdPeriodePaie() != attendance.payrollPeriodId()) {
+            throw new IllegalArgumentException("Snapshot de pointage étranger au calcul demandé.");
+        }
+        String sql = "UPDATE bulletin_paie b SET id_snapshot_pointage = s.id_cumul, " +
+                "version_snapshot_pointage = s.version_snapshot FROM pointage_cumul_periode s " +
+                "WHERE b.id_bulletin = ? AND s.id_cumul = ? AND s.version_snapshot = ? " +
+                "AND s.id_employe = b.id_employe AND s.id_periode_paie = b.id_periode_paie " +
+                "AND s.statut_snapshot IN ('GELE', 'CONSOMME')";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, attendance.snapshotId());
-            ps.setInt(2, attendance.snapshotVersion());
-            ps.setInt(3, bulletinId);
-            if (ps.executeUpdate() != 1) throw new SQLException("Impossible de rattacher le snapshot au bulletin.");
+            ps.setInt(1, bulletinId);
+            ps.setInt(2, attendance.snapshotId());
+            ps.setInt(3, attendance.snapshotVersion());
+            if (ps.executeUpdate() != 1) throw new SQLException(
+                    "Snapshot de pointage incompatible avec le bulletin, sa période ou sa version.");
         }
         marquerSnapshotConsomme(bulletinId, c);
     }
@@ -165,9 +183,15 @@ public class PayrollService {
 
     private void marquerSnapshotConsomme(Integer bulletinId, Connection c) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(
-                "UPDATE pointage_cumul_periode SET statut_snapshot = 'CONSOMME' " +
-                "WHERE id_cumul = (SELECT id_snapshot_pointage FROM bulletin_paie WHERE id_bulletin = ?)")) {
-            ps.setInt(1, bulletinId); ps.executeUpdate();
+                "UPDATE pointage_cumul_periode s SET statut_snapshot = 'CONSOMME' " +
+                "FROM bulletin_paie b WHERE b.id_bulletin = ? AND b.id_snapshot_pointage = s.id_cumul " +
+                "AND b.version_snapshot_pointage = s.version_snapshot " +
+                "AND b.id_employe = s.id_employe AND b.id_periode_paie = s.id_periode_paie " +
+                "AND s.statut_snapshot IN ('GELE', 'CONSOMME')")) {
+            ps.setInt(1, bulletinId);
+            if (ps.executeUpdate() != 1) {
+                throw new SQLException("Snapshot de pointage modifié pendant le rattachement au bulletin.");
+            }
         }
     }
 
@@ -441,7 +465,7 @@ public class PayrollService {
                     }
                 }
                 employerSnapshotService.capture(b.getIdBulletin(), c);
-                marquerSnapshotConsomme(b.getIdBulletin(), c);
+                if (b.getIdSnapshotPointage() != null) marquerSnapshotConsomme(b.getIdBulletin(), c);
                 batch.ajouterBulletin(obtenirBulletinComplet(b.getIdBulletin(), c));
             } else {
                 // Le bulletin individuel validé avant la campagne reste visible dans
@@ -492,7 +516,7 @@ public class PayrollService {
             if (ps.executeUpdate() != 1) throw new IllegalStateException("Le bulletin a changé pendant sa validation.");
         }
         employerSnapshotService.capture(bulletin.getIdBulletin(), c);
-        marquerSnapshotConsomme(bulletin.getIdBulletin(), c);
+        if (bulletin.getIdSnapshotPointage() != null) marquerSnapshotConsomme(bulletin.getIdBulletin(), c);
         return obtenirBulletinComplet(bulletin.getIdBulletin(), c);
     }
 

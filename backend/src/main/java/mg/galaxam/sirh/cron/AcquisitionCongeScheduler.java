@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
 import mg.galaxam.sirh.conge.application.CongeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,14 +21,19 @@ public class AcquisitionCongeScheduler {
     @Autowired private DataSource dataSource;
     @Autowired private CongeService congeService;
     @Autowired private SchedulerExecutionRegistry executionRegistry;
+    @Autowired private BackupConsistencyGate backupGate;
 
     @Scheduled(cron = "0 0 1 1 * ?", zone = "Indian/Antananarivo")
-    public boolean bonifierCongesAnciennete() {
+    public boolean bonifierCongesAnciennete() throws Exception {
         LocalDate moisClos = LocalDate.now(ZoneId.of("Indian/Antananarivo")).withDayOfMonth(1).minusDays(1);
-        return executionRegistry.run("BONIFICATION_CONGES", moisClos.withDayOfMonth(1), () -> executer(moisClos));
+        return backupGate.withWriteAccess(() -> executionRegistry.run("BONIFICATION_CONGES", moisClos.withDayOfMonth(1), () -> executer(moisClos)));
     }
 
-    public boolean rattraperBonificationMensuelle() {
+    public boolean rattraperBonificationMensuelle() throws Exception {
+        return backupGate.withWriteAccess(this::rattraperBonificationMensuelleInterne);
+    }
+
+    private boolean rattraperBonificationMensuelleInterne() throws Exception {
         if (LocalDate.now(ZoneId.of("Indian/Antananarivo")).getDayOfMonth() == 1
                 && java.time.LocalTime.now(ZoneId.of("Indian/Antananarivo")).isBefore(java.time.LocalTime.of(1, 0))) {
             return true;

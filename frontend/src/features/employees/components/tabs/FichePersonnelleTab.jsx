@@ -24,7 +24,7 @@ const InfoRow = ({ label, children, mono = false }) => {
     );
 };
 
-export default function FichePersonnelleTab({ emp, comptes = [], canWrite = false, onEdit, onAddCompte }) {
+export default function FichePersonnelleTab({ emp, comptes = [], canReadBank = false, canWriteBank = false, onEdit, onAddCompte }) {
     if (!emp) return null;
 
     const genreLibelle = emp.genreLibelle || (emp.sexe === 'M' ? 'Masculin' : emp.sexe === 'F' ? 'Féminin' : emp.sexe);
@@ -125,12 +125,12 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                     </div>
 
                     {/* Compte bancaire unique */}
-                    <div className="space-y-2">
+                    {(canReadBank || canWriteBank) && <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                                 Compte bancaire pour virement
                             </h4>
-                            {canWrite && onEdit && (
+                            {canWriteBank && onAddCompte && (
                                 <Button
                                     type="button"
                                     variant="ghost"
@@ -139,12 +139,12 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                                     iconLeft={<Plus size={12} />}
                                     className="text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] font-semibold"
                                 >
-                                    {comptes.length > 0 ? 'Modifier le compte' : 'Ajouter un compte'}
+                                    {!canReadBank ? 'Renseigner ou remplacer le compte' : comptes.length > 0 ? 'Modifier le compte' : 'Ajouter un compte'}
                                 </Button>
                             )}
                         </div>
 
-                        {comptes.length > 0 ? (
+                        {canReadBank && comptes.length > 0 ? (
                             <Table bordered={false}>
                                 <Thead>
                                     <Tr>
@@ -168,17 +168,17 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                                     ))}
                                 </Tbody>
                             </Table>
-                        ) : (
+                        ) : canReadBank ? (
                             <EmptyState
                                 icon={Landmark}
                                 title="Aucun compte bancaire enregistré"
                                 description="Aucun compte de virement associé. Renseignez un compte bancaire si les salaires doivent être versés par virement."
-                                actionLabel={canWrite && (onAddCompte || onEdit) ? "Renseigner un compte" : undefined}
-                                onAction={canWrite ? (onAddCompte || onEdit) : undefined}
+                                actionLabel={canWriteBank && onAddCompte ? "Renseigner un compte" : undefined}
+                                onAction={canWriteBank ? onAddCompte : undefined}
                                 compact
                             />
-                        )}
-                    </div>
+                        ) : null}
+                    </div>}
                 </CardBody>
             </Card>
         </div>

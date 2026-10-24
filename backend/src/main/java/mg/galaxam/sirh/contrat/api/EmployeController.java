@@ -32,6 +32,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -46,6 +48,21 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/employes")
 public class EmployeController {
+
+    private static boolean hasAuthority(String authority) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.isAuthenticated() && auth.getAuthorities().stream()
+                .anyMatch(granted -> "ROLE_ADMIN".equals(granted.getAuthority())
+                        || authority.equals(granted.getAuthority()));
+    }
+
+    private static void requireBankWritePermission(EmployeRequest request) {
+        if (request != null && (request.getCompteBanquePrincipal() != null || request.isSupprimerCompteBanque())
+                && !hasAuthority("PAIE_WRITE")) {
+            throw new SirhBusinessException(SirhErrorCode.ACCESS_DENIED,
+                    "La modification des coordonnées bancaires requiert le droit d'écriture Paie.");
+        }
+    }
 
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
@@ -140,7 +157,7 @@ public class EmployeController {
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getEmployeFicheDetail(@PathVariable int id) {
         try {
-            EmployeFicheDetailDTO detail = employeService.getFicheDetail(id);
+            EmployeFicheDetailDTO detail = employeService.getFicheDetail(id, hasAuthority("PAIE_READ"));
             if (detail == null) {
                 throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Employé non trouvé.");
             }
@@ -159,6 +176,7 @@ public class EmployeController {
     @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createEmploye(@RequestBody EmployeRequest req) {
         try {
+            requireBankWritePermission(req);
             EmployeCPL created = employeService.creerEmploye(req);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (IllegalArgumentException e) {
@@ -177,12 +195,36 @@ public class EmployeController {
     @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateEmploye(@PathVariable int id, @RequestBody EmployeRequest req) {
         try {
+            requireBankWritePermission(req);
             EmployeCPL updated = employeService.modifierEmploye(id, req);
             return ResponseEntity.ok(updated);
         } catch (IllegalArgumentException e) {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @GetMapping("/{id}/comptes-bancaires")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getComptesBancaires(@PathVariable int id) {
+        try {
+            return ResponseEntity.ok(employeService.getComptesBancaires(id));
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PutMapping("/{id}/compte-bancaire")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> updateCompteBancaire(@PathVariable int id, @RequestBody EmployeRequest request) {
+        try {
+            employeService.modifierCompteBancaire(id, request);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
+        } catch (Exception e) {
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }

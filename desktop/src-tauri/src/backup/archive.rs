@@ -1,7 +1,7 @@
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -129,6 +129,7 @@ fn create_named(
             .find_map(|line| line.strip_prefix("app="))
             .ok_or("Secret de la base locale absent")?;
         let tools = resource_root.join("postgresql/bin");
+        let mut _write_barrier = acquire_backup_barrier(&tools, port, password)?;
         let dump = staging.join("database.dump");
         #[cfg(windows)]
         let pg_dump = tools.join("pg_dump.exe");
@@ -153,6 +154,7 @@ fn create_named(
         if !status.success() {
             return Err("Sauvegarde PostgreSQL échouée".into());
         }
+        _write_barrier.ensure_active()?;
         #[cfg(windows)]
         let pg_restore = tools.join("pg_restore.exe");
         #[cfg(not(windows))]
@@ -180,6 +182,8 @@ fn create_named(
         if include_documents {
             ensure_regular_tree(&documents, cancel)?;
         }
+        verify_document_references(&tools, port, password, home)?;
+        _write_barrier.ensure_active()?;
         ensure_not_cancelled(cancel)?;
         let manifest = serde_json::json!({
             "format": "galaxam-local-backup-v1",
@@ -224,14 +228,15 @@ fn create_named(
             .arg("-tf")
             .arg(&pending)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
             .stderr(Stdio::null());
-        let status = interruptible_status(&mut verify_archive, cancel)
+        let verification = interruptible_output(&mut verify_archive, cancel)
             .map_err(|_| "Vérification de l’archive impossible".to_string())?;
-        if !status.success() {
+        if !verification.status.success() || validate_archive_listing(&verification.stdout).is_err()
+        {
             return Err("Archive de sauvegarde invalide".into());
         }
         ensure_not_cancelled(cancel)?;
+        _write_barrier.ensure_active()?;
         fs::rename(&pending, &final_path)
             .map_err(|_| "Publication de la sauvegarde impossible".to_string())?;
         Ok(final_path.clone())
@@ -241,6 +246,108 @@ fn create_named(
         let _ = fs::remove_file(&pending);
     }
     result
+}
+
+/// Keeps an exclusive PostgreSQL advisory lock for the complete database + documents archive.
+/// The backend holds the matching shared lock for each HTTP request and scheduled write.
+struct BackupBarrier {
+    child: Child,
+    stdin: Option<ChildStdin>,
+}
+
+impl BackupBarrier {
+    fn ensure_active(&mut self) -> Result<(), String> {
+        match self.child.try_wait() {
+            Ok(None) => Ok(()),
+            Ok(Some(_)) | Err(_) => Err("Barrière de cohérence de sauvegarde interrompue".into()),
+        }
+    }
+}
+
+impl Drop for BackupBarrier {
+    fn drop(&mut self) {
+        // EOF makes psql exit and releases the session-level advisory lock.
+        self.stdin.take();
+        let _ = self.child.wait();
+    }
+}
+
+fn acquire_backup_barrier(
+    tools: &Path,
+    port: u16,
+    password: &str,
+) -> Result<BackupBarrier, String> {
+    #[cfg(windows)]
+    let psql = tools.join("psql.exe");
+    #[cfg(not(windows))]
+    let psql = tools.join("psql");
+    let mut child = Command::new(psql)
+        .args([
+            "-X",
+            "-qAt",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-h",
+            "127.0.0.1",
+            "-p",
+        ])
+        .arg(port.to_string())
+        .args(["-U", "galaxam_app", "-d", "sirh_galaxam"])
+        .env("PGPASSWORD", password)
+        .env("PGCONNECT_TIMEOUT", "30")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| {
+            "Connexion à PostgreSQL impossible pour verrouiller les écritures".to_string()
+        })?;
+    let Some(mut stdin) = child.stdin.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("Canal de synchronisation PostgreSQL indisponible".into());
+    };
+    if writeln!(
+        stdin,
+        "SET lock_timeout = '30s'; SELECT pg_advisory_lock(1793260227, 1); SELECT 'GALAXAM_BACKUP_LOCKED';"
+    ).is_err() {
+        drop(stdin);
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("Demande de verrouillage PostgreSQL impossible".into());
+    }
+    let Some(stdout) = child.stdout.take() else {
+        drop(stdin);
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("Réponse de synchronisation PostgreSQL indisponible".into());
+    };
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let read = match reader.read_line(&mut line) {
+            Ok(read) => read,
+            Err(_) => {
+                drop(stdin);
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("Réponse de verrouillage PostgreSQL illisible".into());
+            }
+        };
+        if read == 0 {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("PostgreSQL n’a pas confirmé le verrouillage de sauvegarde".into());
+        }
+        if line.trim() == "GALAXAM_BACKUP_LOCKED" {
+            // Keep the stdout reader alive only until the marker. psql does not emit further output.
+            return Ok(BackupBarrier {
+                child,
+                stdin: Some(stdin),
+            });
+        }
+    }
 }
 
 fn interruptible_status(
@@ -264,6 +371,52 @@ fn interruptible_status(
         if cancel.load(Ordering::Relaxed) {
             let _ = child.kill();
             let _ = child.wait();
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "Sauvegarde interrompue",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn interruptible_output(
+    command: &mut Command,
+    cancel: Option<&AtomicBool>,
+) -> std::io::Result<std::process::Output> {
+    let Some(cancel) = cancel else {
+        return command.output();
+    };
+    if cancel.load(Ordering::Relaxed) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Interrupted,
+            "Sauvegarde interrompue",
+        ));
+    }
+    let mut child = command.stdout(Stdio::piped()).spawn()?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "stdout indisponible"))?;
+    let reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout.read_to_end(&mut bytes).map(|_| bytes)
+    });
+    loop {
+        if let Some(status) = child.try_wait()? {
+            let stdout = reader.join().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "lecture interrompue")
+            })??;
+            return Ok(std::process::Output {
+                status,
+                stdout,
+                stderr: Vec::new(),
+            });
+        }
+        if cancel.load(Ordering::Relaxed) {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = reader.join();
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Interrupted,
                 "Sauvegarde interrompue",
@@ -302,6 +455,92 @@ fn ensure_regular_tree(root: &Path, cancel: Option<&AtomicBool>) -> Result<(), S
         }
     }
     Ok(())
+}
+
+fn verify_document_references(
+    tools: &Path,
+    port: u16,
+    password: &str,
+    home: &Path,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    let psql = tools.join("psql.exe");
+    #[cfg(not(windows))]
+    let psql = tools.join("psql");
+    let query = "SELECT 'documents|' || encode(convert_to(nom_stockage, 'UTF8'), 'hex') FROM document_rh UNION ALL SELECT 'prestataires|' || encode(convert_to(chemin_piece, 'UTF8'), 'hex') FROM prestataire_contrat WHERE chemin_piece IS NOT NULL UNION ALL SELECT 'prestataires|' || encode(convert_to(chemin_piece, 'UTF8'), 'hex') FROM prestataire_facture WHERE chemin_piece IS NOT NULL";
+    let output = Command::new(psql)
+        .args([
+            "-X",
+            "-A",
+            "-t",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-h",
+            "127.0.0.1",
+            "-p",
+        ])
+        .arg(port.to_string())
+        .args(["-U", "galaxam_app", "-d", "sirh_galaxam", "-c", query])
+        .env("PGPASSWORD", password)
+        .env("PGCONNECT_TIMEOUT", "30")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .map_err(|_| "Vérification des références documentaires impossible".to_string())?;
+    if !output.status.success() {
+        return Err("Vérification des références documentaires impossible".into());
+    }
+    for row in String::from_utf8(output.stdout)
+        .map_err(|_| "Références documentaires illisibles".to_string())?
+        .lines()
+    {
+        let (category, encoded) = row
+            .split_once('|')
+            .ok_or("Référence documentaire invalide")?;
+        let filename = decode_hex_utf8(encoded)?;
+        if filename.is_empty()
+            || filename == "."
+            || filename == ".."
+            || filename.contains('/')
+            || filename.contains('\\')
+        {
+            return Err("Une référence documentaire sort du dossier prévu".into());
+        }
+        let directory = match category {
+            "documents" => home.join("documents/documents"),
+            "prestataires" => home.join("documents/prestataires"),
+            _ => return Err("Catégorie de document inconnue".into()),
+        };
+        let path = directory.join(filename);
+        let metadata = fs::symlink_metadata(&path).map_err(|_| {
+            "Un fichier référencé par la base est absent du dossier documentaire".to_string()
+        })?;
+        if !metadata.file_type().is_file() {
+            return Err("Un fichier référencé par la base n’est pas un fichier régulier".into());
+        }
+    }
+    Ok(())
+}
+
+fn decode_hex_utf8(value: &str) -> Result<String, String> {
+    if value.len() % 2 != 0 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("Référence documentaire encodée invalide".into());
+    }
+    let bytes = value
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let high = (pair[0] as char)
+                .to_digit(16)
+                .ok_or("Référence documentaire invalide")?;
+            let low = (pair[1] as char)
+                .to_digit(16)
+                .ok_or("Référence documentaire invalide")?;
+            Ok(((high << 4) | low) as u8)
+        })
+        .collect::<Result<Vec<_>, &str>>()
+        .map_err(|_| "Référence documentaire encodée invalide".to_string())?;
+    String::from_utf8(bytes).map_err(|_| "Référence documentaire non UTF-8".to_string())
 }
 
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -666,6 +905,40 @@ mod tests {
         notifier.join().unwrap();
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn backup_barrier_keeps_the_database_session_alive_until_archive_work_finishes() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = test_root("backup-barrier-test");
+        fs::create_dir_all(&root).unwrap();
+        let released = root.join("released");
+        let psql = root.join("psql");
+        fs::write(
+            &psql,
+            format!(
+                "#!/bin/sh\nIFS= read -r request || exit 2\nprintf '%s\\n' GALAXAM_BACKUP_LOCKED\ncat >/dev/null\n: > '{}'\n",
+                released.display()
+            ),
+        )
+        .unwrap();
+        let mut permissions = fs::metadata(&psql).unwrap().permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&psql, permissions).unwrap();
+
+        let mut barrier = acquire_backup_barrier(&root, 15432, "synthetic-password").unwrap();
+        barrier.ensure_active().unwrap();
+        assert!(
+            !released.exists(),
+            "psql session must stay open during the archive"
+        );
+        drop(barrier);
+        assert!(
+            released.exists(),
+            "dropping the barrier must close and reap psql"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn test_root(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
             "galaxam-{label}-{}-{}",
@@ -746,6 +1019,54 @@ mod tests {
             listing.push(b'\n');
             assert!(validate_archive_listing(&listing).is_err());
         }
+    }
+
+    #[test]
+    fn document_reference_hex_decoder_handles_utf8_and_rejects_corruption() {
+        assert_eq!(
+            decode_hex_utf8("444f435f4574c3a92e706466").unwrap(),
+            "DOC_Eté.pdf"
+        );
+        assert!(decode_hex_utf8("0").is_err());
+        assert!(decode_hex_utf8("gg").is_err());
+        assert!(decode_hex_utf8("ff").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn archive_rejects_missing_and_escaping_document_references() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = test_root("document-reference-test");
+        let tools = root.join("tools");
+        let home = root.join("home");
+        fs::create_dir_all(&tools).unwrap();
+        fs::create_dir_all(home.join("documents/documents")).unwrap();
+        fs::create_dir_all(home.join("documents/prestataires")).unwrap();
+        fs::write(home.join("documents/documents/rh.pdf"), b"synthetic").unwrap();
+        fs::write(
+            home.join("documents/prestataires/contract.pdf"),
+            b"synthetic",
+        )
+        .unwrap();
+        let psql = tools.join("psql");
+        fs::write(
+            &psql,
+            "#!/bin/sh\nprintf '%s\\n' 'documents|72682e706466' 'prestataires|636f6e74726163742e706466'\n",
+        ).unwrap();
+        let mut permissions = fs::metadata(&psql).unwrap().permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&psql, permissions).unwrap();
+
+        verify_document_references(&tools, 15432, "synthetic", &home).unwrap();
+        fs::remove_file(home.join("documents/documents/rh.pdf")).unwrap();
+        assert!(verify_document_references(&tools, 15432, "synthetic", &home).is_err());
+        fs::write(
+            &psql,
+            "#!/bin/sh\nprintf '%s\\n' 'documents|2e2e2f736563726574'\n",
+        )
+        .unwrap();
+        assert!(verify_document_references(&tools, 15432, "synthetic", &home).is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]

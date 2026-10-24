@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
 import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.dashboard.application.NotificationRhService;
 import org.slf4j.Logger;
@@ -39,14 +40,17 @@ public class NotificationRhScheduler {
     @Autowired
     private SchedulerExecutionRegistry executionRegistry;
 
+    @Autowired
+    private BackupConsistencyGate backupGate;
+
     @Scheduled(cron = "0 30 2 * * ?", zone = "Indian/Antananarivo")
-    public void genererNotificationsRh() {
-        executionRegistry.runDaily("NOTIFICATIONS_RH", this::genererNotificationsRhInterne);
+    public void genererNotificationsRh() throws Exception {
+        backupGate.withWriteAccess(() -> executionRegistry.runDaily("NOTIFICATIONS_RH", this::genererNotificationsRhInterne));
     }
 
-    public boolean rattraperNotifications() {
-        return executionRegistry.runDailyCatchUp("NOTIFICATIONS_RH", java.time.LocalTime.of(2, 30),
-                this::genererNotificationsRhInterne);
+    public boolean rattraperNotifications() throws Exception {
+        return backupGate.withWriteAccess(() -> executionRegistry.runDailyCatchUp("NOTIFICATIONS_RH", java.time.LocalTime.of(2, 30),
+                this::genererNotificationsRhInterne));
     }
 
     private void genererNotificationsRhInterne() throws Exception {
