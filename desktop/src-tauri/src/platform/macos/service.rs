@@ -888,10 +888,6 @@ if ! validate_pg; then
   validate_pg || { echo 'Identité du cluster PostgreSQL non confirmée.'; shutdown; }
 fi
 PG_OWNED=1
-TABLES=$("$PG/psql" -X -A -t -w -h 127.0.0.1 -p "$PG_PORT" -U galaxam_app -d sirh_galaxam -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" 2>/dev/null || true)
-EXT=$("$PG/psql" -X -A -t -w -h 127.0.0.1 -p "$PG_PORT" -U galaxam_app -d sirh_galaxam -c "SELECT count(*) FROM pg_extension WHERE extname='btree_gist'" 2>/dev/null || true)
-case "$TABLES" in ''|*[!0-9]*) echo 'Schéma GALAXAM non vérifiable.'; exit 78;; esac
-[ "$TABLES" -ge 90 ] && [ "$EXT" = 1 ] || { echo 'Schéma GALAXAM ou extension requise incomplet.'; exit 78; }
 if [ -f "$BACKEND_PID" ]; then
   OLD_PID=$(cat "$BACKEND_PID" 2>/dev/null || true)
   if [ -n "$OLD_PID" ] && /bin/kill -0 "$OLD_PID" 2>/dev/null; then
@@ -942,6 +938,8 @@ mod tests {
         assert!(SERVICE_SCRIPT.contains("show data_directory"));
         assert!(SERVICE_SCRIPT.contains("Processus backend ambigu"));
         assert!(SERVICE_SCRIPT.contains("config_file=\\\"$CONFIG/postgresql.conf\\\""));
+        assert!(!SERVICE_SCRIPT.contains("REQUIRED_TABLES"));
+        assert!(!SERVICE_SCRIPT.contains("information_schema.tables"));
         assert!(!SERVICE_SCRIPT.contains("-Xmx"));
         assert!(!SERVICE_SCRIPT.contains("--spring.datasource.password"));
         let path =
