@@ -450,6 +450,13 @@ public class EmployeService {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
+                    ps.setInt(1, id);
+                    try (var rs = ps.executeQuery()) {
+                        if (!rs.next()) throw new IllegalArgumentException("Employé introuvable.");
+                    }
+                }
                 Employe emp = new Employe().rechercherParId(id, c);
                 if (emp == null) {
                     throw new IllegalArgumentException("Employé introuvable.");
@@ -476,6 +483,13 @@ public class EmployeService {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
+                    ps.setInt(1, id);
+                    try (var rs = ps.executeQuery()) {
+                        if (!rs.next()) throw new IllegalArgumentException("Employé introuvable.");
+                    }
+                }
                 Employe emp = new Employe().rechercherParId(id, c);
                 if (emp == null) {
                     throw new IllegalArgumentException("Employé introuvable.");

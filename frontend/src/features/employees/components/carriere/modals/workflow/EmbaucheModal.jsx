@@ -45,6 +45,7 @@ export default function EmbaucheModal({
     const [formData, setFormData] = useState({
         codeTypeEvenement: hasHistory ? 'REPRISE_ANCIENNETE' : 'EMBAUCHE_INITIALE',
         idFiliale: '', idTypeContrat: '', idTypeIntervenant: '', dateDebut: '', dateFin: '',
+        motifCddCode: '',
         dateSignature: '', comptabiliseEffectif: true, numeroContrat: '', description: '',
         commentaire: '', aPeriodeEssai: false, dureeEssaiMois: '3', dateFinEssai: '',
         idSite: '', idDepartement: '', idService: '', idFonction: '', idResponsableHierarchique: '',
@@ -76,6 +77,7 @@ export default function EmbaucheModal({
                 idTypeIntervenant: c.idTypeIntervenant || initialData.idTypeIntervenant || '',
                 dateDebut: fmtDateInput(c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat || initialData.dateDebut),
                 dateFin: fmtDateInput(c.dateFinContrat || c.dateFin || initialData.dateFinContrat || initialData.dateFin),
+                motifCddCode: c.motifCddCode || initialData.motifCddCode || '',
                 dateSignature: fmtDateInput(c.dateSignature || initialData.dateSignature),
                 comptabiliseEffectif: c.comptabiliseEffectif !== undefined ? c.comptabiliseEffectif : (initialData.comptabiliseEffectif !== undefined ? initialData.comptabiliseEffectif : true),
                 numeroContrat: c.numeroContratCible || c.numeroContratSource || c.numeroContrat || initialData.numeroContratCible || initialData.numeroContratSource || '',
@@ -103,6 +105,7 @@ export default function EmbaucheModal({
                 codeTypeEvenement: hasHistory ? 'REPRISE_ANCIENNETE' : 'EMBAUCHE_INITIALE',
                 idFiliale: '', idTypeContrat: '', idTypeIntervenant: '',
                 dateDebut: today, dateFin: '', dateSignature: '',
+                motifCddCode: '',
                 comptabiliseEffectif: true, numeroContrat: '', description: '',
                 commentaire: '', aPeriodeEssai: false, dureeEssaiMois: '3',
                 dateFinEssai: '', idSite: '', idDepartement: '', idService: '',
@@ -126,6 +129,7 @@ export default function EmbaucheModal({
             }
             if (field === 'idTypeContrat' && String(value) !== String(prev.idTypeContrat)) {
                 updated.dateFin = '';
+                updated.motifCddCode = '';
             }
             if (field === 'dateDebut' || field === 'dureeEssaiMois' || field === 'aPeriodeEssai') {
                 const aEssai = field === 'aPeriodeEssai' ? value : prev.aPeriodeEssai;
@@ -180,6 +184,7 @@ export default function EmbaucheModal({
             dateDebut: formData.dateDebut || null,
             dateEffet: formData.dateDebut || null,
             dateFin: formData.dateFin ? formData.dateFin : null,
+            motifCddCode: formData.motifCddCode || null,
             dateSignature: formData.dateSignature || null,
             comptabiliseEffectif: formData.comptabiliseEffectif,
             numeroContrat: formData.numeroContrat ? formData.numeroContrat.trim() : null,

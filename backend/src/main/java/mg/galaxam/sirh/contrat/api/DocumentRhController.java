@@ -59,7 +59,7 @@ public class DocumentRhController {
      * Récupère la liste des documents RH d'un employé + la synthèse des documents obligatoires manquants.
      */
     @GetMapping("/employes/{idEmploye}/documents")
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("(hasAuthority('EMPLOYE_READ') and hasAuthority('PAIE_READ')) or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDocumentsByEmploye(@PathVariable int idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             List<DocumentRhCPL> docs = DocumentRhCPL.listByEmployeId(idEmploye, c);
@@ -152,6 +152,11 @@ public class DocumentRhController {
                             mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
                             "Format de fichier non autorisé (." + extension + "). Formats acceptés : " + allowedExtensions);
                 }
+                if (!contenuCorrespondExtension(file, extension)) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "Le contenu du fichier ne correspond pas à son extension.");
+                }
 
                 // Récupération de l'employé pour convention de nommage descriptive
                 mg.galaxam.sirh.contrat.persistence.Employe emp = new mg.galaxam.sirh.contrat.persistence.Employe().rechercherParId(idEmploye, c);
@@ -213,7 +218,7 @@ public class DocumentRhController {
      * Téléchargement / Visualisation d'un document RH par son ID.
      */
     @GetMapping({"/documents-rh/{idDocument}/telecharger", "/documents-rh/{idDocument}/download"})
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("(hasAuthority('EMPLOYE_READ') and hasAuthority('PAIE_READ')) or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> downloadDocument(@PathVariable int idDocument) {
         try (Connection c = dataSource.getConnection()) {
             DocumentRhCPL doc = new DocumentRhCPL().rechercherParId(idDocument, c);
@@ -221,7 +226,7 @@ public class DocumentRhController {
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Document non trouvé.");
             }
 
-            Path filePath = Paths.get(docUploadDir).resolve(doc.getNomStockage());
+            Path filePath = resoudreFichierDocument(doc.getNomStockage());
             if (!Files.exists(filePath)) {
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Le fichier physique n'existe plus sur le serveur.");
             }
@@ -259,18 +264,20 @@ public class DocumentRhController {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Document non trouvé.");
                 }
 
-                // Suppression physique du fichier
-                Path filePath = Paths.get(docUploadDir).resolve(doc.getNomStockage());
-                try {
-                    Files.deleteIfExists(filePath);
-                } catch (IOException e) {
-                    System.err.println("Erreur suppression fichier physique: " + e.getMessage());
-                }
+                // Supprimer le fichier après le commit SQL pour éviter une
+                // référence en base vers un document devenu irrécupérable.
+                Path filePath = resoudreFichierDocument(doc.getNomStockage());
 
                 // Suppression BDD
                 doc.delete(c);
                 AuditLog.audit(c, "SUPPRESSION", "document_rh", String.valueOf(idDocument), doc, null);
                 c.commit();
+
+                try {
+                    Files.deleteIfExists(filePath);
+                } catch (Exception e) {
+                    System.err.println("Le document retiré de la base reste à nettoyer sur le stockage.");
+                }
 
                 return ResponseEntity.ok(Map.of("message", "Document supprimé avec succès."));
             } catch (Exception ex) {
@@ -281,6 +288,34 @@ public class DocumentRhController {
             e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
+    }
+
+    private static boolean contenuCorrespondExtension(MultipartFile file, String extension) throws IOException {
+        byte[] signature;
+        try (var input = file.getInputStream()) {
+            signature = input.readNBytes(8);
+        }
+        int lus = signature.length;
+        if (lus < 3) return false;
+        return switch (extension) {
+            case "pdf" -> lus >= 5 && signature[0] == '%' && signature[1] == 'P'
+                    && signature[2] == 'D' && signature[3] == 'F' && signature[4] == '-';
+            case "jpg", "jpeg" -> (signature[0] & 0xff) == 0xff && (signature[1] & 0xff) == 0xd8
+                    && (signature[2] & 0xff) == 0xff;
+            case "png" -> lus == 8 && (signature[0] & 0xff) == 0x89 && signature[1] == 'P'
+                    && signature[2] == 'N' && signature[3] == 'G' && signature[4] == 0x0d
+                    && signature[5] == 0x0a && signature[6] == 0x1a && signature[7] == 0x0a;
+            default -> false;
+        };
+    }
+
+    private Path resoudreFichierDocument(String nomStockage) {
+        Path racine = Paths.get(docUploadDir).toAbsolutePath().normalize();
+        Path fichier = racine.resolve(nomStockage).normalize();
+        if (!fichier.startsWith(racine)) {
+            throw new IllegalArgumentException("Chemin de document invalide.");
+        }
+        return fichier;
     }
 
     // =========================================================================

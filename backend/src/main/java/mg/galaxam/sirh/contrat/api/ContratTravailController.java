@@ -732,6 +732,7 @@ public class ContratTravailController {
         map.put("dateSignature", ct.getDateSignature());
         map.put("dateDebut", ct.getDateDebut());
         map.put("dateFin", ct.getDateFin());
+        map.put("motifCddCode", ct.getMotifCddCode());
         map.put("dureeEssaiMois", ct.getDureeEssaiMois());
         map.put("dateFinEssai", ct.getDateFinEssai());
         map.put("comptabiliseEffectif", ct.isComptabiliseEffectif());

@@ -52,20 +52,13 @@ public class NotificationController {
                     "lien, id_employe_concerne, est_lue, date_creation, date_lecture, cible_role " +
                     "FROM notification_rh " +
                     "WHERE est_lue = FALSE " +
-                    "AND (" +
-                    (isAdmin
-                        ? "(id_utilisateur = ? OR id_utilisateur IS NULL)"
-                        : "(id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))") +
-                    ") " +
+                    "AND " + visibilityCondition(isAdmin) + " " +
                     "ORDER BY date_creation DESC " +
                     "LIMIT 50";
 
             List<Map<String, Object>> notifications = new ArrayList<>();
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
-                if (!isAdmin) {
-                    ps.setString(2, userRoleCode);
-                }
+                bindVisibility(ps, 1, idUtilisateur, userRoleCode, isAdmin);
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
                     Map<String, Object> n = new LinkedHashMap<>();
@@ -107,16 +100,9 @@ public class NotificationController {
 
             String sql = "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
                     "WHERE est_lue = FALSE " +
-                    "AND (" +
-                    (isAdmin
-                        ? "(id_utilisateur = ? OR id_utilisateur IS NULL)"
-                        : "(id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))") +
-                    ")";
+                    "AND " + visibilityCondition(isAdmin);
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
-                if (!isAdmin) {
-                    ps.setString(2, userRoleCode);
-                }
+                bindVisibility(ps, 1, idUtilisateur, userRoleCode, isAdmin);
                 int updated = ps.executeUpdate();
                 return ResponseEntity.ok(Map.of("marquees", updated));
             }
@@ -133,10 +119,14 @@ public class NotificationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> marquerUne(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
+            Integer idUtilisateur = getCurrentUserId(c);
+            String userRoleCode = getCurrentUserRoleCode(c, idUtilisateur);
+            boolean isAdmin = "ROLE_ADMIN".equals(userRoleCode);
             String sql = "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
-                    "WHERE id_notification = ?";
+                    "WHERE id_notification = ? AND " + visibilityCondition(isAdmin);
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, id);
+                bindVisibility(ps, 2, idUtilisateur, userRoleCode, isAdmin);
                 ps.executeUpdate();
             }
             return ResponseEntity.ok(Map.of("id", id, "lue", true));
@@ -158,16 +148,9 @@ public class NotificationController {
             boolean isAdmin = "ROLE_ADMIN".equals(userRoleCode);
 
             String sql = "DELETE FROM notification_rh " +
-                    "WHERE (" +
-                    (isAdmin
-                        ? "(id_utilisateur = ? OR id_utilisateur IS NULL)"
-                        : "(id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))") +
-                    ")";
+                    "WHERE " + visibilityCondition(isAdmin);
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
-                if (!isAdmin) {
-                    ps.setString(2, userRoleCode);
-                }
+                bindVisibility(ps, 1, idUtilisateur, userRoleCode, isAdmin);
                 int deleted = ps.executeUpdate();
                 return ResponseEntity.ok(Map.of("supprimees", deleted));
             }
@@ -180,6 +163,18 @@ public class NotificationController {
     // =========================================================================
     // Utilitaire — Resolution de l'utilisateur courant et de son role
     // =========================================================================
+
+    private static String visibilityCondition(boolean isAdmin) {
+        return isAdmin
+                ? "(id_utilisateur = ? OR id_utilisateur IS NULL)"
+                : "(id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))";
+    }
+
+    private static void bindVisibility(PreparedStatement ps, int firstParameter, Integer idUtilisateur,
+                                       String userRoleCode, boolean isAdmin) throws Exception {
+        ps.setObject(firstParameter, idUtilisateur, java.sql.Types.INTEGER);
+        if (!isAdmin) ps.setString(firstParameter + 1, userRoleCode);
+    }
 
     private Integer getCurrentUserId(Connection c) throws Exception {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

@@ -31,10 +31,10 @@
 Le présent document constitue la documentation canonique définitive du **Module Employé, Contrat & Carrière** du Système d'Information des Ressources Humaines (SIRH) de **GALAXAM Logistics**.
 
 Toutes les spécifications, modèles relationnels, diagrammes d'état et règles de gestion consignés ici sont strictement extraits et vérifiés à partir des sources techniques et juridiques du projet :
-1. **Schéma physique PostgreSQL** : [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql) et [`03_schema_employes_contrats.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/03_schema_employes_contrats.sql) ;
-2. **Moteurs de domaine Java 17** : [`EmployeValidationEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/EmployeValidationEngine.java), [`ContratValidationEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/ContratValidationEngine.java), [`CarriereTransitionValidator.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/CarriereTransitionValidator.java), [`AncienneteEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/AncienneteEngine.java), [`EmploymentContextResolver.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/EmploymentContextResolver.java) ;
-3. **Contrôleurs et Services Applicatifs** : [`EmployeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/EmployeController.java), [`ContratTravailController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/ContratTravailController.java), [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/WorkflowRhController.java), [`ContratGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/ContratGlobalController.java), [`DocumentRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/DocumentRhController.java), [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/WorkflowRhService.java), [`DocumentRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/DocumentRhService.java) ;
-4. **Interface Frontend React 19 / Vite** : [`frontend/src/features/employees`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees) ;
+1. **Schéma physique PostgreSQL** : [`02_schema_referentiels_rh.sql`](../../conception/bdd/02_schema_referentiels_rh.sql) et [`03_schema_employes_contrats.sql`](../../conception/bdd/03_schema_employes_contrats.sql) ;
+2. **Moteurs de domaine Java 17** : [`EmployeValidationEngine.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/EmployeValidationEngine.java), [`ContratValidationEngine.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/ContratValidationEngine.java), [`CarriereTransitionValidator.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/CarriereTransitionValidator.java), [`AncienneteEngine.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/AncienneteEngine.java), [`EmploymentContextResolver.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/EmploymentContextResolver.java) ;
+3. **Contrôleurs et Services Applicatifs** : [`EmployeController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/EmployeController.java), [`ContratTravailController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/ContratTravailController.java), [`WorkflowRhController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/WorkflowRhController.java), [`ContratGlobalController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/ContratGlobalController.java), [`DocumentRhController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/DocumentRhController.java), [`WorkflowRhService.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/WorkflowRhService.java), [`DocumentRhService.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/DocumentRhService.java) ;
+4. **Interface Frontend React 19 / Vite** : [`frontend/src/features/employees`](../../../frontend/src/features/employees) ;
 5. **Cadre Légal Malagasy en vigueur** :
    - *[Loi n° 2024-014 du 14 août 2024 portant Code du Travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf)* (adoptée le 01/07/2024, validée par la HCC le 08/08/2024 Décision n° 11-HCC/D3, promulguée le 14/08/2024) & *[Loi n° 2003-044 du 28 juillet 2004](https://www.assemblee-nationale.mg/media/archives_textes/pl/2003-044/Loi-n-2003-044-finale-Portant-Code-du-Travail-1.pdf)* ;
    - *[Décret n° 64-195 modifié](https://cabinetkim.mg/blog/code-du-travail-madagascar-nouvelle-loi-2024-014/)* (Réglementation de la Carte d'Identité Nationale malgache) ;
@@ -86,17 +86,17 @@ graph TD
 
 ## 2. Cadre Juridique et Transposition Légale Malagasy
 
-Le module encode nativement les prescriptions d'ordre public du droit social de Madagascar :
+Le module applique plusieurs règles du Code du travail malgache; les limites fonctionnelles identifiées ci-dessous restent à traiter avant toute revendication de conformité complète :
 
 | Source Légale | Disposition Métier | Transposition Logicielle dans GALAXAM SIRH |
 |:---|:---|:---|
-| **Loi n° 2003-044, Art. 100**<br>*(Décret n° 2007-563, Art. 2-5)* | **Âge minimum d'accès au travail** : 16 ans révolus. Interdiction absolue d'embaucher un mineur de moins de 16 ans (Loi 2024-014). | `EmployeValidationEngine.validerAgeLegal()` contrôle que `Period.between(dateNaissance, now).getYears() >= 16`. |
-| **Loi n° 2024-014, Art. 23 à 25 & 28**<br>*(Loi n° 2003-044, Art. 8 à 10)* | **Forme et types de contrat** : Le CDI est la règle de droit commun ; le CDD et le contrat temporaire sont d'exception et exigent un terme écrit précis. Requalification automatique après 2 renouvellements (cumul max 6 ans). | `ContratValidationEngine.validerDatesContrat()` impose la présence d'une date de fin (`exige_date_fin = TRUE`) pour CDD, TEMPORAIRE et STAGE. `CarriereTransitionValidator` applique la requalification. |
+| **Loi n° 2024-014, Art. 147** | **Âge minimum légal** : 15 ans; l'emploi d'un mineur requiert l'autorisation expresse d'un parent ou tuteur et des contrôles adaptés. | Le module applique un seuil opérationnel de 16 ans car il exige une CIN; il ne gère pas encore le dossier d'autorisation, l'examen médical ni les restrictions applicables aux mineurs. Ce seuil interne n'est pas présenté comme l'âge minimum légal. |
+| **Loi n° 2024-014, Art. 23 à 27** | **CDD** : écrit et terme précis; cas d'usage limités, durée d'un à 24 mois, deux renouvellements au maximum et plafond cumulé de six ans; une réembauche au même poste après une interruption de trois mois ou moins compte comme renouvellement. | Le CDD exige un motif structuré (`OUVRAGE_DETERMINE`, `SURCROIT_EXTRAORDINAIRE` ou `TRAVAUX_URGENTS_SECURITE`). Une réembauche détectée au même poste dans les trois mois est classée en `RENOUVELLEMENT_CDD` et soumise aux limites de renouvellement et de durée cumulée. Le poste est rapproché par site, département, service et fonction, faute d'identifiant de poste dédié. |
 | **Loi n° 2024-014, Art. 52 à 54**<br>*(Loi n° 2003-044, Art. 35 & 36)* | **Période d'essai** : Durée maximale encadrée par la convention, notification écrite obligatoire sous peine de nullité, renouvellement unique encadré, rupture sans indemnité de préavis. | `contrat_periode_essai` + `CarriereTransitionValidator` limitent la durée initiale à 6 mois et bornent le renouvellement via `MAX_RENOUVELLEMENTS_ESSAI`. |
 | **Loi n° 2024-014, Art. 40 al. 4**<br>*(Loi n° 2003-044, Art. 24 al. 3)* | **Certificat de travail** : Délivrance obligatoire dès cessation de tout contrat de travail, libre de toute mention préjudiciable au travailleur. | `DocumentRhService.genererCertificatDocx()` génère automatiquement le document Word officiel avec les dates exactes et les fonctions exercées. |
 | **Décret n° 64-195 modifié** | **Carte d'Identité Nationale (CIN)** : Identifiant régalien à 12 chiffres délivré à partir de l'âge de 16 ans (Décret n° 78-292). | `EmployeValidationEngine.validerCinFormatEtDate()` applique la regex `^[0-9]{12}$` et vérifie que la délivrance est postérieure au 16e anniversaire. |
 | **Décret n° 69-145 (CPS)** | **Affiliation CNaPS** : Obligation d'immatriculation pour l'ouverture des droits de sécurité sociale et de retraite. | `employe.num_affiliation_cnaps` assujetti à un index unique SQL (`UNIQUE`). |
-| **Loi n° 2014-038** | **Protection des données personnelles** : Confidentialité des données salariales et médicales. | Contrôles d'accès RBAC fins (`@PreAuthorize`) et masquage des données sensibles pour les rôles non habilités. |
+| **Loi n° 2014-038** | **Protection des données personnelles** : confidentialité et sécurité des données RH. | Les routes de lecture et de téléchargement documentaire exigent `EMPLOYE_READ` et `PAIE_READ` (ou rôle administrateur); le contenu est validé par signature de fichier et les suppressions de métadonnées sont validées avant suppression physique. |
 
 ---
 
@@ -285,11 +285,13 @@ CREATE TABLE employe_affectation_carriere (
 ```
 
 Les clés composées empêchent qu'une affectation référence le contrat d'un
-autre salarié ou un service d'un autre département. Elles sont définies par
-SP74 et consolidées dans les schémas canoniques 02/03. Avant mise à niveau,
-SP74 diagnostique les lignes existantes et bloque sans les modifier si des
-couples sont incohérents. Les contrôles applicatifs restent utiles pour
-retourner une erreur métier lisible ; PostgreSQL garantit l'invariant final.
+autre salarié ou un service d'un autre département. Elles sont définies dans
+les schémas canoniques 02/03 ; SP74 est l'ancien identifiant historique de
+cette évolution et les migrations SP ont été volontairement supprimées. Les
+schémas canoniques servent à initialiser une base neuve et ne décrivent pas la
+mise à niveau d'une base existante. Les contrôles applicatifs restent utiles
+pour retourner une erreur métier lisible ; PostgreSQL garantit l'invariant
+dans une base disposant de ces contraintes.
 
 ---
 
@@ -394,10 +396,10 @@ Unifie par une clause `UNION ALL` les trois flux chronologiques du salarié :
 
 ### 5.1 Validation de la Fiche Collaborateur (`EmployeValidationEngine.java`)
 Ce moteur est invoqué systématiquement lors de l'onboarding ou de la mise à jour de la fiche personnelle :
-1. **Âge légal** : Calcul strict `Period.between(dateNaissance, LocalDate.now()).getYears() >= 16`.
+1. **Seuil opérationnel** : Calcul strict `Period.between(dateNaissance, LocalDate.now()).getYears() >= 16`. Il s'agit du seuil du parcours actuel avec CIN, pas de l'âge légal minimum d'emploi (15 ans, avec conditions).
 2. **Cohérence CIN** :
    - Format : Expression régulière `^[0-9]{12}$` (12 chiffres stricts).
-   - Antériorité : La date de délivrance de la CIN doit être postérieure ou égale à la date où l'employé a atteint ses 16 ans révolus (`dateCin.isAfter(dateNaiss.plusYears(16))`).
+   - Antériorité : La date de délivrance de la CIN doit être postérieure ou égale au 16e anniversaire (`dateCin >= dateNaiss.plusYears(16)`).
 3. **Coordonnées** : Validation regex du numéro de téléphone (`^[+]?[0-9\s.-]{8,20}$`) et syntaxe RFC-5322 de l'email.
 4. **Comptes Bancaires** : Règle de complétude mutuelle — si une banque est sélectionnée, le numéro RIB est obligatoire.
 
@@ -462,13 +464,13 @@ SELECT * FROM workflow_rh WHERE id_workflow = ? FOR UPDATE;
    - **Effet Futur ($\text{dateEffet} > \text{Aujourd'hui}$)** :
      - Le contrat cible et l'affectation cible passent au statut `PLANIFIE`.
      - Le workflow passe au statut `PLANIFIE`.
-     - L'activation effective est déléguée au scheduler nocturne [`MouvementRhScheduler.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/cron/MouvementRhScheduler.java) qui s'exécute chaque nuit à 00:10 (heure de Madagascar).
+     - L'activation effective est déléguée au scheduler nocturne [`MouvementRhScheduler.java`](../../src/main/java/mg/galaxam/sirh/cron/MouvementRhScheduler.java) qui s'exécute chaque nuit à 00:10 (heure de Madagascar).
 
 ---
 
 ## 7. Moteur Documentaire Officiel (Apache POI)
 
-Le service [`DocumentRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/DocumentRhService.java) génère à la volée des documents Microsoft Word (`.docx`) professionnels à partir de modèles stockés dans `backend/src/main/resources/templates/documents/` :
+Le service [`DocumentRhService.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/DocumentRhService.java) génère à la volée des documents Microsoft Word (`.docx`) professionnels à partir de modèles stockés dans `backend/src/main/resources/templates/documents/` :
 
 ```mermaid
 flowchart LR
@@ -521,14 +523,16 @@ flowchart LR
 | Code Règle | Libellé Métier | Fondement Juridique / Technique | Contrôle & Comportement Système |
 |:---|:---|:---|:---|
 | **RG-EMP-01** | **Unicité stricte du matricule** | Norme d'organisation GALAXAM | Contrainte `UNIQUE` sur `employe.matricule`. Support des formats `0042` et `EMP-AAAA-XXXX`. |
-| **RG-EMP-02** | **Âge minimum d'accès à l'emploi** | **Loi 2024-014, Art. 147** & **Décret 64-195** | Blocage absolu si `âge < 16 ans` (âge légal 15 ans, délivrance CIN dès 16 ans). Levée d'exception `IllegalArgumentException`. |
+| **RG-EMP-02** | **Seuil opérationnel de création d'une fiche** | **Règle interne; Loi 2024-014, Art. 147** | Blocage si `âge < 16 ans`, car la fiche exige une CIN. La loi autorise l'emploi à partir de 15 ans avec autorisation parentale; le module ne couvre pas ce parcours de mineur. |
 | **RG-EMP-03** | **Format et antériorité de la CIN** | **Décret n° 64-195** | Exactement 12 chiffres (`^[0-9]{12}$`). Délivrance obligatoirement postérieure au 16ème anniversaire. |
 | **RG-EMP-04** | **Unicité d'immatriculation CNaPS** | **Décret n° 69-145 (CPS)** | Contrainte SQL `UNIQUE` sur `num_affiliation_cnaps`. Empêche la création de doublons salariés. |
 | **RG-EMP-05** | **Compte bancaire principal unique** | Procédure de virement DAF | Index unique partiel `uq_compte_principal_employe`. Complétude obligatoire Banque + RIB. |
 | **RG-EMP-06** | **Désactivation motivée du dossier** | Norme d'audit et RGPD | Passage de `est_actif = FALSE` avec obligation de renseigner un motif parmi `motif_desactivation_enum`. Dossier conservé pour historique légal. |
 | **RG-CTR-01** | **Terme obligatoire des contrats temporaires** | **Loi 2024-014, Art. 23-25** (Loi 2003-044, Art. 8-10) | Date de fin obligatoire pour `CDD`, `TEMPORAIRE` et `STAGE`. Bloqué par `ContratValidationEngine`. |
-| **RG-CTR-02** | **Cohérence chronologique des termes** | Logique temporelle relationnelle | Contrainte `chk_contrat_dates` imposant `date_fin >= date_debut`. |
+| **RG-CTR-02** | **Cohérence chronologique des termes** | Logique temporelle relationnelle | Contrainte `chk_contrat_dates_coherentes` imposant `date_fin >= date_debut`. |
 | **RG-CTR-03** | **Plafonnement des renouvellements de CDD** | **Loi 2024-014, Art. 25** (ex-Art. 28) | Limité à `NB_MAX_RENOUVELLEMENTS_CDD` (2 max) et durée totale $\le 72$ mois. Au-delà, requalification CDI obligatoire. |
+| **RG-CTR-04** | **Motif CDD et réembauche rapprochée** | **Loi 2024-014, Art. 24-25** | Motif légal structuré obligatoire pour un nouveau CDD, interdit pour les autres contrats. Réembauche au même poste dans un délai de trois mois détectée à partir du site, département, service et fonction puis comptée comme renouvellement. Limite : l'organisation ne possède pas d'identifiant de poste autonome; le rapprochement utilise ces quatre dimensions. |
+| **RG-CTR-05** | **Non-chevauchement des périodes actives** | Intégrité temporelle RH | Triggers SQL sérialisent les écritures par employé et refusent les intervalles ACTIF qui se chevauchent; les mouvements PLANIFIE peuvent chevaucher temporairement leur source jusqu'à application. |
 | **RG-ESS-01** | **Encadrement légal de la période d'essai** | **Loi 2024-014, Art. 52-54** (Loi 2003-044, Art. 35 & 36) | Durée initiale comprise entre 0 et 6 mois. Calcul : $\text{dateFin} = \text{dateDebut} + M\text{ mois} - 1\text{ jour}$. |
 | **RG-ESS-02** | **Limitation du renouvellement d'essai** | **Loi 2024-014, Art. 52-54** (Loi 2003-044, Art. 36) | Renouvellement unique (`MAX_RENOUVELLEMENTS_ESSAI = 1`). Doit être notifié par écrit avant l'expiration de la 1ère période. |
 | **RG-WFL-01** | **Admissibilité matricielle des transitions** | Matrice de domaine RH | Rejet par `CarriereTransitionValidator` de toute transition incohérente (ex: avenant direct sur convention de stage). |
@@ -545,33 +549,33 @@ flowchart LR
 ### 10.1 Composants Backend Java (`backend/src/main/java/mg/galaxam/sirh/contrat/`)
 
 * **Contrôleurs REST (`api/`)** :
-  * [`EmployeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/EmployeController.java) : CRUD collaborateur, photo protégée anti-IDOR, satellites familiaux, bancaires et contacts d'urgence.
-  * [`ContratTravailController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/ContratTravailController.java) : Cycle de vie contractuel, génération de matricule, période d'essai et avenants.
-  * [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/WorkflowRhController.java) : Orchestration des 17 types de transitions de carrière, validation DAF atomique et planification future.
-  * [`ContratGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/ContratGlobalController.java) : Registre général des contrats, supervision multi-sites et alertes de préavis.
-  * [`DocumentRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/DocumentRhController.java) : GED dématérialisée, téléversement sécurisé et téléchargement des documents générés.
-  * [`RefCarriereController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) : Référentiels d'événements, motifs de mouvement et catégories professionnelles.
+  * [`EmployeController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/EmployeController.java) : CRUD collaborateur, photo protégée anti-IDOR, satellites familiaux, bancaires et contacts d'urgence.
+  * [`ContratTravailController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/ContratTravailController.java) : Cycle de vie contractuel, génération de matricule, période d'essai et avenants.
+  * [`WorkflowRhController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/WorkflowRhController.java) : Orchestration des 17 types de transitions de carrière, validation DAF atomique et planification future.
+  * [`ContratGlobalController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/ContratGlobalController.java) : Registre général des contrats, supervision multi-sites et alertes de préavis.
+  * [`DocumentRhController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/DocumentRhController.java) : GED dématérialisée, téléversement sécurisé et téléchargement des documents générés.
+  * [`RefCarriereController.java`](../../src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) : Référentiels d'événements, motifs de mouvement et catégories professionnelles.
 * **Services Applicatifs (`application/`)** :
-  * [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/WorkflowRhService.java) : Logique de transition avec verrouillage pessimiste `FOR UPDATE`.
-  * [`DocumentRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/DocumentRhService.java) : Moteur documentaire Apache POI (`.docx`), modèle de contrat d'embauche, attestation de travail et certificat de travail Art. 42.
-  * [`EmploymentContextResolver.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/EmploymentContextResolver.java) : Résolveur universel du contexte d'emploi à date (utilisé par Paie, Pointage et Congés).
-  * [`EmployeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/EmployeService.java) : Gestion du dossier collaborateur et désactivation motivée.
+  * [`WorkflowRhService.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/WorkflowRhService.java) : Logique de transition avec verrouillage pessimiste `FOR UPDATE`.
+  * [`DocumentRhService.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/DocumentRhService.java) : Moteur documentaire Apache POI (`.docx`), modèle de contrat d'embauche, attestation de travail et certificat de travail Art. 42.
+  * [`EmploymentContextResolver.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/EmploymentContextResolver.java) : Résolveur universel du contexte d'emploi à date (utilisé par Paie, Pointage et Congés).
+  * [`EmployeService.java`](../../src/main/java/mg/galaxam/sirh/contrat/application/EmployeService.java) : Gestion du dossier collaborateur et désactivation motivée.
 * **Moteurs de Domaine (`domain/`)** :
-  * [`EmployeValidationEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/EmployeValidationEngine.java) : Âge légal $\ge 16$ ans, format CIN 12 chiffres, téléphone et email.
-  * [`ContratValidationEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/ContratValidationEngine.java) : Terme obligatoire CDD/Stage, cohérence chronologique.
-  * [`CarriereTransitionValidator.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/CarriereTransitionValidator.java) : Matrice d'admissibilité des transitions de carrière et plafonds de renouvellement.
-  * [`AncienneteEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/AncienneteEngine.java) : Reconstitution de la chaîne d'ancienneté continue.
+  * [`EmployeValidationEngine.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/EmployeValidationEngine.java) : Seuil opérationnel de 16 ans pour le parcours CIN, format CIN 12 chiffres, téléphone et email.
+  * [`ContratValidationEngine.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/ContratValidationEngine.java) : Terme obligatoire CDD/Stage, cohérence chronologique.
+  * [`CarriereTransitionValidator.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/CarriereTransitionValidator.java) : Matrice d'admissibilité des transitions de carrière et plafonds de renouvellement.
+  * [`AncienneteEngine.java`](../../src/main/java/mg/galaxam/sirh/contrat/domain/AncienneteEngine.java) : Reconstitution de la chaîne d'ancienneté continue.
 
 ### 10.2 Composants Frontend React (`frontend/src/features/employees/`)
 
 * **Pages Principales (`pages/`)** :
-  * [`EmployeListPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/pages/EmployeListPage.jsx) : Annuaire interactif multi-filiales et multi-sites.
-  * [`EmployeFicheDetailPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/pages/EmployeFicheDetailPage.jsx) : Fiche salarié avec 7 onglets métier intégrés.
-  * [`CarrieresSupervisionPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/pages/CarrieresSupervisionPage.jsx) : Cockpit RH de supervision des alertes (fins d'essai, CDD, départs).
+  * [`EmployeListPage.jsx`](../../../frontend/src/features/employees/pages/EmployeListPage.jsx) : Annuaire interactif multi-filiales et multi-sites.
+  * [`EmployeFicheDetailPage.jsx`](../../../frontend/src/features/employees/pages/EmployeFicheDetailPage.jsx) : Fiche salarié avec 7 onglets métier intégrés.
+  * [`CarrieresSupervisionPage.jsx`](../../../frontend/src/features/employees/pages/CarrieresSupervisionPage.jsx) : Cockpit RH de supervision des alertes (fins d'essai, CDD, départs).
 * **Composants Clés (`components/`)** :
-  * [`CarriereTimeline.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/components/carriere/CarriereTimeline.jsx) : Timeline interactive et sélecteur de mode (parcours narratif vs tableaux détaillés, commandes tactiles prévues pour mobile ; aucune certification WCAG AA n'est établie ici).
-  * [`HistoriqueContratsTable.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/components/carriere/timeline/HistoriqueContratsTable.jsx) : Tableau de l'historique contractuel avec génération d'attestation et consultation des contrats.
-  * [`DocumentsRhTab.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/employees/components/tabs/DocumentsRhTab.jsx) : GED avec contrôle de complétude des pièces obligatoires.
+  * [`CarriereTimeline.jsx`](../../../frontend/src/features/employees/components/carriere/CarriereTimeline.jsx) : Timeline interactive et sélecteur de mode (parcours narratif vs tableaux détaillés, commandes tactiles prévues pour mobile ; aucune certification WCAG AA n'est établie ici).
+  * [`HistoriqueContratsTable.jsx`](../../../frontend/src/features/employees/components/carriere/timeline/HistoriqueContratsTable.jsx) : Tableau de l'historique contractuel avec génération d'attestation et consultation des contrats.
+  * [`DocumentsRhTab.jsx`](../../../frontend/src/features/employees/components/tabs/DocumentsRhTab.jsx) : GED avec contrôle de complétude des pièces obligatoires.
 
 ### 10.3 Bilan de Recette Automatisée
 

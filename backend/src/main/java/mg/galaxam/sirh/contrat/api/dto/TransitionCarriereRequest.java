@@ -27,6 +27,7 @@ public class TransitionCarriereRequest {
     private Date dateDebut;
     private Date dateFin;
     private Date dateSignature;
+    private String motifCddCode;
     private Integer dureeEssaiMois;
     private Date dateFinEssai;
     private Boolean comptabiliseEffectif;
@@ -80,6 +81,8 @@ public class TransitionCarriereRequest {
 
     public Date getDateSignature() { return dateSignature; }
     public void setDateSignature(Date dateSignature) { this.dateSignature = dateSignature; }
+    public String getMotifCddCode() { return motifCddCode; }
+    public void setMotifCddCode(String motifCddCode) { this.motifCddCode = motifCddCode; }
 
     public Integer getDureeEssaiMois() { return dureeEssaiMois; }
     public void setDureeEssaiMois(Integer dureeEssaiMois) { this.dureeEssaiMois = dureeEssaiMois; }
@@ -155,6 +158,7 @@ public class TransitionCarriereRequest {
         private Date dateDebut;
         private Date dateFin;
         private Date dateSignature;
+        private String motifCddCode;
         private Integer dureeEssaiMois;
         private Date dateFinEssai;
         private boolean comptabiliseEffectif = true;
@@ -190,6 +194,8 @@ public class TransitionCarriereRequest {
         public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
         public Date getDateSignature() { return dateSignature; }
         public void setDateSignature(Date dateSignature) { this.dateSignature = dateSignature; }
+        public String getMotifCddCode() { return motifCddCode; }
+        public void setMotifCddCode(String motifCddCode) { this.motifCddCode = motifCddCode; }
         public Integer getDureeEssaiMois() { return dureeEssaiMois; }
         public void setDureeEssaiMois(Integer dureeEssaiMois) { this.dureeEssaiMois = dureeEssaiMois; }
         public Date getDateFinEssai() { return dateFinEssai; }

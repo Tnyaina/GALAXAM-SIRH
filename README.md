@@ -225,7 +225,7 @@ L'ensemble de la documentation fonctionnelle, réglementaire et technique approf
 | [**module-conges-absences.md**](backend/docs/boky/module-conges-absences.md) | Grand-livre FIFO, taux journalier `TCONGE`, pool familial 10j et examen DAF de prescription. |
 | [**module-paie.md**](backend/docs/boky/module-paie.md) | Moteur 6 paliers, cotisations, IRSA, STC, journal des règlements et prestataires indépendants. |
 | [**module-securite-audit.md**](backend/docs/boky/module-securite-audit.md) | Sécurité JWT HS512, expiration par inactivité, RBAC granulaire et audit trail JSONB. |
-| [**desktop/README.md**](desktop/README.md) | Guide technique du client lourd Tauri 2 pour macOS ARM64. |
+| [**desktop/README.md**](desktop/README.md) | Guide du client Tauri 2 : build macOS ARM64 et état de progression Windows x64. |
 | [**frontend/docs/CONVENTIONS.md**](frontend/docs/CONVENTIONS.md) | Conventions architecturales, gestion d'état et standards d'accessibilité frontend. |
 
 ---
@@ -257,7 +257,7 @@ docker compose up --build
 ```
 
 > [!TIP]
-> Au premier démarrage, PostgreSQL exécute automatiquement les 6 schémas SQL canoniques. Spring Boot télécharge ses dépendances Maven et initialise le premier compte administrateur si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`.
+> Lors du premier démarrage avec un volume PostgreSQL vide, l'entrypoint exécute les six schémas SQL canoniques dans l'ordre défini par `docker/init-local.sql`. Les scripts de l'image ne rejouent pas ce bootstrap sur un volume déjà initialisé. Spring Boot télécharge ses dépendances Maven et peut créer le compte administrateur si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`.
 
 ### 3. Accès aux Services
 - **Interface Web :** [`http://localhost:8088`](http://localhost:8088)
@@ -283,7 +283,7 @@ Le frontal de production est publié uniquement sur `127.0.0.1:8088` et doit êt
 
 Le bootstrap administrateur de production est désactivé par défaut. Pour le tout premier lancement uniquement, définir `GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true` et les variables d'identité/mot de passe administrateur; le remettre à `false` après création du compte.
 
-Les scripts SQL versionnés ne sont pas appliqués automatiquement par Spring. Avant une mise à jour de schéma, tester les migrations requises sur une copie de préproduction, sauvegarder PostgreSQL, puis conserver l'image précédente et vérifier la procédure de restauration avant le déploiement.
+Les migrations progressives SP01–SP84 ont été volontairement supprimées. Les six schémas canoniques de `backend/conception/bdd/` servent à initialiser une base neuve ; ils ne mettent pas à niveau une base existante. Aucun mécanisme progressif ou automatique de mise à niveau n'est établi. Une évolution de base existante nécessite donc une procédure dédiée, conçue et vérifiée pour cette évolution avant tout déploiement.
 
 ```bash
 # Vérification de la configuration

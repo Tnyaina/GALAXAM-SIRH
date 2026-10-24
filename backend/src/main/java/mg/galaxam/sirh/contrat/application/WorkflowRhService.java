@@ -53,13 +53,26 @@ public class WorkflowRhService {
         // ── Résolution des statuts ────────────────────────────
         Integer idStatutBrouillon = resolveStatut("BROUILLON", c);
         Integer idStatutPlanifie = resolveStatut("PLANIFIE", c);
-        String codeTypeEv = (req.getCodeTypeEvenement() != null && !req.getCodeTypeEvenement().isBlank())
+        String codeContratEmbauche = codeTypeContrat(req.getIdTypeContrat(), c);
+        CarriereTransitionValidator.validerMotifCDD(codeContratEmbauche, req.getMotifCddCode());
+        Integer idCddReembauche = "CDD".equals(codeContratEmbauche)
+                ? CarriereTransitionValidator.trouverCddReembaucheMemePoste(idEmploye, req.getDateDebut(),
+                        req.getIdSite(), req.getIdDepartement(), req.getIdService(), req.getIdFonction(), c)
+                : null;
+        String codeTypeEv = idCddReembauche != null ? "RENOUVELLEMENT_CDD"
+                : (req.getCodeTypeEvenement() != null && !req.getCodeTypeEvenement().isBlank())
                 ? req.getCodeTypeEvenement()
                 : "EMBAUCHE_INITIALE";
         Integer idTypeEvenementEmbauche = resolveTypeEvenement(codeTypeEv, c);
         Integer idMotifMouvement = resolveMotifMouvement("EMBAUCHE", c);
 
         validerExigenceDateFin(req.getIdTypeContrat(), req.getDateDebut(), req.getDateFin(), c);
+        if ("CDD".equals(codeContratEmbauche)) {
+            CarriereTransitionValidator.validerTransition(
+                    idCddReembauche != null ? "CDD" : "", codeTypeEv, codeContratEmbauche,
+                    codeTypeIntervenant(req.getIdTypeIntervenant(), c), req.getDureeEssaiMois(),
+                    idCddReembauche, req.getDateDebut(), req.getDateFin(), c);
+        }
 
         // ── 1. Création du Contrat BROUILLON ────────────────────────────────────
         ContratTravail contrat = new ContratTravail();
@@ -73,13 +86,15 @@ public class WorkflowRhService {
         contrat.setDateSignature(req.getDateSignature());
         contrat.setDateDebut(req.getDateDebut());
         contrat.setDateFin(req.getDateFin());
+        contrat.setMotifCddCode(req.getMotifCddCode());
         contrat.setDureeEssaiMois(req.getDureeEssaiMois());
         contrat.setDateFinEssai(req.getDateFinEssai());
         contrat.setComptabiliseEffectif(req.isComptabiliseEffectif());
         contrat.setDescription(req.getDescription());
         contrat.setCommentaire(req.getCommentaire());
-        if (req.getIdContratPrecedent() != null) {
-            contrat.setIdContratPrecedent(req.getIdContratPrecedent());
+        Integer idContratPrecedent = idCddReembauche != null ? idCddReembauche : req.getIdContratPrecedent();
+        if (idContratPrecedent != null) {
+            contrat.setIdContratPrecedent(idContratPrecedent);
         }
         contrat.save(c);
 
@@ -112,6 +127,7 @@ public class WorkflowRhService {
         workflow.setIdEmploye(idEmploye);
         workflow.setIdTypeEvenementRh(idTypeEvenementEmbauche);
         workflow.setIdStatutRh(idStatutBrouillon);
+        workflow.setIdContratSource(idCddReembauche);
         workflow.setIdContratCible(contrat.getIdContrat());
         workflow.setIdAffectationCible(affectation.getIdAffectation());
         workflow.setDateEffet(dateEffet);
@@ -170,6 +186,7 @@ public class WorkflowRhService {
         if (workflow == null) {
             throw new IllegalArgumentException("Workflow introuvable (id=" + idWorkflow + ").");
         }
+        verrouillerEmploye(workflow.getIdEmploye(), c);
 
         String typeEvenementCode = resolveCodeTypeEvenement(workflow.getIdTypeEvenementRh(), c);
         if ("REPRISE_CONSULTANT".equals(typeEvenementCode)) {
@@ -409,6 +426,7 @@ public class WorkflowRhService {
             if (!"STAGIAIRE".equals(codeTypeIntervenant) && "STAGE".equals(codeTypeContrat)) {
                 throw new IllegalArgumentException("Le contrat de Stage est réservé aux stagiaires.");
             }
+            CarriereTransitionValidator.validerMotifCDD(codeTypeContrat, req.getMotifCddCode());
 
             // Validation exhaustive de la matrice + règles dynamiques (paramètres globaux,
             // historique CDD, période d'essai) dans le moteur backend unique.
@@ -476,6 +494,7 @@ public class WorkflowRhService {
             contratCbl.setDateSignature(req.getDateSignature());
             contratCbl.setDateDebut(req.getDateDebut() != null ? req.getDateDebut() : req.getDateEffet());
             contratCbl.setDateFin(req.getDateFin());
+            contratCbl.setMotifCddCode(req.getMotifCddCode());
             contratCbl.setDureeEssaiMois(req.getDureeEssaiMois());
             contratCbl.setDateFinEssai(req.getDateFinEssai());
             contratCbl.setComptabiliseEffectif(
@@ -796,6 +815,10 @@ public class WorkflowRhService {
                 Date targetDateDebut = req.getDateDebut() != null ? req.getDateDebut() : contrat.getDateDebut();
                 Date targetDateFin = req.getDateFin() != null ? req.getDateFin() : contrat.getDateFin();
                 validerExigenceDateFin(targetTypeId, targetDateDebut, targetDateFin, c);
+                String targetContractCode = codeTypeContrat(targetTypeId, c);
+                String motifCddCible = req.getMotifCddCode() != null
+                        ? req.getMotifCddCode() : contrat.getMotifCddCode();
+                CarriereTransitionValidator.validerMotifCDD(targetContractCode, motifCddCible);
 
                 if (req.getIdFiliale() != null)
                     contrat.setIdFiliale(req.getIdFiliale());
@@ -807,6 +830,8 @@ public class WorkflowRhService {
                     contrat.setDateDebut(req.getDateDebut());
                 if (req.getDateFin() != null)
                     contrat.setDateFin(req.getDateFin());
+                if (req.getMotifCddCode() != null)
+                    contrat.setMotifCddCode(req.getMotifCddCode());
                 if (req.getDateSignature() != null)
                     contrat.setDateSignature(req.getDateSignature());
                 if (req.getDureeEssaiMois() != null)
@@ -1360,6 +1385,7 @@ public class WorkflowRhService {
                         c.rollback();
                         continue;
                     }
+                    verrouillerEmploye(wf.getIdEmploye(), c);
                     Date dateEffet = wf.getDateEffet();
 
                     // 1. Appliquer l'effet réel du workflow
@@ -1421,6 +1447,17 @@ public class WorkflowRhService {
         } catch (Exception e) {
             System.err.println("Erreur autoAppliquerMouvementsEchus : " + e.getMessage());
             throw new IllegalStateException("Le traitement des mouvements RH planifiés est incomplet.", e);
+        }
+    }
+
+    private static void verrouillerEmploye(Integer idEmploye, Connection c) throws Exception {
+        if (idEmploye == null) throw new IllegalArgumentException("Employé obligatoire pour le workflow RH.");
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalArgumentException("Employé du workflow introuvable.");
+            }
         }
     }
 
@@ -1500,6 +1537,28 @@ public class WorkflowRhService {
             }
         }
         throw new IllegalStateException("Type d'événement RH introuvable : " + code);
+    }
+
+    private static String codeTypeContrat(Integer idTypeContrat, Connection c) throws SQLException {
+        if (idTypeContrat == null) return "";
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT code FROM ref_type_contrat WHERE id_type_contrat = ?")) {
+            ps.setInt(1, idTypeContrat);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : "";
+            }
+        }
+    }
+
+    private static String codeTypeIntervenant(Integer idTypeIntervenant, Connection c) throws SQLException {
+        if (idTypeIntervenant == null) return "";
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT code FROM ref_type_intervenant WHERE id_type_intervenant = ?")) {
+            ps.setInt(1, idTypeIntervenant);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : "";
+            }
+        }
     }
 
     private static String resolveCodeTypeEvenement(Integer id, Connection c) throws Exception {

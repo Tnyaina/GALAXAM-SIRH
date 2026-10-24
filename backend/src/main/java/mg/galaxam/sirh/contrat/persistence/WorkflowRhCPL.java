@@ -54,6 +54,7 @@ public class WorkflowRhCPL {
     private String  libelleFiliale;
     private Date    dateDebutContrat;
     private Date    dateFinContrat;
+    private String  motifCddCode;
     private Integer dureeEssaiMois;
     private Date    dateFinEssai;
     private boolean comptabiliseEffectif;
@@ -220,6 +221,7 @@ public class WorkflowRhCPL {
         w.libelleFiliale = rs.getString("libelle_filiale");
         w.dateDebutContrat = rs.getDate("date_debut_contrat");
         w.dateFinContrat = rs.getDate("date_fin_contrat");
+        w.motifCddCode = rs.getString("motif_cdd_code");
         w.dureeEssaiMois = getIntegerSafe(rs, "duree_essai_mois");
         w.dateFinEssai = getDateSafe(rs, "date_fin_essai");
         w.comptabiliseEffectif = rs.getBoolean("comptabilise_effectif");
@@ -278,6 +280,7 @@ public class WorkflowRhCPL {
     public String getLibelleFiliale() { return libelleFiliale; }
     public Date getDateDebutContrat() { return dateDebutContrat; }
     public Date getDateFinContrat() { return dateFinContrat; }
+    public String getMotifCddCode() { return motifCddCode; }
     public Integer getDureeEssaiMois() { return dureeEssaiMois; }
     public Date getDateFinEssai() { return dateFinEssai; }
     public void setDateFinEssai(Date dateFinEssai) { this.dateFinEssai = dateFinEssai; }

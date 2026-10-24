@@ -1,6 +1,6 @@
 # GALAXAM SIRH Desktop
 
-Prototype macOS ARM64 construit avec Tauri 2, React, Spring Boot, Java 17 et PostgreSQL 15.19. Le Web continue d'utiliser le même frontend React et le backend Spring Boot Docker.
+Le client desktop Tauri 2 partage le frontend React et Spring Boot avec le Web. Le build macOS ARM64 prépare Java 17 et PostgreSQL 15.19 et produit un `.app`/`.dmg`. Le code Windows x64 comprend également un installateur, un service local et des parcours de sauvegarde/restauration ; les validations automatisées documentées portent sur Windows Server 2022, pas encore sur les installations interactives Windows 10/11.
 
 Le travail nécessaire pour Windows 10/11 est suivi dans [WINDOWS_TODO.md](WINDOWS_TODO.md).
 Le découpage en trois sprints et ses critères de validation figurent dans [WINDOWS_SPRINTS.md](WINDOWS_SPRINTS.md). Le build Windows utilise `scripts/build-windows.ps1` sur un hôte Windows x64 avec un JDK Temurin 17, Maven, Node/npm et Rust MSVC ; il demande le chemin et l'empreinte SHA-256 de l'archive PostgreSQL Windows. Le parcours automatisé local a réussi sur le runner Windows Server 2022 ; les essais interactifs sur Windows 10/11 restent nécessaires avant diffusion.
@@ -17,9 +17,9 @@ Le code Rust est rangé par responsabilité :
 - `web/` : fichiers du frontend et relais HTTP vers Spring ;
 - `platform/` : intégrations au système, avec le superviseur et la planification macOS sous `platform/macos/`.
 
-`src-tauri/src/main.rs` ne garde que l'assemblage Tauri et le démarrage de la fenêtre. Les modules communs ne dépendent pas des commandes macOS. Le module `platform/unsupported_service.rs` refuse explicitement de démarrer un service local sur les systèmes qui n'ont pas encore d'implémentation : il ne constitue pas une version Windows opérationnelle.
+`src-tauri/src/main.rs` ne garde que l'assemblage Tauri et le démarrage de la fenêtre. Le cycle de vie s'appuie sur des implémentations distinctes dans `platform/macos/` et `platform/windows/` ; `platform/unsupported_service.rs` ne concerne que les systèmes qui n'ont pas d'implémentation dédiée.
 
-Avant de produire un installateur Windows, isoler derrière des interfaces de plateforme le cycle de vie du service en arrière-plan, la planification des sauvegardes, les dialogues « Enregistrer sous… », l'ouverture du dossier de sauvegardes, les chemins et permissions du répertoire de données, ainsi que le redémarrage de l'application. Garder le format de configuration et d'archive commun, avec un mécanisme de migration explicite si ces formats changent. Construire Java et PostgreSQL pour chaque architecture cible ; les exécutables du bundle macOS ne fonctionnent pas sur Windows. Conserver des paquets et scripts de build séparés par système.
+Le port Windows dispose maintenant de scripts de build et de composants propres à la plateforme. Les suites CI documentées couvrent le packaging et certains parcours de service, permissions et sauvegarde/restauration. Les essais interactifs Windows 10/11, les transitions de session/redémarrage et la validation de bout en bout du premier administrateur restent à compléter avant de qualifier la diffusion. `WINDOWS_SPRINTS.md` consigne les preuves CI et leurs limites ; `WINDOWS_TODO.md` est une liste de travail à rapprocher de ces résultats. Les paquets et scripts de build restent séparés par système ; les exécutables macOS ne fonctionnent pas sur Windows.
 
 ## Construire
 

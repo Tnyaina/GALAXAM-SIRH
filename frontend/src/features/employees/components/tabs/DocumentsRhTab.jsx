@@ -22,6 +22,8 @@ const formatBytes = (bytes) => {
 export default function DocumentsRhTab({
     documentsData = { documents: [], obligatoiresManquants: [] },
     loadingDocs = false,
+    documentsStatus = 'idle',
+    onRetry,
     canWrite = false,
     onOpenUploadModal,
     onDownloadDoc,
@@ -72,6 +74,12 @@ export default function DocumentsRhTab({
 
     return (
         <div className="space-y-4 font-sans">
+            {documentsStatus === 'error' && (
+                <Alert variant="error" title="Impossible de charger les documents RH">
+                    <p>Les documents affichés peuvent ne plus être à jour. Réessayez le chargement.</p>
+                    <Button type="button" variant="outline" size="sm" onClick={onRetry}>Réessayer</Button>
+                </Alert>
+            )}
             {/* 1. Bandeau de conformité standardisé avec le composant Alert */}
             {canWrite && obligatoiresManquants.length > 0 && (
                 <Alert
@@ -104,9 +112,9 @@ export default function DocumentsRhTab({
                             <FileText size={15} className="text-[var(--color-brand-600)]" />
                             Pièces justificatives &amp; Documents RH
                         </CardTitle>
-                        <Badge variant={isConforme ? "success" : "warning"} size="xs" dot>
+                        {documentsStatus === 'success' && <Badge variant={isConforme ? "success" : "warning"} size="xs" dot>
                             {isConforme ? "Dossier conforme" : `${obligatoiresManquants.length} manquant${obligatoiresManquants.length > 1 ? 's' : ''}`}
-                        </Badge>
+                        </Badge>}
                         {documents.length > 0 && (
                             <Badge variant="default" size="xs">
                                 {documents.length} document{documents.length > 1 ? 's' : ''}
@@ -176,7 +184,7 @@ export default function DocumentsRhTab({
                         <div className="p-5">
                             <SkeletonTable rows={4} columns={5} bordered={false} />
                         </div>
-                    ) : documents.length === 0 ? (
+                    ) : documentsStatus === 'error' && documents.length === 0 ? null : documentsStatus === 'success' && documents.length === 0 ? (
                         <div className="p-5">
                             <EmptyState
                                 icon={FileText}

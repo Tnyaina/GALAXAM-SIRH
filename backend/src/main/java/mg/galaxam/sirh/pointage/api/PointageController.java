@@ -400,12 +400,12 @@ public class PointageController {
                         throw new IllegalArgumentException("Site introuvable : " + request.getIdSite());
                     }
                 }
-                c.commit();
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("idSite", request.getIdSite());
                 resp.put("estActif", request.getEstActif());
                 resp.put("heurePlafond", timeVal != null ? timeVal.toString() : null);
                 AuditLog.audit(c, "SAVED_PLANCHER_ARRIVEE_SITE", "ref_site", String.valueOf(request.getIdSite()), null, resp);
+                c.commit();
                 return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(resp);
             } catch (Exception e) {
                 c.rollback();
@@ -432,8 +432,8 @@ public class PointageController {
             try {
                 EmployeIndemniteDerogation d = buildDerogation(request);
                 d.save(c);
-                c.commit();
                 AuditLog.audit(c, "CREATION_DEROGATION_INDEMNITE", "employe_indemnite_derogation", String.valueOf(d.getIdDerogation()), null, d);
+                c.commit();
                 return ResponseEntity.status(HttpStatus.CREATED).body(d);
             } catch (Exception e) {
                 c.rollback();
@@ -452,8 +452,8 @@ public class PointageController {
                 if (existing == null) throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Dérogation non trouvée.");
                 applyDerogation(existing, request);
                 existing.update(c);
-                c.commit();
                 AuditLog.audit(c, "MODIFICATION_DEROGATION_INDEMNITE", "employe_indemnite_derogation", String.valueOf(id), null, existing);
+                c.commit();
                 return ResponseEntity.ok(existing);
             } catch (Exception e) {
                 c.rollback();
@@ -471,8 +471,8 @@ public class PointageController {
                 EmployeIndemniteDerogation existing = new EmployeIndemniteDerogation().rechercherParId(id, c);
                 if (existing == null) throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Dérogation non trouvée.");
                 existing.delete(c);
-                c.commit();
                 AuditLog.audit(c, "SUPPRESSION_DEROGATION_INDEMNITE", "employe_indemnite_derogation", String.valueOf(id), existing, null);
+                c.commit();
                 return ResponseEntity.ok("Dérogation supprimée avec succès.");
             } catch (Exception e) {
                 c.rollback();

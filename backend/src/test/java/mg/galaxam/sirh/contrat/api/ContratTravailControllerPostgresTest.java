@@ -80,7 +80,7 @@ class ContratTravailControllerPostgresTest {
 
             try (Connection c = DriverManager.getConnection(url, user, password)) {
                 SQLException fk = assertThrows(SQLException.class, () -> insererContrat(c, employeAvecUnContrat,
-                        Integer.MAX_VALUE, idTypeContrat, idIntervenant, idStatut, "CTR-TEST-FK", "2024-01-01", null));
+                        Integer.MAX_VALUE, idTypeContrat, idIntervenant, idStatut, "CTR-TEST-FK", "2010-01-01", "2010-12-31"));
                 assertEquals("23503", fk.getSQLState(), "Les FK empêchent les références de référentiel manquantes.");
             }
 
@@ -142,8 +142,9 @@ class ContratTravailControllerPostgresTest {
     private static void supprimerRoleLecture(String url, String user, String password) throws SQLException {
         try (Connection c = DriverManager.getConnection(url, user, password);
              var statement = c.createStatement()) {
-            statement.execute("DROP OWNED BY " + READER_ROLE);
-            statement.execute("DROP ROLE " + READER_ROLE);
+            statement.execute("DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '"
+                    + READER_ROLE + "') THEN EXECUTE 'DROP OWNED BY " + READER_ROLE
+                    + "'; EXECUTE 'DROP ROLE " + READER_ROLE + "'; END IF; END $$");
         }
     }
 

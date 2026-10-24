@@ -118,6 +118,8 @@ CREATE TABLE employe_compte_banque (
 
 
 -- 5. Contrats de Travail
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 CREATE TABLE contrat_travail (
     id_contrat SERIAL PRIMARY KEY,
     id_employe INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE,
@@ -131,6 +133,7 @@ CREATE TABLE contrat_travail (
     date_signature DATE,
     date_debut DATE NOT NULL,
     date_fin DATE,
+    motif_cdd_code VARCHAR(40),
     duree_essai_mois INTEGER,
     date_fin_essai DATE,
     comptabilise_effectif BOOLEAN DEFAULT TRUE,
@@ -139,8 +142,42 @@ CREATE TABLE contrat_travail (
     commentaire TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_contrat_id_employe UNIQUE (id_contrat, id_employe)
+    CONSTRAINT uq_contrat_id_employe UNIQUE (id_contrat, id_employe),
+    CONSTRAINT chk_contrat_dates_coherentes CHECK (date_fin IS NULL OR date_fin >= date_debut),
+    CONSTRAINT chk_contrat_motif_cdd_code CHECK (motif_cdd_code IS NULL OR motif_cdd_code IN (
+        'OUVRAGE_DETERMINE', 'SURCROIT_EXTRAORDINAIRE', 'TRAVAUX_URGENTS_SECURITE'
+    ))
 );
+
+-- Les contrats historiques non qualifiés restent lisibles/modifiables, mais tout
+-- nouveau CDD doit porter un motif légal structuré. Les contrats non CDD ne
+-- peuvent pas recevoir ce motif.
+CREATE OR REPLACE FUNCTION verifier_motif_legal_cdd() RETURNS trigger AS $$
+DECLARE
+    code_type TEXT;
+BEGIN
+    SELECT code INTO code_type FROM ref_type_contrat WHERE id_type_contrat = NEW.id_type_contrat;
+    IF code_type = 'CDD' THEN
+        IF NEW.motif_cdd_code IS NULL THEN
+            IF TG_OP = 'INSERT' THEN
+                RAISE EXCEPTION 'Un motif légal structuré est obligatoire pour tout nouveau CDD.'
+                    USING ERRCODE = '23514';
+            ELSIF OLD.motif_cdd_code IS NOT NULL OR OLD.id_type_contrat <> NEW.id_type_contrat THEN
+                RAISE EXCEPTION 'Un motif légal structuré est obligatoire pour tout nouveau CDD.'
+                    USING ERRCODE = '23514';
+            END IF;
+        END IF;
+    ELSIF NEW.motif_cdd_code IS NOT NULL THEN
+        RAISE EXCEPTION 'Le motif légal CDD ne peut être renseigné que sur un contrat CDD.'
+            USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_contrat_motif_legal_cdd
+BEFORE INSERT OR UPDATE OF id_type_contrat, motif_cdd_code ON contrat_travail
+FOR EACH ROW EXECUTE FUNCTION verifier_motif_legal_cdd();
 
 
 CREATE TABLE contrat_periode_essai (
@@ -158,6 +195,7 @@ CREATE TABLE contrat_periode_essai (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_statut_periode_essai CHECK (statut IN ('EN_COURS', 'CONFIRMEE', 'RENOUVELEE', 'ROMPUE')),
     CONSTRAINT chk_numero_periode CHECK (numero_periode >= 1),
+    CONSTRAINT chk_periode_essai_dates CHECK (date_fin_prevue >= date_debut),
     CONSTRAINT uk_contrat_periode UNIQUE (id_contrat, numero_periode)
 );
 
@@ -189,8 +227,67 @@ CREATE TABLE employe_affectation_carriere (
         REFERENCES contrat_travail (id_contrat, id_employe),
     CONSTRAINT fk_affectation_service_departement
         FOREIGN KEY (id_service, id_departement)
-        REFERENCES ref_service (id_service, id_departement)
+        REFERENCES ref_service (id_service, id_departement),
+    CONSTRAINT chk_affectation_dates_coherentes CHECK (date_fin IS NULL OR date_fin >= date_debut)
 );
+
+-- Une transition planifiée peut temporairement chevaucher l'affectation active
+-- jusqu'à sa date d'effet. À l'application, le workflow ferme d'abord la source,
+-- puis active la cible. Ces triggers protègent ce dernier état y compris en cas
+-- de requêtes concurrentes.
+CREATE OR REPLACE FUNCTION verifier_periode_active_contrat() RETURNS trigger AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ref_statut_rh WHERE id_statut_rh = NEW.id_statut_rh AND code = 'ACTIF'
+    ) THEN
+        PERFORM pg_advisory_xact_lock(561923, NEW.id_employe);
+        IF EXISTS (
+            SELECT 1
+            FROM contrat_travail ct
+            JOIN ref_statut_rh s ON s.id_statut_rh = ct.id_statut_rh AND s.code = 'ACTIF'
+            WHERE ct.id_employe = NEW.id_employe
+              AND ct.id_contrat <> COALESCE(NEW.id_contrat, -1)
+              AND daterange(ct.date_debut, CASE WHEN ct.date_fin IS NULL THEN NULL ELSE ct.date_fin + 1 END, '[)')
+                  && daterange(NEW.date_debut, CASE WHEN NEW.date_fin IS NULL THEN NULL ELSE NEW.date_fin + 1 END, '[)')
+        ) THEN
+            RAISE EXCEPTION 'Deux contrats actifs d’un même employé ne peuvent pas se chevaucher.'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_contrat_periode_active
+BEFORE INSERT OR UPDATE OF id_employe, id_statut_rh, date_debut, date_fin ON contrat_travail
+FOR EACH ROW EXECUTE FUNCTION verifier_periode_active_contrat();
+
+CREATE OR REPLACE FUNCTION verifier_periode_active_affectation() RETURNS trigger AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ref_statut_rh WHERE id_statut_rh = NEW.id_statut_rh AND code = 'ACTIF'
+    ) THEN
+        PERFORM pg_advisory_xact_lock(561924, NEW.id_employe);
+        IF EXISTS (
+            SELECT 1
+            FROM employe_affectation_carriere a
+            JOIN ref_statut_rh s ON s.id_statut_rh = a.id_statut_rh AND s.code = 'ACTIF'
+            WHERE a.id_employe = NEW.id_employe
+              AND a.id_affectation <> COALESCE(NEW.id_affectation, -1)
+              AND daterange(a.date_debut, CASE WHEN a.date_fin IS NULL THEN NULL ELSE a.date_fin + 1 END, '[)')
+                  && daterange(NEW.date_debut, CASE WHEN NEW.date_fin IS NULL THEN NULL ELSE NEW.date_fin + 1 END, '[)')
+        ) THEN
+            RAISE EXCEPTION 'Deux affectations actives d’un même employé ne peuvent pas se chevaucher.'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_affectation_periode_active
+BEFORE INSERT OR UPDATE OF id_employe, id_statut_rh, date_debut, date_fin ON employe_affectation_carriere
+FOR EACH ROW EXECUTE FUNCTION verifier_periode_active_affectation();
 
 
 -- 7. Workflows de Transition RH
@@ -428,6 +525,7 @@ SELECT
     ct_cbl.date_signature AS date_signature_contrat,
     ct_cbl.date_debut AS date_debut_contrat,
     ct_cbl.date_fin AS date_fin_contrat,
+    ct_cbl.motif_cdd_code,
     ct_cbl.duree_essai_mois,
     ct_cbl.date_fin_essai,
     ct_cbl.comptabilise_effectif,
@@ -642,6 +740,9 @@ INSERT INTO ref_type_document (id_type_document, libelle, categorie, description
 
 SELECT setval('ref_type_document_id_type_document_seq', (SELECT GREATEST(MAX(id_type_document), 8) FROM ref_type_document));
 
+-- Profils de démonstration entièrement synthétiques pour le démarrage local.
+-- Ils ne proviennent pas d'un import RH réel; les imports de production sont
+-- réalisés par le parcours d'import contrôlé, après validation des données.
 INSERT INTO employe (id_employe, matricule, nom, prenom, sexe, date_naissance, lieu_naissance, nationalite, situation_familiale, cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, ville, telephone, email, num_affiliation_cnaps, date_declaration, est_actif) VALUES (1, '1', 'RANDRASANA', 'Eric Jean-Joel', 'M', '1966-02-14', 'Antananarivo', 'Malgache', 'Marie', '101211101179', '1984-03-20', 'Antananarivo', 'Antananarivo', 'Antananarivo', '+261340000001', NULL, '780531', '2002-01-01', TRUE);
 
 INSERT INTO employe (id_employe, matricule, nom, prenom, sexe, date_naissance, lieu_naissance, nationalite, situation_familiale, cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, ville, telephone, email, num_affiliation_cnaps, date_declaration, est_actif) VALUES (2, '35', 'RALAMBOMANANA', 'Tatamo Michele', 'F', '1967-06-03', 'Antananarivo', 'Malgache', 'Marie', '117392000208', '1985-08-15', 'Antananarivo', 'Antananarivo', 'Antananarivo', '+261340000035', 'daf@galaxam.com', '819288', '2002-09-02', TRUE);

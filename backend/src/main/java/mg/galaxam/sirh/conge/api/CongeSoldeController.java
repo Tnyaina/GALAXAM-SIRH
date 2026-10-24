@@ -214,6 +214,16 @@ public class CongeSoldeController {
         }
 
         return transactionRunner.required(c -> {
+            try (var lock = c.prepareStatement("SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
+                lock.setInt(1, req.idEmploye());
+                try (var rows = lock.executeQuery()) {
+                    if (!rows.next()) throw new IllegalArgumentException("Employé introuvable.");
+                }
+            }
+            VSoldeCongeEmploye soldeActuel = VSoldeCongeEmploye.rechercherParEmploye(req.idEmploye(), c);
+            if (soldeActuel.getSoldeActuel().add(req.nbJours()).signum() < 0) {
+                throw new IllegalArgumentException("Ajustement refusé : le solde de congés deviendrait négatif.");
+            }
             MouvementSoldeConge mvt = new MouvementSoldeConge();
             mvt.setIdEmploye(req.idEmploye());
             mvt.setTypeMouvement("AJUSTEMENT");

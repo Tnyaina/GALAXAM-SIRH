@@ -13,16 +13,18 @@ import org.springframework.stereotype.Component;
 
 /**
  * Moteur de validation métier des salariés et dossiers RH.
- * Encapsule 100% des règles légales (Code du Travail Malagasy) et de cohérence RH.
+ * Applique les contrôles implémentés et documente les limites légales restantes.
  */
 @Component
 public class EmployeValidationEngine {
 
     /**
-     * Âge minimum légal d'accès à l'emploi : 16 ans révolus
-     * (Loi n° 2003-044, Art. 100 ; Décret n° 2007-563, Art. 2 à 5 ; Loi n° 2024-014).
+     * Seuil opérationnel du module : la création d'un dossier exige une CIN,
+     * disponible à partir de 16 ans. Ce n'est pas l'âge minimum légal d'accès
+     * à l'emploi (15 ans, Loi n° 2024-014, art. 147). Le parcours des mineurs,
+     * avec autorisation parentale et contrôles spécifiques, n'est pas modélisé.
      */
-    public static final int AGE_MINIMUM_LEGAL = 16;
+    public static final int AGE_MINIMUM_OPERATIONNEL = 16;
 
     private static final Pattern PATTERN_EMAIL = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     private static final Pattern PATTERN_CIN = Pattern.compile("^[0-9]{12}$");
@@ -56,7 +58,7 @@ public class EmployeValidationEngine {
         if (dateNaiss == null) {
             erreurs.add("La date de naissance est obligatoire.");
         } else {
-            validerAgeLegal(dateNaiss, LocalDate.now(), AGE_MINIMUM_LEGAL, erreurs);
+            validerAgeLegal(dateNaiss, LocalDate.now(), AGE_MINIMUM_OPERATIONNEL, erreurs);
         }
 
         // 3. CIN (Carte d'Identité Nationale)
@@ -145,7 +147,7 @@ public class EmployeValidationEngine {
     }
 
     /**
-     * Contrôle de l'âge légal (16 ans révolus).
+     * Contrôle du seuil d'âge configuré pour le parcours employé.
      */
     public void validerAgeLegal(LocalDate dateNaissance, LocalDate referenceDate, int ageMin, List<String> erreurs) {
         if (dateNaissance.isAfter(referenceDate)) {
@@ -154,7 +156,7 @@ public class EmployeValidationEngine {
         }
         int age = Period.between(dateNaissance, referenceDate).getYears();
         if (age < ageMin) {
-            erreurs.add("L'employé doit avoir au minimum " + ageMin + " ans révolus (âge calculé : " + age + " ans).");
+            erreurs.add("L'employé doit avoir au minimum " + ageMin + " ans révolus pour ce parcours (âge calculé : " + age + " ans).");
         }
     }
 
@@ -172,8 +174,8 @@ public class EmployeValidationEngine {
             }
             if (dateNaissance != null) {
                 int ageDelivrance = Period.between(dateNaissance, cinDateDelivrance).getYears();
-                if (ageDelivrance < AGE_MINIMUM_LEGAL) {
-                    erreurs.add("La date de délivrance du CIN (" + cinDateDelivrance + ") est incompatible avec la date de naissance (délivré avant l'âge légal de " + AGE_MINIMUM_LEGAL + " ans).");
+                if (ageDelivrance < AGE_MINIMUM_OPERATIONNEL) {
+                    erreurs.add("La date de délivrance du CIN (" + cinDateDelivrance + ") est incompatible avec la date de naissance (délivré avant l'âge de référence de " + AGE_MINIMUM_OPERATIONNEL + " ans).");
                 }
             }
         }

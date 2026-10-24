@@ -761,6 +761,7 @@ public class CongeService {
         if (d.getDateDebut() == null || d.getDateFin() == null) {
             throw new IllegalArgumentException("Les dates de début et de fin sont obligatoires.");
         }
+        verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
 
         RefStatutDemandeConge enAttente = RefStatutDemandeConge.rechercherParCode("EN_ATTENTE", c);
         if (enAttente == null) {
@@ -925,8 +926,8 @@ public class CongeService {
             }
         }
 
+        verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
         if (etaitValide) {
-            verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
             try (PreparedStatement psP = c.prepareStatement(
                     "SELECT p.code FROM periode_paie p "
                             + "WHERE p.date_debut <= ? AND p.date_fin >= ? "

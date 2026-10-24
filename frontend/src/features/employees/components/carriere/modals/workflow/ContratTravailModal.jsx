@@ -6,6 +6,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import Modal from '@/components/ui/overlays/Modal';
 import HasPermission from '@/features/auth/components/HasPermission';
+import { useAuth } from '@/context/AuthContext';
 import { DocumentFrame } from '@/features/employees/components/carriere/ContractDocument';
 import UploadDocumentModal from '@/features/employees/components/modals/UploadDocumentModal';
 import documentService from '@/api/documentService';
@@ -16,6 +17,8 @@ import { getErrorMessage } from '@/api/apiClient';
 import { fmtDateInput, fmtDateFr, getTodayDateString } from '@/utils/dateUtils';
 
 export default function ContratTravailModal({ isOpen, onClose, employe, contrat, onEdit, onDocumentUploaded, onContractUpdated }) {
+    const { hasPermission } = useAuth();
+    const canReadContractDocuments = hasPermission('EMPLOYE_READ') && hasPermission('PAIE_READ');
     // État local
     const [data, setData] = useState(null);
     const [loadError, setLoadError] = useState('');
@@ -45,6 +48,11 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
     // Effets
     useEffect(() => {
         if (!isOpen || !idContrat) return;
+        if (!canReadContractDocuments) {
+            setData(null);
+            setLoadError('La consultation du contrat et de ses pièces requiert les permissions Employé et Paie en lecture.');
+            return;
+        }
         let cancelled = false;
         setData(null); setLoadError(''); setActionError(''); setDocuments([]); setPreview(false); setUploadOpen(false);
         setEditingSignatureDate(false);
@@ -56,7 +64,7 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
             if (!cancelled) setDocuments(result.documents || []);
         }).catch(err => { if (!cancelled) setLoadError(getErrorMessage(err, "Impossible de consulter les documents signés.")); });
         return () => { cancelled = true; };
-    }, [isOpen, idContrat, idEmploye, contrat?.dateSignature]);
+    }, [isOpen, idContrat, idEmploye, contrat?.dateSignature, canReadContractDocuments]);
 
     // Actions
     const handleAction = async operation => {

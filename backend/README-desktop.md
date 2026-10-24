@@ -25,11 +25,10 @@ La racine par défaut sur macOS est
 `~/Library/Application Support/GALAXAM SIRH/`. Le lanceur crée avec un masque
 privé `config/`, `data/`, `logs/`, `documents/photo/`,
 `documents/documents/` et `documents/prestataires/`. Les fichiers restent en
-dehors du JAR et du bundle Tauri. Pour Windows, définir
-`GALAXAM_DESKTOP_HOME` vers un chemin absolu adapté, par exemple sous
-`%APPDATA%`; un lanceur Windows devra créer ces sous-répertoires et appliquer
-les ACL appropriées. Les répertoires `config/` et `data/` sont réservés pour la
-configuration et les données nécessaires aux étapes suivantes.
+dehors du JAR et du bundle Tauri. Pour le client Windows, l'intégration Tauri
+utilise `%ProgramData%/GALAXAM SIRH/` et prépare les permissions NTFS dans le
+cadre du service. Le script `run-desktop-macos.sh` décrit ci-dessous reste un
+lanceur manuel macOS ; il ne constitue pas la procédure de démarrage Windows.
 
 ## Construire et démarrer
 
@@ -40,7 +39,7 @@ mvn -DskipTests package
 ./run-desktop-macos.sh
 ```
 
-Le backend écoute uniquement sur `127.0.0.1`. Son endpoint public de contrôle
+Le backend du profil desktop écoute uniquement sur `127.0.0.1`. Son endpoint de contrôle
 est `http://127.0.0.1:18080/api/auth/ping` avec le port par défaut. Le
 processus s'arrête avec `Ctrl+C` ou `SIGTERM`; Spring ferme ensuite le pool JDBC.
 Le journal applicatif va dans `logs/backend.log` sous la racine choisie.

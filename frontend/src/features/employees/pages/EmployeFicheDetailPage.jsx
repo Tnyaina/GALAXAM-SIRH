@@ -61,6 +61,7 @@ export default function EmployeFicheDetailPage() {
     const canValidateConges = hasPermission('CONGE_VALIDATE');
     const canReadPointages = hasPermission('POINTAGE_READ');
     const canReadPaie = hasPermission('PAIE_READ');
+    const canReadDocuments = hasPermission('EMPLOYE_READ') && canReadPaie;
     const canWritePaie = hasPermission('PAIE_WRITE');
     const tabFromUrl = section || searchParams.get('tab');
 
@@ -79,6 +80,11 @@ export default function EmployeFicheDetailPage() {
 
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
     const [loadingDocs, setLoadingDocs] = useState(false);
+    const [documentsStatus, setDocumentsStatus] = useState('idle');
+    const [documentsRequestEmployeeId, setDocumentsRequestEmployeeId] = useState(null);
+    const visibleDocumentsData = documentsData.employeeId === id
+        ? documentsData : { documents: [], obligatoiresManquants: [] };
+    const visibleDocumentsStatus = documentsRequestEmployeeId === id ? documentsStatus : 'loading';
     const [typesDoc, setTypesDoc] = useState([]);
     const [typesDocLoaded, setTypesDocLoaded] = useState(false);
 
@@ -86,9 +92,11 @@ export default function EmployeFicheDetailPage() {
         const tabs = [
             { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
             { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
-            { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
             { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
         ];
+        if (canReadDocuments) {
+            tabs.splice(2, 0, { id: 'documents', label: `Documents RH (${visibleDocumentsData.documents.length})`, icon: <Folder size={16} /> });
+        }
         if (canReadConges) {
             tabs.push({ id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> });
         }
@@ -99,7 +107,7 @@ export default function EmployeFicheDetailPage() {
             tabs.push({ id: 'paie', label: 'Paie & Rémunération', icon: <Banknote size={16} /> });
         }
         return tabs;
-    }, [documentsData.documents.length, canReadConges, canReadPointages, canReadPaie]);
+    }, [visibleDocumentsData.documents.length, canReadDocuments, canReadConges, canReadPointages, canReadPaie]);
 
     const activeTab = useMemo(() => {
         const allowedTabIds = mainTabs.map(t => t.id);
@@ -150,15 +158,20 @@ export default function EmployeFicheDetailPage() {
 
     const loadDocuments = useCallback(async () => {
         const requestId = ++documentsRequestRef.current;
+        setDocumentsRequestEmployeeId(id);
         setLoadingDocs(true);
+        setDocumentsStatus('loading');
         try {
             const res = await documentRhService.getDocumentsByEmploye(id);
+            if (!res || !Array.isArray(res.documents)) throw new Error('Réponse documents RH invalide');
             if (requestId === documentsRequestRef.current) {
-                setDocumentsData(res || { documents: [], obligatoiresManquants: [] });
+                setDocumentsData({ ...res, employeeId: id });
+                setDocumentsStatus('success');
             }
         } catch (err) {
             if (requestId === documentsRequestRef.current) {
                 console.error('Erreur chargement documents RH:', err);
+                setDocumentsStatus('error');
             }
         } finally {
             if (requestId === documentsRequestRef.current) setLoadingDocs(false);
@@ -168,12 +181,12 @@ export default function EmployeFicheDetailPage() {
     useEffect(() => {
         if (id && !isNaN(Number(id))) {
             loadEmployeDetail();
-            loadDocuments();
+            if (canReadDocuments) loadDocuments();
         } else if (id && isNaN(Number(id))) {
             setError("Identifiant d'employé invalide.");
             setLoading(false);
         }
-    }, [id, loadEmployeDetail, loadDocuments]);
+    }, [id, canReadDocuments, loadEmployeDetail, loadDocuments]);
 
     // Les types de documents ne servent qu'au formulaire d'ajout. On évite
     // leur lecture sur chaque ouverture de fiche quand l'utilisateur n'ajoute rien.
@@ -292,10 +305,12 @@ export default function EmployeFicheDetailPage() {
     };
 
     useEffect(() => {
-        const listener = event => { if (Number(event.detail?.idEmploye) === Number(id)) loadDocuments(); };
+        const listener = event => {
+            if (canReadDocuments && Number(event.detail?.idEmploye) === Number(id)) loadDocuments();
+        };
         window.addEventListener('documents-rh-updated', listener);
         return () => window.removeEventListener('documents-rh-updated', listener);
-    }, [id, loadDocuments]);
+    }, [id, canReadDocuments, loadDocuments]);
 
     const handleUploadDocSubmit = async (e) => {
         e.preventDefault();
@@ -481,8 +496,10 @@ export default function EmployeFicheDetailPage() {
                     {activeTab === 'documents' && (
                         <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
                             <DocumentsRhTab
-                                documentsData={documentsData}
-                                loadingDocs={loadingDocs}
+                                documentsData={visibleDocumentsData}
+                                loadingDocs={loadingDocs || visibleDocumentsStatus === 'loading'}
+                                documentsStatus={visibleDocumentsStatus}
+                                onRetry={loadDocuments}
                                 canWrite={canWrite}
                                 onOpenUploadModal={handleOpenUploadModal}
                                 onDownloadDoc={handleDownloadDoc}
@@ -655,7 +672,7 @@ export default function EmployeFicheDetailPage() {
             >
                 <EmployeSideSummaryPanel
                     emp={emp}
-                    documentsCount={documentsData.documents.length}
+                    documentsCount={visibleDocumentsData.documents.length}
                     activeTab={activeTab}
                     onNavigateTab={(tabId) => {
                         handleTabChange(tabId);

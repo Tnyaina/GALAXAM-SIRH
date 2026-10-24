@@ -63,6 +63,9 @@ public final class CarriereTransitionValidator {
             Map.entry("DEPART_RETRAITE", new ContraintesEvenement(List.of(), List.of(), false)),
             Map.entry("FIN_CONTRAT", new ContraintesEvenement(List.of(), List.of(), false)));
 
+    public static final Set<String> MOTIFS_LEGAUX_CDD = Set.of(
+            "OUVRAGE_DETERMINE", "SURCROIT_EXTRAORDINAIRE", "TRAVAUX_URGENTS_SECURITE");
+
     /**
      * Compatibilité avec les appels existants qui ne disposent pas de connexion.
      * La validation structurelle reste centralisée ici.
@@ -258,6 +261,50 @@ public final class CarriereTransitionValidator {
         }
     }
 
+    public static void validerMotifCDD(String codeTypeContrat, String motifCddCode) {
+        String type = normalize(codeTypeContrat);
+        String motif = normalize(motifCddCode);
+        if ("CDD".equals(type) && !MOTIFS_LEGAUX_CDD.contains(motif)) {
+            throw new IllegalArgumentException(
+                    "Un CDD exige un motif légal : ouvrage déterminé, surcroît extraordinaire ou travaux urgents de sécurité.");
+        }
+        if (!"CDD".equals(type) && !motif.isEmpty()) {
+            throw new IllegalArgumentException("Le motif légal CDD ne s'applique qu'aux contrats CDD.");
+        }
+    }
+
+    /**
+     * Le modèle n'ayant pas d'identifiant de poste autonome, rapproche le poste
+     * par site, département, service et fonction à la date de fin du précédent CDD.
+     */
+    public static Integer trouverCddReembaucheMemePoste(
+            Integer idEmploye, Date dateDebut, Integer idSite, Integer idDepartement,
+            Integer idService, Integer idFonction, Connection c) throws Exception {
+        if (idEmploye == null || dateDebut == null || idSite == null || idDepartement == null
+                || idService == null || idFonction == null) return null;
+
+        String sql = "SELECT ct.id_contrat FROM contrat_travail ct "
+                + "JOIN ref_type_contrat tc ON tc.id_type_contrat = ct.id_type_contrat AND tc.code = 'CDD' "
+                + "JOIN employe_affectation_carriere a ON a.id_contrat = ct.id_contrat "
+                + "WHERE ct.id_employe = ? AND ct.date_fin IS NOT NULL AND ct.date_fin < ? "
+                + "AND ct.date_fin >= (? - INTERVAL '3 months')::date "
+                + "AND a.id_site = ? AND a.id_departement = ? AND a.id_service = ? AND a.id_fonction = ? "
+                + "AND a.date_debut <= ct.date_fin AND (a.date_fin IS NULL OR a.date_fin >= ct.date_fin) "
+                + "ORDER BY ct.date_fin DESC, ct.id_contrat DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, dateDebut);
+            ps.setDate(3, dateDebut);
+            ps.setInt(4, idSite);
+            ps.setInt(5, idDepartement);
+            ps.setInt(6, idService);
+            ps.setInt(7, idFonction);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : null;
+            }
+        }
+    }
+
     private static void validerRenouvellementCDD(
             Integer idContrat,
             Date dateDebut,
@@ -320,11 +367,12 @@ public final class CarriereTransitionValidator {
         int count = 0;
         Integer currentId = idContrat;
         while (currentId != null) {
-            String sql = "SELECT ct.id_contrat, ct.id_contrat_precedent, tc.code, tc_prec.code AS code_prec " +
+            String sql = "SELECT ct.id_contrat, ct.id_contrat_precedent, tc.code, tc_prec.code AS code_prec, tev.code AS evenement_code " +
                     "FROM contrat_travail ct " +
                     "JOIN ref_type_contrat tc ON ct.id_type_contrat = tc.id_type_contrat " +
                     "LEFT JOIN contrat_travail ct_prec ON ct.id_contrat_precedent = ct_prec.id_contrat " +
                     "LEFT JOIN ref_type_contrat tc_prec ON ct_prec.id_type_contrat = tc_prec.id_type_contrat " +
+                    "LEFT JOIN ref_type_evenement_rh tev ON tev.id_type_evenement_rh = ct.id_type_evenement_initial " +
                     "WHERE ct.id_contrat = ?";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, currentId);
@@ -332,12 +380,13 @@ public final class CarriereTransitionValidator {
                     if (!rs.next()) break;
                     String code = rs.getString("code");
                     String codePrec = rs.getString("code_prec");
+                    String evenement = rs.getString("evenement_code");
                     Integer precedent = rs.getObject("id_contrat_precedent") != null
                             ? rs.getInt("id_contrat_precedent") : null;
 
                     if (!"CDD".equals(normalize(code))) break;
 
-                    if ("CDD".equals(normalize(codePrec))) {
+                    if ("CDD".equals(normalize(codePrec)) && "RENOUVELLEMENT_CDD".equals(normalize(evenement))) {
                         count++;
                         currentId = precedent;
                     } else {
@@ -363,8 +412,9 @@ public final class CarriereTransitionValidator {
 
         Integer currentId = idContrat;
         while (currentId != null) {
-            String sql = "SELECT ct.date_debut, ct.date_fin, ct.id_contrat_precedent, tc.code " +
+            String sql = "SELECT ct.date_debut, ct.date_fin, ct.id_contrat_precedent, tc.code, tev.code AS evenement_code " +
                     "FROM contrat_travail ct JOIN ref_type_contrat tc ON ct.id_type_contrat = tc.id_type_contrat " +
+                    "LEFT JOIN ref_type_evenement_rh tev ON tev.id_type_evenement_rh = ct.id_type_evenement_initial " +
                     "WHERE ct.id_contrat = ?";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, currentId);
@@ -379,7 +429,9 @@ public final class CarriereTransitionValidator {
                         totalJours += Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(
                                 debut.toLocalDate(), fin.toLocalDate().plusDays(1)));
                     }
-                    currentId = precedent;
+                    currentId = "CDD".equals(normalize(code))
+                            && "RENOUVELLEMENT_CDD".equals(normalize(rs.getString("evenement_code")))
+                            ? precedent : null;
                 }
             }
         }

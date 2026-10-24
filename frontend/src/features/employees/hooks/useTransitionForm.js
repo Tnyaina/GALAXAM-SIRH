@@ -33,7 +33,7 @@ export function useTransitionForm({
     // État local : formulaire, aperçu et soumission.
     const [formData, setFormData] = useState({
         codeTypeEvenement: '', idFiliale: '', idTypeContrat: '', idTypeIntervenant: '',
-        dateEffet: '', dateDebut: '', dateFin: '', dateSignature: '', comptabiliseEffectif: true,
+        dateEffet: '', dateDebut: '', dateFin: '', dateSignature: '', motifCddCode: '', comptabiliseEffectif: true,
         numeroContrat: '', descriptionContrat: '', commentaireContrat: '', aPeriodeEssai: false,
         dureeEssaiMois: '3', dateFinEssai: '', idSite: '', idDepartement: '', idService: '',
         idFonction: '', idResponsableHierarchique: '', idCategorieProfessionnelle: '',
@@ -144,6 +144,7 @@ export function useTransitionForm({
                 dateDebut: fmtDateInput(c.dateDebut) || today,
                 dateFin: fmtDateInput(c.dateFin) || '',
                 dateSignature: fmtDateInput(c.dateSignature) || '',
+                motifCddCode: c.motifCddCode || '',
                 comptabiliseEffectif: c.comptabiliseEffectif ?? true,
                 numeroContrat: c.numeroContrat || '',
                 descriptionContrat: c.description || '',
@@ -190,6 +191,7 @@ export function useTransitionForm({
                 dateDebut: suggestedDateDebut,
                 dateFin: '',
                 dateSignature: '',
+                motifCddCode: '',
                 comptabiliseEffectif: true,
                 numeroContrat: '',
                 descriptionContrat: '',
@@ -260,6 +262,9 @@ export function useTransitionForm({
             let updated = { ...prev, [field]: val };
             if (field === 'idDepartement') {
                 updated.idService = '';
+            }
+            if (field === 'idTypeContrat' && String(val) !== String(prev.idTypeContrat)) {
+                updated.motifCddCode = '';
             }
             if (field === 'codeTypeEvenement') {
                 // Déclencher l'auto-sélection selon l'événement
@@ -341,6 +346,11 @@ export function useTransitionForm({
                 return;
             }
 
+            if (selectedTypeContrat?.code === 'CDD' && !formData.motifCddCode) {
+                setErrorMsg('Sélectionnez le motif légal correspondant à ce CDD.');
+                return;
+            }
+
             if (formData.dateFin && formData.dateDebut && formData.dateFin <= formData.dateDebut) {
                 setErrorMsg("La date de fin de contrat doit être strictement postérieure à la date de début.");
                 return;
@@ -368,6 +378,7 @@ export function useTransitionForm({
             dateDebut: formData.dateDebut || null,
             dateFin: formData.dateFin || null,
             dateSignature: formData.dateSignature || null,
+            motifCddCode: formData.motifCddCode || null,
             comptabiliseEffectif: Boolean(formData.comptabiliseEffectif),
             numeroContrat: formData.numeroContrat || null,
             descriptionContrat: formData.descriptionContrat || null,

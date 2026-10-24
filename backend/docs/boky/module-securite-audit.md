@@ -19,7 +19,7 @@
 | `scheduler_execution` | Non documentée | Table avec verrou distribué `(job_code, execution_key)` PK |
 | Menus seeedés | Liste partielle | **25 menus total** (6 niv.1 + 19 niv.2) seedés dans `ref_menu` et rattachés à `ROLE_ADMIN` |
 
-**Lecture par rapport au CDC initial :** le CDC regroupe « Administrateur / DAF » dans un profil fonctionnel, et distingue l'Agent de Pointage. Ce libellé ne signifie pas qu'un rôle technique `DAF` existe ou a été seedé. Le seed actuel contient `ROLE_ADMIN` et `ROLE_AGENT_POINTAGE` ; des permissions granulaires peuvent être attribuées aux rôles, mais une recette effectuée avec `ROLE_ADMIN` ne démontre pas un profil DAF à privilèges limités.
+**Lecture par rapport au CDC initial :** le CDC regroupe « Administrateur / DAF » dans un profil fonctionnel, et distingue l'Agent de Pointage. Ce libellé ne signifie pas qu'un rôle technique `DAF` existe ou a été seedé. Le seed actuel contient `ROLE_ADMIN` et `ROLE_AGENT_POINTAGE` ; des permissions granulaires peuvent être attribuées aux rôles, mais une recette effectuée avec `ROLE_ADMIN` ne démontre pas un profil DAF à privilèges limités. Les profils RH et DAF limités n’ont pas été vérifiés dynamiquement comme tels dans les éléments de recette disponibles.
 
 ---
 
@@ -260,7 +260,7 @@ une limite de renouvellement à 23 heures.
 
 ## 4. Interface Frontend — Panel Sécurité
 
-**Page** : [`SecuriteAdminPanel.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/securite/SecuriteAdminPanel.jsx)  
+**Page** : [`SecuriteAdminPanel.jsx`](../../../frontend/src/features/administration/pages/securite/SecuriteAdminPanel.jsx)
 **Route** : `/admin/securite` — Navigation par `?tab=` query param.
 
 | Onglet (`tab=`) | Composant (lazy) | Fonctionnalités |

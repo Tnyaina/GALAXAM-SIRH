@@ -3,7 +3,7 @@
 
 > **Auteur** : Équipe d'Ingénierie & Architecture GALAXAM SIRH  
 > **Module** : Congés, Absences, Droits Acquis, Grand-Livre (Ledger), Continuité & Valorisation Financière  
-> **Version documentaire** : 3.3.0 — état du code relu le 23 octobre 2026
+> **Version documentaire** : 3.4.0 — état du code relu le 24 octobre 2026
 > **Date de référence** : Octobre 2026  
 > **Principes directeurs** : Le CDC détermine le périmètre initial ; le code Java/SQL décrit l'implémentation actuelle ; les tests et rapports datés établissent les comportements vérifiés. La présence d'une règle dans le code ne constitue pas une validation juridique indépendante.
 > **Sources juridiques et normatives de référence** :
@@ -11,7 +11,7 @@
 > - [**Loi n° 2003-044 du 28 juillet 2004**](https://www.assemblee-nationale.mg/media/archives_textes/pl/2003-044/Loi-n-2003-044-finale-Portant-Code-du-Travail-1.pdf) portant ancien Code du Travail de Madagascar (Articles 13, 86, 87, 88, 89, 90, 91, 95, 97, 98, 126, 134 — conservés pour comparatif et traçabilité historique)
 > - [**Décret n° 72-226 du 6 juillet 1972**](https://fr.scribd.com/document/887714691/Droit-Malgache-Du-Travail) et Loi n° 2024-014 (Art. 109) relatifs à la durée légale du travail (40 heures hebdomadaires = 173,33 heures mensuelles dans les entreprises non agricoles)
 > - [**Décret n° 64-161 du 22 avril 1964**](https://cabinetkim.mg/blog/code-du-travail-madagascar-nouvelle-loi-2024-014/) fixant les conditions et modalités d'application du régime des congés payés
-> - **Modèle mathématique d'acquisition et valorisation financière d'entreprise** : `OHATRA KAJY DROITS CONGES-given on sept26.xls` (référence citée dans une version antérieure ; le fichier source et sa provenance n'ont pas été retrouvés dans le dépôt et restent à confirmer avant d'utiliser ses exemples comme preuve)
+> - **Modèle mathématique d'acquisition et valorisation financière d'entreprise** : `OHATRA KAJY DROITS CONGES-given on sept26.xls` (feuille non vérifiée ; sa provenance et son contenu restent à confirmer avant d'utiliser ses exemples comme preuve)
 > - **Schémas de base de données canoniques** : `backend/conception/bdd/04_schema_conges.sql` & `backend/conception/bdd/06_schema_paie.sql`
 
 ---
@@ -22,21 +22,21 @@ Ce document décrit le module **Congés & Absences** de GALAXAM SIRH. Le CDC fix
 
 1. **Implémentation** : services Java, schémas SQL et vues analytiques décrivent les mécanismes présents. Des tests ciblés existent, notamment `CongeLotValorisationEngineTest`, `CongePostgresIntegrationTest` et `PayrollLeaveAcquisitionPostgresIntegrationTest`. Aucun décompte global ni succès de l'ensemble du module n'est revendiqué ici ; DOC-2 n'a pas exécuté ces tests.
 2. **La gestion unifiée des Deux Flux Fondamentaux** : Traitement rigoureux et étanche du **Flux 1 (Nouvel Employé / Embauche Native)** avec carence légale de 12 mois (Art. 130) et du **Flux 2 (Reprise Historique / Cutover à date d'arrêté)** sans import d'historique lourd, avec reprise du stock arrêté, reprise des cumuls intermédiaires d'exercice et audit DAF via `conge_cutover_correction`.
-3. **Le respect des règles légales de décompte** : Résolution temporelle dynamique des jours fériés via `CongeDecompteCalendaireResolver` et le paramètre global `CONGE_DECOMPTE_FERIES` (`INCLUS` ou `EXCLUS`), permettant l'application conforme de l'Article 127 du Code du Travail 2024.
+3. **Le décompte des jours fériés** : `CongeDecompteCalendaireResolver` applique la version datée de `CONGE_DECOMPTE_FERIES`. La configuration actuelle est `INCLUS` ; une version future `EXCLUS` peut activer leur exclusion.
 4. **Le verrouillage strict du solde débiteur** : Interdiction absolue de la prise par anticipation en solde négatif au niveau métier (`DemandeConge.java`, `CongeService.java`, `DemandeCongeController.java`).
 5. **La protection de la continuité opérationnelle** : Détection algorithmique des collisions de présence d'équipe par poste et site géographique (`CongeContinuiteService.java`) avec dérogation bloquante.
 6. **Les mécanismes présents dans le code** : valorisation mensuelle, constitution de lots FIFO et calcul du taux journalier de cycle `TCONGE`. La justification métier et les exemples chiffrés citant `OHATRA KAJY DROITS CONGES` restent à rapprocher de leur source originale.
 7. **Le Grand-Livre des congés (`mouvement_solde_conge`) & Audit DAF** : Traçabilité absolue des mouvements (débits `PRISE`, crédits `ACQUISITION`, `BONIFICATION`, `AJUSTEMENT`, `ANNULATION`, `EXPIRATION`), audit des corrections de cutover (`conge_cutover_correction`), rectifications de valorisation (`conge_valorisation_mensuelle_correction`) et examen motivé des droits candidats à prescription (`conge_expiration_examen`).
 8. **Les intégrations présentes dans le code** avec **Pointage** et **Paie** ; les niveaux de recette diffèrent selon le parcours. Le STC est une extension postérieure au CDC initial, décrite dans le document Paie.
 
-**État des preuves de recette communiquées séparément :** UX-17 rapporte l'observation d'un débit FIFO simple ; le FIFO multi-lots n'est pas démontré par les éléments disponibles ici. UX-18 rapporte une acquisition mensuelle observée, tandis que l'activation annuelle TCONGE n'a pas été vérifiée de bout en bout. Ces indications proviennent des comptes rendus UX communiqués dans la conversation ; aucun rapport UX-17/18 distinct n'a été retrouvé dans le dépôt. Les tests automatisés ciblés ne remplacent pas ces recettes métier.
+**État des preuves de recette communiquées séparément :** UX-17 rapporte l'observation d'un débit FIFO simple ; le FIFO multi-lots n'est pas démontré en recette navigateur par les éléments disponibles. UX-18 rapporte une acquisition mensuelle observée, tandis que l'activation annuelle TCONGE n'a pas été vérifiée de bout en bout. Ces indications proviennent des comptes rendus UX communiqués dans la conversation ; aucun rapport UX-17/18 distinct n'a été retrouvé dans le dépôt. Les tests automatisés ciblés ne remplacent pas ces recettes métier.
 
 ---
 
 ## Table des Matières
 
 1. [Cadre Légal et Réglementaire Malagasy](#1-cadre-légal-et-réglementaire-malagasy)
-2. [Modèle Mathématique Canonique & Les Deux Flux Fondamentaux](#2-modèle-mathématique-canonique-ohatra-kajy-droits-conges)
+2. [Modèle de calcul et référence d'entreprise non vérifiée](#2-modèle-de-calcul-et-référence-dentreprise-non-vérifiée)
    - 2.1 [Définition des Variables Mensuelles & Trentième](#21-définition-des-variables-mensuelles)
    - 2.2 [Résolution du Taux Journalier Applicable (TCONGE)](#22-résolution-du-taux-journalier-applicable-tconge)
    - 2.3 [Les Deux Flux Fondamentaux : Nouvel Employé vs Reprise Cutover](#23-les-deux-flux-fondamentaux-de-gestion-des-congés)
@@ -66,23 +66,23 @@ Les congés payés sont régis par des dispositions d'**ordre public absolu** : 
 
 | Article Code du Travail (Loi 2024-014 / Loi 2003-044) | Libellé & Portée Juridique | Traduction Technique & Classe Java Responsable |
 | :--- | :--- | :--- |
-| **Loi 2024-014, Art. 125**<br>*(Loi 2003-044, Art. 86)* | **Acquisition du droit à congé payé**<br>• 2,5 jours calendaires par mois de service effectif (30 jours par an).<br>• Acquisition à la charge exclusive de l'employeur. | • [`CongeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeService.java) (`enregistrerAcquisitionMensuelle`).<br>• Stockage mensuel dans `conge_journal_droit` et crédit dans `mouvement_solde_conge` (`ACQUISITION`). |
-| **Loi 2024-014, Art. 127** | **Exclusion des jours fériés du congé payé**<br>• *« Sont exclus du décompte des congés payés les jours fériés chômés et payés... »* | • [`CongeDecompteCalendaireResolver.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeDecompteCalendaireResolver.java).<br>• Résolution par jour du paramètre `CONGE_DECOMPTE_FERIES` (`INCLUS`/`EXCLUS`). Si `EXCLUS`, déduction automatique des fériés nationaux et locaux (`site_calendrier_ferie`). |
-| **Loi 2024-014, Art. 130**<br>*(Loi 2003-044, Art. 88 al. 1)* | **Ouverture du droit de jouissance**<br>• La jouissance du congé annuel est acquise après une période minimale de **12 mois de service effectif**. | • [`DemandeConge.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/persistence/DemandeConge.java#L223-L242) : contrôle de l'ancienneté contractuelle (`moisService >= 12`) sur les congés de type `ANNUEL`. Blocage immédiat sinon. |
-| **Loi 2024-014, Art. 129**<br>*(Loi 2003-044, Art. 87)* | **Prescription triennale & Protection du salarié**<br>• Prescription de **3 ans** à compter de la fin de la période de référence.<br>• Le salarié peut combattre la prescription s'il établit que l'employeur l'a empêché de jouir de ses droits. | • [`CongeExpirationExamenService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeExpirationExamenService.java) & table `conge_expiration_examen`.<br>• **Zéro purge automatique**. Revue DAF formelle : `REPORTE` ou `EXPIRE` avec confirmation obligatoire `planification_verifiee = true`. |
-| **Loi 2024-014, Art. 130**<br>*(Loi 2003-044, Art. 89 & 95)* | **Fractionnement, Tranche continue & Continuité**<br>• Fractionnement possible d'accord parties avec au moins **une première tranche continue d'au moins 15 jours consécutifs** (Loi 2024-014, Art. 130).<br>• Départ fixé par l'employeur selon nécessités de service. | • [`CongeCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/domain/CongeCalculateurEngine.java) & paramètre `DUREE_TRANCHE_MIN_FRACTIONNEMENT_JOURS = 15`.<br>• [`CongeContinuiteService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeContinuiteService.java) : détection des conflits sur le même poste/site. |
+| **Loi 2024-014, Art. 125**<br>*(Loi 2003-044, Art. 86)* | **Acquisition du droit à congé payé**<br>• 2,5 jours calendaires par mois de service effectif (30 jours par an).<br>• Acquisition à la charge exclusive de l'employeur. | • [`CongeService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeService.java) (`enregistrerAcquisitionMensuelle`).<br>• Stockage mensuel dans `conge_journal_droit` et crédit dans `mouvement_solde_conge` (`ACQUISITION`). |
+| **Loi 2024-014, Art. 127** | **Exclusion des jours fériés du congé payé** | • [`CongeDecompteCalendaireResolver.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeDecompteCalendaireResolver.java).<br>• Résolution par jour de `CONGE_DECOMPTE_FERIES` (`INCLUS` ou `EXCLUS`) ; les fériés nationaux et locaux (`site_calendrier_ferie`) sont exclus uniquement sous `EXCLUS`. La configuration actuelle `INCLUS` constitue un écart à examiner au regard de cet article. |
+| **Loi 2024-014, Art. 130**<br>*(Loi 2003-044, Art. 88 al. 1)* | **Ouverture du droit de jouissance**<br>• La jouissance du congé annuel est acquise après une période minimale de **12 mois de service effectif**. | • [`DemandeConge.java`](../../src/main/java/mg/galaxam/sirh/conge/persistence/DemandeConge.java#L223-L242) : contrôle de l'ancienneté contractuelle (`moisService >= 12`) sur les congés de type `ANNUEL`. Blocage immédiat sinon. |
+| **Loi 2024-014, Art. 129**<br>*(Loi 2003-044, Art. 87)* | **Prescription triennale & Protection du salarié**<br>• Prescription de **3 ans** à compter de la fin de la période de référence.<br>• Le salarié peut combattre la prescription s'il établit que l'employeur l'a empêché de jouir de ses droits. | • [`CongeExpirationExamenService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeExpirationExamenService.java) & table `conge_expiration_examen`.<br>• **Zéro purge automatique**. Revue DAF formelle : `REPORTE` ou `EXPIRE` avec confirmation obligatoire `planification_verifiee = true`. |
+| **Loi 2024-014, Art. 130**<br>*(Loi 2003-044, Art. 89 & 95)* | **Fractionnement, Tranche continue & Continuité**<br>• Première tranche continue d'au moins **15 jours** dans les trois mois suivant l'ouverture du droit, sous réserve des nécessités de service.<br>• Départ fixé par l'employeur selon nécessités de service. | • `DUREE_TRANCHE_MIN_FRACTIONNEMENT_JOURS = 15` existe dans `CongeCalculateurEngine`, mais aucun contrôle de la première tranche dans les trois mois n'est implémenté.<br>• [`CongeContinuiteService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeContinuiteService.java) : détection des conflits sur le même poste/site. |
 | **Loi 2024-014, Art. 126(4)** | **Permissions exceptionnelles pour événements familiaux (10 jours/an)**<br>• Plafond global de **10 jours par an**, non déductibles du congé annuel.<br>• Le texte consulté ne fixe pas de durée par motif. | • Pool `PERMISSIONS_FAMILIALES` partagé par `EXCEPTIONNEL` et `PERMISSION`.<br>• Le motif décrit l'événement ; les dates déterminent la durée demandée. |
-| **Loi 2024-014, Art. 134**<br>*(Loi 2003-044, Art. 126 & 134)* | **Congé de paternité autonome**<br>• **3 jours ouvrables rémunérés** à la naissance d'un enfant.<br>• Droit autonome, expressément **disjoint du pool de 10 jours**. | • [`RefTypeConge.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/persistence/RefTypeConge.java) : `id_pool_conge_annuel IS NULL` sur le code `PATERNITE`. `duree_fixe_jours = 3.0`. |
+| **Loi 2024-014, Art. 134**<br>*(Loi 2003-044, Art. 126 & 134)* | **Congé de paternité autonome**<br>• **3 jours ouvrables rémunérés** à la naissance d'un enfant.<br>• Droit autonome, expressément **disjoint du pool de 10 jours**. | • [`RefTypeConge.java`](../../src/main/java/mg/galaxam/sirh/conge/persistence/RefTypeConge.java) : `id_pool_conge_annuel IS NULL` sur le code `PATERNITE`. `duree_fixe_jours = 3.0`. |
 | **Loi 2024-014, Art. 143** | **Congé de maternité & prolongation médicale**<br>• **14 semaines consécutives (98 jours)**, dont au moins 8 semaines après l'accouchement.<br>• Prolongation médicale jusqu'à **4 semaines (28 jours)**, soit un maximum total de **126 jours**.<br>• Les droits à congé annuel continuent d'être acquis pendant cette période. | • Paramètres `DUREE_MAX_MATERNITE_STANDARD_JOURS = 98` et `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS = 126`.<br>• Flag `extension_pathologique_maternite` dans `demande_conge`. |
 | **Loi 2003-044, Art. 13** | **Maladie ordinaire & Relais de prévoyance CNaPS**<br>• Suspension jusqu'à 6 mois.<br>• Maintien légal de salaire limité au préavis (**30 jours** pour mensuels). | • `RefTypeConge` : type `MALADIE` borné à 30 jours continus payés.<br>• Bascule automatique dès le 31e jour vers `MALADIE_SANS_SOLDE` (`id_type_conge_bascule = 1`) pour prise en charge CNaPS. |
-| **Loi 2024-014, Art. 126**<br>*(Loi 2003-044, Art. 86)* | **Bonifications pour ancienneté**<br>• Majoration de la durée des congés payés selon convention ou règlement d'entreprise. | • Moteur pur [`CongeCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/domain/CongeCalculateurEngine.java) : seuil d'activation $\ge 5$ ans révolus, bonus $+1$ jour par tranche complète de 5 ans d'ancienneté (formule : $\lfloor \text{Ancienneté} / 5 \rfloor \times 1\text{ jour}$). Écriture `BONIFICATION` dans le ledger. |
-| **Loi 2024-014, Art. 131**<br>*(Loi 2003-044, Art. 90)* | **Indemnité de congé payé & Règle du salaire continué**<br>• Maintien au moins égal au salaire moyen des 12 derniers mois et non inférieur au salaire continué.<br>• *Note de gouvernance DAF* : La double ligne en paie (`DEDUCTION_CONGE_BASE` au trentième actuel vs `INDEMNITE_CONGE_PAYE` au coût historique déstocké par lots FIFO) est une convention financière interne (`OHATRA KAJY`) assumée face au risque prud'homal sur le salaire continué. | • Service [`CongeTauxApplicableService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeTauxApplicableService.java) : valorisation mensuelle $V_m$ et résolution temporelle de `TCONGE`.<br>• [`CongeLotValorisationEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/domain/CongeLotValorisationEngine.java) : déstockage FIFO immuable des lots historiques. |
+| **Loi 2024-014, Art. 126**<br>*(Loi 2003-044, Art. 86)* | **Bonifications pour ancienneté**<br>• Majoration de la durée des congés payés selon convention ou règlement d'entreprise. | • Moteur pur [`CongeCalculateurEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/CongeCalculateurEngine.java) : seuil d'activation $\ge 5$ ans révolus, bonus $+1$ jour par tranche complète de 5 ans d'ancienneté (formule : $\lfloor \text{Ancienneté} / 5 \rfloor \times 1\text{ jour}$). Écriture `BONIFICATION` dans le ledger. |
+| **Loi 2024-014, Art. 131**<br>*(Loi 2003-044, Art. 90)* | **Indemnité de congé payé & Règle du salaire continué**<br>• Maintien au moins égal au salaire moyen des 12 derniers mois et non inférieur au salaire continué.<br>• *Point à arbitrer* : La double ligne en paie (`DEDUCTION_CONGE_BASE` au trentième actuel vs `INDEMNITE_CONGE_PAYE` au coût historique déstocké par lots FIFO) est décrite comme convention interne dans la documentation antérieure ; sa justification métier et sa conformité doivent être confirmées indépendamment. La feuille `OHATRA KAJY DROITS CONGES-given on sept26.xls` n'étant pas vérifiée, elle n'en constitue pas une preuve. | • Service [`CongeTauxApplicableService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeTauxApplicableService.java) : valorisation mensuelle $V_m$ et résolution temporelle de `TCONGE`.<br>• [`CongeLotValorisationEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/CongeLotValorisationEngine.java) : déstockage FIFO immuable des lots historiques. |
 
 ---
 
-## 2. Modèle Mathématique Canonique (`OHATRA KAJY DROITS CONGES`)
+## 2. Modèle de calcul décrit dans le code et référence d'entreprise non vérifiée
 
-Le système applique de manière stricte le modèle financier d'entreprise (`OHATRA KAJY DROITS CONGES-given on sept26.xls`), réconciliant l'acquisition des droits et leur valorisation comptable.
+Le code implémente des règles d'acquisition, de valorisation et de constitution de lots FIFO décrites dans cette section. La feuille d'entreprise `OHATRA KAJY DROITS CONGES-given on sept26.xls` n'a pas été vérifiée et ne peut pas être présentée comme fondement certifié ni comme référence indépendante de calcul. Les écarts entre les règles implémentées et cette feuille restent à examiner lorsque la source sera disponible et validée.
 
 ### 2.1 Définition des Variables Mensuelles
 
@@ -163,7 +163,7 @@ Le système GALAXAM SIRH distingue avec une rigueur absolue deux flux d'entrée 
 3. **Inscription dans le Grand-Livre (`mouvement_solde_conge`)** :
    - Le stock initial est comptabilisé sous `type_mouvement = 'AJUSTEMENT'` avec le commentaire normalisé `[SOLDE_INITIAL] Reprise historique arrêté au YYYY-MM-DD...`.
 4. **Priorité FIFO Absolue de Consommation & Liquidation Anti-Arrondi** :
-   - Le moteur pur [`PurgeFifoEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/domain/PurgeFifoEngine.java) et le service [`CongeLotValorisationEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/domain/CongeLotValorisationEngine.java) affectent la **Priorité 1** au stock initial `[SOLDE_INITIAL]`. Toute prise de congé ultérieure déstocke en priorité ce reliquat historique avant d'imputer les acquisitions mensuelles récentes.
+   - Le moteur pur [`PurgeFifoEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/PurgeFifoEngine.java) et le service [`CongeLotValorisationEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/CongeLotValorisationEngine.java) affectent la **Priorité 1** au stock initial `[SOLDE_INITIAL]`. Toute prise de congé ultérieure déstocke en priorité ce reliquat historique avant d'imputer les acquisitions mensuelles récentes.
    - **Clause de liquidation FIFO anti-arrondi** : Lorsqu'une imputation de congé épuise intégralement les jours restants d'un lot (`quantite == lot.joursRestants`), la valorisation imputée est égale à la `valeur_restante` exacte en Ariary du lot (et non recalculée par multiplication unitaire), garantissant l'absence de centime orphelin ou d'écart résiduel de clôture.
 5. **Audit des Rectifications DAF (`conge_cutover_correction`)** :
    - Si une contestation de salarié ou une erreur de report de l'ancien SIRH est constatée ultérieurement, la DAF effectue une correction via `POST /conges/solde/cutover/{idEmploye}/corriger`.
@@ -311,10 +311,9 @@ Trace mois par mois la constitution des droits et de la réserve financière :
 - **Saisie par date de reprise** : L'écran de demande saisit la date de départ (`date_debut`) et la **date de reprise du travail**. Le système convertit immédiatement cette saisie en date de fin inclusive :
   $$\text{date\_fin} = \text{date\_reprise} - 1\text{ jour}$$
 - **Décompte calendaire dynamique des jours fériés** :
-  Le décompte n'est pas un calcul figé. Il est orchestré par [`CongeDecompteCalendaireResolver.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeDecompteCalendaireResolver.java). Pour chaque jour $j \in [\text{date\_debut}, \text{date\_fin}]$ :
+  Le décompte n'est pas un calcul figé. Il est orchestré par [`CongeDecompteCalendaireResolver.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeDecompteCalendaireResolver.java). Pour chaque jour $j \in [\text{date\_debut}, \text{date\_fin}]$ :
   1. Résolution temporelle à la date $j$ du paramètre global `CONGE_DECOMPTE_FERIES` (`INCLUS` ou `EXCLUS`).
-  2. Si `CONGE_DECOMPTE_FERIES = 'EXCLUS'` : vérification si le jour $j$ est un jour férié chômé légal (férié national ou férié spécifique rattaché au site géographique de l'employé via `site_calendrier_ferie`). Si le jour est férié, **il est ignoré du décompte** (0 jour débité).
-  3. Si `CONGE_DECOMPTE_FERIES = 'INCLUS'` : le jour calendaire est débité (1 jour complet, ou 0,5 pour demi-journée).
+  2. Sous `EXCLUS`, un férié national ou local au site de l'employé (`site_calendrier_ferie`) est ignoré du décompte. Sous `INCLUS`, il est débité ; c'est le réglage actuel.
   *Source légale* : Loi n° 2024-014, Article 127 (*« Sont exclus du décompte des congés payés les jours fériés chômés et payés... »*).
 - **Demi-journée** : Si `est_demi_journee = true`, alors $\text{date\_debut} = \text{date\_fin}$, $\text{nb\_jours\_decomptes} = 0{,}5$, et le créneau (`MATIN` ou `APRES_MIDI`) est obligatoire.
 
@@ -332,26 +331,27 @@ Trace mois par mois la constitution des droits et de la réserve financière :
 
 ### RG-CON-04 : Examen DAF des Droits Candidats à Prescription
 - Conforme à l'Article 129 de la Loi n° 2024-014 : le délai de prescription de 3 ans (paramétré par `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS = 36`) est un seuil de revue.
-- Le moteur pur [`PurgeFifoEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/domain/PurgeFifoEngine.java) impute les prises historiques en FIFO et isole les droits acquis antérieurs à la date limite.
-- **Aucune purge automatique** : La DAF pilote l'examen via [`CongeExpirationExamenService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeExpirationExamenService.java) :
+- Le moteur pur [`PurgeFifoEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/PurgeFifoEngine.java) impute les prises historiques en FIFO et isole les droits acquis antérieurs à la date limite.
+- **Aucune purge automatique** : La DAF pilote l'examen via [`CongeExpirationExamenService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeExpirationExamenService.java) :
   - **`REPORTE`** : maintien au solde avec date de prochaine revue obligatoire.
   - **`EXPIRE`** : validation obligatoire de la coche `planification_verifiee = true`, motif textuel obligatoire et génération d'un débit `EXPIRATION` dans le grand-livre.
 
 ### RG-CON-05 : Interdiction Absolue de l'Anticipation en Solde Négatif
 - **Le code bloque systématiquement tout solde négatif** :
-  Dans [`DemandeConge.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/persistence/DemandeConge.java#L153-L157) et [`CongeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeService.java#L938-L940) :
+  Dans [`DemandeConge.java`](../../src/main/java/mg/galaxam/sirh/conge/persistence/DemandeConge.java#L153-L157) et [`CongeService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeService.java#L938-L940) :
   ```java
   if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
       throw new IllegalArgumentException("Solde de congé insuffisant... La prise par anticipation est désactivée.");
   }
   ```
-- Dans [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/api/DemandeCongeController.java#L257-L259) :
+- Dans [`DemandeCongeController.java`](../../src/main/java/mg/galaxam/sirh/conge/api/DemandeCongeController.java#L257-L259) :
   ```java
   if (derogationSoldeNegatif) {
       throw new IllegalArgumentException("La prise par anticipation avec solde négatif est désactivée.");
   }
   ```
 - En base de données, le paramètre `PLAFOND_SOLDE_CONGE_NEGATIF` est configuré avec `est_actif = FALSE`. Le solde débiteur est formellement prohibé.
+- Les ajustements manuels verrouillent l'employé et refusent un débit supérieur au solde disponible.
 
 ### RG-CON-06 : Délais de Préavis Réglementaires
 Pour les congés soumis à préavis (`soumis_delai_preavis = true` sur `ref_type_conge`) :
@@ -375,14 +375,14 @@ Pour les congés soumis à préavis (`soumis_delai_preavis = true` sur `ref_type
 - Dès le 31e jour, la demande bascule automatiquement vers `MALADIE_SANS_SOLDE` (`id_type_conge_bascule = 1`) pour prise en charge directe par les indemnités journalières de la CNaPS.
 
 ### RG-CON-10 : Fractionnement Annuel Obligatoire
-- Au moins une tranche continue de congé annuel payé doit atteindre **15 jours consécutifs** au cours de l'exercice (Article 130 Loi 2024-014 / Article 89 Loi 2003-044).
-- Alerte RH automatique émise par `NotificationRhScheduler` au 4e trimestre si l'employé n'a posé aucune tranche continue $\ge 15$ jours.
+- L'article 130 prévoit une première tranche continue d'au moins **15 jours** dans les trois mois suivant l'ouverture du droit, sous réserve des nécessités de service. Le reliquat peut être fractionné et cumulé dans la limite légale.
+- **Écart actuel** : `DUREE_TRANCHE_MIN_FRACTIONNEMENT_JOURS` est une constante, mais le parcours de demande et `NotificationRhScheduler` ne contrôlent ni cette première tranche ni son échéance. La règle requiert une conception dédiée de planification et de justification des nécessités de service.
 
 ### RG-CON-11 : Périodes de Paie Clôturées & Intangibilité
-- Toute tentative de création, modification ou annulation d'un congé tombant sur une période de paie au statut `CLOTUREE` est immédiatement rejetée avec le code d'erreur `LEAVE_PAYROLL_PERIOD_CLOSED`.
+- La création et le déplacement d'une demande sont refusés si la période de pointage est validée, la paie validée ou clôturée, ou si le cumul de pointage de l'employé est gelé/consommé. Le contrôle utilise `CONGE_POINTAGE_VERROUILLE`. Une demande déjà validée contrôle aussi son intervalle initial ; l'annulation d'une demande contrôle également la paie clôturée et les bulletins validés.
 
 ### RG-CON-12 : Continuité de Service & Collisions de Poste/Site
-- Orchestré par [`CongeContinuiteService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeContinuiteService.java) :
+- Orchestré par [`CongeContinuiteService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeContinuiteService.java) :
   1. Résout l'affectation active de l'employé pour chaque jour de l'intervalle demandé via `EmploymentContextResolver`.
   2. Vérifie que l'employé est sous contrat actif et en poste (`actifSurPeriode() = true`).
   3. Détecte les collisions avec d'autres collaborateurs occupant le même poste (`id_fonction`) sur le même site géographique (`id_site`).
@@ -476,7 +476,7 @@ Lorsque l'absence a été constatée en cours de pointage (collaborateur non bad
 - Le solde de congé doit couvrir l'intégralité de la période à régulariser sous peine de rejet immédiat.
 - En cas d'annulation ultérieure de la demande validée issue d'une régularisation, le solde de congé est restitué et les pointages redeviennent automatiquement des absences non justifiées dans la même transaction.
 
-La matérialisation directe d'une journée de congé par la synthèse Pointage est également soumise à la protection SQL décrite sous la référence historique **SP80** : `date_pointage` doit appartenir à la période référencée, bornes incluses. Une demande de congé validée en amont ne crée pas à elle seule une ligne `pointage_jour`. Le script SP80 n'est pas présent dans le dépôt ; l'application de l'évolution à une base cible existante doit être vérifiée avant déploiement.
+La matérialisation directe d'une journée de congé par la synthèse Pointage est également soumise à la protection SQL du schéma canonique (ancien identifiant historique **SP80**) : `date_pointage` doit appartenir à la période référencée, bornes incluses. Une demande de congé validée en amont ne crée pas à elle seule une ligne `pointage_jour`. Les anciennes migrations SP ont été volontairement supprimées ; le schéma canonique sert à initialiser une base neuve et ne décrit pas la mise à niveau d'une base existante.
 
 ### 6.2 Pont Réel Congés $\rightarrow$ Moteur de Paie
 
@@ -511,7 +511,7 @@ Lors de la rupture du contrat de travail (licenciement, démission, départ à l
 
 | Horaire | Composant Scheduler | Rôle & Traitement Effectué |
 | :---: | :--- | :--- |
-| **02:30 chaque jour** | `NotificationRhScheduler` | Détection et dispatching des alertes RH de supervision (solde faible, expiration candidate proche, tranche de fractionnement non respectée). |
+| **02:30 chaque jour** | `NotificationRhScheduler` | Détection et dispatching des alertes RH de supervision effectivement câblées ; aucune alerte de première tranche de 15 jours n'est implémentée. |
 | **1er du mois, 01:00** | `AcquisitionCongeScheduler` | Vérification des bonifications d'ancienneté du mois échu. Après une panne, les mois manqués sont repris depuis la première période inscrite dans `scheduler_execution`, au plus six par cycle de rattrapage. L'acquisition mensuelle standard est enregistrée dans la transaction de clôture de paie. |
 | — | — | **Aucun cron nocturne ne purge automatiquement les congés prescrits.** L'examen est obligatoirement instruit par la DAF. |
 
@@ -580,7 +580,7 @@ L'architecture frontend est strictement **backend-driven** : elle n'exécute auc
 | :--- | :--- | :--- |
 | **`InitialisationSoldeModal`** | `components/InitialisationSoldeModal.jsx` | Modale DAF de cutover : saisie de la date d'arrêté $T_0$, solde restant, valorisation d'ouverture, cumuls intermédiaires Janvier $\rightarrow T_0$ et référence d'arrêté (`POST /conges/solde/cutover-opening`). |
 | **`DemandeCongeModal`** | `components/DemandeCongeModal.jsx` | Saisie d'une demande avec date de départ et date de reprise, préavis, dérogations éventuelles et soumission sécurisée. |
-| **`DatesCongeSection`** | `components/formulaire/DatesCongeSection.jsx` | Déclencheur temps réel de `/conges/demandes/simuler` calculant le décompte net hors fériés légaux. |
+| **`DatesCongeSection`** | `components/formulaire/DatesCongeSection.jsx` | Déclencheur temps réel de `/conges/demandes/simuler` calculant le décompte selon la version datée de `CONGE_DECOMPTE_FERIES`. |
 | **`ConflitsPostePreview`** | `components/formulaire/ConflitsPostePreview.jsx` | Alerte dynamique préventive affichant les collisions d'absence d'équipe par poste et site (`/verifier-conflits`). |
 | **`DemandesValidationTab`** | `components/DemandesValidationTab.jsx` | Tableau de bord de validation N+1/RH piloté par `availableActions` (`VALIDER`, `REFUSER`, `ANNULER`). |
 | **`ValidationModals`** | `components/validation/ValidationModals.jsx` | Modales de confirmation, de refus motivé et d'annulation avec motif textuel obligatoire. |
@@ -681,7 +681,7 @@ L'architecture frontend est strictement **backend-driven** : elle n'exécute auc
 
 ### 10.1 Bilan Annuel Individuel (`ETAT_CONGES_PAR_PERSONNE.xlsx`)
 
-Généré par [`CongeAnnuelExcelExportService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeAnnuelExcelExportService.java) :
+Généré par [`CongeAnnuelExcelExportService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeAnnuelExcelExportService.java) :
 - Structuré sur 4 feuilles :
   1. **Feuille 1 — « État congés salarié »** : En-tête collaborateur, grille des 12 mois de référence issue de `conge_journal_droit`, retenues et indemnités de paie, solde progressif et préservation intégrale des formules Excel (`=SUM(...)`) avec `workbook.setForceFormulaRecalculation(true)`.
   2. **Feuille 2 — « Mouvements »** : Audit trail chronologique exhaustif du grand-livre filtré sur la période de référence.
@@ -693,7 +693,7 @@ Généré par [`CongeAnnuelExcelExportService.java`](file:///Users/andriamalalat
 
 ### 10.2 Grand Récapitulatif Collectif DAF (`GRAND_RECAP_CONGES_VALORISES.xlsx`)
 
-Généré par [`CongeGrandRecapExcelExportService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/conge/application/CongeGrandRecapExcelExportService.java) :
+Généré par [`CongeGrandRecapExcelExportService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeGrandRecapExcelExportService.java) :
 - Accessible via le bouton **« Grand récapitulatif Excel »** sous `/conges`.
 - Endpoint : `GET /conges/periodes-reference/grand-recap/export-excel?dateDebut=YYYY-MM-DD&dateFin=YYYY-MM-DD`.
 - Aucune limite artificielle de 100 lignes.
@@ -705,7 +705,7 @@ Généré par [`CongeGrandRecapExcelExportService.java`](file:///Users/andriamal
 
 Les valeurs de cette section sont conservées sans réécriture à la demande de DOC-2. Le matricule, la feuille source `OHATRA KAJY DROITS CONGES-given on sept26.xls`, les données d'entrée et l'autorisation de réutilisation ne sont pas vérifiables à partir du dépôt. Ne pas présenter cet exemple comme donnée réelle confirmée, résultat de test reproductible ou validation de conformité avant arbitrage sur sa provenance et son anonymisation.
 
-Reproduction intégrale du cycle de calcul validant la concordance mathématique avec la feuille d'entreprise `OHATRA KAJY DROITS CONGES-given on sept26.xls` :
+Exemple historique conservé tel quel, sans validation de concordance mathématique avec la feuille `OHATRA KAJY DROITS CONGES-given on sept26.xls`. La feuille n'a pas été vérifiée ; les chiffres ci-dessous ne constituent ni une référence certifiée ni une preuve de test reproductible. Leur provenance et leur validation restent à arbitrer.
 
 | M | formule | BASE | NBABS | ABSENCES | NBCONGE | TCONGE | CONGE | NET BASE | HS | AUTIMP | BRUTE | base totale | nbre droit | R*S/30 | Cumul Droits | Cumul Valorisation |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -782,5 +782,15 @@ Conservés à titre comparatif pour l'audit des contrats antérieurs et l'analys
 > *« Sont assimilées à un mois de service effectif : les périodes de congés payés antérieurs, les repos de maternité, les suspensions pour accident du travail (limite 1 an), les absences maladie (limite 6 mois), les permissions d'événements familiaux. »*
 
 ---
+
+### 12.3 Revue de conception du 24 octobre 2026
+
+**Corrections appliquées** : la création et le déplacement d'une demande contrôlent le verrouillage du pointage et de la paie ; un ajustement manuel ne peut plus rendre le solde négatif. Le paramètre `CONGE_DECOMPTE_FERIES` conserve le réglage actuel `INCLUS` et l'option datée `EXCLUS`.
+
+**Points encore ouverts avant préproduction** :
+
+1. **Référentiel des types de congé** : `PUT /conges/types/{id}` peut modifier rétroactivement `est_paye`, `decompte_solde_acquis`, les durées et les pools d'un type déjà utilisé. Les demandes historiques et le grand-livre peuvent alors être interprétés selon des règles différentes de celles en vigueur à leur validation. Il faut rendre ces champs immuables après utilisation ou introduire des versions datées, puis tester les lectures et la paie historiques.
+2. **Première tranche annuelle** : aucune planification/alerte ne suit les 15 jours continus à prendre dans les trois mois après l'ouverture du droit. La justification des nécessités de service et les exceptions doivent être définies avec la RH avant automatisation.
+3. **Recette sur base isolée** : les tests PostgreSQL du module sont conditionnés à `GALAXAM_CONGE_TEST_DB_URL` et ont été ignorés dans la vérification du 24 octobre. Les tests Java purs (13) et les 53 tests du front passent ; lint et build du front passent. Une base jetable et une recette des parcours congé/paie/pointage restent requises.
 
 *Documentation technique du module Congés & Absences — décrit l'implémentation et les preuves explicitement citées ; ne vaut pas certification juridique ni recette exhaustive.*

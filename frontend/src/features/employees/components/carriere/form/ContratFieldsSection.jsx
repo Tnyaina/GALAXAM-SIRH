@@ -59,6 +59,21 @@ export default function ContratFieldsSection({
                     })}
                 </Select>
 
+                {selectedType?.code === 'CDD' && (
+                    <Select
+                        label="Motif légal du CDD"
+                        required
+                        value={formData.motifCddCode || ''}
+                        onChange={(e) => setField('motifCddCode', e.target.value)}
+                        hint="Choisir un cas prévu par l’article 24. Une réembauche au même poste dans les trois mois est classée comme renouvellement."
+                    >
+                        <option value="">Sélectionner le motif légal</option>
+                        <option value="OUVRAGE_DETERMINE">Ouvrage déterminé ou activité hors activité normale et permanente</option>
+                        <option value="SURCROIT_EXTRAORDINAIRE">Surcroît extraordinaire d’activité</option>
+                        <option value="TRAVAUX_URGENTS_SECURITE">Travaux urgents liés à des mesures de sécurité</option>
+                    </Select>
+                )}
+
                 <Select
                     label={lockTypeIntervenant ? "Type d'intervenant (imposé)" : "Type d'intervenant"}
                     required

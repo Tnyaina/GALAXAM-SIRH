@@ -3,7 +3,7 @@
 > **Projet** : GALAXAM SIRH — GALAXAM Logistics Madagascar  
 > **Version documentaire** : 5.7
 > **État du code examiné** : vérification documentaire DOC-2, 23 octobre 2026
-> **Périmètre technique documenté** : interfaces React, API Java, services applicatifs spécialisés, moteurs, persistance et schéma SQL canonique. Les scripts de migration SP01 à SP84 ne sont pas présents dans ce dépôt ; leurs identifiants sont des références historiques, pas une procédure de mise à niveau reproductible ici.
+> **Périmètre technique documenté** : interfaces React, API Java, services applicatifs spécialisés, moteurs, persistance et schéma SQL canonique. Les anciennes migrations SP01–SP84 ont été volontairement supprimées. Le fichier `06_schema_paie.sql` décrit la structure de référence pour une base neuve ; il ne constitue pas une procédure de mise à niveau d'une base existante. Aucun mécanisme automatique d'initialisation ou de migration n'est documenté ici.
 > **Usage** : référence métier et technique du module. Les taux et interprétations juridiques doivent être confirmés par la DAF à la date de paie. La génération d’un export ne vaut pas dépôt ni acceptation par une autorité ou une banque.
 
 Ce fichier est le document maître de Paie dans `backend/docs/boky`. Il regroupe les parcours utilisateurs, les règles métier implémentées, l’architecture, les données, les sorties, les limites connues et les points de contrôle. Les README du code restent des aides de navigation technique ; ils ne remplacent pas cette référence.
@@ -44,7 +44,7 @@ Une relation de travail salariée (y compris un consultant sous contrat de trava
 
 Pour le parcours 2026, la retenue ISI générale sur honoraires n’est plus calculée par la paie et l’ancien endpoint EDI ISI répond HTTP 410. Des colonnes et historiques associés restent dans la base pour compatibilité. Ne pas réactiver une retenue fiscale uniquement en changeant un libellé ou une rubrique.
 
-**Écart à arbitrer avec le CDC initial :** celui-ci demande un régime ISI de 5 % pour les consultants de plus de 60 ans et le personnel temporaire. Le comportement décrit ci-dessus (ISI générale désactivée en 2026, `soumis_isi_5 = FALSE` dans le modèle actuel) ne satisfait pas cette exigence telle qu'elle est écrite. Il s'agit d'une contradiction de périmètre/règle à faire valider par la DAF et les responsables du mémoire ; elle n'est pas résolue par la seule présence du code actuel.
+**Écart avec le CDC initial — arbitrage reporté :** celui-ci demande un régime ISI de 5 % pour les consultants de plus de 60 ans et le personnel temporaire. Le comportement décrit ci-dessus (ISI générale désactivée en 2026, `soumis_isi_5 = FALSE` dans le modèle actuel) ne satisfait pas cette exigence telle qu'elle est écrite. L'arbitrage métier et réglementaire est reporté ; aucune règle de calcul n'est modifiée par cette clarification documentaire.
 
 ## 2. Acteurs et permissions
 
@@ -83,7 +83,7 @@ Routes déclarées dans `frontend/src/routes/Router.jsx` :
 | Fiche dossier de sortie | `/paie/dossiers-sortie/:id`, `/nouveau` | Préparation, checklist, simulation, scellement, journal des versements, documents et clôture |
 | Historique | `/paie/historique` | Redirection vers le registre des périodes du Centre de paie |
 
-L'accès aux dossiers de sortie est directement disponible dans le menu Paie (`PAIE_DOSSIERS_SORTIE`). Les références SP82, SP83 et SP84 présentes dans les descriptions renvoient à des évolutions historiques ; leurs scripts ne sont pas fournis dans ce dépôt. Les actions « Établir le STC » de la fiche Paie employé et de la chronologie Carrière ouvrent directement la page du dossier de sortie concerné. Seul l'aperçu prévisionnel rapide (`StcPreparationModal`, simulation immédiate sans persistance) conserve une ouverture par modale directe depuis la fiche collaborateur. Conformément à l'assainissement d'octobre 2026, les anciens prêts d'entreprise ont été purgés du modèle et de l'interface ; les retenues sur salaire sont concentrées sur les acomptes et avances d'entreprise (`paie_avance_acompte`).
+L'accès aux dossiers de sortie est directement disponible dans le menu Paie (`PAIE_DOSSIERS_SORTIE`). Les références SP82, SP83 et SP84 présentes dans les descriptions sont des identifiants d'évolutions historiques ; les anciennes migrations SP ont été volontairement supprimées. Les actions « Établir le STC » de la fiche Paie employé et de la chronologie Carrière ouvrent directement la page du dossier de sortie concerné. Seul l'aperçu prévisionnel rapide (`StcPreparationModal`, simulation immédiate sans persistance) conserve une ouverture par modale directe depuis la fiche collaborateur. Conformément à l'assainissement d'octobre 2026, les anciens prêts d'entreprise ont été purgés du modèle et de l'interface ; les retenues sur salaire sont concentrées sur les acomptes et avances d'entreprise (`paie_avance_acompte`).
 
 Les anciennes routes `/paie/periods/...` sont redirigées vers le format courant. Les alias `calculation` et `outputs` redirigent respectivement vers `calcul` et `sorties`.
 
@@ -190,7 +190,7 @@ Les dates de couverture ne sont pas toutes équivalentes. Une règle de fin de m
 
 ## 6. Données et modèle de persistance
 
-Le schéma canonique de référence est `backend/conception/bdd/06_schema_paie.sql`. Les scripts SP01–SP84 et le README migrations ne sont pas présents dans ce dépôt ; les mentions SP conservées dans ce document repèrent des évolutions historiques et ne fournissent pas une procédure d'installation ou de mise à niveau exécutable.
+Le schéma canonique de référence est `backend/conception/bdd/06_schema_paie.sql`, pour l'initialisation d'une base neuve. Les anciennes migrations SP01–SP84 ont été volontairement supprimées. Les références SP conservées dans ce document repèrent des évolutions historiques uniquement ; elles ne constituent ni une procédure de mise à niveau d'une base existante ni un mécanisme automatique d'installation.
 
 | Table / famille | Rôle |
 |---|---|
@@ -217,14 +217,14 @@ Le schéma canonique de référence est `backend/conception/bdd/06_schema_paie.s
 
 Les tables d’origine Pointage, Contrat et Congés restent possédées par leurs domaines. La paie consomme les snapshots/résultats prévus à l’interface du domaine et ne doit pas modifier directement les données sources pour obtenir un montant.
 
-### Intégrité et contraintes SQL clés sur les départs (SP72 à SP81)
+### Intégrité et contraintes SQL clés sur les départs (évolutions historiques SP72 à SP81)
 
 - **`chk_dossier_sortie_statut`** : `statut_dossier IN ('EN_PREPARATION', 'PRET_A_VALIDER', 'VALIDE', 'REGLE', 'CLOTURE', 'ANNULE')`.
 - **`uk_dossier_sortie_employe_depart`** : unicité stricte `(id_employe, date_depart)`.
-- **`chk_dossier_derogation_gouvernance`** (SP81) : impose au niveau base que si `derogation_reglement IS TRUE`, les trois champs `autorite_decision_derogation`, `reference_decision_derogation` et `date_decision_derogation` soient obligatoirement non nuls et non vides.
-- **`uk_stc_reglement_stc_ref_active`** (SP75) : index unique partiel sur `(id_stc, reference_reglement) WHERE est_annule = FALSE` pour interdire les doubles règlements actifs sur une même référence.
-- **`uk_stc_reglement_idempotence`** (SP79) : index unique partiel sur `(id_stc, cle_idempotence) WHERE cle_idempotence IS NOT NULL`.
-- **`ON DELETE RESTRICT`** (SP73) : sécurisation formelle de `paie_stc_reglement(id_stc)` empêchant toute suppression accidentelle d'un STC ayant des règlements comptables enregistrés.
+- **`chk_dossier_derogation_gouvernance`** (ancien identifiant SP81) : impose au niveau base que si `derogation_reglement IS TRUE`, les trois champs `autorite_decision_derogation`, `reference_decision_derogation` et `date_decision_derogation` soient obligatoirement non nuls et non vides.
+- **`uk_stc_reglement_stc_ref_active`** (ancien identifiant SP75) : index unique partiel sur `(id_stc, reference_reglement) WHERE est_annule = FALSE` pour interdire les doubles règlements actifs sur une même référence.
+- **`uk_stc_reglement_idempotence`** (ancien identifiant SP79) : index unique partiel sur `(id_stc, cle_idempotence) WHERE cle_idempotence IS NOT NULL`.
+- **`ON DELETE RESTRICT`** (ancien identifiant SP73) : sécurisation formelle de `paie_stc_reglement(id_stc)` empêchant toute suppression accidentelle d'un STC ayant des règlements comptables enregistrés.
 
 ## 7. Règles de calcul du bulletin
 
@@ -297,7 +297,7 @@ Les retenues de trésorerie sur le salaire net s'exécutent selon un ordre de pr
 1. **Acompte de quinzaine** : priorité absolue sur le net disponible (créance sur salaire déjà acquis).
 2. **Avance spéciale / exceptionnelle** : prélevée sur le net restant après acompte, dans la limite de la quotité saisissable légale configurée. Le montant prélevé est débité de `paie_avance_acompte.solde_restant` et tracé dans `paie_mouvement_imputation`.
 
-#### RG-PAIE-08 : Sécurisation des règlements et preuve binaire (SP84)
+#### RG-PAIE-08 : Sécurisation des règlements et preuve binaire (ancien identifiant SP84)
 Tout paiement de bulletin mensuel confirmé exige une pièce justificative binaire authentique ($\le 5\text{ Mo}$, formats PDF/PNG/JPEG) contrôlée par signature MIME et stockée dans la même transaction. Le reste à payer est calculé dynamiquement sous verrou pessimiste du bulletin (`FOR UPDATE`) :
 $$\text{Reste à Payer} = \text{Net à Payer} - \sum(\text{Règlements non annulés})$$
 
@@ -408,7 +408,7 @@ flowchart TD
     I --> J{Solde intégralement réglé ?}
     J -- Oui --> K[7. Clôture administrative standard<br/>statut_dossier = CLOTURE]
     J -- Non --> L{Dérogation formelle DAF/DG ?}
-    L -- Oui (Autorité + Réf + Date) --> M[7. Clôture administrative dérogatoire<br/>SP81 : chk_dossier_derogation_gouvernance]
+    L -- Oui (Autorité + Réf + Date) --> M[7. Clôture administrative dérogatoire<br/>Ancien identifiant SP81 : chk_dossier_derogation_gouvernance]
     L -- Non --> N[Clôture bloquée jusqu'au solde complet]
     N --> I
 ```
@@ -430,7 +430,7 @@ flowchart TD
 | Élément | Source & Données | Comportement implémenté |
 |---|---|---|
 | **Salaire du dernier mois** | Salaire contractuel, période de paie et pointage final | Prorata calculé au trentième sur les jours sous contrat. Si un bulletin mensuel est déjà validé, le prorata STC est automatiquement neutralisé et le bulletin est rapproché séparément pour éviter tout double paiement. Sans pointage, la validation exige une justification RH des jours rémunérés. |
-| **Pointage final** | `pointage_jour` et snapshot final `GELE`/`CONSOMME` | Le pointage final de la période de départ doit être gelé. Les heures majorées (nuit 22h-05h, dimanche, fériés) et indemnités de site variables doivent être rattachées à la période conformément à la protection SP80. |
+| **Pointage final** | `pointage_jour` et snapshot final `GELE`/`CONSOMME` | Le pointage final de la période de départ doit être gelé. Les heures majorées (nuit 22h-05h, dimanche, fériés) et indemnités de site variables doivent être rattachées à la période conformément à la règle d'intégrité présente dans le schéma canonique (ancien identifiant SP80). |
 | **Bulletin mensuel déjà validé** | `bulletin_paie` MENSUEL de la période de sortie | Si le salaire mensuel a déjà été traité en paie classique, RH saisit le montant net déjà versé avec date et référence de preuve. Seul le reliquat éventuel est intégré au décompte net du STC. Le serveur rejette tout montant payé supérieur au net du bulletin mensuel. |
 | **Cotisations et IRSA différentiels** | Assiettes, tranches et plafonds du mois de départ | Les gains de rupture imposables/cotisables sont calculés en différentiel sur les plafonds et tranches déjà consommés par le bulletin mensuel. |
 | **Indemnité Compensatrice de Congés Payés (ICCP)** | Grand-livre congés et valorisation FIFO des lots | Le solde positif de congés acquis est valorisé au taux réel des lots FIFO d'acquisition. À la validation définitive, le solde liquidé est éteint dans le grand-livre congés par un mouvement `AJUSTEMENT` et la période de référence ouverte est clôturée. Si le solde est négatif, il est signalé à l'écran (`CONGE_ANTICIPE_A_EXAMINER`) sans retenue automatique unilatérale. |
@@ -439,7 +439,7 @@ flowchart TD
 | **Créances de rupture** | Régularisations et avances | Les acomptes et avances encore dus sont arrêtés à la date de départ. La gestion des anciens prêts ayant été purgée, aucune retenue de prêt n'est opérée. |
 | **Snapshot Employeur Scellé** | `ref_filiale` et `bulletin_paie_employeur_snapshot` | L'identité légale de l'employeur (filiale, raison sociale, NIF, STAT, adresse) est figée lors du scellement, garantissant que les réimpressions futures du décompte ne seront pas dénaturées par un changement organisationnel ultérieur. |
 
-### 10.4 Sécurité financière, journalisation et idempotence des règlements (SP75 & SP79)
+### 10.4 Sécurité financière, journalisation et idempotence des règlements (anciens identifiants SP75 & SP79)
 
 Le journal des règlements (`paie_stc_reglement`) respecte les standards bancaires et comptables stricts :
 
@@ -447,9 +447,9 @@ Le journal des règlements (`paie_stc_reglement`) respecte les standards bancair
 - **Unicité de la référence de paiement active (`uk_stc_reglement_stc_ref_active`)** : une référence de transaction ou de virement ne peut être active qu'une seule fois pour un même STC. En cas d'annulation formelle d'un versement, la référence est libérée et peut être réutilisée.
 - **Idempotence technique (`X-Idempotency-Key` / `cle_idempotence`)** : le contrôleur et le service acceptent une clé d'idempotence (via l'en-tête HTTP `X-Idempotency-Key` ou le champ JSON `idempotencyKey`). L'index unique partiel `uk_stc_reglement_idempotence` prévient tout double débit suite à un double clic ou un retry réseau : la répétition d'une même clé avec les mêmes paramètres renvoie immédiatement la situation enregistrée sans créer de nouvelle écriture ; une modification du payload sous la même clé est rejetée avec une erreur de conflit.
 - **Annulation motivée et traçable** : une écriture de versement ne peut jamais être supprimée physiquement. L'annulation (`POST /{id}/reglement/{idReglement}/annuler`) horodate l'acte, enregistre l'identifiant de l'utilisateur (`annule_par`), passe `est_annule = TRUE` et exige un `motif_annulation` textuel obligatoire.
-- **Protection contre la suppression en cascade** : la contrainte `FOREIGN KEY (id_stc) REFERENCES paie_stc(id_stc) ON DELETE RESTRICT` (évolution référencée historiquement SP73) interdit la suppression accidentelle d'un décompte STC dès lors qu'une écriture comptable de règlement existe. Le script de migration correspondant n'est pas fourni dans ce dépôt ; vérifier le schéma effectif de la base cible avant une mise à niveau.
+- **Protection contre la suppression en cascade** : la contrainte `FOREIGN KEY (id_stc) REFERENCES paie_stc(id_stc) ON DELETE RESTRICT` (ancien identifiant SP73) interdit la suppression accidentelle d'un décompte STC dès lors qu'une écriture comptable de règlement existe. Les anciennes migrations SP ont été volontairement supprimées ; le schéma canonique est destiné à une base neuve et ne décrit pas la mise à niveau d'une base existante.
 
-### 10.5 Clôture administrative du dossier & Gouvernance de la dérogation (SP78 & SP81)
+### 10.5 Clôture administrative du dossier & Gouvernance de la dérogation (anciens identifiants SP78 & SP81)
 
 La clôture administrative du dossier de sortie (`POST /api/paie/dossier-sortie/{id}/cloturer`) est l'acte juridique et administratif final scellant le départ du collaborateur. Elle est soumise à un triple verrouillage :
 
@@ -458,10 +458,10 @@ La clôture administrative du dossier de sortie (`POST /api/paie/dossier-sortie/
 - Le contrat de travail associé ne doit **pas être à l'état ACTIF** ; il doit avoir fait l'objet d'une cessation effective formalisée par le workflow Carrière (`ROMPU`, `CLOTURE` ou `TERMINE`) avec une date de fin effective renseignée.
 - La checklist administrative ne doit comporter aucun élément bloquant non conforme.
 
-#### 2. Règle d'or financière et dérogation formelle gouvernée (SP81)
+#### 2. Règle d'or financière et dérogation formelle gouvernée (ancien identifiant SP81)
 - Si le STC est **intégralement réglé** (`resteAPayer == 0`), la clôture standard est prononcée.
 - Si un **solde restant dû subsiste**, la clôture est **strictement interdite**, sauf si une dérogation formelle motivée est expressément accordée.
-- Conformément à l'évolution référencée historiquement **SP81** et à la contrainte de base de données `chk_dossier_derogation_gouvernance`, toute dérogation de clôture exige les cinq attributs indissociables listés ci-dessous. Le script SP81 n'est pas présent dans ce dépôt :
+- Selon l'évolution identifiée historiquement par **SP81** et la contrainte de base de données `chk_dossier_derogation_gouvernance`, toute dérogation de clôture exige les cinq attributs indissociables listés ci-dessous. Les anciennes migrations SP ont été volontairement supprimées ; cette référence n'est pas une procédure de mise à niveau :
   1. `derogationReglementIncomplet = TRUE` ;
   2. `justificationDerogation` : justification textuelle circonstanciée obligatoire ;
   3. `autoriteDecisionDerogation` : autorité décisionnaire formelle ayant approuvé l'acte (ex. `DIRECTION_GENERALE`, `DAF`, `TRIBUNAL_DU_TRAVAIL`) ;
@@ -513,7 +513,7 @@ Tous les endpoints sont préfixés par `/api/paie/dossier-sortie` (URL canonique
 | `POST` | `/{id}/reglement` | `PAIE_WRITE` | Enregistre un versement réel (`StcReglementRequest`, supporte `X-Idempotency-Key`). |
 | `GET` | `/{id}/reglements` | `PAIE_READ` | Restitue la situation financière complète (net, total réglé, reste à payer, journal). |
 | `POST` | `/{id}/reglement/{idReglement}/annuler` | `PAIE_WRITE` | Annulation motivée et traçable d'une écriture de versement. |
-| `POST` | `/{id}/cloturer` | `PAIE_WRITE` | Clôture administrative du dossier (`ClotureDossierRequest`, vérification solde ou dérogation SP81). |
+| `POST` | `/{id}/cloturer` | `PAIE_WRITE` | Clôture administrative du dossier (`ClotureDossierRequest`, vérification solde ou dérogation associée à l'ancien identifiant SP81). |
 | `GET` | `/{id}/documents/decompte/pdf` | `PAIE_READ` | Téléchargement du décompte financier scellé en PDF. |
 | `GET` | `/{id}/documents/recu-stc/pdf` | `PAIE_READ` | Téléchargement du reçu en projet titré PROJET en PDF. |
 | `GET` | `/{id}/documents/quittance/{idReglement}/pdf` | `PAIE_READ` | Téléchargement de la quittance d'une écriture comptable en PDF. |
@@ -622,7 +622,7 @@ Le catalogue de l'interface présente les états Excel utiles au contrôle inter
 
 Seule l’application atteste la première étape. Aucun endpoint de virement bancaire ne doit être décrit comme exécutant le paiement ; l’export contient les données à transmettre au canal bancaire prévu.
 
-### Règlements des bulletins mensuels (SP84)
+### Règlements des bulletins mensuels (ancien identifiant SP84)
 
 La validation et la clôture d'un bulletin fixent le calcul, mais ne prouvent pas
 son règlement. Le journal `paie_bulletin_reglement` conserve les versements
@@ -662,7 +662,7 @@ la banque. Un lot préparé peut être annulé sans effacer sa trace.
 Le serveur calcule `reste = net_a_payer - somme(règlements non annulés)` sous
 verrou du bulletin ; un virement en attente bloque un autre versement sur ce
 bulletin. L'API est `BulletinReglementController` sous `/paie/reglements` ; le
-schéma canonique 06 décrit les tables. La référence SP84 désigne une évolution historique ; son script n'est pas présent dans le dépôt. Le code actuel
+schéma canonique 06 décrit les tables. SP84 est l'identifiant d'une évolution historique ; les anciennes migrations SP ont été volontairement supprimées. Le code actuel
 conserve les anciennes lignes sans preuve comme historiques à régulariser ; elles
 sont signalées dans l’interface et ne disposent d’aucun justificatif à télécharger.
 L’API refuse toute nouvelle écriture sans pièce. Une ancienne ligne ne doit être
@@ -727,7 +727,7 @@ La liste ci-dessus donne les points d’entrée principaux. Pour le détail exac
 5. **Exports officiels** : les modèles nécessitent revue DAF et vérification du format et des portails actuels. Ne pas utiliser « certifié », « conforme » ou « officiellement accepté » sans preuve de recette externe datée.
 6. **Réglementation** : les règles sont datées/configurables. Une valeur en base n’est pas, à elle seule, une validation juridique. La DAF doit faire confirmer taux, plafonds, assiettes et retenues pour chaque période concernée.
 7. **ISI 2026** : le calcul général et l’ancien export EDI sont hors du parcours courant. Les enregistrements historiques ne signifient pas qu’une retenue ISI doit être réactivée.
-8. **Identité historique employeur scellée** : l'identité légale complète de l'employeur (filiale, raison sociale, NIF, STAT, adresse de siège, téléphone, email) est désormais automatiquement capturée dans `bulletin_paie_employeur_snapshot` dès la validation du bulletin ou du décompte STC. Les réimpressions historiques sont scellées et protégées contre toute modification ultérieure des référentiels d'entreprise. Pour les très anciens bulletins antérieurs à la migration `sp71`, un fallback dynamique sur l'historique contrat reste actif.
+8. **Identité historique employeur scellée** : l'identité légale complète de l'employeur (filiale, raison sociale, NIF, STAT, adresse de siège, téléphone, email) est désormais automatiquement capturée dans `bulletin_paie_employeur_snapshot` dès la validation du bulletin ou du décompte STC. Les réimpressions historiques sont scellées et protégées contre toute modification ultérieure des référentiels d'entreprise. Pour les très anciens bulletins antérieurs à l'évolution historiquement référencée `SP71`, un fallback dynamique sur l'historique contrat reste actif.
 9. **État de recette** : les tests vérifient différents moteurs et parcours, mais aucun compte de tests ne prouve une couverture exhaustive ni une certification légale absolue du produit.
 
 ## 16. Procédures de vérification
@@ -751,12 +751,12 @@ La liste ci-dessus donne les points d’entrée principaux. Pour le détail exac
 ### Pour un dossier de sortie et STC
 
 1. Vérifier que la cessation effective du contrat de travail a été initiée et validée par le module Carrière (`ROMPU`, `CLOTURE` ou `TERMINE` avec date de fin).
-2. Contrôler que le pointage final de la période de départ est gelé et que toutes les indemnités variables sont rattachées selon la règle SP80.
+2. Contrôler que le pointage final de la période de départ est gelé et que toutes les indemnités variables sont rattachées selon la règle d'appartenance journée/période du schéma canonique (ancien identifiant SP80).
 3. Rapprocher le bulletin mensuel s'il a déjà été calculé/validé pour imputer le salaire déjà perçu et éviter tout double paiement au décompte.
 4. Lancer la simulation contrôlée du dossier (`POST /{id}/simuler`) pour vérifier le prorata trentième, la valorisation FIFO des congés et les cotisations différentielles.
 5. Résoudre les points bloquants de la checklist d'offboarding (restitution matériels et arbitrage des créances/avances) puis procéder au scellement optimiste (`POST /{id}/sceller`).
 6. Télécharger le certificat de travail Art. 50 (PDF/DOCX) et le décompte scellé, puis enregistrer chaque versement réel dans le journal (`POST /{id}/reglement`) avec sa clé d'idempotence.
-7. Ne prononcer la clôture administrative (`POST /{id}/cloturer`) que si le solde restant est nul, ou si une dérogation formelle dument motivée comporte l'autorité décisionnaire, la référence écrite et la date d'effet (contrainte SP81).
+7. Ne prononcer la clôture administrative (`POST /{id}/cloturer`) que si le solde restant est nul, ou si une dérogation formelle dument motivée comporte l'autorité décisionnaire, la référence écrite et la date d'effet (contrainte associée à l'ancien identifiant SP81).
 
 ### Avant export, clôture ou paiement
 

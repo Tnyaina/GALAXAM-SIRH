@@ -37,10 +37,10 @@ L'écran `/admin/organisation` est protégé côté React par `ORGANISATION_WRIT
 Le CDC initial définit le périmètre fonctionnel du mémoire. Les schémas canoniques et le code décrivent l'implémentation actuelle ; les tests et recettes datés déterminent le niveau de vérification. Les évolutions d'architecture et de base de données (notamment l'unification du plancher d'arrivée, le contrôleur unifié et la résolution triétat des paramètres) peuvent rendre certaines descriptions historiques obsolètes, sans effacer les exigences du CDC.
 
 Les sources utilisées pour décrire le module sont :
-1. **Le code backend Java 17** : packages [`mg.galaxam.sirh.organisation`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation), [`mg.galaxam.sirh.admin`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin), [`mg.galaxam.sirh.paieconfig`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig), [`mg.galaxam.sirh.securite`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite) et la couche Active Record JDBC pure ([`bean.ClassMere`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/bean/ClassMere.java)) ;
-2. **Le schéma physique de la base de données PostgreSQL** : scripts canoniques [`01_schema_core_securite.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql), [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql), [`03_schema_employes_contrats.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/03_schema_employes_contrats.sql), [`04_schema_conges.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/04_schema_conges.sql), [`05_schema_pointage.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/05_schema_pointage.sql), [`06_schema_paie.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/06_schema_paie.sql) dans [`backend/conception/bdd/`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd) ;
-3. **La suite de tests automatisés ciblés** : tests unitaires et d'intégration ciblés ([`ContratTravailControllerPostgresTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/contrat/api/ContratTravailControllerPostgresTest.java), [`EmployeSatelliteLifecycleTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/contrat/application/EmployeSatelliteLifecycleTest.java), [`PayrollCalculationTargetedTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/paie/PayrollCalculationTargetedTest.java)) ;
-5. **Le code frontend React 19 / Vite** : [`frontend/src/features/organization`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/organization), [`frontend/src/features/administration`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration), [`frontend/src/routes/Router.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/routes/Router.jsx) ;
+1. **Le code backend Java 17** : packages [`mg.galaxam.sirh.organisation`](../../src/main/java/mg/galaxam/sirh/organisation), [`mg.galaxam.sirh.admin`](../../src/main/java/mg/galaxam/sirh/admin), [`mg.galaxam.sirh.paieconfig`](../../src/main/java/mg/galaxam/sirh/paieconfig), [`mg.galaxam.sirh.securite`](../../src/main/java/mg/galaxam/sirh/securite) et la couche Active Record JDBC pure ([`bean.ClassMere`](../../src/main/java/bean/ClassMere.java)) ;
+2. **Le schéma physique de la base de données PostgreSQL** : scripts canoniques [`01_schema_core_securite.sql`](../../conception/bdd/01_schema_core_securite.sql), [`02_schema_referentiels_rh.sql`](../../conception/bdd/02_schema_referentiels_rh.sql), [`03_schema_employes_contrats.sql`](../../conception/bdd/03_schema_employes_contrats.sql), [`04_schema_conges.sql`](../../conception/bdd/04_schema_conges.sql), [`05_schema_pointage.sql`](../../conception/bdd/05_schema_pointage.sql), [`06_schema_paie.sql`](../../conception/bdd/06_schema_paie.sql) dans [`backend/conception/bdd/`](../../conception/bdd) ;
+3. **La suite de tests automatisés ciblés** : tests unitaires et d'intégration ciblés ([`ContratTravailControllerPostgresTest.java`](../../src/test/java/mg/galaxam/sirh/contrat/api/ContratTravailControllerPostgresTest.java), [`EmployeSatelliteLifecycleTest.java`](../../src/test/java/mg/galaxam/sirh/contrat/application/EmployeSatelliteLifecycleTest.java), [`PayrollCalculationTargetedTest.java`](../../src/test/java/mg/galaxam/sirh/paie/PayrollCalculationTargetedTest.java)) ;
+5. **Le code frontend React 19 / Vite** : [`frontend/src/features/organization`](../../../frontend/src/features/organization), [`frontend/src/features/administration`](../../../frontend/src/features/administration), [`frontend/src/routes/Router.jsx`](../../../frontend/src/routes/Router.jsx) ;
 6. **Le cadre légal et réglementaire de Madagascar** :
    - *Loi n° 2003-044 du 28 juillet 2004* portant Code du Travail de la République de Madagascar ;
    - *Code Général des Impôts (CGI)* malgache mis à jour par la Loi de Finances 2026 ;
@@ -66,8 +66,8 @@ Sa finalité première n'est pas d'exécuter des calculs volatils, mais de **fou
 
 ### 1.2. Rôle du Module Administration & Paramétrage
 Le module **Administration & Paramétrage** remplit deux missions complémentaires :
-1. **La Sécurité IAM et le Contrôle d'Accès (RBAC)** : gestion du cycle de vie des comptes utilisateurs ([`utilisateur`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L48)), attribution des rôles ([`ref_role`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L19)), affectation des permissions granulaires ([`role_permission`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L37)) et distribution de l'arborescence de navigation ([`role_menu`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L114)).
-2. **La Gouvernance des Constantes et Règles Transverses** : hébergement du moteur de temporalité des paramètres généraux ([`parametre_global`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L121)), garantissant qu'une règle métier (ex. heures de nuit, plafonds CDD, seuils d'assiduité) puisse évoluer à date d'effet sans corrompre ni écraser le passé.
+1. **La Sécurité IAM et le Contrôle d'Accès (RBAC)** : gestion du cycle de vie des comptes utilisateurs ([`utilisateur`](../../conception/bdd/01_schema_core_securite.sql#L48)), attribution des rôles ([`ref_role`](../../conception/bdd/01_schema_core_securite.sql#L19)), affectation des permissions granulaires ([`role_permission`](../../conception/bdd/01_schema_core_securite.sql#L37)) et distribution de l'arborescence de navigation ([`role_menu`](../../conception/bdd/01_schema_core_securite.sql#L114)).
+2. **La Gouvernance des Constantes et Règles Transverses** : hébergement du moteur de temporalité des paramètres généraux ([`parametre_global`](../../conception/bdd/01_schema_core_securite.sql#L121)), garantissant qu'une règle métier (ex. heures de nuit, plafonds CDD, seuils d'assiduité) puisse évoluer à date d'effet sans corrompre ni écraser le passé.
 
 ### 1.3. Distinction Fondamentale : Donnée Organisationnelle vs Règle de Configuration
 
@@ -79,10 +79,10 @@ Le module **Administration & Paramétrage** remplit deux missions complémentair
 | **Suppression** | Strictement interdite dès lors qu'un historique y fait référence (`DATA_REFERENCED`). | Clôture temporelle automatique (`date_fin = date_debut_nouveau - 1`) pour préserver la rejouabilité des calculs passés. |
 
 ### 1.4. Propriété Métier Réelle vs Écran Centralisé
-L'écran d'administration ([`ParametresModulesPanel.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/modules/ParametresModulesPanel.jsx)) regroupe visuellement les interfaces de configuration technique, mais **la propriété intellectuelle et algorithmique de chaque règle appartient au domaine fonctionnel qui l'exécute** :
-- **Taux CNaPS, seuils IRSA, diviseur mensuel (173.33)** : Propriété exclusive du module **Paie & Légal** ([`paie_config_legale`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L210), [`bareme_irsa`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/06_schema_paie.sql#L70), [`ref_type_cotisation`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/06_schema_paie.sql#L38)).
-- **Horaires et plancher d'arrivée d'un site** : Portés physiquement par [`ref_site`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L55) dans le module **Structure**, mais consommés par le moteur de **Pointage**.
-- **Éligibilité aux Heures Supplémentaires** : Définie dans [`ref_categorie_professionnelle`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L162), assignée dans le temps par **Employés/Carrière**, résolue à date par le **Pointage**, et valorisée financièrement par la **Paie**.
+L'écran d'administration ([`ParametresModulesPanel.jsx`](../../../frontend/src/features/administration/pages/modules/ParametresModulesPanel.jsx)) regroupe visuellement les interfaces de configuration technique, mais **la propriété intellectuelle et algorithmique de chaque règle appartient au domaine fonctionnel qui l'exécute** :
+- **Taux CNaPS, seuils IRSA, diviseur mensuel (173.33)** : Propriété exclusive du module **Paie & Légal** ([`paie_config_legale`](../../conception/bdd/02_schema_referentiels_rh.sql#L210), [`bareme_irsa`](../../conception/bdd/06_schema_paie.sql#L70), [`ref_type_cotisation`](../../conception/bdd/06_schema_paie.sql#L38)).
+- **Horaires et plancher d'arrivée d'un site** : Portés physiquement par [`ref_site`](../../conception/bdd/02_schema_referentiels_rh.sql#L55) dans le module **Structure**, mais consommés par le moteur de **Pointage**.
+- **Éligibilité aux Heures Supplémentaires** : Définie dans [`ref_categorie_professionnelle`](../../conception/bdd/02_schema_referentiels_rh.sql#L162), assignée dans le temps par **Employés/Carrière**, résolue à date par le **Pointage**, et valorisée financièrement par la **Paie**.
 - **Acquisition mensuelle des congés (2,5 jours) et règles de bascule** : Propriété exclusive du module **Congés & Absences**.
 
 ---
@@ -139,9 +139,9 @@ graph TD
 ## 3. Structure Organisationnelle Hiérarchique & Topologie
 
 La structure d'entreprise de GALAXAM ne répond pas à une arborescence purement pyramidale stricte, mais à un modèle orthogonal distinguant le **rattachement juridique**, la **ligne hiérarchique fonctionnelle** et l'**implantation géographique** :
-1. **Axe Juridique** : La Filiale ([`ref_filiale`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L30)) est l'employeur légal contractant avec le salarié.
-2. **Axe Métier / Analytique** : Le Département ([`ref_departement`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L74)) regroupe des Services ([`ref_service`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L81)).
-3. **Axe Géographique & Opérationnel** : Le Site ([`ref_site`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L55)) est l'établissement où s'exécute physiquement la prestation de travail.
+1. **Axe Juridique** : La Filiale ([`ref_filiale`](../../conception/bdd/02_schema_referentiels_rh.sql#L30)) est l'employeur légal contractant avec le salarié.
+2. **Axe Métier / Analytique** : Le Département ([`ref_departement`](../../conception/bdd/02_schema_referentiels_rh.sql#L74)) regroupe des Services ([`ref_service`](../../conception/bdd/02_schema_referentiels_rh.sql#L81)).
+3. **Axe Géographique & Opérationnel** : Le Site ([`ref_site`](../../conception/bdd/02_schema_referentiels_rh.sql#L55)) est l'établissement où s'exécute physiquement la prestation de travail.
 
 ```mermaid
 classDiagram
@@ -227,14 +227,14 @@ La table `ref_filiale` matérialise l'entité légale titulaire du registre du c
   - `created_at` (TIMESTAMP WITH TIME ZONE, Date d'enregistrement)
 
 ### 4.2. Données Actuelles du Seed SQL Canonique
-Le script [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L252) initialise **une seule entité** :
+Le script [`02_schema_referentiels_rh.sql`](../../conception/bdd/02_schema_referentiels_rh.sql#L252) initialise **une seule entité** :
 
 1. **GLX** : *Galaxam Logistics* — NIF `3 000 019 43 4`, STAT `52 296 11 2001 0 00056`, RCS `2001B66`, Siège `3e étage, Tour Forello, Tanjombato`, email `daf@galaxam.com`.
 
 > **Attention** : La filiale **VA** (*Vina sy Asa*) mentionnée dans les versions antérieures **n'existe pas dans le seed canonique actuel**. Elle doit être créée manuellement via l'interface d'administration si nécessaire.
 
 ### 4.3. Garde-Fous Métier POO : Désactivation sous Contrôle
-Dans [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190-L225), la méthode privée `validerDesactivationFiliale(RefFiliale filiale, Connection c)` protège l'intégrité du système :
+Dans [`OrganisationService.java`](../../src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190-L225), la méthode privée `validerDesactivationFiliale(RefFiliale filiale, Connection c)` protège l'intégrité du système :
 ```java
 // Vérification des sites actifs résiduels
 SELECT COUNT(*) FROM ref_site WHERE id_filiale_rattachement = ? AND est_actif = true;
@@ -245,7 +245,7 @@ SELECT COUNT(*) FROM contrat_travail WHERE id_filiale = ? AND (date_fin IS NULL 
 Si le résultat est non nul, la désactivation est rejetée immédiatement avec le code `SirhErrorCode.DATA_REFERENCED` :
 > *"Impossible de désactiver la filiale « X » : elle comporte encore N site(s) actif(s) et M contrat(s) de travail en cours. Veuillez réaffecter ou clôturer ces éléments avant de pouvoir désactiver la filiale."*
 
-Ce comportement est formellement garanti au niveau service dans [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java) et vérifié par les contraintes d'intégrité référentielle.
+Ce comportement est formellement garanti au niveau service dans [`OrganisationService.java`](../../src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java) et vérifié par les contraintes d'intégrité référentielle.
 
 ---
 
@@ -276,7 +276,7 @@ Ce comportement est formellement garanti au niveau service dans [`OrganisationSe
 ## 6. Sites Géographiques & Établissements
 
 ### 6.1. Identité et Rôle Central du Site
-Dans GALAXAM SIRH, le **Site** ([`ref_site`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L55)) est l'entité pivot de l'exploitation quotidienne. Il modélise les agences portuaires et entrepôts logistiques :
+Dans GALAXAM SIRH, le **Site** ([`ref_site`](../../conception/bdd/02_schema_referentiels_rh.sql#L55)) est l'entité pivot de l'exploitation quotidienne. Il modélise les agences portuaires et entrepôts logistiques :
 - **Table** : `ref_site`
 - **Colonnes réelles** :
   - `id_site` (SERIAL, PK)
@@ -332,8 +332,8 @@ Le **Plancher d'Arrivée** est le mécanisme par lequel l'entreprise refuse de r
 - **Article 76** : « *La durée du travail s'entend du travail effectif, c'est-à-dire du temps pendant lequel le travailleur est à la disposition de l'employeur et doit se conformer à ses directives sans pouvoir vaquer librement à des occupations personnelles.* »
 - *Conséquence juridique* : La présence passive sur site avant l'heure d'ouverture ou en avance sur les instructions hiérarchiques ne constitue pas un travail effectif commandé. L'écrêtage au plancher d'arrivée protège l'employeur contre la requalification abusive de cette présence en heures supplémentaires.
 
-### 8.2. Historique de Migration (sp27) & Implémentation
-Antérieurement au Sprint 27, cette notion résidait dans une table isolée `ref_tolerance_arrivee_pointage`. L'évolution consolidée dans [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql) a :
+### 8.2. Évolution historique (sp27) & Implémentation
+Antérieurement au Sprint 27, cette notion résidait dans une table isolée `ref_tolerance_arrivee_pointage`. L'évolution consolidée dans [`02_schema_referentiels_rh.sql`](../../conception/bdd/02_schema_referentiels_rh.sql) a :
 1. Rapatrié `plancher_arrivee_actif` et `heure_entree_minimale_valorisee` directement dans la table hôte `ref_site` ;
 2. Posé la contrainte SQL `chk_ref_site_plancher_arrivee` ;
 3. Supprimé définitivement (`DROP TABLE CASCADE`) l'ancienne table obsolète `ref_tolerance_arrivee_pointage`.
@@ -348,8 +348,8 @@ H_{\text{badge}} & \text{si } \text{plancher\_arrivee\_actif} = \text{FALSE ou }
 \max(H_{\text{badge}}, H_{\text{plancher}}) & \text{si } \text{plancher\_arrivee\_actif} = \text{TRUE et } H_{\text{plancher}} \text{ est non NULL}
 \end{cases}$$
 
-### 8.4. Preuve et Algorithme dans le Service (`PointageService.java`)
-La conformité algorithmique est formellement garantie par cinq cas d'évaluation :
+### 8.4. Illustration de l’algorithme dans le service (`PointageService.java`)
+Les cinq cas ci-dessous illustrent les résultats attendus de l’algorithme décrit en 8.3. Ils ne constituent pas, à eux seuls, une preuve de recette fonctionnelle ou de conformité juridique :
 - **Cas 1** : Site actif, seuil 07:30, badge 07:00 $\rightarrow$ Entrée retenue : `07:30` (écrêtage de l'arrivée précoce).
 - **Cas 2** : Site actif, seuil 07:30, badge 07:20 $\rightarrow$ Entrée retenue : `07:30`.
 - **Cas 3** : Site actif, seuil 07:30, badge 07:45 $\rightarrow$ Entrée retenue : `07:45` (arrivée dans la plage normale, non modifiée).
@@ -399,7 +399,7 @@ Le système prévoit la possibilité de modéliser des situations professionnell
 - Un *Cadre technique d'atelier* peut avoir `est_cadre = TRUE` tout en ayant `est_eligible_hs = TRUE` (soumis à un horaire collectif contrôlable).
 - Un *Commercial non cadre itinérant* peut avoir `est_cadre = FALSE` et `est_eligible_hs = FALSE` (autonomie complète dans l'organisation de son temps).
 
-De même, `dispense_pointage` figure sur la catégorie mais également sur la fonction ([`ref_fonction.dispense_pointage`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L97)). Si l'un des deux attributs est à `TRUE` lors de la résolution de l'affectation active, le moteur de pointage qualifie automatiquement la journée en `DISPENSE_POINTAGE` sans lever d'anomalie de saisie manquante.
+De même, `dispense_pointage` figure sur la catégorie mais également sur la fonction ([`ref_fonction.dispense_pointage`](../../conception/bdd/02_schema_referentiels_rh.sql#L97)). Si l'un des deux attributs est à `TRUE` lors de la résolution de l'affectation active, le moteur de pointage qualifie automatiquement la journée en `DISPENSE_POINTAGE` sans lever d'anomalie de saisie manquante.
 
 ---
 
@@ -428,7 +428,7 @@ sequenceDiagram
 
 ## 12. Affectations de Carrière & Rattachement Historisé
 
-Bien que la gestion du cycle de vie du personnel appartienne au Module 2, les **affectations de carrière** ([`employe_affectation_carriere`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/03_schema_employes_contrats.sql#L100)) constituent le pont d'application de la Structure sur le salarié.
+Bien que la gestion du cycle de vie du personnel appartienne au Module 2, les **affectations de carrière** ([`employe_affectation_carriere`](../../conception/bdd/03_schema_employes_contrats.sql#L100)) constituent le pont d'application de la Structure sur le salarié.
 
 ### 12.1. Règle d'Immutabilité et de Clôture
 Lors d'une mutation de site, d'une promotion ou d'un changement de département :
@@ -450,7 +450,7 @@ Lors d'une mutation de site, d'une promotion ou d'un changement de département 
   *Exemple : Un Directeur Administratif et Financier a pour fonction `DAF`, pour catégorie `CADRE`, et pour rôle applicatif `ROLE_ADMIN`.*
 
 ### 13.2. Liste Exhaustive des Postes Seedés en Base (22 Fonctions)
-Le catalogue issu de [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L295) comprend :
+Le catalogue issu de [`02_schema_referentiels_rh.sql`](../../conception/bdd/02_schema_referentiels_rh.sql#L295) comprend :
 
 | Code Fonction | Libellé Métier | Dispense Pointage |
 | :--- | :--- | :---: |
@@ -585,9 +585,11 @@ CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 Le schéma canonique installe `btree_gist` pour permettre la contrainte
 d'exclusion. Les périodes ont des bornes inclusives, peuvent avoir une fin
 ouverte, et ne peuvent ni être inversées ni se chevaucher pour le même code
-(comparaison insensible à la casse). SP76 vérifie les données préexistantes et
-interrompt la migration en listant les anomalies ; elle ne les corrige pas.
-Toute lecture de calcul doit résoudre le paramètre à la date métier du
+(comparaison insensible à la casse). L'ancien identifiant SP76 désignait un
+contrôle des données préexistantes ; les migrations SP ont été volontairement
+supprimées. Les schémas canoniques sont destinés à l'initialisation d'une base
+neuve et ne décrivent pas la mise à niveau d'une base existante. Toute lecture
+de calcul doit résoudre le paramètre à la date métier du
 consommateur et traiter une configuration ambiguë comme une erreur.
 
 ### 16.2. Inventaire Exhaustif des 37 Paramètres Canoniques du Seed SQL
@@ -638,7 +640,7 @@ consommateur et traiter une configuration ambiguë comme une erreur.
 
 ## 17. Sémantique Triétat : ACTIVE / DISABLED / MISSING / INVALID
 
-Le backend implémente dans [`ParametreGlobal.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java#L248-L255) l'énumération interne `ResolutionStatus` et son record `ParametreResolution` :
+Le backend implémente dans [`ParametreGlobal.java`](../../src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java#L248-L255) l'énumération interne `ResolutionStatus` et son record `ParametreResolution` :
 
 ```java
 public enum ResolutionStatus { ACTIVE, DISABLED, MISSING }
@@ -674,7 +676,7 @@ graph TD
 
 ## 18. Effets Métier Documentés de Désactivation
 
-Dans [`ParametreGlobal.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java#L29-L57), la méthode `getEffetDesactivation()` associe chaque paramètre désactivable à sa conséquence algorithmique formelle :
+Dans [`ParametreGlobal.java`](../../src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java#L29-L57), la méthode `getEffetDesactivation()` associe chaque paramètre désactivable à sa conséquence algorithmique formelle :
 
 | Paramètre Global | Effet Métier Formellement Constaté lors de la Désactivation |
 | :--- | :--- |
@@ -690,7 +692,7 @@ Dans [`ParametreGlobal.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/G
 | `SEUIL_2ND_REPAS_1`, `MONTANT_2ND_REPAS_1` | Le deuxième repas de la première tranche n'est plus accordé. |
 | `SEUIL_2ND_REPAS_2`, `MONTANT_2ND_REPAS_2` | Le deuxième repas majoré n'est plus accordé ; la première tranche reste applicable si elle est active. |
 
-Dans [`ParametreGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java#L233-L240), la méthode `verifierDesactivationDocumentee` lève une exception HTTP 400 si un administrateur tente de déclarer `est_desactivable = TRUE` sur un paramètre dont l'effet n'est pas répertorié dans ce tableau.
+Dans [`ParametreGlobalController.java`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java#L233-L240), la méthode `verifierDesactivationDocumentee` lève une exception HTTP 400 si un administrateur tente de déclarer `est_desactivable = TRUE` sur un paramètre dont l'effet n'est pas répertorié dans ce tableau.
 
 ---
 
@@ -739,7 +741,7 @@ graph TD
 
 - **Catalogue (`ref_indemnite`)** : `DPLCT` (Indemnité Déplacement, imposable IRSA, soumise cotisations, proratisée), `REPAS` (Indemnité Repas, imposable IRSA, soumise cotisations, forfait journalier).
 - **Configuration par Site (`site_indemnite_config`)** : TNR = 31 200 Ar/mois (déplacement) et 2 000 Ar/jour (repas) ; TMM = 53 200 Ar/mois (déplacement) et cantine interne.
-- **Dérogations Individuelles (`employe_indemnite_derogation`)** : Interface intégrée dans [`IndemnitesSitesTab.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/components/payroll/IndemnitesSitesTab.jsx) via [`DerogationIndemnitesTab.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/components/attendance/DerogationIndemnitesTab.jsx), permettant de suspendre le transport pour les salariés disposant d'un véhicule de fonction.
+- **Dérogations Individuelles (`employe_indemnite_derogation`)** : Interface intégrée dans [`IndemnitesSitesTab.jsx`](../../../frontend/src/features/administration/components/payroll/IndemnitesSitesTab.jsx) via [`DerogationIndemnitesTab.jsx`](../../../frontend/src/features/administration/components/attendance/DerogationIndemnitesTab.jsx), permettant de suspendre le transport pour les salariés disposant d'un véhicule de fonction.
 
 ---
 
@@ -750,18 +752,18 @@ graph TD
 - **Colonnes** : `id_utilisateur`, `identifiant` (indexé sans unicité), `email` (unique sans distinction de casse), `mot_de_passe_hache` (BCrypt avec salage), `id_role` (un rôle principal), `est_actif`, `date_desactivation`, `motif_desactivation`, `refresh_token`, `refresh_token_expiration`.
 - **Désactivation/réactivation** : efface le refresh token et son expiration et révoque les sessions ; le cookie antérieur ne peut pas être rafraîchi après réactivation. Le filtre JWT vérifie le compte actif et la session `sid` non révoquée, donc un ancien access token reste refusé.
 - **Suppression physique** : interdite par `Utilisateur.delete` pour conserver les historiques. La base garde une FK `journal_connexion -> utilisateur ON DELETE CASCADE` et `audit_log -> utilisateur ON DELETE SET NULL` ; un `DELETE` SQL direct contournerait la politique applicative et ne doit pas servir à supprimer un compte.
-- **Politique de Sécurité Mot de Passe** ([`Utilisateur.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/Utilisateur.java)) :
+- **Politique de Sécurité Mot de Passe** ([`Utilisateur.java`](../../src/main/java/mg/galaxam/sirh/securite/Utilisateur.java)) :
   - Longueur minimale de **8 caractères** ;
   - Au moins une majuscule (`[A-Z]`) et au moins un chiffre (`[0-9]`) ;
   - Hachage systématique par `BCryptPasswordEncoder` avant écriture.
   - Motif textuel obligatoire lors d'une désactivation de compte.
 
 ### 21.2. Modèle RBAC : Rôles, Permissions et Menus
-- **Rôles Applicatifs ([`ref_role`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L19))** :
+- **Rôles Applicatifs ([`ref_role`](../../conception/bdd/01_schema_core_securite.sql#L19))** :
   - `ROLE_ADMIN` (ID 1) : Accès total à tous les modules et écrans d'administration.
   - `ROLE_AGENT_POINTAGE` (ID 2) : Exploitation du pointage (lecture et saisie des présences, sans accès aux salaires ni à la validation globale).
-- **Matrice Granulaire ([`role_permission`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L37))** : Croise les rôles avec les 5 modules (`EMPLOYE`, `CONGE`, `POINTAGE`, `PAIE`, `ORGANISATION`) pour délivrer les droits `READ`, `WRITE`, `VALIDATE`.
-- **Hiérarchie Spring Security ([`SecurityConfig.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/config/SecurityConfig.java))** :
+- **Matrice Granulaire ([`role_permission`](../../conception/bdd/01_schema_core_securite.sql#L37))** : Croise les rôles avec les 5 modules (`EMPLOYE`, `CONGE`, `POINTAGE`, `PAIE`, `ORGANISATION`) pour délivrer les droits `READ`, `WRITE`, `VALIDATE`.
+- **Hiérarchie Spring Security ([`SecurityConfig.java`](../../src/main/java/mg/galaxam/sirh/config/SecurityConfig.java))** :
   ```java
   roleHierarchy.role("ROLE_ADMIN").implies(
       "EMPLOYE_READ", "EMPLOYE_WRITE", "EMPLOYE_VALIDATE",
@@ -772,7 +774,7 @@ graph TD
   );
   ```
 
-### 21.3. Bootstrap Idempotent du Compte Administrateur ([`AdminAccountSeeder.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/AdminAccountSeeder.java))
+### 21.3. Bootstrap Idempotent du Compte Administrateur ([`AdminAccountSeeder.java`](../../src/main/java/mg/galaxam/sirh/securite/AdminAccountSeeder.java))
 Au démarrage du serveur (`CommandLineRunner`), si `app.security.bootstrap-admin.enabled = true` :
 1. Vérifie si un compte actif rattaché à `ROLE_ADMIN` existe déjà.
 2. Si oui : rollback immédiat, **aucun compte ni mot de passe n'est écrasé**.
@@ -781,14 +783,14 @@ Au démarrage du serveur (`CommandLineRunner`), si `app.security.bootstrap-admin
 ### 21.4. Double Jeton JWT & Piste d'Audit
 - **Access Token JWT** : Durée de validité courte de **15 minutes** (`app.security.jwt.access-token-expiration-ms = 900000`).
 - **Refresh Token** : Durée de **7 jours**, stocké en base et transmis au client sous forme de **Cookie HTTP-Only, Secure, SameSite=Lax**.
-- **Piste d'Audit Métier ([`audit_log`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L73))** : Enregistrement synchrone de chaque mutation en format JSONB PostgreSQL (anciennes valeurs, nouvelles valeurs, identifiant utilisateur, IP, timestamp).
-- **Journal de Connexion ([`journal_connexion`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L63))** : Traçabilité des logins selon la Loi n° 2014-038 sur la protection des données personnelles.
+- **Piste d'Audit Métier ([`audit_log`](../../conception/bdd/01_schema_core_securite.sql#L73))** : Enregistrement synchrone de chaque mutation en format JSONB PostgreSQL (anciennes valeurs, nouvelles valeurs, identifiant utilisateur, IP, timestamp).
+- **Journal de Connexion ([`journal_connexion`](../../conception/bdd/01_schema_core_securite.sql#L63))** : Traçabilité des logins selon la Loi n° 2014-038 sur la protection des données personnelles.
 
 ---
 
 ## 22. Architecture Frontend : Écrans, Onglets & Composants
 
-L'architecture du frontend React est structurée en modules de fonctionnalités autonomes ([`frontend/src/features/`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features)) :
+L'architecture du frontend React est structurée en modules de fonctionnalités autonomes ([`frontend/src/features/`](../../../frontend/src/features)) :
 
 ```
 frontend/src/
@@ -839,10 +841,10 @@ frontend/src/
 
 | Route Frontend | Page React Hôte | Onglets Réels Disponibles | API Backend Consommées | Habilitation |
 | :--- | :--- | :--- | :--- | :---: |
-| `/admin/securite` | [`SecuriteAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/securite/SecuriteAdminPanel.jsx) | • Utilisateurs (`UserManagementTab`)<br>• Rôles & permissions (`RolesAndPermissionsTab`)<br>• Menus (`MenuManagementTab`) | `/api/securite/utilisateurs`<br>`/api/referentiel/roles`<br>`/api/referentiel/menus` | `ROLE_ADMIN` |
-| `/admin/organisation` | [`OrganisationAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/organization/pages/OrganisationAdminPanel.jsx) | • Filiales & Sites (`FilialesSitesTab`)<br>• Départements & Services (`DepartementsServicesTab`)<br>• Postes & Fonctions (`FonctionsTab`) | `/api/referentiel/filiales`<br>`/api/referentiel/sites`<br>`/api/referentiel/departements`<br>`/api/referentiel/services`<br>`/api/referentiel/fonctions` | `ROLE_ADMIN` ou `ORGANISATION_WRITE` |
-| `/admin/referentiels-rh`| [`ReferentielsRhAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/referentiels/ReferentielsRhAdminPanel.jsx)| • Catégories (`CareerReferenceDataManagementTab`)<br>• Calcul du salaire (Modes de paie)<br>• Motifs de mouvements<br>• Événements RH<br>• Documents (`DocumentTypeManagementTab`)<br>• Contrats & intervenants (`ReferentielsRhTab`) | `/api/ref-carriere/categories-pro`<br>`/api/ref-carriere/modes-paie`<br>`/api/ref-carriere/motifs-mouvement`<br>`/api/ref-types-documents`<br>`/api/referentiel/types-contrat`<br>`/api/referentiel/types-intervenant`<br>`/api/referentiel/banques` | `ROLE_ADMIN` |
-| `/admin/parametres` | [`ParametresModulesPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/modules/ParametresModulesPanel.jsx) | • **Règles communes** (Constantes Système & Contrats CDD)<br>• **Paie** (Cadre fiscal, Cotisations, Règles paie, Indemnités sites & dérogations, Modes de paiement)<br>• **Congés** (Constantes Congés, Types & Motifs)<br>• **Pointage** (Constantes Pointage)<br>• **Calendrier** (Jours fériés & périodes chômées) | `/api/referentiel/parametres-globaux`<br>`/api/paie/config-legale`<br>`/api/referentiel/cotisations`<br>`/api/referentiel/indemnites`<br>`/api/referentiel/calendrier-ferie`<br>`/api/pointages/parametres/derogations` | `ROLE_ADMIN` |
+| `/admin/securite` | [`SecuriteAdminPanel`](../../../frontend/src/features/administration/pages/securite/SecuriteAdminPanel.jsx) | • Utilisateurs (`UserManagementTab`)<br>• Rôles & permissions (`RolesAndPermissionsTab`)<br>• Menus (`MenuManagementTab`) | `/api/securite/utilisateurs`<br>`/api/referentiel/roles`<br>`/api/referentiel/menus` | `ROLE_ADMIN` |
+| `/admin/organisation` | [`OrganisationAdminPanel`](../../../frontend/src/features/organization/pages/OrganisationAdminPanel.jsx) | • Filiales & Sites (`FilialesSitesTab`)<br>• Départements & Services (`DepartementsServicesTab`)<br>• Postes & Fonctions (`FonctionsTab`) | `/api/referentiel/filiales`<br>`/api/referentiel/sites`<br>`/api/referentiel/departements`<br>`/api/referentiel/services`<br>`/api/referentiel/fonctions` | `ROLE_ADMIN` ou `ORGANISATION_WRITE` |
+| `/admin/referentiels-rh`| [`ReferentielsRhAdminPanel`](../../../frontend/src/features/administration/pages/referentiels/ReferentielsRhAdminPanel.jsx)| • Catégories (`CareerReferenceDataManagementTab`)<br>• Calcul du salaire (Modes de paie)<br>• Motifs de mouvements<br>• Événements RH<br>• Documents (`DocumentTypeManagementTab`)<br>• Contrats & intervenants (`ReferentielsRhTab`) | `/api/ref-carriere/categories-pro`<br>`/api/ref-carriere/modes-paie`<br>`/api/ref-carriere/motifs-mouvement`<br>`/api/ref-types-documents`<br>`/api/referentiel/types-contrat`<br>`/api/referentiel/types-intervenant`<br>`/api/referentiel/banques` | `ROLE_ADMIN` |
+| `/admin/parametres` | [`ParametresModulesPanel`](../../../frontend/src/features/administration/pages/modules/ParametresModulesPanel.jsx) | • **Règles communes** (Constantes Système & Contrats CDD)<br>• **Paie** (Cadre fiscal, Cotisations, Règles paie, Indemnités sites & dérogations, Modes de paiement)<br>• **Congés** (Constantes Congés, Types & Motifs)<br>• **Pointage** (Constantes Pointage)<br>• **Calendrier** (Jours fériés & périodes chômées) | `/api/referentiel/parametres-globaux`<br>`/api/paie/config-legale`<br>`/api/referentiel/cotisations`<br>`/api/referentiel/indemnites`<br>`/api/referentiel/calendrier-ferie`<br>`/api/pointages/parametres/derogations` | `ROLE_ADMIN` |
 
 ---
 
@@ -852,97 +854,97 @@ Le tableau ci-dessous dresse l'inventaire exhaustif des routes HTTP relatives à
 
 | Méthode | Route API Backend | Permission Requise | DTO / Payload | Type Retour | Contrôleur Backend Réel |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/auth/login` | Publique | `LoginRequest` | `{accessToken, expiresIn, user, menus}` | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
-| **POST** | `/api/auth/refresh`| Publique (Cookie) | N/A (Cookie `refreshToken`) | `{accessToken, expiresIn, user}` | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
-| **POST** | `/api/auth/logout` | Publique | N/A | Status 200 (Cookie invalidé) | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
-| **GET** | `/api/auth/me` | Authentifié | N/A | DTO Utilisateur connecté | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
-| **GET** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | N/A | `List<UtilisateurResponse>` | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
-| **POST** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (201) | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
-| **PUT** | `/api/securite/utilisateurs/{id}` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (200) | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
-| **PUT** | `/api/securite/utilisateurs/{id}/desactiver` | `ROLE_ADMIN` | `{motifDesactivation}` | `UtilisateurResponse` | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
-| **PUT** | `/api/securite/utilisateurs/{id}/activer` | `ROLE_ADMIN` | N/A | `UtilisateurResponse` | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
-| **PUT** | `/api/securite/utilisateurs/{id}/mot-de-passe`| `ROLE_ADMIN` | `{nouveauMotDePasse}` | Message confirmation | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
-| **GET** | `/api/referentiel/roles` | Authentifié | N/A | `List<RefRole>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **POST** | `/api/referentiel/roles` | `ROLE_ADMIN` | `RoleRequest` | `RefRole` (201) | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **PUT** | `/api/referentiel/roles/{id}` | `ROLE_ADMIN` | `RoleRequest` | `RefRole` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **PUT** | `/api/referentiel/roles/{id}/desactiver` | `ROLE_ADMIN` | N/A | `RefRole` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **PUT** | `/api/referentiel/roles/{id}/activer` | `ROLE_ADMIN` | N/A | `RefRole` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **GET** | `/api/referentiel/roles/{id}/permissions` | Authentifié | N/A | `List<RolePermission>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **POST** | `/api/referentiel/roles/{id}/permissions` | `ROLE_ADMIN` | `RolePermissionsRequest` | `List<RolePermission>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **GET** | `/api/referentiel/roles/{id}/menus` | Authentifié | N/A | `List<RoleMenu>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **POST** | `/api/referentiel/roles/{id}/menus` | `ROLE_ADMIN` | `RoleMenusRequest` (idMenus[]) | `List<RoleMenu>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
-| **GET** | `/api/referentiel/modules` | Authentifié | N/A | `List<RefModule>` | [`ModuleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/ModuleController.java) |
-| **GET** | `/api/referentiel/menus` | Authentifié | N/A | Arbre hiérarchique `List<RefMenu>` | [`MenuController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/MenuController.java) |
-| **GET** | `/api/referentiel/filiales` | Authentifié | Query param `actifUniquement, search` | `List<RefFiliale>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/filiales` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/filiales/{id}` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/filiales/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/filiales/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/referentiel/sites` | Authentifié | Query param `idFiliale, actifUniquement, search` | `List<RefSite>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/sites` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/sites/{id}` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/sites/{id}/plancher` | `ORGANISATION_WRITE` / Admin | `{actif, heureEntreeMinimaleValorisee}` | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/sites/{id}/desactiver` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/sites/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/referentiel/departements` | Authentifié | Query param `actifUniquement, search` | `List<RefDepartement>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/departements` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/departements/{id}` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/departements/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/departements/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/referentiel/services` | Authentifié | Query param `idDepartement, actifUniquement` | `List<RefService>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/services` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/services/{id}` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/services/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefService` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/services/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefService` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/referentiel/fonctions` | Authentifié | Query param `actifUniquement, search` | `List<RefFonction>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/fonctions` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/fonctions/{id}` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/fonctions/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/fonctions/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/referentiel/banques` | Authentifié | Query param `actifUniquement, search` | `List<RefBanque>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/banques` | `ORGANISATION_WRITE` / Admin | `RefBanque` | `RefBanque` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/banques/{id}` | `ORGANISATION_WRITE` / Admin | `RefBanque` | `RefBanque` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/banques/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefBanque` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/banques/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefBanque` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/referentiel/types-contrat` | Authentifié | Query param `actifUniquement` | `List<RefTypeContrat>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/types-contrat` | `ORGANISATION_WRITE` / Admin | `RefTypeContrat` | `RefTypeContrat` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/types-contrat/{id}` | `ORGANISATION_WRITE` / Admin | `RefTypeContrat` | `RefTypeContrat` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/types-contrat/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefTypeContrat` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/types-contrat/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefTypeContrat` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/referentiel/types-intervenant` | Authentifié | Query param `actifUniquement` | `List<RefTypeIntervenant>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **POST** | `/api/referentiel/types-intervenant` | `ORGANISATION_WRITE` / Admin | `RefTypeIntervenant` | `RefTypeIntervenant` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/types-intervenant/{id}` | `ORGANISATION_WRITE` / Admin | `RefTypeIntervenant` | `RefTypeIntervenant` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/types-intervenant/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefTypeIntervenant` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **PUT** | `/api/referentiel/types-intervenant/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefTypeIntervenant` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
-| **GET** | `/api/ref-carriere/categories-pro` | Authentifié | Query param `actifUniquement` | `List<RefCategorieProfessionnelle>`| [`RefCarriereController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
-| **POST** | `/api/ref-carriere/categories-pro` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` (201)| [`RefCarriereController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
-| **PUT** | `/api/ref-carriere/categories-pro/{id}` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` | [`RefCarriereController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
-| **GET** | `/api/referentiel/parametres-globaux` | `PAIE_READ` / Admin | Query param `categorie` | `List<ParametreGlobal>` | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
-| **POST** | `/api/referentiel/parametres-globaux` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` (201) | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
-| **PUT** | `/api/referentiel/parametres-globaux/{id}` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
-| **PATCH/PUT**| `/api/referentiel/parametres-globaux/{id}/toggle-actif`| `PAIE_WRITE` / `ROLE_ADMIN` | `{estActif}` (optionnel) | `ParametreGlobal` | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
-| **GET** | `/api/referentiel/indemnites` | `PAIE_READ` / Admin | N/A | `List<RefIndemnite>` | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
-| **POST** | `/api/referentiel/indemnites` | `PAIE_WRITE` / Admin | `IndemniteRequest` | `RefIndemnite` (201) | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
-| **GET** | `/api/referentiel/indemnites/site-config` | `PAIE_READ` / Admin | N/A | `List<SiteIndemniteConfig>` | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
-| **POST** | `/api/referentiel/indemnites/site-config` | `PAIE_WRITE` / Admin | `SiteIndemniteRequest` | `SiteIndemniteConfig` (201) | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
-| **GET** | `/api/pointages/parametres/derogations` | Authentifié | N/A | `List<EmployeIndemniteDerogation>` | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
-| **POST** | `/api/pointages/parametres/derogations` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` (201) | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
-| **PUT** | `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
-| **DELETE**| `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | N/A | Message confirmation | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
+| **POST** | `/api/auth/login` | Publique | `LoginRequest` | `{accessToken, expiresIn, user, menus}` | [`AuthController`](../../src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **POST** | `/api/auth/refresh`| Publique (Cookie) | N/A (Cookie `refreshToken`) | `{accessToken, expiresIn, user}` | [`AuthController`](../../src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **POST** | `/api/auth/logout` | Publique | N/A | Status 200 (Cookie invalidé) | [`AuthController`](../../src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **GET** | `/api/auth/me` | Authentifié | N/A | DTO Utilisateur connecté | [`AuthController`](../../src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **GET** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | N/A | `List<UtilisateurResponse>` | [`UtilisateurController`](../../src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **POST** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (201) | [`UtilisateurController`](../../src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (200) | [`UtilisateurController`](../../src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}/desactiver` | `ROLE_ADMIN` | `{motifDesactivation}` | `UtilisateurResponse` | [`UtilisateurController`](../../src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}/activer` | `ROLE_ADMIN` | N/A | `UtilisateurResponse` | [`UtilisateurController`](../../src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}/mot-de-passe`| `ROLE_ADMIN` | `{nouveauMotDePasse}` | Message confirmation | [`UtilisateurController`](../../src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **GET** | `/api/referentiel/roles` | Authentifié | N/A | `List<RefRole>` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **POST** | `/api/referentiel/roles` | `ROLE_ADMIN` | `RoleRequest` | `RefRole` (201) | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **PUT** | `/api/referentiel/roles/{id}` | `ROLE_ADMIN` | `RoleRequest` | `RefRole` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **PUT** | `/api/referentiel/roles/{id}/desactiver` | `ROLE_ADMIN` | N/A | `RefRole` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **PUT** | `/api/referentiel/roles/{id}/activer` | `ROLE_ADMIN` | N/A | `RefRole` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **GET** | `/api/referentiel/roles/{id}/permissions` | Authentifié | N/A | `List<RolePermission>` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **POST** | `/api/referentiel/roles/{id}/permissions` | `ROLE_ADMIN` | `RolePermissionsRequest` | `List<RolePermission>` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **GET** | `/api/referentiel/roles/{id}/menus` | Authentifié | N/A | `List<RoleMenu>` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **POST** | `/api/referentiel/roles/{id}/menus` | `ROLE_ADMIN` | `RoleMenusRequest` (idMenus[]) | `List<RoleMenu>` | [`RoleController`](../../src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **GET** | `/api/referentiel/modules` | Authentifié | N/A | `List<RefModule>` | [`ModuleController`](../../src/main/java/mg/galaxam/sirh/admin/api/ModuleController.java) |
+| **GET** | `/api/referentiel/menus` | Authentifié | N/A | Arbre hiérarchique `List<RefMenu>` | [`MenuController`](../../src/main/java/mg/galaxam/sirh/admin/api/MenuController.java) |
+| **GET** | `/api/referentiel/filiales` | Authentifié | Query param `actifUniquement, search` | `List<RefFiliale>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/filiales` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/filiales/{id}` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/filiales/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/filiales/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/sites` | Authentifié | Query param `idFiliale, actifUniquement, search` | `List<RefSite>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/sites` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}/plancher` | `ORGANISATION_WRITE` / Admin | `{actif, heureEntreeMinimaleValorisee}` | `RefSite` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}/desactiver` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/departements` | Authentifié | Query param `actifUniquement, search` | `List<RefDepartement>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/departements` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/departements/{id}` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/departements/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/departements/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/services` | Authentifié | Query param `idDepartement, actifUniquement` | `List<RefService>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/services` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/services/{id}` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/services/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefService` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/services/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefService` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/fonctions` | Authentifié | Query param `actifUniquement, search` | `List<RefFonction>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/fonctions` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/fonctions/{id}` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/fonctions/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/fonctions/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/banques` | Authentifié | Query param `actifUniquement, search` | `List<RefBanque>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/banques` | `ORGANISATION_WRITE` / Admin | `RefBanque` | `RefBanque` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/banques/{id}` | `ORGANISATION_WRITE` / Admin | `RefBanque` | `RefBanque` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/banques/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefBanque` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/banques/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefBanque` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/types-contrat` | Authentifié | Query param `actifUniquement` | `List<RefTypeContrat>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/types-contrat` | `ORGANISATION_WRITE` / Admin | `RefTypeContrat` | `RefTypeContrat` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-contrat/{id}` | `ORGANISATION_WRITE` / Admin | `RefTypeContrat` | `RefTypeContrat` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-contrat/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefTypeContrat` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-contrat/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefTypeContrat` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/types-intervenant` | Authentifié | Query param `actifUniquement` | `List<RefTypeIntervenant>` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/types-intervenant` | `ORGANISATION_WRITE` / Admin | `RefTypeIntervenant` | `RefTypeIntervenant` (201) | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-intervenant/{id}` | `ORGANISATION_WRITE` / Admin | `RefTypeIntervenant` | `RefTypeIntervenant` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-intervenant/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefTypeIntervenant` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-intervenant/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefTypeIntervenant` | [`OrganisationController`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/ref-carriere/categories-pro` | Authentifié | Query param `actifUniquement` | `List<RefCategorieProfessionnelle>`| [`RefCarriereController`](../../src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
+| **POST** | `/api/ref-carriere/categories-pro` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` (201)| [`RefCarriereController`](../../src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
+| **PUT** | `/api/ref-carriere/categories-pro/{id}` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` | [`RefCarriereController`](../../src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
+| **GET** | `/api/referentiel/parametres-globaux` | `PAIE_READ` / Admin | Query param `categorie` | `List<ParametreGlobal>` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **POST** | `/api/referentiel/parametres-globaux` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` (201) | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **PUT** | `/api/referentiel/parametres-globaux/{id}` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **PATCH/PUT**| `/api/referentiel/parametres-globaux/{id}/toggle-actif`| `PAIE_WRITE` / `ROLE_ADMIN` | `{estActif}` (optionnel) | `ParametreGlobal` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **GET** | `/api/referentiel/indemnites` | `PAIE_READ` / Admin | N/A | `List<RefIndemnite>` | [`IndemniteController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **POST** | `/api/referentiel/indemnites` | `PAIE_WRITE` / Admin | `IndemniteRequest` | `RefIndemnite` (201) | [`IndemniteController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **GET** | `/api/referentiel/indemnites/site-config` | `PAIE_READ` / Admin | N/A | `List<SiteIndemniteConfig>` | [`IndemniteController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **POST** | `/api/referentiel/indemnites/site-config` | `PAIE_WRITE` / Admin | `SiteIndemniteRequest` | `SiteIndemniteConfig` (201) | [`IndemniteController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **GET** | `/api/pointages/parametres/derogations` | Authentifié | N/A | `List<EmployeIndemniteDerogation>` | [`PointageController`](../../src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
+| **POST** | `/api/pointages/parametres/derogations` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` (201) | [`PointageController`](../../src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
+| **PUT** | `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` | [`PointageController`](../../src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
+| **DELETE**| `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | N/A | Message confirmation | [`PointageController`](../../src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
 
 ---
 
 ## 24. Architecture de Persistance : Le Pattern Active Record JDBC Pur
 
 ### 24.1. Philosophie Architecturale (Zéro JPA / Zéro Hibernate)
-GALAXAM SIRH fait le choix délibéré d'**exclure tout framework ORM lourd** (JPA, Hibernate) au profit d'un pattern **Active Record en pur JDBC** encapsulé par la superclasse abstraite [`bean.ClassMere`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/bean/ClassMere.java) :
-- **Transparence SQL intégrale** : Aucune génération magique de requêtes, aucun proxy dynamique, aucun problème de lazy-loading imprévisible (*N+1 queries*). Chaque entité fille ([`RefSite`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefSite.java), [`RefRole`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/persistence/RefRole.java), [`ParametreGlobal`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java)) rédige explicitement ses requêtes `PreparedStatement`.
+GALAXAM SIRH fait le choix délibéré d'**exclure tout framework ORM lourd** (JPA, Hibernate) au profit d'un pattern **Active Record en pur JDBC** encapsulé par la superclasse abstraite [`bean.ClassMere`](../../src/main/java/bean/ClassMere.java) :
+- **Transparence SQL intégrale** : Aucune génération magique de requêtes, aucun proxy dynamique, aucun problème de lazy-loading imprévisible (*N+1 queries*). Chaque entité fille ([`RefSite`](../../src/main/java/mg/galaxam/sirh/organisation/persistence/RefSite.java), [`RefRole`](../../src/main/java/mg/galaxam/sirh/admin/persistence/RefRole.java), [`ParametreGlobal`](../../src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java)) rédige explicitement ses requêtes `PreparedStatement`.
 - **Pilotage Transactionnel Strict** : Toutes les méthodes de persistance prennent obligatoirement un objet `java.sql.Connection` en argument. Le contrôle de la transaction (`c.setAutoCommit(false)`, `c.commit()`, `c.rollback()`) reste **exclusivement dévolu à la couche contrôleur ou au service métier**, garantissant l'atomicité multi-tables.
 - **Cycle de vie standardisé** :
   1. Instanciation en mémoire de l'objet ;
   2. Appel de la méthode `controler(Connection c)` : validation des règles métier, unicité des codes, vérification des contraintes ;
   3. Appel de `save(c)` ou `update(c)` ;
-  4. Journalisation systématique dans la même transaction via [`AuditLog.audit(c, ...)`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/AuditLog.java).
+  4. Journalisation systématique dans la même transaction via [`AuditLog.audit(c, ...)`](../../src/main/java/mg/galaxam/sirh/securite/AuditLog.java).
 
 ---
 
@@ -1082,9 +1084,9 @@ Une règle d'ingénierie fondamentale gouverne GALAXAM SIRH : **l'interdiction a
 
 - **RG-STR-01 (Unicité des Codes Métier)** : Tout code d'identification d'une structure (`ref_filiale.code_filiale`, `ref_site.code_site`, `ref_departement.code_departement`, `ref_fonction.code_fonction`, `ref_categorie_professionnelle.code`) doit être strictement unique au niveau du groupe, saisi en majuscules sans espaces superflus.
 - **RG-STR-02 (Unicité Relative du Service)** : Un code de service doit être strictement unique au sein de son département de rattachement (`uk_service_departement UNIQUE (code_service, id_departement)`). `uq_ref_service_id_departement UNIQUE (id_service, id_departement)` sert également de cible à la FK composée de l'affectation.
-- **RG-STR-03 (Cohérence du Plancher d'Arrivée)** : Un site ne peut activer son plancher d'arrivée valorisé (`plancher_arrivee_actif = TRUE`) que si une heure d'entrée minimale valide est renseignée (`heure_entree_minimale_valorisee IS NOT NULL`). Contrainte vérifiée par la contrainte SQL `chk_ref_site_plancher_arrivee` et applicativement par [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L323-L359).
+- **RG-STR-03 (Cohérence du Plancher d'Arrivée)** : Un site ne peut activer son plancher d'arrivée valorisé (`plancher_arrivee_actif = TRUE`) que si une heure d'entrée minimale valide est renseignée (`heure_entree_minimale_valorisee IS NOT NULL`). Contrainte vérifiée par la contrainte SQL `chk_ref_site_plancher_arrivee` et applicativement par [`OrganisationService.java`](../../src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L323-L359).
 - **RG-STR-04 (Immutabilité des Structures Utilisées)** : La suppression physique (`DELETE`) d'un site, département, service, filiale ou fonction est interdite dès lors qu'il existe au moins une affectation de carrière ou un pointage lié. Seule la désactivation logique (`est_actif = FALSE`) est autorisée.
-- **RG-STR-05 (Garde-Fou de Désactivation Filiale)** : Une filiale ne peut être désactivée tant qu'elle détient au moins un site actif ou au moins un contrat de travail en cours d'exécution ([`OrganisationService.java:190-225`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190-L225)).
+- **RG-STR-05 (Garde-Fou de Désactivation Filiale)** : Une filiale ne peut être désactivée tant qu'elle détient au moins un site actif ou au moins un contrat de travail en cours d'exécution ([`OrganisationService.java:190-225`](../../src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190-L225)).
 - **RG-STR-06 (Priorité de Dispense de Pointage)** : Si la fonction du salarié (`ref_fonction.dispense_pointage = TRUE`) ou sa catégorie (`ref_categorie_professionnelle.dispense_pointage = TRUE`) prévoit une dispense, le collaborateur est réputé dispensé de pointage sans anomalie.
 - **RG-STR-07 (Décorrélation Cadre et Heures Sup)** : Les attributs `est_cadre` et `est_eligible_hs` sont indépendants. L'éligibilité aux heures supplémentaires découle exclusivement de `est_eligible_hs`.
 - **RG-STR-08 (Clôture à Date d'Effet des Paramètres)** : L'enregistrement d'une nouvelle version d'un paramètre global à la date $D_{\text{nouveau}}$ entraîne la clôture automatique de la version précédente à la date $D_{\text{nouveau}} - 1\text{ jour}$ via `ParametreGlobal.cloturerPrecedent`.
@@ -1107,7 +1109,7 @@ Une règle d'ingénierie fondamentale gouverne GALAXAM SIRH : **l'interdiction a
 
 ## 28. Matrice des Codes d'Erreur & Réponses API
 
-Le système unifie la gestion de ses exceptions via [`SirhErrorCode.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/common/exception/SirhErrorCode.java) et [`SirhBusinessException.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/common/exception/SirhBusinessException.java) :
+Le système unifie la gestion de ses exceptions via [`SirhErrorCode.java`](../../src/main/java/mg/galaxam/sirh/common/exception/SirhErrorCode.java) et [`SirhBusinessException.java`](../../src/main/java/mg/galaxam/sirh/common/exception/SirhBusinessException.java) :
 
 | Code d'Erreur Métier | Statut HTTP | Signification et Contexte d'Émission |
 | :--- | :---: | :--- |
@@ -1145,8 +1147,8 @@ Le système unifie la gestion de ses exceptions via [`SirhErrorCode.java`](file:
 
 ### Scénario 3 : Tentative de Désactivation d'une Filiale Active (Garde-Fou POO)
 1. L'administrateur clique sur « Désactiver » pour la filiale `GLX` via l'écran `FilialesSitesTab`.
-2. L'appel HTTP `PUT /referentiel/filiales/1/desactiver` est émis vers [`OrganisationController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java#L56).
-3. Le service [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190) détecte en SQL qu'il subsiste 2 sites actifs (TNR et TMM) et 15 contrats en cours.
+2. L'appel HTTP `PUT /referentiel/filiales/1/desactiver` est émis vers [`OrganisationController.java`](../../src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java#L56).
+3. Le service [`OrganisationService.java`](../../src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190) détecte en SQL qu'il subsiste 2 sites actifs (TNR et TMM) et 15 contrats en cours.
 4. L'opération est immédiatement interrompue, la transaction rollbackée, et une erreur HTTP 409 (`DATA_REFERENCED`) est renvoyée avec le message explicatif.
 5. L'UI affiche une notification d'avertissement rouge bloquant l'action, préservant l'intégrité de l'arbre relationnel.
 
@@ -1226,4 +1228,4 @@ Le code implémente les parcours Organisation décrits dans ce document, mais au
    - *Décret n° 63-124 du 20 février 1963* : médecine du travail et services médicaux d'entreprise (OMSI / OSTIE / AMIT / FUNHECE, 1% salarié, 5% employeur).
    - *Loi n° 2017-025 & Décret n° 2018-991* : contribution patronale obligatoire de 1% au Fonds Malgache de Formation Professionnelle (FMFP).
 4. **Législation sur la Protection des Données** :
-   - *Loi n° 2014-038 du 9 janvier 2015* sur la protection des données à caractère personnel : traçabilité des accès ([`journal_connexion`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L63)), piste d'audit des modifications ([`audit_log`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L73)) et principe du moindre privilège RBAC.
+   - *Loi n° 2014-038 du 9 janvier 2015* sur la protection des données à caractère personnel : traçabilité des accès ([`journal_connexion`](../../conception/bdd/01_schema_core_securite.sql#L63)), piste d'audit des modifications ([`audit_log`](../../conception/bdd/01_schema_core_securite.sql#L73)) et principe du moindre privilège RBAC.
