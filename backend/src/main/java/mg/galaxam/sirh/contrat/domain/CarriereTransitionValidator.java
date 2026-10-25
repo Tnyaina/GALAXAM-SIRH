@@ -66,6 +66,15 @@ public final class CarriereTransitionValidator {
     public static final Set<String> MOTIFS_LEGAUX_CDD = Set.of(
             "OUVRAGE_DETERMINE", "SURCROIT_EXTRAORDINAIRE", "TRAVAUX_URGENTS_SECURITE");
 
+    static final String SQL_RECHERCHE_CDD_REEMBAUCHE = "SELECT ct.id_contrat FROM contrat_travail ct "
+            + "JOIN ref_type_contrat tc ON tc.id_type_contrat = ct.id_type_contrat AND tc.code = 'CDD' "
+            + "JOIN employe_affectation_carriere a ON a.id_contrat = ct.id_contrat "
+            + "WHERE ct.id_employe = ? AND ct.date_fin IS NOT NULL AND ct.date_fin < ? "
+            + "AND ct.date_fin >= (CAST(? AS date) - INTERVAL '3 months')::date "
+            + "AND a.id_site = ? AND a.id_departement = ? AND a.id_service = ? AND a.id_fonction = ? "
+            + "AND a.date_debut <= ct.date_fin AND (a.date_fin IS NULL OR a.date_fin >= ct.date_fin) "
+            + "ORDER BY ct.date_fin DESC, ct.id_contrat DESC LIMIT 1";
+
     /**
      * Compatibilité avec les appels existants qui ne disposent pas de connexion.
      * La validation structurelle reste centralisée ici.
@@ -283,15 +292,7 @@ public final class CarriereTransitionValidator {
         if (idEmploye == null || dateDebut == null || idSite == null || idDepartement == null
                 || idService == null || idFonction == null) return null;
 
-        String sql = "SELECT ct.id_contrat FROM contrat_travail ct "
-                + "JOIN ref_type_contrat tc ON tc.id_type_contrat = ct.id_type_contrat AND tc.code = 'CDD' "
-                + "JOIN employe_affectation_carriere a ON a.id_contrat = ct.id_contrat "
-                + "WHERE ct.id_employe = ? AND ct.date_fin IS NOT NULL AND ct.date_fin < ? "
-                + "AND ct.date_fin >= (? - INTERVAL '3 months')::date "
-                + "AND a.id_site = ? AND a.id_departement = ? AND a.id_service = ? AND a.id_fonction = ? "
-                + "AND a.date_debut <= ct.date_fin AND (a.date_fin IS NULL OR a.date_fin >= ct.date_fin) "
-                + "ORDER BY ct.date_fin DESC, ct.id_contrat DESC LIMIT 1";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
+        try (PreparedStatement ps = c.prepareStatement(SQL_RECHERCHE_CDD_REEMBAUCHE)) {
             ps.setInt(1, idEmploye);
             ps.setDate(2, dateDebut);
             ps.setDate(3, dateDebut);

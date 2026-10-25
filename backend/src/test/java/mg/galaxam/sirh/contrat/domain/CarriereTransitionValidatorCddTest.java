@@ -9,6 +9,12 @@ import org.junit.jupiter.api.Test;
 class CarriereTransitionValidatorCddTest {
 
     @Test
+    void laRechercheDeReembaucheTypeExplicitementLaDateAvantLaSoustractionIntervalle() {
+        assertTrue(CarriereTransitionValidator.SQL_RECHERCHE_CDD_REEMBAUCHE
+                .contains("CAST(? AS date) - INTERVAL '3 months'"));
+    }
+
+    @Test
     void accepteLesTroisMotifsLegauxPourUnCdd() {
         assertDoesNotThrow(() -> CarriereTransitionValidator.validerMotifCDD("CDD", "OUVRAGE_DETERMINE"));
         assertDoesNotThrow(() -> CarriereTransitionValidator.validerMotifCDD("CDD", "SURCROIT_EXTRAORDINAIRE"));
