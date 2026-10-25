@@ -236,7 +236,7 @@ public class BulletinPaie extends ClassMere {
                 "total_cotisations_salariales = ?, total_cotisations_patronales = ?, salaire_net_imposable = ?, " +
                 "base_irsa_arrondie = ?, irsa_brut = ?, reduction_enfants = ?, irsa_net = ?, retenue_isi_5 = ?, " +
                 "total_indemnites_non_imposables = ?, total_retenues_avances_acomptes = ?, net_avant_arrondi = ?, " +
-                "net_a_payer = ?, cout_global_employeur = ?, statut = ?, commentaire = ?, " +
+                "net_a_payer = ?, cout_global_employeur = ?, statut = ?, commentaire = ?, date_calcul = ?, calcule_par = ?, " +
                 "date_validation = ?, valide_par = ?, date_cloture = ?, cloture_par = ?, " +
                 "motif_reouverture = ?, date_reouverture = ?, rouvert_par = ?, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_bulletin = ?";
@@ -311,6 +311,12 @@ public class BulletinPaie extends ClassMere {
             ps.setBigDecimal(p++, coutGlobalEmployeur != null ? coutGlobalEmployeur : BigDecimal.ZERO);
             ps.setString(p++, statut != null ? statut : "CALCULE");
             ps.setString(p++, commentaire);
+            ps.setTimestamp(p++, dateCalcul);
+            if (calculePar != null) {
+                ps.setInt(p++, calculePar);
+            } else {
+                ps.setNull(p++, java.sql.Types.INTEGER);
+            }
 
             ps.setTimestamp(p++, dateValidation);
             if (validePar != null) {
