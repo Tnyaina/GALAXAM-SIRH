@@ -1,4 +1,4 @@
-import { Users, AlertTriangle, CheckCircle2, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { Users, AlertTriangle, CheckCircle2, Calendar, Clock, AlertCircle, ChevronDown } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { fmtDateInput } from '@/utils/dateUtils';
 
@@ -84,7 +84,7 @@ export default function ConflitsPostePreview({
           <Users className="w-3.5 h-3.5 text-brand-600" />
           Continuité de service
         </h4>
-        <span className="text-[11px] text-[var(--color-fg-muted)]">Planning poste</span>
+        <span className="text-[11px] text-[var(--color-fg-muted)]">{hasDates ? 'Vérifié' : 'À vérifier'}</span>
       </div>
 
       {/* Chargement */}
@@ -107,7 +107,12 @@ export default function ConflitsPostePreview({
 
       {/* Contenu actif */}
       {hasDates && !checkingConflits && (
-        <div className="space-y-4 flex-1 flex flex-col">
+        <div className="space-y-3 flex-1 flex flex-col">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold text-[var(--color-brand-700)]">
+              <span>Voir le planning du poste</span><ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-3 space-y-3">
           {conflitReport?.affectationsSurPeriode?.length > 1 && (
             <div className="text-[11px] text-[var(--color-fg-muted)] space-y-0.5">
               <p className="font-semibold">Affectations prises en compte :</p>
@@ -194,7 +199,7 @@ export default function ConflitsPostePreview({
                     className="flex items-center border-b border-[var(--color-border-subtle)] last:border-0 relative h-9 hover:bg-[var(--color-surface-hover)]"
                   >
                     <div className="w-28 shrink-0 px-2 text-[11px] text-[var(--color-fg)] truncate border-r border-[var(--color-border)] flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-[var(--color-warning-500)]/20 text-[var(--color-warning-600)] text-[9px] font-bold flex items-center justify-center shrink-0">
+                      <span className="w-4 h-4 rounded-none bg-[var(--color-warning-500)]/20 text-[var(--color-warning-600)] text-[9px] font-bold flex items-center justify-center shrink-0">
                         {col.prenom?.[0] || 'C'}
                       </span>
                       <span className="truncate font-medium">{col.prenom} {col.nom}</span>
@@ -240,6 +245,8 @@ export default function ConflitsPostePreview({
               )}
             </div>
           </div>
+            </div>
+          </details>
 
           {/* Alertes et Quorum */}
           {conflitReport?.collisionPersonnelle && (
@@ -305,27 +312,6 @@ export default function ConflitsPostePreview({
             </div>
           )}
 
-          {/* Décompte légal */}
-          <div className="grid grid-cols-3 gap-2 mt-auto">
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
-              <span className="block text-[10px] font-medium text-[var(--color-fg-muted)]">Ouvrés</span>
-              <span className="text-xs font-bold text-[var(--color-fg)] font-mono">
-                {conflitReport?.nbJoursOuvres ?? 0} j
-              </span>
-            </div>
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
-              <span className="block text-[10px] font-medium text-[var(--color-fg-muted)]">Week-ends</span>
-              <span className="text-xs font-bold text-[var(--color-fg-muted)] font-mono">
-                {conflitReport?.nbJoursWeekEnd ?? 0} j
-              </span>
-            </div>
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
-              <span className="block text-[10px] font-medium text-[var(--color-fg-muted)]">Fériés</span>
-              <span className="text-xs font-bold text-warning-600 font-mono">
-                {conflitReport?.nbJoursFeries ?? 0} j
-              </span>
-            </div>
-          </div>
         </div>
       )}
     </div>

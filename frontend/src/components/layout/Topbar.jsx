@@ -75,7 +75,7 @@ export default function Topbar({ onMenuClick, title}) {
                     </button>
 
                     {showDropdown && (
-                        <div role="menu" aria-label="Options du profil" className="absolute right-0 mt-2 z-40 w-64 overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
+                        <div role="menu" aria-label="Options du profil" className="absolute right-0 mt-2 z-40 w-64 overflow-hidden rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
                             <div className="px-4 py-3">
                                 <p className="truncate text-sm font-semibold text-[var(--color-fg)]">
                                     {user?.identifiant}
@@ -91,13 +91,13 @@ export default function Topbar({ onMenuClick, title}) {
                                     plain
                                     role="menuitem"
                                     onClick={() => { setShowDropdown(false); navigate('/settings/connection'); }}
-                                    className="flex min-h-0 w-full items-center gap-3 rounded px-3 py-2.5 text-left text-sm text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                    className="flex min-h-0 w-full items-center gap-3 rounded-none px-3 py-2.5 text-left text-sm text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
                                 ><Settings size={17} className="shrink-0 text-[var(--color-fg-muted)]"/><span>Connexion et données</span></Button>}
                                 <Button
                                     plain
                                     role="menuitem"
                                     onClick={handleLogout}
-                                    className="flex min-h-0 w-full items-center gap-3 rounded px-3 py-2.5 text-left text-sm text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                    className="flex min-h-0 w-full items-center gap-3 rounded-none px-3 py-2.5 text-left text-sm text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
                                 ><LogOut size={17} className="shrink-0"/><span>Déconnexion</span></Button>
                             </div>
                         </div>

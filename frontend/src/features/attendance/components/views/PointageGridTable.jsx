@@ -159,7 +159,7 @@ export default function PointageGridTable({
                                     ref={el => { if (el) el.indeterminate = isSomeSelected; }}
                                     onChange={toggleSelectAll}
                                     disabled={isReadOnly}
-                                    className="w-3.5 h-3.5 rounded accent-[var(--color-brand-600)] cursor-pointer align-middle"
+                                    className="w-3.5 h-3.5 rounded-none accent-[var(--color-brand-600)] cursor-pointer align-middle"
                                     title={isAllSelected ? "Tout désélectionner" : "Sélectionner tous les employés de la page"}
                                 />
                             </Th>
@@ -236,7 +236,7 @@ export default function PointageGridTable({
                                             checked={selectedEmpIds.has(row.idEmploye)}
                                             onChange={() => toggleSelectRow(row.idEmploye)}
                                             disabled={isReadOnlyForUser}
-                                            className="w-3.5 h-3.5 rounded accent-[var(--color-brand-600)] cursor-pointer align-middle"
+                                            className="w-3.5 h-3.5 rounded-none accent-[var(--color-brand-600)] cursor-pointer align-middle"
                                             aria-label={`Sélectionner ${row.nom}`}
                                         />
                                     </Td>
@@ -274,22 +274,21 @@ export default function PointageGridTable({
                                                         </span>
                                                     )}
                                                     {!isReadOnlyForUser && !isCongeFull && (
-                                                        <button
+                                                        <Button
                                                             type="button"
+                                                            variant="outline"
+                                                            size="xs"
                                                             onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
-                                                            className={`text-[11px] px-1.5 py-0.5 font-sans font-semibold rounded border transition-colors cursor-pointer shrink-0 ${
+                                                            className={`font-sans normal-case tracking-normal shrink-0 rounded-none ${
                                                                 row.horaireContinu
                                                                     ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/40 hover:bg-[var(--color-brand-500)]/20'
                                                                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
                                                             }`}
                                                             title={row.horaireContinu ? "Journée continue active (sans pause déjeuner). Cliquer pour rétablir la pause." : "Activer la journée continue (sans pause déjeuner 1h)"}
+                                                            iconLeft={row.horaireContinu ? <FastForward size={12} className="shrink-0" /> : undefined}
                                                         >
-                                                            {row.horaireContinu ? (
-                                                                <span className="inline-flex items-center gap-1">
-                                                                    <FastForward size={9} className="shrink-0" /> Continu
-                                                                </span>
-                                                            ) : 'Pause'}
-                                                        </button>
+                                                            {row.horaireContinu ? 'Continu' : 'Pause'}
+                                                        </Button>
                                                     )}
                                                 </div>
                                             </div>

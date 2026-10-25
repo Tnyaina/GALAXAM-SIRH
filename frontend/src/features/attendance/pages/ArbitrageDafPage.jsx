@@ -1043,12 +1043,12 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         {((row.nbJoursConge || 0) > 0 || (row.nbJoursFerieChome || 0) > 0) && (
                                                             <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5 font-sans">
                                                                 {(row.nbJoursConge || 0) > 0 && (
-                                                                    <span className="text-[11px] px-1 py-0.2 rounded bg-[var(--color-info-500)]/15 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-medium" title={`${row.nbJoursConge}j de congé payé`}>
+                                                                    <span className="text-[11px] px-1 py-0.2 rounded-none bg-[var(--color-info-500)]/15 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-medium" title={`${row.nbJoursConge}j de congé payé`}>
                                                                         +{row.nbJoursConge}j congé
                                                                     </span>
                                                                 )}
                                                                 {(row.nbJoursFerieChome || 0) > 0 && (
-                                                                    <span className="text-[11px] px-1 py-0.2 rounded bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium" title={`${row.nbJoursFerieChome}j férié chômé`}>
+                                                                    <span className="text-[11px] px-1 py-0.2 rounded-none bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium" title={`${row.nbJoursFerieChome}j férié chômé`}>
                                                                         +{row.nbJoursFerieChome}j férié
                                                                     </span>
                                                                 )}
@@ -1303,7 +1303,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 onConfirm={handleValiderPeriode}
                 title={`Arbitrage & Gel : ${currentPeriodeObj?.libelle || ''} ?`}
                 message="Cette action fige les données de pointage de la période. La paie reprendra pour chaque salarié l’absence horaire finale, les HS finales à 30 % et à 50 %, ainsi que les qualifications et indemnités figées. Vérifiez ces valeurs dans la synthèse avant de confirmer."
-                confirmLabel="Valider l'arbitrage & Sceller le pointage"
+                confirmLabel="Valider & Sceller"
                 variant="primary"
                 loading={processing}
             />

@@ -169,7 +169,7 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={() => setShowConnectionChooser(true)}
-                                    className="min-h-10 rounded px-3 text-sm font-medium text-[var(--color-brand-600)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
+                                    className="min-h-10 rounded-none px-3 text-sm font-medium text-[var(--color-brand-600)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
                                 >
                                     Choisir une base ou un serveur
                                 </button>

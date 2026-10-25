@@ -24,6 +24,8 @@
 
 Les six documents ci-dessous décrivent les modules du système. Les six fichiers SQL canoniques de `backend/conception/bdd/` — `01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql`, `03_schema_employes_contrats.sql`, `04_schema_conges.sql`, `05_schema_pointage.sql` et `06_schema_paie.sql` — sont la référence pour initialiser une base neuve. Les anciennes migrations SP01–SP84 ont été volontairement supprimées ; les identifiants SP éventuellement conservés dans les documents ne servent qu'à la traçabilité historique. Les schémas canoniques ne décrivent pas une mise à niveau d'une base existante et aucun mécanisme automatique d'installation ou de migration n'est documenté ici. UX-15 (`scripts/recette/UX15.md`) décrit une initialisation de recette jetable à partir des six schémas.
 
+Pour activer la reprise des congés par lots sur une base déjà initialisée, exécuter une fois `backend/conception/bdd/upgrade_conge_lots_reprise.sql` avant de déployer le backend correspondant.
+
 | Document Maître | Module Métier | Principaux Composants Techniques & Périmètre | Fichier |
 |---|---|---|---|
 | **Module Employé, Contrat & Carrière** | Employé & Carrière | Dossier individuel pérenne (Art. 18-20), matricule séquentiel garanti, `ContratTravailController`, transitions de carrière (`CarriereTransitionValidator`), historique sans chevauchement, génération DOCX d'embauche et certificats de travail POI, GED documentaire, supervision de carrière `/carrieres`. | [`module-employe-carriere.md`](./module-employe-carriere.md) |

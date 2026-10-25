@@ -1,4 +1,4 @@
-import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 import FieldError from '@/components/ui/forms/FieldError';
 import { getDateFinFromRepriseInput, getRepriseInputValue } from '@/features/leave/utils/leaveDateRange';
@@ -16,16 +16,11 @@ export default function DatesCongeSection({
   preavisInfo,
   derogationDelaiPreavis,
   setDerogationDelaiPreavis,
-  simulationReport,
   _derogationSoldeNegatif,
   _setDerogationSoldeNegatif,
   setShowOptionsAvancees,
   fieldErrors, setFieldErrors
 }) {
-  const soldeNum = Number(simulationReport?.soldeAvant || 0);
-  const isSoldeInsuffisant = simulationReport?.violations?.includes('LEAVE_BALANCE_INSUFFICIENT')
-    || simulationReport?.warnings?.includes('LEAVE_BALANCE_INSUFFICIENT');
-
   const repriseInput = getRepriseInputValue({ estDemiJournee, dateDebut, dateFin });
 
   const handleRepriseChange = (e) => {
@@ -198,77 +193,22 @@ export default function DatesCongeSection({
           </div>
         )}
 
-        {/* Compteur de jours — mis en avant, c'est l'info clé du formulaire */}
+        {/* Total décompté, avec le détail consultable à la demande. */}
         {nbJoursDecomptes > 0 && (
-          <div className="border border-info-500/30 bg-info-500/5 mt-4">
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase tracking-wide">
-                Total décompté du solde
-              </span>
-              <span className="text-2xl font-extrabold text-info-600 dark:text-info-400 font-data">
-                {nbJoursDecomptes} <span className="text-sm font-semibold">jour{nbJoursDecomptes > 1 ? 's' : ''}</span>
-              </span>
-            </div>
-            <div className={`grid divide-x divide-info-500/20 border-t border-info-500/20 bg-[var(--color-surface)] ${
-              nbJoursFeries > 0 ? 'grid-cols-3' : 'grid-cols-2'
-            }`}>
-              <div className="px-4 py-2.5 text-center">
-                <div className="text-[11px] text-[var(--color-fg-subtle)] uppercase tracking-wide">Jours en semaine</div>
-                <div className="text-base font-bold text-[var(--color-fg)] font-data">{nbJoursOuvres}</div>
-              </div>
-              <div className="px-4 py-2.5 text-center">
-                <div className="text-[11px] text-[var(--color-fg-subtle)] uppercase tracking-wide">Week-ends inclus</div>
-                <div className="text-base font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-500)] font-data">{nbJoursWeekEnd}</div>
-              </div>
-              {nbJoursFeries > 0 && (
-                <div className="px-4 py-2.5 text-center">
-                  <div className="text-[11px] text-[var(--color-fg-subtle)] uppercase tracking-wide">Fériés traversés</div>
-                  <div className="text-base font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-data">{nbJoursFeries}</div>
-                </div>
-              )}
-            </div>
-            <p className="px-4 py-2 text-xs text-[var(--color-fg-subtle)] flex items-start gap-1.5 border-t border-info-500/20">
-              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-info-500" />
-              Tous les jours de l'intervalle, y compris samedis, dimanches et jours fériés chômés, sont intégralement déduits du solde.
-            </p>
+          <div className="flex items-center justify-between gap-3 border border-info-500/30 bg-info-500/5 px-3 py-2.5">
+            <span className="text-xs font-medium text-[var(--color-fg-muted)]">Jours décomptés</span>
+            <strong className="text-lg text-info-600 dark:text-info-400">{nbJoursDecomptes} j</strong>
           </div>
         )}
-
-        {/* ── Contrôle Solde Disponible en Temps Réel ──────────────────── */}
-        {selectedType?.decompteSoldeAcquis && simulationReport?.soldeAvant !== undefined && (
-          <div className={`mt-3 p-3 border ${
-            isSoldeInsuffisant
-              ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10'
-              : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
-          }`}>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-[var(--color-fg-muted)] font-medium">
-                Solde actuel disponible :
-              </span>
-              <span className={`font-data font-bold ${
-                isSoldeInsuffisant
-                  ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]'
-                  : 'text-success-600 dark:text-success-400'
-              }`}>
-                {soldeNum.toFixed(2)} jour(s)
-              </span>
-            </div>
-
-            {isSoldeInsuffisant && (
-              <div className="mt-2 pt-2 border-t border-[var(--color-warning-500)]/20 space-y-2">
-                <div className="flex items-start gap-1.5 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium">
-                  <AlertTriangle className="w-4 h-4 text-[var(--color-warning-500)] shrink-0 mt-0.5" />
-                  <span>
-                    Solde insuffisant pour couvrir cette demande ({soldeNum.toFixed(2)} j disponibles pour {nbJoursDecomptes} j demandés).
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--color-warning-700)]">
-                  Les jours non couverts restent une absence à traiter dans le pointage.
-                </p>
-              </div>
-            )}
+        {nbJoursDecomptes > 0 && <details className="group text-xs">
+          <summary className="cursor-pointer list-none text-[var(--color-brand-700)] font-medium">Détail du décompte</summary>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+            <span className="border border-[var(--color-border-subtle)] p-2">Ouvrés <strong className="block">{nbJoursOuvres} j</strong></span>
+            <span className="border border-[var(--color-border-subtle)] p-2">Week-ends <strong className="block">{nbJoursWeekEnd} j</strong></span>
+            <span className="border border-[var(--color-border-subtle)] p-2">Fériés <strong className="block">{nbJoursFeries} j</strong></span>
           </div>
-        )}
+          <p className="mt-2 text-[var(--color-fg-subtle)] flex gap-1.5"><Info size={13} /> Tous les jours de l’intervalle sont décomptés, y compris les week-ends et jours fériés.</p>
+        </details>}
       </div>
 
       {/* Banner d'information : bascule maladie > 30j */}

@@ -14,7 +14,12 @@ import java.util.regex.Pattern;
 /** Rejoue le grand-livre des jours avec la valeur historique de chaque droit. */
 public class CongeLotValorisationEngine {
     public record Mouvement(int id, String type, BigDecimal jours, LocalDate date,
-            Integer idDemande, String commentaire, BigDecimal valeurSource) {}
+            Integer idDemande, String commentaire, BigDecimal valeurSource, LocalDate dateOrigineLot) {
+        public Mouvement(int id, String type, BigDecimal jours, LocalDate date,
+                Integer idDemande, String commentaire, BigDecimal valeurSource) {
+            this(id, type, jours, date, idDemande, commentaire, valeurSource, null);
+        }
+    }
     public record Imputation(int idMouvement, Integer idDemande, int idSource, String origine,
             BigDecimal jours, BigDecimal valeur, BigDecimal tauxHistorique) {}
     public record LotRestant(int idSource, String origine, LocalDate dateAcquisition,
@@ -96,7 +101,8 @@ public class CongeLotValorisationEngine {
                         throw new IllegalStateException("CONGE_LOT_VALORISATION_MISSING: mouvement " + mouvement.id());
                     }
                     String origine = initial ? REPRISE : type;
-                    Lot credit = new Lot(mouvement.id(), origine, mouvement.date(), jours,
+                    Lot credit = new Lot(mouvement.id(), origine,
+                            initial && mouvement.dateOrigineLot() != null ? mouvement.dateOrigineLot() : mouvement.date(), jours,
                             mouvement.valeurSource().setScale(2, RoundingMode.HALF_UP));
                     lots.add(credit);
                     int fifoIndex = Collections.binarySearch(lotsFifo, credit, ORDRE_FIFO);

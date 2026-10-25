@@ -184,7 +184,7 @@ export default function StatusPickerPopover({
                 disabled={disabled}
                 onClick={handleToggle}
                 title={tooltipTitle}
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded transition-all select-none group border border-transparent ${
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none transition-all select-none group border border-transparent ${
                     disabled
                         ? 'cursor-default opacity-85'
                         : 'cursor-pointer hover:border-[var(--color-border)] hover:bg-[var(--color-surface-hover)]'
@@ -229,7 +229,7 @@ export default function StatusPickerPopover({
                         <button
                             type="button"
                             onClick={() => setIsOpen(false)}
-                            className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded hover:bg-[var(--color-surface-hover)] cursor-pointer"
+                            className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-surface-hover)] cursor-pointer"
                         >
                             <X size={14} />
                         </button>
@@ -256,7 +256,7 @@ export default function StatusPickerPopover({
                                             handleApply(opt.code);
                                         }
                                     }}
-                                    className={`w-full flex items-start gap-2.5 p-2 rounded text-left transition-colors cursor-pointer border ${
+                                    className={`w-full flex items-start gap-2.5 p-2 rounded-none text-left transition-colors cursor-pointer border ${
                                         isSelected
                                             ? 'border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/10'
                                             : `border-transparent ${opt.bgHover}`
@@ -293,7 +293,7 @@ export default function StatusPickerPopover({
                                 onChange={(e) => setMotif(e.target.value)}
                                 placeholder="Ex: Certificat médical, mission, urgence..."
                                 autoFocus
-                                className="w-full px-2.5 py-1.5 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)]"
+                                className="w-full px-2.5 py-1.5 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)]"
                             />
                             {/* Suggestions rapides */}
                             <div className="flex flex-wrap gap-1">
@@ -302,7 +302,7 @@ export default function StatusPickerPopover({
                                         key={sug}
                                         type="button"
                                         onClick={() => setMotif(sug)}
-                                        className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-surface-hover)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-brand-400)] cursor-pointer"
+                                        className="text-[9px] px-1.5 py-0.5 rounded-none bg-[var(--color-surface-hover)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-brand-400)] cursor-pointer"
                                     >
                                         + {sug}
                                     </button>
@@ -322,7 +322,7 @@ export default function StatusPickerPopover({
                                     setIsOpen(false);
                                     onOpenRegularisation(row);
                                 }}
-                                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 text-[11px] font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 rounded transition-colors cursor-pointer"
+                                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 text-[11px] font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 rounded-none transition-colors cursor-pointer"
                             >
                                 <Palmtree size={13} className="shrink-0 text-[var(--color-brand-600)]" />
                                 <span>Régulariser par congé / absence…</span>
@@ -335,7 +335,7 @@ export default function StatusPickerPopover({
                         <button
                             type="button"
                             onClick={() => setIsOpen(false)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)] rounded cursor-pointer"
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)] rounded-none cursor-pointer"
                         >
                             Annuler
                         </button>
@@ -343,7 +343,7 @@ export default function StatusPickerPopover({
                             type="button"
                             disabled={!isMotifValid}
                             onClick={() => handleApply(selectedStatut)}
-                            className={`inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold rounded shadow-xs cursor-pointer ${
+                            className={`inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold rounded-none shadow-xs cursor-pointer ${
                                 !isMotifValid
                                     ? 'bg-[var(--color-fg-subtle)] dark:bg-[var(--color-bg-subtle)] text-[var(--color-on-color)] cursor-not-allowed opacity-60'
                                     : 'bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-[var(--color-on-color)]'

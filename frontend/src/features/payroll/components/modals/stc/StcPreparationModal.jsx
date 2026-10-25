@@ -460,16 +460,16 @@ export default function StcPreparationModal({
                         {/* Indicateur d'étapes */}
                         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3 text-xs">
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'PREPARATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'PREPARATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>1</span>
+                                <span className={`w-5 h-5 rounded-none flex items-center justify-center text-[10px] ${step === 'PREPARATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>1</span>
                                 <span>{simulationOnly ? 'Paramètres' : 'Paramètres & données'}</span>
                             </div>
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'SIMULATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'SIMULATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>2</span>
+                                <span className={`w-5 h-5 rounded-none flex items-center justify-center text-[10px] ${step === 'SIMULATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>2</span>
                                 <span>{simulationOnly ? 'Résultat' : 'Simulation & contrôle'}</span>
                             </div>
                             {!simulationOnly && (
                                 <div className={`flex items-center gap-1.5 font-bold ${step === 'VALIDE' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'VALIDE' ? 'bg-[var(--color-success-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>3</span>
+                                    <span className={`w-5 h-5 rounded-none flex items-center justify-center text-[10px] ${step === 'VALIDE' ? 'bg-[var(--color-success-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>3</span>
                                     <span>Validation & décompte</span>
                                 </div>
                             )}

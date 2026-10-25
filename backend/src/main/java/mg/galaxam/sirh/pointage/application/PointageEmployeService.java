@@ -480,8 +480,10 @@ public class PointageEmployeService {
         }
         result.setIndemnitesDisponibles(indemnitesDisponibles);
 
-        Map<LocalDate, String> congeMap = new HashMap<>();
-        String sqlConges = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee FROM demande_conge dc " +
+        Map<LocalDate, CongeJourInfo> congeMap = new HashMap<>();
+        String sqlConges = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee, " +
+                "COALESCE(dc.est_remunere, tc.est_paye) AS est_paye, tc.libelle " +
+                "FROM demande_conge dc JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
                 "WHERE dc.id_employe = ? AND sc.code IN ('VALIDE', 'APPROUVEE') AND dc.date_debut <= ? AND dc.date_fin >= ?";
         try (Connection c = dataSource.getConnection();
@@ -496,8 +498,10 @@ public class PointageEmployeService {
                     LocalDate deb = demandeDebut.isBefore(startDate) ? startDate : demandeDebut;
                     LocalDate fn = demandeFin.isAfter(endDate) ? endDate : demandeFin;
                     boolean demi = rsC.getBoolean("est_demi_journee");
+                    CongeJourInfo conge = new CongeJourInfo(rsC.getBoolean("est_paye"), demi,
+                            rsC.getString("moment_demi_journee"), rsC.getString("libelle"));
                     for (LocalDate d = deb; !d.isAfter(fn); d = d.plusDays(1)) {
-                        congeMap.put(d, demi ? "HALF_DAY" : "FULL_DAY");
+                        congeMap.put(d, conge);
                     }
                 }
             }
@@ -660,16 +664,20 @@ public class PointageEmployeService {
                     }
                 }
 
-                String typeCongeRec = congeMap.get(curr);
-                boolean isCongeValideRec = typeCongeRec != null && (rec.totalMinutes <= 0 
+                CongeJourInfo congeRec = congeMap.get(curr);
+                boolean isCongeValideRec = congeRec != null && (rec.totalMinutes <= 0
                         || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut) 
                         || "ABSENCE_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut) 
                         || "ANOMALIE_SAISIE".equalsIgnoreCase(rec.codeStatut));
 
                 if (isCongeValideRec) {
                     dto.setCongeApprouve(true);
-                    dto.setStatut("HALF_DAY".equals(typeCongeRec) ? "DEMI_JOURNEE" : "CONGE");
-                    if ("HALF_DAY".equals(typeCongeRec)) {
+                    dto.setCongePaye(congeRec.remunere());
+                    dto.setCongeDemiJournee(congeRec.demiJournee());
+                    dto.setMomentConge(congeRec.moment());
+                    dto.setLibelleConge(congeRec.libelle());
+                    dto.setStatut(congeRec.demiJournee() ? "DEMI_JOURNEE" : "CONGE");
+                    if (congeRec.demiJournee()) {
                         totalJoursTravailles++;
                         totalHeuresRealisees += toLegacyDecimalHours(totalMinutesJour);
                     }
@@ -702,15 +710,25 @@ public class PointageEmployeService {
                 dto.setMontantRepas(BigDecimal.ZERO);
                 dto.setMontantDeplacement(BigDecimal.ZERO);
 
-                String typeConge = congeMap.get(curr);
+                CongeJourInfo typeConge = congeMap.get(curr);
+                if (typeConge != null) {
+                    dto.setCongeApprouve(true);
+                    dto.setCongePaye(typeConge.remunere());
+                    dto.setCongeDemiJournee(typeConge.demiJournee());
+                    dto.setMomentConge(typeConge.moment());
+                    dto.setLibelleConge(typeConge.libelle());
+                }
 
                 if (isAvantEmbauche || isApresDepart) {
                     dto.setHeures("—");
                     dto.setStatut("NON_CONCERNE");
-                } else if (typeConge != null && "FULL_DAY".equals(typeConge)) {
-                    dto.setCongeApprouve(true);
+                } else if (typeConge != null && !typeConge.demiJournee()) {
                     dto.setHeures("00h00");
                     dto.setStatut("CONGE");
+                } else if (typeConge != null) {
+                    dto.setHeures(formatHoursMinutes(dureeJourMins / 2));
+                    dto.setTotalHeuresDecimal(toLegacyDecimalHours(dureeJourMins / 2));
+                    dto.setStatut("DEMI_JOURNEE");
                 } else if (isFerie) {
                     dto.setHeures("00h00");
                     dto.setStatut("FERIE_CHOME");
@@ -1133,6 +1151,8 @@ public class PointageEmployeService {
 
         return result;
     }
+
+    private record CongeJourInfo(boolean remunere, boolean demiJournee, String moment, String libelle) {}
 
     private record PeriodAllowance(int id, int siteId, String code, String label,
             boolean fractionable, String periodicity, BigDecimal siteAmount, LocalDate start, LocalDate end) {

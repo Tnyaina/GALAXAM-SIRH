@@ -7,6 +7,20 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter/wght.css";
 
+/* Tailles communes des boutons : les composants choisissent un niveau, sans
+   redéfinir hauteur, largeur, espacement ou taille de texte localement. */
+@layer components {
+  .ui-button-size-xs { min-height: 26px; gap: 0.375rem; padding: 0.25rem 0.625rem; font-size: 11px; }
+  .ui-button-size-sm { min-height: 30px; gap: 0.375rem; padding: 0.375rem 0.75rem; font-size: 12px; }
+  .ui-button-size-md { min-height: 34px; gap: 0.5rem; padding: 0.5rem 0.875rem; font-size: 12px; }
+  .ui-button-size-lg { min-height: 38px; gap: 0.5rem; padding: 0.625rem 1.125rem; font-size: 14px; }
+
+  .ui-button-icon-xs { width: 26px; height: 26px; min-width: 26px; min-height: 26px; padding: 0; }
+  .ui-button-icon-sm { width: 30px; height: 30px; min-width: 30px; min-height: 30px; padding: 0; }
+  .ui-button-icon-md { width: 34px; height: 34px; min-width: 34px; min-height: 34px; padding: 0; }
+  .ui-button-icon-lg { width: 38px; height: 38px; min-width: 38px; min-height: 38px; padding: 0; }
+}
+
 /* Parcours STC : repères sobres, réutilisant les couleurs du thème. */
 .stc-flow-intro {
   padding: 0.65rem 0.85rem;

@@ -144,7 +144,7 @@ export default function PeriodeNavigator({
 
                 {selectedBadge && (
                     <span
-                        className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full shrink-0 hidden md:inline tracking-wider ${
+                        className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-none shrink-0 hidden md:inline tracking-wider ${
                             isEnCoursSelected
                                 ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)]'
                                 : isClotureSelected
@@ -262,7 +262,7 @@ export default function PeriodeNavigator({
 
                                             {opt.statut && (
                                                 <span
-                                                    className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full shrink-0 tracking-wider ${
+                                                    className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-none shrink-0 tracking-wider ${
                                                         opt.isEnCours
                                                             ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)]'
                                                             : opt.isCloture

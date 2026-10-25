@@ -348,22 +348,21 @@ export default function PeriodeEmployeeTable({
                                                         <span>{row.jour}</span>
                                                         {isFerie && hasPunches && <span className="text-[10px] font-semibold text-[var(--color-purple-700)]" title={row.libelleFerie || 'Jour férié'}>Férié{row.libelleFerie ? ` · ${row.libelleFerie}` : ''}</span>}
                                                         {canEditRow && !isConge && (
-                                                            <button
+                                                            <Button
                                                                 type="button"
+                                                                variant="outline"
+                                                                size="xs"
                                                                 onClick={() => toggleDayContinu(row.datePointage)}
-                                                                className={`min-h-[40px] min-w-[40px] text-[9px] px-1 py-0.2 font-sans font-semibold rounded border transition-colors cursor-pointer shrink-0 ${
+                                                                className={`font-sans normal-case tracking-normal shrink-0 rounded-none ${
                                                                     row.horaireContinu
                                                                         ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/40 hover:bg-[var(--color-brand-500)]/20'
                                                                         : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
                                                                 }`}
                                                                 title={row.horaireContinu ? "Journée continue active (sans pause déjeuner). Cliquer pour rétablir la pause." : "Activer la journée continue (sans pause déjeuner 1h)"}
+                                                                iconLeft={row.horaireContinu ? <FastForward size={12} className="shrink-0" /> : undefined}
                                                             >
-                                                                {row.horaireContinu ? (
-                                                                    <span className="inline-flex items-center gap-0.5">
-                                                                        <FastForward size={8} className="shrink-0" /> Continu
-                                                                    </span>
-                                                                ) : 'Pause'}
-                                                            </button>
+                                                                {row.horaireContinu ? 'Continu' : 'Pause'}
+                                                            </Button>
                                                         )}
                                                     </div>
                                                 </Td>
@@ -372,7 +371,10 @@ export default function PeriodeEmployeeTable({
                                                 {isConge && !hasPunches ? (
                                                     <Td role="cell" data-label="Situation" data-mobile-span="full" colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] font-medium">
                                                         <div className="flex items-center justify-center gap-2">
-                                                            <Badge variant="info" size="sm">{row.congePaye === false ? 'Congé sans solde validé' : 'Congé payé validé'}</Badge>
+                                                            <Badge variant="info" size="sm">
+                                                                {row.congePaye === false ? 'Congé sans solde validé' : 'Congé payé validé'}
+                                                                {row.congeDemiJournee && ` · demi-journée ${row.momentConge === 'MATIN' ? 'matin' : row.momentConge === 'APRES_MIDI' ? 'après-midi' : ''}`}
+                                                            </Badge>
                                                         </div>
                                                     </Td>
                                                 ) : isFerie && !hasPunches ? (
@@ -546,7 +548,7 @@ export default function PeriodeEmployeeTable({
                                                                     ].filter(Boolean).join(' — ');
 
                                                                     return (
-                                                                        <div key={ind.idIndemnite} title={details} className="inline-flex items-center gap-1 rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg)] px-1.5 py-0.5">
+                                                                        <div key={ind.idIndemnite} title={details} className="inline-flex items-center gap-1 rounded-none border border-[var(--color-border-subtle)] bg-[var(--color-bg)] px-1.5 py-0.5">
                                                                             <span className="max-w-16 truncate text-[9px] font-medium" title={details}>{name}</span>
                                                                             {isFractionnable ? (
                                                                                 <>

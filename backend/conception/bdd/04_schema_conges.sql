@@ -97,6 +97,7 @@ CREATE TABLE mouvement_solde_conge (
     nb_jours NUMERIC(5,2) NOT NULL,
     id_demande_conge INT,
     date_mouvement DATE NOT NULL DEFAULT CURRENT_DATE,
+    date_origine_lot DATE,
     commentaire TEXT,
     valeur_source NUMERIC(14,2),
     created_by INT REFERENCES utilisateur(id_utilisateur),
@@ -106,6 +107,7 @@ CREATE TABLE mouvement_solde_conge (
         OR (type_mouvement IN ('PRISE', 'EXPIRATION') AND nb_jours <= 0)
         OR type_mouvement = 'AJUSTEMENT'
     ),
+    CONSTRAINT ck_reprise_lot_date CHECK (date_origine_lot IS NULL OR date_origine_lot <= date_mouvement),
     CONSTRAINT uq_mouvement_solde_conge_id_employe UNIQUE (id_mouvement, id_employe),
     CONSTRAINT fk_mouvement_conge_demande_employe FOREIGN KEY (id_demande_conge, id_employe)
         REFERENCES demande_conge(id_demande_conge, id_employe)

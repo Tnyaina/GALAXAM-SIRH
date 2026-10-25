@@ -84,7 +84,7 @@ public class CongeSoldeController {
                     req.nouveauReliquatJours(),
                     req.nouveauReliquatValeur(),
                     req.motif(),
-                    CustomUserDetails.getCurrentUserId(), c);
+                    CustomUserDetails.getCurrentUserId(), req.idLotReprise(), c);
             return ResponseEntity.ok(result);
         });
     }

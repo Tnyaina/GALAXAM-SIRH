@@ -71,7 +71,7 @@ export default function Badge({
         <span
           className={`
             ${dotSizes[currentSize]}
-            rounded-full flex-shrink-0
+            rounded-none flex-shrink-0
             ${dotColors[currentVariant] ?? dotColors.default}
           `}
         />

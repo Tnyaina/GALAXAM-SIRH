@@ -14,6 +14,18 @@ public class PointageJourDTO {
     private boolean congeApprouve;
     public boolean isCongeApprouve() { return congeApprouve; }
     public void setCongeApprouve(boolean value) { congeApprouve = value; }
+    private Boolean congePaye;
+    public Boolean getCongePaye() { return congePaye; }
+    public void setCongePaye(Boolean value) { congePaye = value; }
+    private boolean congeDemiJournee;
+    public boolean isCongeDemiJournee() { return congeDemiJournee; }
+    public void setCongeDemiJournee(boolean value) { congeDemiJournee = value; }
+    private String momentConge;
+    public String getMomentConge() { return momentConge; }
+    public void setMomentConge(String value) { momentConge = value; }
+    private String libelleConge;
+    public String getLibelleConge() { return libelleConge; }
+    public void setLibelleConge(String value) { libelleConge = value; }
     private Integer idPointage;
     private Integer idSite;
     private Integer version;

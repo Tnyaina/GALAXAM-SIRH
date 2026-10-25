@@ -14,17 +14,17 @@ const variants = {
 };
 
 const sizes = {
-  xs: 'text-[11px] px-2.5 py-1 gap-1.5 min-h-[26px]',
-  sm: 'text-xs px-3 py-1.5 gap-1.5 min-h-[30px]',
-  md: 'text-xs px-3.5 py-2 gap-2 min-h-[34px]',
-  lg: 'text-sm px-4.5 py-2.5 gap-2 min-h-[38px]',
+  xs: 'ui-button-size-xs',
+  sm: 'ui-button-size-sm',
+  md: 'ui-button-size-md',
+  lg: 'ui-button-size-lg',
 };
 
 const iconSizes = {
-  xs: 'w-[26px] h-[26px] min-w-[26px] min-h-[26px] p-0',
-  sm: 'w-[30px] h-[30px] min-w-[30px] min-h-[30px] p-0',
-  md: 'w-[34px] h-[34px] min-w-[34px] min-h-[34px] p-0',
-  lg: 'w-[38px] h-[38px] min-w-[38px] min-h-[38px] p-0',
+  xs: 'ui-button-icon-xs',
+  sm: 'ui-button-icon-sm',
+  md: 'ui-button-icon-md',
+  lg: 'ui-button-icon-lg',
 };
 
 export default function Button({
@@ -66,7 +66,7 @@ export default function Button({
       aria-disabled={isDisabled}
       onClick={handleClick}
       className={plain ? `font-sans transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] disabled:cursor-not-allowed ${className}` : `
-        inline-flex flex-row items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
+        inline-flex flex-row items-center justify-center font-semibold tracking-wide uppercase
         rounded-none transition-all duration-200 ease-in-out select-none ${wrapLabel ? 'whitespace-normal' : 'whitespace-nowrap'} leading-none
         focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]
         ${!isDisabled ? 'active:scale-[0.98] cursor-pointer' : 'opacity-50 cursor-not-allowed shadow-none pointer-events-none disabled:pointer-events-none'}

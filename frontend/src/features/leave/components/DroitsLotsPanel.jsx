@@ -7,7 +7,6 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import Loading from '@/components/ui/feedback/Loading';
 import { Card } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import CollapsibleSection from '@/components/ui/data-display/CollapsibleSection';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
 const number = (value) => value == null || !Number.isFinite(Number(value)) ? null : Number(value);
@@ -24,7 +23,7 @@ function movementKind(movement) {
 }
 
 function lotLabel(lot) {
-  if (isOpening(lot)) return 'Reprise initiale agrégée';
+  if (isOpening(lot)) return lot.source?.dateOrigineLot ? 'Lot historique repris' : 'Reprise initiale agrégée';
   if (lot.origine === 'ACQUISITION') return 'Acquisition mensuelle';
   if (lot.origine === 'BONIFICATION') return 'Bonification';
   if (lot.origine === 'AJUSTEMENT') return 'Ajustement';
@@ -47,7 +46,7 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
       .map((movement) => ({
         idSource: movement.idMouvement,
         origine: imputationOrigins.get(Number(movement.idMouvement)) || movementKind(movement),
-        dateAcquisition: movement.dateMouvement,
+        dateAcquisition: movement.dateOrigineLot || movement.dateMouvement,
         jours: 0,
         valeur: 0,
         exhausted: true,
@@ -67,7 +66,7 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
       const initialValue = source?.valeurSource != null ? Number(source.valeurSource)
         : remainingValue == null ? null : remainingValue + usedValue;
       // A certified aggregate opening stock does not identify a historical per-day rate.
-      const unitRate = !isOpening(lot) && initialDays > 0 && initialValue != null ? initialValue / initialDays : null;
+      const unitRate = (!isOpening(lot) || source?.dateOrigineLot) && initialDays > 0 && initialValue != null ? initialValue / initialDays : null;
       return { ...lot, source, history, usedDays, usedValue, remainingDays, remainingValue, initialDays, initialValue, unitRate };
     });
   }, [situation, movements, sourceMovements]);
@@ -85,7 +84,7 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
         <div className="flex flex-wrap justify-between items-start gap-3">
           <div>
             <h4 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2"><Layers3 size={16} /> Droits et lots valorisés</h4>
-            <p className="text-xs text-[var(--color-fg-muted)] mt-1">Ordre appliqué : reprise, ajustements, puis droits les plus anciens. Ouvrez un lot pour consulter sa valorisation et ses imputations historiques.</p>
+            <p className="text-xs text-[var(--color-fg-muted)] mt-1">Ordre FIFO : reprise, ajustements, puis acquisitions les plus anciennes.</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wide text-[var(--color-fg-muted)]">Stock disponible</p>
@@ -98,26 +97,21 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
         ) : (
           <div className="overflow-x-auto">
             <Table bordered={false} aria-label="Synthèse chronologique des lots de congés">
-              <Thead><Tr><Th>Lot FIFO</Th><Th>Période</Th><Th>Jours (acquis · consommés · restants)</Th><Th className="text-right">Valeur historique restante</Th><Th>Détail</Th></Tr></Thead>
+              <Thead><Tr><Th>Lot</Th><Th>Origine</Th><Th className="text-right">Jours restants</Th><Th className="text-right">Taux du lot</Th><Th className="text-right">Valeur restante</Th><Th>Détail</Th></Tr></Thead>
               <Tbody>
                 {rows.map((lot, index) => (
-                  <Tr key={lot.idSource} className={selectedId === lot.idSource ? 'bg-[var(--color-bg-subtle)]' : ''}>
-                    <Td><div className="space-y-1"><span className="text-xs font-semibold text-[var(--color-fg)]">{index + 1}. {lotLabel(lot)}</span>{isOpening(lot) && <Badge variant="info" size="xs">Agrégé</Badge>}</div></Td>
-                    <Td className="text-xs">{isOpening(lot) ? <span className="text-[var(--color-fg-muted)]">Arrêté au {formatDate(lot.dateAcquisition)}<span className="block text-[10px]">Acquisitions historiques non ventilées</span></span> : (
+                  <Tr key={lot.idSource} selected={selectedId === lot.idSource}>
+                    <Td><div className="flex items-center gap-2"><span className="text-xs font-semibold text-[var(--color-fg)]">{index + 1}. {lotLabel(lot)}</span>{isOpening(lot) && !lot.source?.dateOrigineLot && <Badge variant="info" size="xs">Global</Badge>}</div></Td>
+                    <Td className="text-xs">{isOpening(lot) && !lot.source?.dateOrigineLot ? <span className="text-[var(--color-fg-muted)]">Origine non détaillée</span> : (
                       <span className="block">
-                        {lot.dateAcquisition && <span className="block font-semibold text-[var(--color-fg)]">Cycle {String(lot.dateAcquisition).slice(0, 4)}</span>}
-                        <span className="text-[var(--color-fg-muted)]">Acquis le {formatDate(lot.dateAcquisition)}</span>
+                        {lot.dateAcquisition && <span className="block font-semibold text-[var(--color-fg)]">Exercice {String(lot.dateAcquisition).slice(0, 4)}</span>}
+                        {!isOpening(lot) && <span className="text-[var(--color-fg-muted)]">Acquis le {formatDate(lot.dateAcquisition)}</span>}
                       </span>
                     )}</Td>
-                    <Td>
-                      <dl className="grid min-w-52 grid-cols-3 gap-2 text-right text-xs">
-                        <div><dt className="text-[10px] text-[var(--color-fg-muted)]">Acquis</dt><dd className="font-mono">{formatDays(lot.initialDays)}</dd></div>
-                        <div><dt className="text-[10px] text-[var(--color-fg-muted)]">Consommés</dt><dd className="font-mono">{lot.history.length ? formatDays(lot.usedDays) : '—'}</dd></div>
-                        <div><dt className="text-[10px] text-[var(--color-fg-muted)]">Restants</dt><dd className="font-mono font-semibold">{formatDays(lot.remainingDays)}</dd></div>
-                      </dl>
-                    </Td>
+                    <Td className="text-right"><strong className="font-mono text-xs">{formatDays(lot.remainingDays)}</strong><span className="block text-[10px] text-[var(--color-fg-muted)]">sur {formatDays(lot.initialDays)} {isOpening(lot) ? 'repris' : 'initiaux'}</span></Td>
+                    <Td className="text-right text-xs">{lot.unitRate == null ? '—' : `${formatMoneyAr(lot.unitRate)} / j`}</Td>
                     <Td className="text-right text-xs font-semibold">{fmtMoney(lot.remainingValue)}</Td>
-                    <Td><Button variant="ghost" size="xs" aria-label={`${selectedId === lot.idSource ? 'Fermer' : 'Consulter'} le lot ${lotLabel(lot)} #${lot.idSource}`} aria-expanded={selectedId === lot.idSource} onClick={() => setSelectedId(selectedId === lot.idSource ? null : lot.idSource)} iconLeft={<ChevronDown size={13} />}>{selectedId === lot.idSource ? 'Fermer' : 'Voir'}</Button></Td>
+                    <Td><Button variant="ghost" size="xs" aria-label={`${selectedId === lot.idSource ? 'Masquer' : 'Voir'} l’historique du lot ${lotLabel(lot)} #${lot.idSource}`} aria-expanded={selectedId === lot.idSource} onClick={() => setSelectedId(selectedId === lot.idSource ? null : lot.idSource)} iconLeft={<ChevronDown size={13} className={selectedId === lot.idSource ? 'rotate-180' : ''} />}>{selectedId === lot.idSource ? 'Masquer' : 'Historique'}</Button></Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -127,24 +121,13 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
       </Card>
 
       {selected && (
-        <CollapsibleSection
-          key={selected.idSource}
-          defaultOpen
-          title={`Détail du lot · ${lotLabel(selected)}`}
-          description={`Source #${selected.idSource} · mouvement du ${formatDate(selected.dateAcquisition)} · ${formatDays(selected.remainingDays)} et ${fmtMoney(selected.remainingValue)} restants`}
-          contentClassName="space-y-3"
-        >
-          <dl className="grid grid-cols-2 gap-3 border-y border-[var(--color-border-subtle)] py-3 text-xs sm:grid-cols-4">
-            <div><dt className="text-[var(--color-fg-muted)]">Jours initiaux</dt><dd className="font-mono font-semibold">{formatDays(selected.initialDays)}</dd></div>
-            <div><dt className="text-[var(--color-fg-muted)]">Valeur historique initiale</dt><dd className="font-semibold">{fmtMoney(selected.initialValue)}</dd></div>
-            <div><dt className="text-[var(--color-fg-muted)]">Jours consommés nets</dt><dd className="font-mono font-semibold">{selected.history.length ? formatDays(selected.usedDays) : '—'}</dd></div>
-            <div><dt className="text-[var(--color-fg-muted)]">Taux historique du lot</dt><dd className="font-semibold">{selected.unitRate == null ? 'Non déterminé' : `${formatMoneyAr(selected.unitRate)} / j`}</dd></div>
-          </dl>
-          {isOpening(selected) && <Alert type="info" message="La date affichée est la date d'arrêté de reprise. Elle ne décrit pas les dates d'acquisition historique des droits agrégés." />}
-          {selected.source && <p className="text-xs text-[var(--color-fg-muted)]">Motif source : {selected.source.commentaire || 'Aucun motif renseigné'}{selected.source.createdBy ? ` · enregistré par ${selected.source.createdBy}` : ''}</p>}
-          {!selected.source && <p className="text-xs text-[var(--color-warning-700)]">Mouvement source non retrouvé dans le registre actuellement chargé.</p>}
+        <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4 space-y-3" aria-label={`Historique du lot ${lotLabel(selected)}`}>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h5 className="text-sm font-semibold text-[var(--color-fg)]">Historique · {lotLabel(selected)}{selected.source?.dateOrigineLot ? ` ${String(selected.dateAcquisition).slice(0, 4)}` : ''}</h5>
+            <span className="text-xs text-[var(--color-fg-muted)]">{selected.history.length ? `${formatDays(selected.usedDays)} consommés nets` : 'Aucune consommation'}</span>
+          </div>
           <div className="overflow-x-auto">
-            {selected.history.length === 0 ? <p className="text-xs text-[var(--color-fg-muted)] py-3">Aucune imputation de consommation n'est reliée à ce lot.</p> : (
+            {selected.history.length === 0 ? <p className="text-xs text-[var(--color-fg-muted)]">Ce lot n’a pas encore été utilisé.</p> : (
               <Table bordered={false}><Thead><Tr><Th>Mouvement</Th><Th>Demande</Th><Th className="text-right">Impact sur le lot</Th><Th className="text-right">Montant historique</Th><Th className="text-right">Taux retenu</Th></Tr></Thead><Tbody>
                 {selected.history.map((item, index) => {
                   const movement = sourceMovements.get(Number(item.idMouvement));
@@ -161,8 +144,15 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
               </Tbody></Table>
             )}
           </div>
-          <p className="text-[10px] text-[var(--color-fg-subtle)]">Les imputations sont les traces de mouvements retournées par le backend; aucune relation absente n'est reconstituée.</p>
-        </CollapsibleSection>
+          <details className="border-t border-[var(--color-border-subtle)] pt-2 text-xs">
+            <summary className="cursor-pointer font-medium text-[var(--color-brand-600)] focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]">Source et justification</summary>
+            <div className="mt-2 space-y-1 text-[var(--color-fg-muted)]">
+              <p>Valeur initiale : {fmtMoney(selected.initialValue)} · mouvement #{selected.idSource}{selected.source?.dateMouvement ? ` du ${formatDate(selected.source.dateMouvement)}` : ''}</p>
+              {selected.source ? <p>Référence : {selected.source.commentaire || 'Aucune précision'}{selected.source.createdBy ? ` · enregistré par ${selected.source.createdBy}` : ''}</p> : <p>Mouvement source indisponible dans le registre chargé.</p>}
+              {isOpening(selected) && !selected.source?.dateOrigineLot && <p>Cette reprise globale ne précise pas l’exercice d’origine des jours.</p>}
+            </div>
+          </details>
+        </section>
       )}
     </div>
   );

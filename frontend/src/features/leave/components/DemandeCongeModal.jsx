@@ -339,34 +339,6 @@ export default function DemandeCongeModal({
                       Utiliser la valeur par défaut du type
                     </button>
                   )}
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={derogationDelaiPreavis}
-                      onChange={(event) => setDerogationDelaiPreavis(event.target.checked)}
-                      className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
-                    />
-                    <span className="text-xs text-[var(--color-fg)]">
-                      Dérogation de préavis
-                      <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                        Autorise la demande hors du délai légal ou conventionnel de préavis.
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={derogationContinuiteService}
-                      onChange={(event) => setDerogationContinuiteService(event.target.checked)}
-                      className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
-                    />
-                    <span className="text-xs text-[var(--color-fg)]">
-                      Dérogation de continuité d'activité
-                      <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                        Autorise le congé malgré l'absence simultanée de collègues au même poste.
-                      </span>
-                    </span>
-                  </label>
                 </div>
               )}
             </div>

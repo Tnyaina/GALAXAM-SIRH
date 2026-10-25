@@ -5,15 +5,15 @@ export default function ConnectionSwitchConfirm({ target, busy, onCancel, onConf
   const remote = target.mode === 'remote';
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50 p-4" role="presentation">
-      <section role="alertdialog" aria-modal="true" aria-labelledby="connection-switch-title" aria-describedby="connection-switch-description" className="w-full max-w-lg space-y-5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl sm:p-6">
+      <section role="alertdialog" aria-modal="true" aria-labelledby="connection-switch-title" aria-describedby="connection-switch-description" className="w-full max-w-lg space-y-5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 id="connection-switch-title" className="text-lg font-semibold">Changer la connexion</h2>
             <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Vérifiez la destination avant de continuer.</p>
           </div>
-          <button type="button" onClick={onCancel} disabled={busy} aria-label="Annuler" className="rounded p-2 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"><X size={18} /></button>
+          <button type="button" onClick={onCancel} disabled={busy} aria-label="Annuler" className="rounded-none p-2 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"><X size={18} /></button>
         </div>
-        <div className="flex items-center gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
+        <div className="flex items-center gap-3 rounded-none border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3">
           {remote ? <Globe2 size={20} aria-hidden="true" /> : <Database size={20} aria-hidden="true" />}
           <div className="min-w-0"><p className="font-semibold">{remote ? 'Serveur distant' : 'Base locale'}</p>{remote && <p className="truncate text-sm text-[var(--color-fg-muted)]">{target.address}</p>}</div>
         </div>

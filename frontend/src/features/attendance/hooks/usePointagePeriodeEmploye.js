@@ -158,7 +158,7 @@ export function usePointagePeriodeEmploye({
                 const isWeekend = Boolean(ptg.weekend || ptg.jour?.startsWith('Sam') || ptg.jour?.startsWith('Dim')
                     || (ptg.dateComplete && [0, 6].includes(new Date(`${ptg.dateComplete}T00:00:00`).getDay())));
                 const isFerie = Boolean(ptg.libelleFerie || ptg.isFerieChome || ptg.isFerie || ['FERIE_CHOME','FERIE','FERIE_TRAVAILLE'].includes(ptg.statut));
-                const isConge = Boolean(ptg.isConge || ptg.statut === 'CONGE' || ptg.statut === 'CONGE_PAYE');
+                const isConge = Boolean(ptg.isConge || ptg.congeApprouve || ptg.statut === 'CONGE' || ptg.statut === 'CONGE_PAYE');
 
                 const rawEntree = cleanTime(ptg.entree);
                 const rawSortieMatin = cleanTime(ptg.sortiePause);
@@ -222,6 +222,10 @@ export function usePointagePeriodeEmploye({
                     datePointage: ptg.dateComplete, date: ptg.date, jour: ptg.jour,
                     weekend: isWeekend, ferie: isFerie, libelleFerie: ptg.libelleFerie || null, conge: isConge,
                     congeApprouve: Boolean(ptg.congeApprouve || (isConge && ptg.statut === 'CONGE' && !hasSavedHours && ptg.congeValide)),
+                    congePaye: ptg.congePaye,
+                    congeDemiJournee: Boolean(ptg.congeDemiJournee),
+                    momentConge: ptg.momentConge || null,
+                    libelleConge: ptg.libelleConge || null,
                     canCorrect: ptg.canCorrect !== false,
                     heureEntreeMatin: rawEntree, heureSortieMatin: rawSortieMatin,
                     heureEntreeAm: rawEntreeAm, heureSortieAm: rawSortieAm,

@@ -29,11 +29,11 @@ const formatDateMouvement = (dateVal, fallbackTimestamp) => {
 
 const formatMotifMouvement = (commentaire) => {
   if (!commentaire) return '—';
-  const reprise = commentaire.match(/^(?:\[SOLDE_INITIAL\]\s*)?Reprise cutover - Solde initial au (\d{4}-\d{2}-\d{2})\s*:\s*(.*)$/i);
+  const reprise = commentaire.match(/^(?:\[SOLDE_INITIAL\]\s*)?Reprise cutover - Solde initial au (\d{4}-\d{2}-\d{2})(?:\s*;\s*lot\s+(\d+))?\s*:\s*(.*)$/i);
   if (reprise) {
     const date = formatDateMouvement(reprise[1]);
-    const details = reprise[2].replace(/^Arrêté DAF\s*:\s*/i, 'Arrêté DAF : ').trim();
-    return `Reprise historique au ${date}${details ? ` · ${details}` : ''}`;
+    const details = reprise[3].replace(/^Arrêté DAF\s*:\s*/i, 'Arrêté DAF : ').trim();
+    return `Reprise historique au ${date}${reprise[2] ? ` · lot ${reprise[2]}` : ''}${details ? ` · ${details}` : ''}`;
   }
   return commentaire
     .replace(/^\[SOLDE_INITIAL\]\s*/i, '')
@@ -118,8 +118,11 @@ export default function MouvementsSoldeTable({
   // valeurSource est un montant de lot pour les crédits, mais un taux unitaire
   // de secours pour les prises : ce n'est pas leur imputation FIFO réelle.
   const hasValeurSource = safeMouvements.some(m => m.valeurSource != null && Number(m.valeurSource) > 0);
+  const showFilters = safeMouvements.length > 1 || filterType !== 'ALL' || searchQuery.trim() !== '';
 
   const [correctionAvant, setCorrectionAvant] = useState({ jours: null, valeur: null });
+  const [lotsCorrection, setLotsCorrection] = useState([]);
+  const [selectedLotCorrection, setSelectedLotCorrection] = useState(null);
 
   const ouvrirCorrection = async () => {
     setShowCorrection(true);
@@ -128,7 +131,13 @@ export default function MouvementsSoldeTable({
     setCorrectionLoading(true);
     try {
       const situation = await congeService.getValorisationLots(idEmploye);
-      const reprise = situation?.lots?.find(lot => lot.origine === 'REPRISE_CUTOVER');
+      const sources = safeMouvements.filter(m => m.typeMouvement === 'AJUSTEMENT'
+        && (m.commentaire?.startsWith('[SOLDE_INITIAL]') || m.commentaire?.startsWith('Reprise cutover - Solde initial')));
+      const lots = sources.map(source => situation?.lots?.find(lot => Number(lot.idSource) === Number(source.idMouvement))
+        || { idSource: source.idMouvement, dateAcquisition: source.dateOrigineLot || source.dateMouvement, jours: 0, valeur: 0 });
+      setLotsCorrection(lots);
+      const reprise = lots[0];
+      setSelectedLotCorrection(reprise?.idSource ?? null);
       const j = String(reprise?.jours ?? 0);
       const v = String(reprise?.valeur ?? 0);
       setCorrectionAvant({ jours: reprise?.jours ?? 0, valeur: reprise?.valeur ?? 0 });
@@ -149,6 +158,7 @@ export default function MouvementsSoldeTable({
         nouveauReliquatJours: correction.jours,
         nouveauReliquatValeur: correction.valeur,
         motif: correction.motif.trim(),
+        idLotReprise: selectedLotCorrection,
       });
       setCorrectionResult(resultat);
       onAjustementSuccess?.();
@@ -337,7 +347,7 @@ export default function MouvementsSoldeTable({
               {soldeActuel != null ? `${Number(soldeActuel).toFixed(2)} j` : `${(statsMouvements.totalAcquis - statsMouvements.totalConsomme).toFixed(2)} j`}
             </span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-none bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center justify-center shrink-0">
             <Calendar size={16} />
           </div>
         </div>
@@ -351,7 +361,7 @@ export default function MouvementsSoldeTable({
               {loadError ? 'Indisponible' : `+${statsMouvements.totalAcquis.toFixed(2)} j`}
             </span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-none bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] flex items-center justify-center shrink-0">
             <ArrowUpRight size={16} />
           </div>
         </div>
@@ -365,14 +375,14 @@ export default function MouvementsSoldeTable({
               {loadError ? 'Indisponible' : `-${statsMouvements.totalConsomme.toFixed(2)} j`}
             </span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-none bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] flex items-center justify-center shrink-0">
             <ArrowDownRight size={16} />
           </div>
         </div>
       </div>
 
       {/* ── Filtres et Recherche rapide ── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      {showFilters && <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Filtre par type */}
         <div className="w-full sm:w-64">
           <Select
@@ -396,7 +406,7 @@ export default function MouvementsSoldeTable({
             className="w-full pl-8 pr-3 py-1.5 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus:border-[var(--color-brand-500)]"
           />
         </div>
-      </div>
+      </div>}
 
       <div className="overflow-x-auto">
         {loadError ? (
@@ -423,7 +433,7 @@ export default function MouvementsSoldeTable({
                 <Th className="text-center">Impact Solde</Th>
                 <Th className="text-center">Solde Cumulé</Th>
                 {hasValeurSource && <Th className="text-right">Valorisation</Th>}
-                <Th>Motif & Justification</Th>
+                <Th>Justification</Th>
                 <Th>Opérateur</Th>
               </Tr>
             </Thead>
@@ -434,6 +444,8 @@ export default function MouvementsSoldeTable({
                 const badgeCfg = getMouvementBadgeConfig(m.typeMouvement, m.commentaire);
                 const demandeMatch = m.commentaire ? m.commentaire.match(/Demande #(\d+)/i) : null;
                 const isRegularisation = m.commentaire?.includes('[REGULARISATION_POINTAGE]');
+                const repriseMatch = m.commentaire?.match(/^(?:\[SOLDE_INITIAL\]\s*)?Reprise cutover - Solde initial au \d{4}-\d{2}-\d{2}(?:\s*;\s*lot\s+(\d+))?\s*:\s*(.*)$/i);
+                const referenceDaf = repriseMatch?.[2]?.replace(/^Arrêté DAF\s*:\s*/i, '').trim();
 
                 return (
                   <Tr key={m.idMouvement} className="hover:bg-[var(--color-surface-hover)] transition-colors">
@@ -453,7 +465,7 @@ export default function MouvementsSoldeTable({
                     <Td className="text-center font-mono font-bold text-xs font-data">
                       {m.soldeApres !== null && m.soldeApres !== undefined ? (
                         <span className={m.soldeApres >= 0 ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)]'}>
-                          {m.soldeApres >= 0 ? `+${Number(m.soldeApres).toFixed(2)}` : Number(m.soldeApres).toFixed(2)} j
+                          {Number(m.soldeApres).toFixed(2)} j
                         </span>
                       ) : (
                         <span className="text-[var(--color-fg-subtle)] font-normal">-</span>
@@ -476,7 +488,16 @@ export default function MouvementsSoldeTable({
                             Régul. Pointage
                           </Badge>
                         )}
-                        <span>{formatMotifMouvement(m.commentaire)}</span>
+                        {repriseMatch ? (
+                          <span className="min-w-0">
+                            <span className="block font-medium">{m.dateOrigineLot ? `Exercice ${String(m.dateOrigineLot).slice(0, 4)}` : 'Solde global'}{repriseMatch[1] ? ` · lot ${repriseMatch[1]}` : ''}</span>
+                            {referenceDaf && <span className="block text-[10px] text-[var(--color-fg-muted)]">Réf. DAF : {referenceDaf}</span>}
+                            <details className="mt-1 text-[10px] text-[var(--color-fg-muted)]">
+                              <summary className="w-fit cursor-pointer text-[var(--color-brand-600)] focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]">Voir le commentaire source</summary>
+                              <span className="block max-w-xl break-words pt-1">{m.commentaire}</span>
+                            </details>
+                          </span>
+                        ) : <span>{formatMotifMouvement(m.commentaire)}</span>}
                         {demandeMatch && onVoirDemande && (
                           <button
                             type="button"
@@ -491,7 +512,7 @@ export default function MouvementsSoldeTable({
                       </div>
                     </Td>
                     <Td className="font-mono text-xs text-[var(--color-fg-subtle)]">
-                      {m.createdBy ? `Admin (${m.createdBy})` : 'Système Auto'}
+                      <span title={m.createdBy ? `Identifiant opérateur : ${m.createdBy}` : undefined}>{m.createdBy ? 'Admin' : 'Système'}</span>
                     </Td>
                   </Tr>
                 );
@@ -500,14 +521,14 @@ export default function MouvementsSoldeTable({
           </Table>
         )}
       </div>
-      {hasValeurSource && filteredMouvements.length > 0 && (
+      {filteredMouvements.some(m => m.typeMouvement === 'PRISE' && m.valeurSource != null && Number(m.valeurSource) > 0) && (
         <p className="text-xs text-[var(--color-fg-muted)]">
           Pour une prise, le taux affiché sert de référence en cas de congé anticipé. La valeur réellement consommée dépend des droits utilisés, du plus ancien au plus récent.
         </p>
       )}
 
       {/* Pagination Registre */}
-      {filteredMouvements.length > 0 && (
+      {filteredMouvements.length > pageSize && (
         <Pagination
           currentPage={currentPage}
           totalItems={filteredMouvements.length}
@@ -675,6 +696,15 @@ export default function MouvementsSoldeTable({
                 Corrigez seulement une erreur du solde repris. Ce lot exclut les acquisitions ultérieures ; les prises déjà clôturées restent inchangées.
               </p>
             </div>
+            {lotsCorrection.length > 1 && <div>
+              <label className="block text-xs font-semibold mb-1">Lot à corriger</label>
+              <Select value={selectedLotCorrection || ''} onChange={(value) => {
+                const lot = lotsCorrection.find(item => String(item.idSource) === String(value));
+                setSelectedLotCorrection(lot?.idSource ?? null);
+                setCorrectionAvant({ jours: lot?.jours ?? 0, valeur: lot?.valeur ?? 0 });
+                setCorrection({ jours: String(lot?.jours ?? 0), valeur: String(lot?.valeur ?? 0), motif: '' });
+              }} options={lotsCorrection.map((lot, index) => ({ value: lot.idSource, label: `Lot ${index + 1} · ${lot.dateAcquisition || 'origine inconnue'} · ${lot.jours} j` }))} />
+            </div>}
 
             {/* État actuel (avant) */}
             {correctionLoading ? (

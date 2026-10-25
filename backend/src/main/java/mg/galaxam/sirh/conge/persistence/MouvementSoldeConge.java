@@ -21,6 +21,7 @@ public class MouvementSoldeConge extends ClassMere {
     private BigDecimal nbJours;
     private Integer idDemandeConge;
     private Date dateMouvement;
+    private Date dateOrigineLot;
     private String commentaire;
     private BigDecimal valeurSource;
     private Integer createdBy;
@@ -252,6 +253,7 @@ public class MouvementSoldeConge extends ClassMere {
         obj.setNbJours(rs.getBigDecimal("nb_jours"));
         obj.setIdDemandeConge(getNullableIntFromRs(rs, "id_demande_conge"));
         obj.setDateMouvement(rs.getDate("date_mouvement"));
+        obj.setDateOrigineLot(rs.getDate("date_origine_lot"));
         obj.setCommentaire(rs.getString("commentaire"));
         obj.setValeurSource(rs.getBigDecimal("valeur_source"));
         obj.setCreatedBy(getNullableIntFromRs(rs, "created_by"));
@@ -295,6 +297,8 @@ public class MouvementSoldeConge extends ClassMere {
 
     public Date getDateMouvement() { return dateMouvement; }
     public void setDateMouvement(Date dateMouvement) { this.dateMouvement = dateMouvement; }
+    public Date getDateOrigineLot() { return dateOrigineLot; }
+    public void setDateOrigineLot(Date dateOrigineLot) { this.dateOrigineLot = dateOrigineLot; }
 
     public String getCommentaire() { return commentaire; }
     public void setCommentaire(String commentaire) { this.commentaire = commentaire; }

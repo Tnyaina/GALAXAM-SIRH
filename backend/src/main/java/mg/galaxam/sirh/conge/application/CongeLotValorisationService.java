@@ -25,7 +25,7 @@ import org.springframework.stereotype.Service;
 public class CongeLotValorisationService {
     private final CongeLotValorisationEngine engine = new CongeLotValorisationEngine();
     private record SourceMovement(int id, String type, BigDecimal days, LocalDate date, Integer requestId,
-                                  String comment, BigDecimal value) {}
+                                  String comment, BigDecimal value, LocalDate dateOrigineLot) {}
     private record JournalEntry(BigDecimal days, BigDecimal value) {}
     private record HistoricalRate(LocalDate start, LocalDate end, BigDecimal value) {}
     private static final class HistoricalRateCursor {
@@ -59,16 +59,29 @@ public class CongeLotValorisationService {
     /** Corrige seulement le reliquat de reprise. L'écart sur les prises antérieures reste à examiner en paie. */
     public CorrectionCutover corrigerReliquatCutover(int employe, BigDecimal nouveauxJours,
             BigDecimal nouvelleValeur, String motif, int auteur, Connection c) throws SQLException {
-        return corrigerReliquatCutover(employe, nouveauxJours, nouvelleValeur, motif, auteur, LocalDate.now(), c);
+        return corrigerReliquatCutover(employe, nouveauxJours, nouvelleValeur, motif, auteur, null, LocalDate.now(), c);
     }
 
     public CorrectionCutover corrigerReliquatCutover(int employe, BigDecimal nouveauxJours,
             BigDecimal nouvelleValeur, String motif, int auteur, LocalDate dateEffet, Connection c) throws SQLException {
+        return corrigerReliquatCutover(employe, nouveauxJours, nouvelleValeur, motif, auteur, null, dateEffet, c);
+    }
+
+    public CorrectionCutover corrigerReliquatCutover(int employe, BigDecimal nouveauxJours,
+            BigDecimal nouvelleValeur, String motif, int auteur, Integer idLotReprise, Connection c) throws SQLException {
+        return corrigerReliquatCutover(employe, nouveauxJours, nouvelleValeur, motif, auteur, idLotReprise, LocalDate.now(), c);
+    }
+
+    public CorrectionCutover corrigerReliquatCutover(int employe, BigDecimal nouveauxJours,
+            BigDecimal nouvelleValeur, String motif, int auteur, Integer idLotReprise,
+            LocalDate dateEffet, Connection c) throws SQLException {
         if (nouveauxJours == null || nouvelleValeur == null || nouveauxJours.signum() < 0
-                || nouvelleValeur.signum() < 0 || motif == null || motif.isBlank()) {
+                || nouvelleValeur.signum() < 0 || (nouveauxJours.signum() == 0) != (nouvelleValeur.signum() == 0)
+                || motif == null || motif.isBlank()) {
             throw new IllegalArgumentException("Reliquat, valeur et motif DAF obligatoires.");
         }
         LocalDate dateMetier = dateEffet != null ? dateEffet : LocalDate.now();
+        int sourceUnique = -1;
         try (PreparedStatement verrou = c.prepareStatement("SELECT id_mouvement "
                 + "FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = 'AJUSTEMENT' "
                 + "AND (commentaire LIKE '[SOLDE_INITIAL]%' OR commentaire LIKE 'Reprise cutover - Solde initial%') "
@@ -76,15 +89,18 @@ public class CongeLotValorisationService {
             verrou.setInt(1, employe);
             try (ResultSet rs = verrou.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("CONGE_CUTOVER_SOURCE_MISSING");
-                if (rs.next()) throw new IllegalStateException("CONGE_CUTOVER_SOURCE_AMBIGUOUS");
+                sourceUnique = rs.getInt(1);
+                if (rs.next() && idLotReprise == null) throw new IllegalArgumentException(
+                        "Choisissez le lot de reprise à corriger.");
             }
         }
+        int sourceCible = idLotReprise == null ? sourceUnique : idLotReprise;
         var situation = situation(employe, dateMetier, c);
         int reprise = -1;
         BigDecimal anciensJours = BigDecimal.ZERO;
         BigDecimal ancienneValeur = BigDecimal.ZERO;
         for (var lot : situation.lots()) {
-            if ("REPRISE_CUTOVER".equals(lot.origine())) {
+            if ("REPRISE_CUTOVER".equals(lot.origine()) && lot.idSource() == sourceCible) {
                 reprise = lot.idSource(); anciensJours = lot.jours(); ancienneValeur = lot.valeur();
                 break;
             }
@@ -93,12 +109,13 @@ public class CongeLotValorisationService {
             try (PreparedStatement ps = c.prepareStatement("SELECT id_mouvement FROM mouvement_solde_conge "
                     + "WHERE id_employe = ? AND type_mouvement = 'AJUSTEMENT' "
                     + "AND (commentaire LIKE '[SOLDE_INITIAL]%' OR commentaire LIKE 'Reprise cutover - Solde initial%') "
-                    + "ORDER BY id_mouvement LIMIT 1")) {
+                    + "AND id_mouvement = ?")) {
                 ps.setInt(1, employe);
+                ps.setInt(2, sourceCible);
                 try (ResultSet rs = ps.executeQuery()) { if (rs.next()) reprise = rs.getInt(1); }
             }
         }
-        if (reprise < 0) throw new IllegalStateException("CONGE_CUTOVER_SOURCE_MISSING");
+        if (reprise != sourceCible) throw new IllegalArgumentException("Lot de reprise introuvable pour ce salarié.");
         BigDecimal ancienTaux;
         try (PreparedStatement ps = c.prepareStatement("SELECT COALESCE((SELECT nouveau_taux "
                 + "FROM conge_cutover_correction WHERE id_mouvement_reprise = ? "
@@ -187,7 +204,7 @@ public class CongeLotValorisationService {
         java.sql.Array employeeArray = c.createArrayOf("integer", ids.toArray());
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT m.id_mouvement, m.type_mouvement, m.nb_jours, m.date_mouvement, "
-                        + "m.id_employe, m.id_demande_conge, m.commentaire, m.valeur_source, cc.id_mouvement_reprise, "
+                        + "m.id_employe, m.id_demande_conge, m.commentaire, m.valeur_source, m.date_origine_lot, cc.id_mouvement_reprise, "
                         + "cc.nouveau_reliquat_valeur FROM mouvement_solde_conge m "
                         + "LEFT JOIN conge_cutover_correction cc ON cc.id_mouvement_ajustement = m.id_mouvement "
                         + "WHERE m.id_employe = ANY (?) AND m.date_mouvement <= ? "
@@ -211,7 +228,8 @@ public class CongeLotValorisationService {
                         valeur = rs.getBigDecimal("nouveau_reliquat_valeur");
                     }
                     sourcesByEmployee.get(rs.getInt("id_employe")).add(
-                            new SourceMovement(id, type, jours, dateMouvement, idDemande, commentaire, valeur));
+                            new SourceMovement(id, type, jours, dateMouvement, idDemande, commentaire, valeur,
+                                    rs.getDate("date_origine_lot") == null ? null : rs.getDate("date_origine_lot").toLocalDate()));
                 }
             }
         } finally {
@@ -253,7 +271,7 @@ public class CongeLotValorisationService {
                     value = source.days().multiply(applicable.get(0).value()).setScale(2, RoundingMode.HALF_UP);
                 }
                 mouvements.add(new CongeLotValorisationEngine.Mouvement(source.id(), source.type(), source.days(),
-                        source.date(), source.requestId(), source.comment(), value));
+                        source.date(), source.requestId(), source.comment(), value, source.dateOrigineLot()));
             }
             result.put(employeeId, engine.calculer(mouvements));
         }

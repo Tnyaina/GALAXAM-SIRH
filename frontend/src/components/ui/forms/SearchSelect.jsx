@@ -231,7 +231,7 @@ export default function SearchSelect({
                 </span>
               )}
               {selectedOption.badge && (
-                <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ml-2 shrink-0 hidden md:inline ${selectedOption.badgeClassName || 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'}`}>
+                <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-none ml-2 shrink-0 hidden md:inline ${selectedOption.badgeClassName || 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'}`}>
                   {selectedOption.badge}
                 </span>
               )}
@@ -330,7 +330,7 @@ export default function SearchSelect({
                           )}
                         </div>
                         {opt.badge && (
-                          <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full shrink-0 ${opt.badgeClassName || 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'}`}>
+                          <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-none shrink-0 ${opt.badgeClassName || 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'}`}>
                             {opt.badge}
                           </span>
                         )}

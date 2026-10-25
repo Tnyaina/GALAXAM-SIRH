@@ -472,7 +472,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
                 {/* Sélecteur de Mode : Saisie collective (par date) vs Saisie par collaborateur (période) */}
                 <div className="flex items-center justify-between gap-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
-                    <div className="attendance-mode-switch inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 gap-0.5">
+                    <div className="attendance-mode-switch inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 gap-0.5 [&_button]:rounded-none">
                         <Button
                             variant="primary"
                             size="sm"
@@ -520,7 +520,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                     onAutoFillStandard={handleAutoFill}
                     onAutoDeducePauses={handleAutoPauses}
                     onAddConge={canReadConge ? () => navigate('/conges?tab=demandes') : null}
-                    isReadOnly={isReadOnly}
+                    isReadOnly={isReadOnly || isFuture}
                     onSave={handleRequestSave}
                     saving={saving}
                     dirtyCount={dirtyCount}
@@ -640,7 +640,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
                         onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
-                        isReadOnly={isReadOnly || loading || Boolean(error)}
+                        isReadOnly={isReadOnly || isFuture || loading || Boolean(error)}
                     />
                 )}
             </div>

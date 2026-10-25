@@ -60,7 +60,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                 ) : isLocked ? (
                                     <Lock size={11} className="shrink-0" />
                                 ) : (
-                                    <span className={`flex items-center justify-center w-4 h-4 text-[9px] font-black border rounded-full shrink-0 ${
+                                    <span className={`flex items-center justify-center w-4 h-4 text-[9px] font-black border rounded-none shrink-0 ${
                                         isActive
                                             ? 'bg-[var(--color-brand-500)]/15 border-[var(--color-brand-500)]/35 text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)]'
                                             : isDone

@@ -30,6 +30,25 @@ class CongeLotValorisationEngineTest {
     }
 
     @Test
+    void repriseDetailleeConsommeLePlusAncienLotSelonSaDateOrigineEtSaValeur() {
+        var situation = engine.calculer(List.of(
+                new CongeLotValorisationEngine.Mouvement(1, "AJUSTEMENT", d("4"),
+                        LocalDate.parse("2026-09-25"), null, "[SOLDE_INITIAL] lot récent", d("60000"),
+                        LocalDate.parse("2025-12-31")),
+                new CongeLotValorisationEngine.Mouvement(2, "AJUSTEMENT", d("3"),
+                        LocalDate.parse("2026-09-25"), null, "[SOLDE_INITIAL] lot ancien", d("30000"),
+                        LocalDate.parse("2024-12-31")),
+                movement(3, "PRISE", "-5", "2026-10-01", 100, "Demande", "16000")));
+
+        assertEquals(2, situation.imputations().get(0).idSource());
+        assertDecimal("30000", situation.imputations().get(0).valeur());
+        assertEquals(1, situation.imputations().get(1).idSource());
+        assertDecimal("30000", situation.imputations().get(1).valeur());
+        assertDecimal("30000", situation.soldeValorisation());
+        assertEquals(LocalDate.parse("2025-12-31"), situation.lots().get(0).dateAcquisition());
+    }
+
+    @Test
     void consommationAncienLotSeulementRespecteValeurHistoriqueEtFifo() {
         var situation = engine.calculer(twoHistoricalLots("5"));
 

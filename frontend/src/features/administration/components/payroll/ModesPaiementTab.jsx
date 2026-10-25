@@ -263,7 +263,7 @@ export default function ModesPaiementTab() {
                                     type="checkbox"
                                     checked={formData.exigeRib}
                                     onChange={(e) => setFormData(d => ({ ...d, exigeRib: e.target.checked }))}
-                                    className="rounded border-[var(--color-border-subtle)] text-[var(--color-brand-600)] focus:ring-[var(--color-brand-500)] cursor-pointer"
+                                    className="rounded-none border-[var(--color-border-subtle)] text-[var(--color-brand-600)] focus:ring-[var(--color-brand-500)] cursor-pointer"
                                 />
                                 <label htmlFor="mode-paiement-exige-rib" className="text-xs text-[var(--color-fg)] font-medium cursor-pointer">
                                     Exige la saisie obligatoire d’un RIB bancaire pour l’employé
@@ -276,7 +276,7 @@ export default function ModesPaiementTab() {
                                     type="checkbox"
                                     checked={formData.inclusFichierVirement}
                                     onChange={(e) => setFormData(d => ({ ...d, inclusFichierVirement: e.target.checked }))}
-                                    className="rounded border-[var(--color-border-subtle)] text-[var(--color-brand-600)] focus:ring-[var(--color-brand-500)] cursor-pointer"
+                                    className="rounded-none border-[var(--color-border-subtle)] text-[var(--color-brand-600)] focus:ring-[var(--color-brand-500)] cursor-pointer"
                                 />
                                 <label htmlFor="mode-paiement-inclus-virement" className="text-xs text-[var(--color-fg)] font-medium cursor-pointer">
                                     Inclus dans les fichiers de virement bancaire groupé (SEPA / format banque)
@@ -289,7 +289,7 @@ export default function ModesPaiementTab() {
                                     type="checkbox"
                                     checked={formData.actif}
                                     onChange={(e) => setFormData(d => ({ ...d, actif: e.target.checked }))}
-                                    className="rounded border-[var(--color-border-subtle)] text-[var(--color-brand-600)] focus:ring-[var(--color-brand-500)] cursor-pointer"
+                                    className="rounded-none border-[var(--color-border-subtle)] text-[var(--color-brand-600)] focus:ring-[var(--color-brand-500)] cursor-pointer"
                                 />
                                 <label htmlFor="mode-paiement-actif" className="text-xs text-[var(--color-fg)] font-medium cursor-pointer">
                                     Mode de paiement actif et sélectionnable pour les règlements

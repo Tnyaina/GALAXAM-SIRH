@@ -35,7 +35,7 @@ export default function PayrollPeriodStepper({
         },
         CURRENT: {
             icon: (n) => (
-                <span className="w-[15px] h-[15px] rounded-full flex items-center justify-center
+                <span className="w-[15px] h-[15px] rounded-none flex items-center justify-center
                     bg-[var(--color-brand-500)] text-[var(--color-on-color)] text-[9px] font-bold shrink-0"
                     aria-label="Étape courante">
                     {n}
@@ -48,7 +48,7 @@ export default function PayrollPeriodStepper({
         },
         AVAILABLE: {
             icon: (n) => (
-                <span className="w-[15px] h-[15px] rounded-full border-2 border-[var(--color-border)] flex items-center justify-center
+                <span className="w-[15px] h-[15px] rounded-none border-2 border-[var(--color-border)] flex items-center justify-center
                     text-[9px] font-bold text-[var(--color-fg-subtle)] shrink-0" aria-label="Disponible">
                     {n}
                 </span>
@@ -74,7 +74,7 @@ export default function PayrollPeriodStepper({
         },
         BLOCKED: {
             icon: (n) => (
-                <span className="w-[15px] h-[15px] rounded-full border border-dashed border-[var(--color-border)] flex items-center justify-center
+                <span className="w-[15px] h-[15px] rounded-none border border-dashed border-[var(--color-border)] flex items-center justify-center
                     text-[9px] text-[var(--color-fg-subtle)] opacity-60 shrink-0" aria-label="Bloqué">
                     {n}
                 </span>

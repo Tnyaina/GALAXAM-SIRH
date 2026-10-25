@@ -26,6 +26,7 @@ public class CongeTauxApplicableService {
     private final EmploymentContextResolver employmentContextResolver = new EmploymentContextResolver();
 
     public enum CongeModeReprise { FULL_HISTORY, AGGREGATED_OPENING, MINIMAL_OPENING, NEW_HIRE }
+    public record LotReprise(LocalDate dateOrigine, BigDecimal joursRestants, BigDecimal valeurRestante) {}
 
     /** Contrat HTTP local au workflow de reprise/cutover TCONGE. */
     public static class CutoverOpeningRequest {
@@ -41,6 +42,7 @@ public class CongeTauxApplicableService {
         private String sourceReprise = "REPRISE_CUTOVER";
         private String referenceArrete;
         private String commentaire;
+        private List<LotReprise> lotsReprise;
 
         public Integer getIdEmploye() { return idEmploye; }
         public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
@@ -66,6 +68,8 @@ public class CongeTauxApplicableService {
         public void setReferenceArrete(String referenceArrete) { this.referenceArrete = referenceArrete; }
         public String getCommentaire() { return commentaire; }
         public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+        public List<LotReprise> getLotsReprise() { return lotsReprise; }
+        public void setLotsReprise(List<LotReprise> lotsReprise) { this.lotsReprise = lotsReprise; }
     }
     public enum TcongeApplicableRateStatus { NONE, ACTIVE }
     public enum TcongeReferenceStatus { MISSING, ACTIVE, CLOSED_AWAITING_ACTIVATION }
@@ -947,6 +951,33 @@ public class CongeTauxApplicableService {
         if (req.getTauxJournalierApplicable() == null || req.getTauxJournalierApplicable().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Le taux TCONGE applicable initial doit être strictement positif.");
         }
+        List<LotReprise> lotsReprise = req.getLotsReprise();
+        boolean detaille = lotsReprise != null && !lotsReprise.isEmpty();
+        if (detaille) {
+            BigDecimal totalJours = BigDecimal.ZERO;
+            BigDecimal totalValeur = BigDecimal.ZERO;
+            LocalDate precedente = null;
+            for (LotReprise lot : lotsReprise) {
+                if (lot == null || lot.dateOrigine() == null || lot.dateOrigine().isAfter(req.getDateCutover())
+                        || lot.joursRestants() == null || lot.joursRestants().signum() <= 0
+                        || lot.joursRestants().scale() > 2 || lot.valeurRestante() == null
+                        || lot.valeurRestante().signum() <= 0 || lot.valeurRestante().scale() > 2) {
+                    throw new IllegalArgumentException("Chaque lot repris exige une date d'origine, des jours et une valeur positifs.");
+                }
+                if (precedente != null && lot.dateOrigine().isBefore(precedente)) {
+                    throw new IllegalArgumentException("Les lots repris doivent être classés du plus ancien au plus récent.");
+                }
+                precedente = lot.dateOrigine();
+                totalJours = totalJours.add(lot.joursRestants());
+                totalValeur = totalValeur.add(lot.valeurRestante());
+            }
+            if (totalJours.compareTo(req.getSoldeJours()) != 0
+                    || totalValeur.compareTo(req.getValeurSoldeOuverture()) != 0) {
+                throw new IllegalArgumentException("La somme des lots doit égaler le solde et la valeur arrêtés par la DAF.");
+            }
+        } else if (lotsReprise != null && req.getSoldeJours().signum() > 0) {
+            throw new IllegalArgumentException("Renseignez au moins un lot ou choisissez une reprise globale.");
+        }
         if (req.getDateDebutReference() == null) {
             throw new IllegalArgumentException("La date de début de période de référence est obligatoire.");
         }
@@ -1063,20 +1094,25 @@ public class CongeTauxApplicableService {
 
         // 4. Insérer le mouvement de solde initial
         String sqlMvt = "INSERT INTO mouvement_solde_conge (" +
-                "id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, created_by, valeur_source" +
-                ") VALUES (?, 'AJUSTEMENT', ?, ?, ?, ?, ?)";
+                "id_employe, type_mouvement, nb_jours, date_mouvement, date_origine_lot, commentaire, created_by, valeur_source" +
+                ") VALUES (?, 'AJUSTEMENT', ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement psMvt = c.prepareStatement(sqlMvt)) {
-            psMvt.setInt(1, req.getIdEmploye());
-            psMvt.setBigDecimal(2, req.getSoldeJours().setScale(2, RoundingMode.HALF_UP));
-            psMvt.setDate(3, Date.valueOf(req.getDateCutover()));
-            psMvt.setString(4, "[SOLDE_INITIAL] Reprise cutover - Solde initial au " + req.getDateCutover() + " : " + traceArrete);
-            if (idUtilisateur != null) {
-                psMvt.setInt(5, idUtilisateur);
-            } else {
-                psMvt.setNull(5, Types.INTEGER);
+            List<LotReprise> lignes = detaille ? lotsReprise : List.of(new LotReprise(null,
+                    req.getSoldeJours(), req.getValeurSoldeOuverture()));
+            for (int index = 0; index < lignes.size(); index++) {
+                LotReprise lot = lignes.get(index);
+                psMvt.setInt(1, req.getIdEmploye());
+                psMvt.setBigDecimal(2, lot.joursRestants().setScale(2, RoundingMode.UNNECESSARY));
+                psMvt.setDate(3, Date.valueOf(req.getDateCutover()));
+                if (lot.dateOrigine() == null) psMvt.setNull(4, Types.DATE);
+                else psMvt.setDate(4, Date.valueOf(lot.dateOrigine()));
+                psMvt.setString(5, "[SOLDE_INITIAL] Reprise cutover - Solde initial au "
+                        + req.getDateCutover() + (detaille ? " ; lot " + (index + 1) : "") + " : " + traceArrete);
+                if (idUtilisateur != null) psMvt.setInt(6, idUtilisateur);
+                else psMvt.setNull(6, Types.INTEGER);
+                psMvt.setBigDecimal(7, lot.valeurRestante().setScale(2, RoundingMode.UNNECESSARY));
+                psMvt.executeUpdate();
             }
-            psMvt.setBigDecimal(6, req.getValeurSoldeOuverture().setScale(2, RoundingMode.HALF_UP));
-            psMvt.executeUpdate();
         }
 
         log.info("[CongeTauxApplicableService] Cutover enregistré avec succès pour l'employé {} : solde={}j, TCONGE={}Ar/j, mode={}",

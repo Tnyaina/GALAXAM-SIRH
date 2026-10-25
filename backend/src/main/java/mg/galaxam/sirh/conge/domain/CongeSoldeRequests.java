@@ -10,7 +10,8 @@ public final class CongeSoldeRequests {
     public record CorrigerCutoverRequest(
             BigDecimal nouveauReliquatJours,
             BigDecimal nouveauReliquatValeur,
-            String motif
+            String motif,
+            Integer idLotReprise
     ) {}
 
     public record ReporterExamenRequest(

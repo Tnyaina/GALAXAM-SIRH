@@ -357,7 +357,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     )}
 
                     {/* Bascule Vue : Période de paie | Semaine */}
-                    <div className="flex h-9 items-center border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded-none">
+                    <div className="flex h-9 items-center border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded">
                         {[
                             { key: 'periode', label: 'Période de paie' },
                             { key: 'semaine', label: 'Semaine' },
@@ -415,7 +415,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                         </Button>
 
                         {exportDropdownOpen && (
-                            <div className="absolute right-0 mt-1 w-56 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-lg z-30 py-1 rounded-none text-left animate-in fade-in zoom-in-95 duration-150">
+                            <div className="absolute right-0 mt-1 w-56 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-lg z-30 py-1 rounded text-left animate-in fade-in zoom-in-95 duration-150">
                                 <button
                                     type="button"
                                     onClick={handleExportExcel}
@@ -829,7 +829,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             </Td>
                                                             {isContinu ? (
                                                                 <Td colSpan={2} className="text-center py-2.5 px-2 bg-[var(--color-orange-500)]/[0.04]">
-                                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)] bg-[var(--color-orange-500)]/15 px-2 py-0.5 rounded-none border border-[var(--color-orange-500)]/25" title="Journée continue sans pause">
+                                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)] bg-[var(--color-orange-500)]/15 px-2 py-0.5 rounded border border-[var(--color-orange-500)]/25" title="Journée continue sans pause">
                                                                         <FastForward size={11} className="shrink-0" /> Continu
                                                                     </span>
                                                                 </Td>
@@ -848,7 +848,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             </Td>
                                                             <Td className="font-data text-xs text-center py-2.5 px-2">
                                                                 {ptg.minutesRetard > 0 ? (
-                                                                    <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] bg-[var(--color-warning-50)] dark:bg-[var(--color-warning-950)]/40 px-1.5 py-0.5 rounded-none border border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)]/50" title={`Retard cumulé sur la journée : ${ptg.minutesRetard} min`}>
+                                                                    <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] bg-[var(--color-warning-50)] dark:bg-[var(--color-warning-950)]/40 px-1.5 py-0.5 rounded border border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)]/50" title={`Retard cumulé sur la journée : ${ptg.minutesRetard} min`}>
                                                                         {ptg.minutesRetard} min
                                                                     </span>
                                                                 ) : (

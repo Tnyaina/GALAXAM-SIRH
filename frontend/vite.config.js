@@ -18,7 +18,7 @@ export default defineConfig({
     hmr: { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) || 8088 },
     proxy: {
       '/api': {
-        target: 'http://backend:8080',
+        target: process.env.VITE_ECC_BACKEND || 'http://backend:8080',
         changeOrigin: true,
       },
     },

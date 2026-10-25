@@ -208,7 +208,7 @@ export default function IconPicker({
                                         >
                                             {createElement(IcoComponent, { size: 17 })}
                                             {isCurrent && (
-                                                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[var(--color-surface)] text-[var(--color-brand-500)] rounded-full flex items-center justify-center border border-[var(--color-brand-500)]">
+                                                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[var(--color-surface)] text-[var(--color-brand-500)] rounded-none flex items-center justify-center border border-[var(--color-brand-500)]">
                                                     <Check size={9} strokeWidth={3} />
                                                 </div>
                                             )}
