@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/Tauri-2-FFC131?style=for-the-badge&logo=tauri&logoColor=black" alt="Tauri 2" />
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Compose" />
-  <img src="https://img.shields.io/badge/Statut-Production_Ready-success?style=for-the-badge" alt="Statut" />
+  <img src="https://img.shields.io/badge/Statut-Preproduction-orange?style=for-the-badge" alt="Statut : préproduction" />
 </p>
 
 ---
@@ -55,9 +55,9 @@ Développée pour couvrir les opérations multi-filiales du groupe **GALAXAM LOG
 
 ---
 
-## 2. Conformité Légale & Réglementaire (Madagascar)
+## 2. Références légales et paramètres métier (Madagascar)
 
-L'ensemble des algorithmes métiers applique strictement le droit social et fiscal positif de Madagascar :
+Le logiciel implémente des règles métier paramétrées à partir des références ci-dessous. Cette documentation décrit l’intention et les paramètres présents dans le dépôt ; elle ne certifie ni la conformité juridique des calculs ni l’acceptation des déclarations par les organismes concernés. Les paramètres, leurs dates d’effet, les résultats et les formats d’export doivent être validés par les responsables RH/DAF et, lorsque nécessaire, par un conseil compétent et les portails destinataires avant un usage officiel.
 
 | Domaine | Référence Légale / Réglementaire | Application dans GALAXAM-SIRH |
 |---|---|---|
@@ -89,7 +89,7 @@ flowchart LR
 
 ### Structure, Organisation & Multi-Filiales
 - **Multi-sociétés :** Modélisation et gouvernance multi-sociétés (filiale socle GALAXAM LOGISTICS et entités secondaires administrables).
-- **Référentiel unifié :** 32 tables référentielles (`ref_*`) et 37 paramètres globaux versionnés à date d'effet sans rétroactivité.
+- **Référentiel unifié :** 30 déclarations de tables référentielles (`ref_*`) dans les six schémas canoniques, dont 15 dans le schéma Organisation 02, et 37 paramètres globaux versionnés à date d'effet sans rétroactivité. Ce décompte décrit les DDL canoniques, pas l'état d'une base déjà initialisée.
 - **Sites & Établissements :** Paramétrage granulaire par site (plancher d'accès, organisme sanitaire affilié, calendrier des jours fériés).
 
 ### Dossier Collaborateur, Contrats & Carrières
@@ -119,7 +119,7 @@ flowchart LR
 - **Prestataires indépendants :** Module B2B autonome hors paie (`prestataire_independant`, `prestataire_contrat`, `prestataire_facture`), avec retenue ISI générale désactivée en 2026.
 
 ### Déclarations Officielles & Fichiers Bancaires
-- **Fiscalité :** Export mensuel conforme aux spécifications SAFI / e-Hetra (DGI).
+- **Fiscalité :** Préparation d'un export mensuel destiné à SAFI / e-Hetra (DGI) ; format et acceptation à valider auprès de la DAF et du portail destinataire.
 - **Charges sociales :** Déclaration Nominative Trimestrielle des Salaires (DNTS CNaPS) et récapitulatif FMFP.
 - **Santé :** États nominatifs périodiques selon l'organisme sanitaire de chaque site.
 - **Virements groupés :** Génération des ordres de virement bancaire interbancaires avec traçabilité des lots (`PREPARE`, `TRANSMIS`).
@@ -146,11 +146,11 @@ flowchart LR
 │                                                                                        │
 │   BASE DE DONNÉES (PostgreSQL 15)                                                      │
 │   ├── 01_schema_core_securite.sql       → RBAC, sessions, audit trail JSONB            │
-│   ├── 02_schema_referentiels_rh.sql     → 32 tables ref_*, parametre_global            │
+│   ├── 02_schema_referentiels_rh.sql     → 15 tables ref_*, parametre_global            │
 │   ├── 03_schema_employes_contrats.sql   → Collaborateurs, contrats, carrières          │
 │   ├── 04_schema_conges.sql              → Grand-livre FIFO, demandes, périodes         │
-│   ├── 05_schema_pointage.sql            → Pointage brut, ajustements, snapshots        │
-│   └── 06_schema_paie.sql                → Périodes, bulletins, STC, règlements         │
+│   ├── 05_schema_pointage.sql            → Périodes, transitions, pointage, snapshots   │
+│   └── 06_schema_paie.sql                → Bulletins, variables, STC, règlements        │
 │                                                                                        │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -158,11 +158,11 @@ flowchart LR
 ### Choix d'Architecture Notables
 
 1. **JDBC Direct plutôt qu'un ORM (Hibernate/JPA) :**
-   Pour un moteur de paie et de grand-livre comptable, la maîtrise absolue des requêtes SQL, l'absence de requêtes $N+1$, la performance pure et le contrôle granulaire des verrous transactionnels (`FOR UPDATE`) sont impératifs.
+   Les accès JDBC rendent les requêtes SQL explicites et permettent de maîtriser leur formulation, y compris les verrous transactionnels (`FOR UPDATE`). Ce choix ne garantit pas à lui seul l'absence de motifs N+1 ni un niveau de performance : ceux-ci dépendent des requêtes et doivent être évalués par inspection et mesures.
 2. **Backend-Driven UI :**
    L'interface frontend ne porte aucun barème fiscal ni formule de calcul légale. Les montants simulés, plafonds et droits autorisés sont systématiquement résolus par l'API Spring Boot.
 3. **Schedulers Nocturnes Coordonnés :**
-   Les tâches d'arrière-plan s'exécutent avec un mécanisme de bail distribué (`SchedulerExecutionRegistry`) garantissant l'absence de collision :
+   Les tâches d'arrière-plan utilisent un registre en base (`SchedulerExecutionRegistry`) avec un bail initial de 30 minutes, renouvelé toutes les 10 minutes, et un jeton propre à chaque tentative. Le renouvellement cesse après une durée maximale de 23 heures ; une erreur de renouvellement ne prolonge pas le bail. La reprise est alors possible après expiration. Le worker déjà lancé n'est pas interrompu automatiquement quand il perd le bail : un chevauchement reste possible et les effets des tâches doivent tenir compte de cette limite.
    - `00:10:00` (quotidien) — `MouvementRhScheduler` : application automatique des mouvements RH (mutations, promotions, titularisations, sorties) atteignant leur date d'effet.
    - `01:00:00` (mensuel, 1er du mois) — `AcquisitionCongeScheduler` : vérifie les bonifications d'ancienneté pour les anniversaires du mois échu. L'acquisition mensuelle standard est enregistrée transactionnellement à la clôture de paie.
    - `02:30:00` (quotidien) — `NotificationRhScheduler` : détection proactive des échéances d'essai (J-30, J-15, J-7, J) et alertes de fin de contrat CDD.
@@ -220,7 +220,7 @@ L'ensemble de la documentation fonctionnelle, réglementaire et technique approf
 |---|---|
 | [**INDEX.md**](backend/docs/boky/INDEX.md) | Index général, glossaire des acronymes légaux malgaches et plan du mémoire technique. |
 | [**module-employe-carriere.md**](backend/docs/boky/module-employe-carriere.md) | Dossier salarié (Art. 18-20), matricule séquentiel, carrières, contrats et exports DOCX. |
-| [**module-structure-organisation.md**](backend/docs/boky/module-structure-organisation.md) | Multi-filiales, 32 tables `ref_*`, 37 clés `parametre_global` et plancher d'arrivée par site. |
+| [**module-structure-organisation.md**](backend/docs/boky/module-structure-organisation.md) | Multi-filiales, 15 tables `ref_*` définies dans le schéma 02 (30 déclarations sur les six schémas canoniques), 37 clés `parametre_global` et plancher d'arrivée par site. |
 | [**module-pointage-presence.md**](backend/docs/boky/module-pointage-presence.md) | Cycle décalé 26-25, ventilation hebdo Art. 109-110, qualification nuit/dimanche et snapshots. |
 | [**module-conges-absences.md**](backend/docs/boky/module-conges-absences.md) | Grand-livre FIFO, taux journalier `TCONGE`, pool familial 10j et examen DAF de prescription. |
 | [**module-paie.md**](backend/docs/boky/module-paie.md) | Moteur 6 paliers, cotisations, IRSA, STC, journal des règlements et prestataires indépendants. |
@@ -244,13 +244,14 @@ Copiez le gabarit `.env.example` à la racine du dépôt :
 cp .env.example .env
 ```
 
-Éditez le fichier `.env` avec des valeurs sécurisées :
+Éditez le fichier `.env` avec des valeurs adaptées au mode choisi :
 - `GALAXAM_DB_PASSWORD` : mot de passe fort pour l'administrateur de base de données ;
-- `GALAXAM_JWT_SECRET` : clé secrète aléatoire d'au moins **64 octets** (512 bits) ;
 - `GALAXAM_DEFAULT_ADMIN_PASSWORD` : mot de passe d'initialisation (min. 8 caractères avec majuscule, minuscule, chiffre).
 
+`GALAXAM_JWT_SECRET` est requis par le Compose de production et doit alors être une clé propre à cet environnement d'au moins **64 octets** (512 bits). Le Compose local ne transmet pas cette variable : le profil `local` utilise son secret de développement configuré dans `application-local.properties`. Ne réutilisez pas ce secret en production.
+
 ### 2. Lancement en Mode Développement Local
-Démarrez les trois conteneurs (Base de données PostgreSQL 15, API Spring Boot et Frontend Vite en rechargement à chaud) :
+Démarrez les trois conteneurs (PostgreSQL 15, API Spring Boot et serveur de développement Vite avec rechargement à chaud) :
 
 ```bash
 docker compose up --build
@@ -263,6 +264,8 @@ docker compose up --build
 - **Interface Web :** [`http://localhost:8088`](http://localhost:8088)
 - **API REST (proxifiée) :** `http://localhost:8088/api/`
 - **PostgreSQL (accès hôte) :** `127.0.0.1:5433` (Base : `sirh_galaxam`, Utilisateur : `galaxam_admin`)
+
+En développement local, Vite relaie `/api/` vers le backend sur le réseau Compose. Dans l'image de production, Nginx sert le bundle statique et relaie également `/api/` vers `backend:8080` selon `frontend/nginx.conf`.
 
 Pour stopper les services sans détruire les données :
 ```bash
@@ -277,7 +280,7 @@ docker compose stop
 ## 8. Développement & Déploiement
 
 ### Déploiement Docker en Mode Production
-Le profil production compile un bundle statique optimisé servi par Nginx et exécute un JAR Spring Boot autonome sans DevTools :
+Le profil production compile le frontend avec Node.js 22 puis sert le bundle statique par Nginx ; l'API est un JAR Spring Boot autonome sans DevTools. Le Compose de production transmet `GALAXAM_JWT_SECRET` à Spring sous le nom `JWT_SECRET`. Le profil `local`, utilisé par le Compose de développement, charge son secret de développement depuis `application-local.properties`.
 
 Le frontal de production est publié uniquement sur `127.0.0.1:8088` et doit être placé derrière un proxy TLS. Ce proxy doit écraser et transmettre `X-Forwarded-Proto: https` et `X-Forwarded-For` avec les valeurs fiables; le Nginx du conteneur relaie le protocole à l'API pour que le cookie de renouvellement soit marqué `Secure`. Ne publiez pas directement le port HTTP du conteneur sur Internet. Le limiteur de connexion est en mémoire et convient à l'instance unique définie par ce Compose; une mise à l'échelle horizontale nécessite une limite partagée au proxy ou un magasin partagé.
 
@@ -304,7 +307,9 @@ mvn -f backend/pom.xml clean compile
 mvn -f backend/pom.xml spring-boot:run
 ```
 
-#### Frontend (Node.js 20+ / npm)
+#### Frontend (Node.js / npm)
+
+Les dépendances verrouillées exigent Node.js `^20.19.0 || >=22.12.0` (Vite). Les deux Dockerfiles frontend utilisent l'image `node:22-alpine`.
 ```bash
 cd frontend
 
@@ -332,7 +337,7 @@ npm run build
 
 ## 9. Tests & Assurance Qualité
 
-Le projet intègre une suite de tests automatisés ciblés validant les règles de calcul de paie, la conformité légale, la non-régression et la concurrence.
+Le projet intègre une suite de tests automatisés ciblés sur des règles de calcul, des parcours de non-régression et des scénarios de concurrence. Ces tests apportent des preuves techniques pour les cas couverts ; ils ne certifient pas la conformité juridique ni l'exhaustivité fonctionnelle.
 
 ### Tests Backend (JUnit 5 / Spring Boot Test)
 ```bash

@@ -30,7 +30,7 @@
 
 [Arbitrage DAF de période et ajustements](#10-arbitrage-daf-de-période-et-ajustements)
 
-[Scellement de période et architecture des 4 snapshots](#11-scellement-de-période-et-architecture-des-4-snapshots)
+[Gel de période et snapshots versionnés](#11-gel-de-période-et-snapshots-versionnés)
 
 [Données et modèle de persistance](#12-données-et-modèle-de-persistance)
 
@@ -69,10 +69,12 @@ Le module **Pointage, Temps de Travail & Présence** constitue l'assise opérati
 
 | Rôle / Profil                                      | Périmètre d'action fonctionnel                                                                                                                      | Permissions requises                                   |
 | :-------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
-| **Pointeur / Superviseur de Site**            | Saisie journalière par date ou par salarié, import des relevés de badgeuses, prévisualisation des lots.                                           | `POINTAGE_READ`, `POINTAGE_WRITE`                  |
-| **Gestionnaire RH**                           | Traitement des anomalies, régularisation des oublis de badge, qualification des motifs d'absence avec création transactionnelle de congés.         | `POINTAGE_READ`, `POINTAGE_WRITE`, `CONGE_WRITE` |
-| **Directeur Administratif & Financier (DAF)** | Arbitrage des soldes horaires de fin de période (`pointage_ajustement_periode`), validation de période scellée (`VALIDEE`), transmission Paie. | `POINTAGE_VALIDATE`, `PAIE_WRITE`                  |
-| **Administrateur Système**                   | Paramétrage des seuils de tolérance, planchers d'arrivée, dérogations d'indemnité, réouverture exceptionnelle d'une campagne (`REOPEN`).      | `ROLE_ADMIN`                                         |
+| **Agent Pointage** | Consultation des pointages et saisie journalière/périodique ; peut appeler l'endpoint de régularisation, sous réserve des contrôles métier associés. | `POINTAGE_READ`, `POINTAGE_WRITE` |
+| **Gestion des périodes** | Consultation des périodes ; ouverture, transmission, validation et clôture sont des opérations distinctes, avec autorisations propres par commande (voir matrice ci-dessous). | `POINTAGE_READ` / `PAIE_READ` en lecture ; autorités de commande détaillées ci-dessous |
+| **DAF / valideur Pointage** | Contrôle, ajustement de solde et décisions de validation de Pointage. | `POINTAGE_VALIDATE` ; `PAIE_VALIDATE` pour la clôture |
+| **Administrateur Système** | Administration des paramètres et réouverture exceptionnelle d'une campagne. | `ROLE_ADMIN` |
+
+L'Agent Pointage issu du seed reçoit les droits de lecture et d'écriture du module Pointage, sans droit de validation ni droit Congés. L'endpoint de régularisation reste néanmoins autorisé par `POINTAGE_WRITE` ; les opérations Congés déclenchées par cet endpoint sont validées par les services Congés appelés dans la transaction. Les autorités de la hiérarchie `ROLE_ADMIN` sont également prises en compte par Spring Security.
 
 ---
 
@@ -101,7 +103,7 @@ Les écrans sont accessibles sous la route `/pointages` orchestrée par [`Gestio
 
 ## 4. Cycle de vie de la période de pointage et transitions auditées
 
-Le SIRH GALAXAM utilise un cycle décalé d'entreprise couvrant du **26 du mois $M-1$ au 25 du mois $M$** (ex. : Période `2026-08` du 26/07/2026 au 25/08/2026).
+La convention de gestion présentée dans l'interface et les exemples couvre généralement du **26 du mois $M-1$ au 25 du mois $M$** (ex. : période `2026-08` du 26/07/2026 au 25/08/2026). Ce cycle n'est pas imposé universellement par la création d'une période : l'API exige un code et des dates valides, une fin postérieure au début et le statut initial `BROUILLON`. La base interdit les chevauchements et le schéma canonique impose l'appartenance des journées aux bornes inclusives de leur période ; ces contraintes ne fixent pas les jours 26 et 25.
 
 La base de données protège strictement l'unicité et l'étanchéité des périodes via une contrainte d'exclusion GiST PostgreSQL interdisant tout chevauchement :
 
@@ -118,7 +120,6 @@ stateDiagram-v2
     [*] --> BROUILLON : Création POST /periodes
     BROUILLON --> EN_COURS : Commande OPEN
     EN_COURS --> TRANSMIS_DAF : Commande SUBMIT (Précontrôle vert)
-    EN_COURS --> A_VALIDER : Scheduler Nocturne (au 26 du mois)
     TRANSMIS_DAF --> VALIDEE : Commande APPROVE (Gel des 4 Snapshots)
     A_VALIDER --> VALIDEE : Commande APPROVE (Gel des 4 Snapshots)
     TRANSMIS_DAF --> EN_COURS : Commande REJECT (Motif obligatoire)
@@ -126,14 +127,15 @@ stateDiagram-v2
     VALIDEE --> PAIE_VALIDEE : Validation du calcul Paie
     PAIE_VALIDEE --> CLOTUREE : Commande CLOSE (Scellement définitif)
     CLOTUREE --> EN_COURS : Commande REOPEN (Auditée, ROLE_ADMIN uniquement)
+    note right of A_VALIDER : État accepté par APPROVE/REJECT ; aucune commande actuelle ne l'atteint
 ```
 
 | Commande                    | Statut Initial                   | Statut Cible     | Rôle Autorisé                       | Effet Opérationnel & Technique                                                                                             |
 | :-------------------------- | :------------------------------- | :--------------- | :---------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
-| **`OPEN`**                  | `BROUILLON`                      | `EN_COURS`       | `POINTAGE_WRITE`, `ROLE_ADMIN`      | Déverrouille la saisie des fiches et des badges pour les pointeurs.                                                        |
-| **`SUBMIT`**                | `EN_COURS`                       | `TRANSMIS_DAF`   | `POINTAGE_WRITE`, `ROLE_ADMIN`      | Exécute le précontrôle de cohérence et soumet la période pour arbitrage DAF.                                               |
-| **`APPROVE`**               | `A_VALIDER` / `TRANSMIS_DAF`     | `VALIDEE`        | `POINTAGE_VALIDATE`, `ROLE_ADMIN`   | **Gel transactionnel complet** : génère `pointage_cumul_periode` et alimente les 4 tables de snapshots immuables.         |
-| **`REJECT`**                | `A_VALIDER` / `TRANSMIS_DAF`     | `EN_COURS`       | `POINTAGE_VALIDATE`, `ROLE_ADMIN`   | Rejette la période vers la saisie avec motif obligatoire consigné dans `periode_paie_transition`.                          |
+| **`OPEN`**                  | `BROUILLON`                      | `EN_COURS`       | `PAIE_WRITE`, `PAIE_VALIDATE`, `POINTAGE_VALIDATE` ou `ROLE_ADMIN` | Ouvre la période. `POINTAGE_WRITE` seul autorise la route HTTP générique des commandes mais échoue au contrôle métier de `PayrollPeriodWorkflowService`. |
+| **`SUBMIT`**                | `EN_COURS`                       | `TRANSMIS_DAF`   | `POINTAGE_WRITE`, `POINTAGE_VALIDATE` ou `ROLE_ADMIN` | Exécute le précontrôle et transmet la période pour arbitrage DAF. |
+| **`APPROVE`**               | `A_VALIDER` / `TRANSMIS_DAF`     | `VALIDEE`        | `POINTAGE_VALIDATE` ou `ROLE_ADMIN`   | Génère un nouveau cumul versionné et alimente les quatre tables de snapshots, sous réserve des précontrôles métier. |
+| **`REJECT`**                | `A_VALIDER` / `TRANSMIS_DAF`     | `EN_COURS`       | `POINTAGE_VALIDATE` ou `ROLE_ADMIN`   | Renvoie la période à la saisie avec motif exigé par la commande et consigné dans `periode_paie_transition`. |
 | **`VALIDATE_PAYROLL`**      | `VALIDEE`                        | `PAIE_VALIDEE`   | `PAIE_VALIDATE`, `ROLE_ADMIN`       | Validation et approbation de la paie collective de la période, consignée atomiquement dans `periode_paie_transition`.     |
 | **`RECALCULATE_PAYROLL`**   | `PAIE_VALIDEE`                   | `VALIDEE`        | `PAIE_WRITE`, `ROLE_ADMIN`          | Recalcul de paie replaçant les bulletins en attente d'approbation, consigné atomiquement dans `periode_paie_transition`.  |
 | **`CLOSE`**                 | `PAIE_VALIDEE`                   | `CLOTUREE`       | `PAIE_VALIDATE`, `ROLE_ADMIN`       | Clôture seulement après la fin de période, sans recalcul obsolète et avec la population de bulletins validée complète. `VALIDEE` seul est refusé (`PAYROLL_NOT_VALIDATED`). |
@@ -145,7 +147,7 @@ stateDiagram-v2
 > - **État d'exposition** : Cet historique est strictement tracé en base de données PostgreSQL mais n'est pas encore exposé par un endpoint REST public ni affiché dans les interfaces React actuelles.
 > - **Note de conformité** : L'ancien endpoint générique de mutation directe de statut (`PUT /periodes/{id}/statut`) est désactivé et renvoie une réponse HTTP `410 GONE`. Seules les commandes auditées sont autorisées.
 
-La garde de clôture est implémentée dans `backend/src/main/java/mg/galaxam/sirh/paie/application/workflow/PayrollPeriodWorkflowService.java` (`closeStateCapability` et `closeCapability`). `PayrollPeriodTransitionTargetedTest` vérifie notamment la journalisation des transitions, mais ne démontre pas à lui seul toutes les préconditions d'exécution de `CLOSE` ; aucune recette de clôture de pointage distincte n'est revendiquée dans ce document.
+La commande `SUBMIT` mène à `TRANSMIS_DAF`. Le workflow accepte également `A_VALIDER` comme état source de `APPROVE` et `REJECT`, mais aucune commande de période actuelle n'a été identifiée comme y faisant passer la période. Aucune transition automatique nocturne n'est documentée. La garde de clôture est implémentée dans `backend/src/main/java/mg/galaxam/sirh/paie/application/workflow/PayrollPeriodWorkflowService.java` (`closeStateCapability` et `closeCapability`). `PayrollPeriodTransitionTargetedTest` vérifie notamment la journalisation des transitions, mais ne démontre pas à lui seul toutes les préconditions d'exécution de `CLOSE` ; aucune recette de clôture de pointage distincte n'est revendiquée dans ce document.
 
 **Portée du gel et de la réouverture :** les lignes d'un snapshot généré au gel sont historiques et conservées comme telles. La période, elle, n'est pas irréversible : `REOPEN` permet à `ROLE_ADMIN`, avec motif, de repasser de `CLOTUREE` à `EN_COURS`, de dégeler la période et d'archiver le cumul précédent comme remplacé. La réouverture est refusée lorsqu'un bulletin mensuel a déjà un règlement non annulé, une ligne de virement en attente ou un STC au statut `VALIDE`/`REGLE`. Un nouveau gel crée une nouvelle version de snapshot ; il ne réécrit pas l'ancienne version.
 
@@ -182,13 +184,16 @@ Le calcul des heures d'une journée n'est pas un calcul arithmétique simple : i
 
 ### A. Plancher d'arrivée paramétrable par site (`ref_site`)
 
-Pour empêcher qu'un employé badgé excessivement en avance ne génère indûment des heures de travail sans accord managérial, le système applique un plancher d'arrivée paramétré sur `ref_site` :
+Le plancher d'arrivée valorisée concerne le calcul du temps lorsqu'un salarié badge avant l'heure minimale retenue. Il est distinct d'une tolérance de retard : les sources examinées ne montrent pas de paramètre de retard de 15 minutes. La configuration utilise `ref_site.plancher_arrivee_actif` et `ref_site.heure_entree_minimale_valorisee`. Si le drapeau est faux ou si la configuration est absente, aucun plancher n'est appliqué et le badge brut est utilisé. S'il est actif, la formule est :
 
 $$
 \text{Heure Entrée Effective} = \max(\text{Heure Badge Effective}, \text{Plancher Arrivée Site})
 $$
 
-- *Exemple réel* : Sur le site de Tamatave (plancher fixé à 07h00), un salarié qui badge à 06h45 verra son `heure_entree_matin_effective` bornée à **07h00**. Si le salarié badge à 07h12, l'heure retenue est 07h12 avec imputation de 12 minutes de retard.
+- *Exemple illustratif* : avec un plancher configuré à 07h00, un badge à 06h45 est valorisé à 07h00 ; un badge postérieur à ce plancher reste inchangé. Le retard est calculé séparément par rapport à l'horaire de travail applicable, sans déduire de cette règle une tolérance fixe.
+- Le schéma canonique définit `plancher_arrivee_actif` à `FALSE` par défaut ; ses sites seedés ont également le drapeau à `FALSE`, malgré une heure stockée. Ces valeurs décrivent le schéma d'initialisation, pas l'état actuel d'une base en service, qui n'a pas été consultée.
+- Si le plancher est activé avec l'heure `00:00`, la formule `max(badge, 00:00)` conserve une heure de badge ultérieure ; cette valeur ne borne donc pas les arrivées diurnes vers une heure plus tardive.
+- L'API `GET /pointages/parametres/tolerances` renvoie `heurePlafond` et `estActif` pour chaque site et requiert une authentification. Le `POST` correspondant modifie le plancher et exige `ROLE_ADMIN`. L'interface d'organisation présente ce réglage sous le libellé « Plancher d'Arrivée Valorisé (Pointage) ».
 - *Sécurisation juridique & Règlement Intérieur* : Conformément à l'Article 108 de la Loi n° 2024-014 (définition légale du temps de travail effectif), l'écrêtage matinal est juridiquement opposable devant la juridiction prud'homale sous réserve de la présence d'une clause expresse dans le **Règlement Intérieur de l'établissement** (visé et homologué par l'Inspection du Travail selon les Articles 11 et suivants du Code) interdisant l'accès aux postes de travail avant l'horaire officiel et stipulant que les présences anticipées non commandées ne font l'objet d'aucune rémunération.
 
 ### B. Qualification temporelle orthogonale (`TemporalAttendanceEngine.java`)
@@ -263,15 +268,15 @@ Le tableau de bord [`SuiviAnomaliesPage.jsx`](../../../frontend/src/features/att
 
 - Statut `ANOMALIE_SAISIE` (badgeage d'entrée sans badgeage de sortie, ou vice-versa).
 - Statut `ABSENCE_NON_JUSTIFIEE` (journée ouvrable non badgée sans demande de congé préalable).
-- Retards non autorisés supérieurs au seuil de tolérance du site (paramétré par défaut à 15 minutes).
+- Retards détectés par comparaison de l'heure d'arrivée avec l'horaire prévu. Aucun seuil fixe de tolérance de 15 minutes n'a été identifié dans le code ou le schéma consulté.
 
 ### Procédure de régularisation auditée (`PointageAnomalieService.java`) :
 
-Toute modification opérée via l'API `PUT /pointages/anomalies/{idPointage}/regulariser` exige :
+La régularisation d'un pointage existant via `PUT /pointages/anomalies/{idPointage}/regulariser` vérifie la version courante avant écriture ; une nouvelle ligne suit ses validations de création propres. L'endpoint accepte `POINTAGE_WRITE`, `POINTAGE_VALIDATE` ou `ROLE_ADMIN` ; il ne requiert pas `CONGE_WRITE`. Le formulaire demande normalement un motif d'au moins trois caractères, sauf pour `RETARD_REEL`, qui transmet le motif automatique « Retard réel confirmé ».
 
-1. Un **motif formel obligatoire** consigné pour l'audit interne.
-2. La saisie des heures corrigées ou la qualification de l'absence.
-3. **Couplage transactionnel avec les Congés** : Si l'absence est justifiée par un congé payé, une convenance personnelle ou une permission d'événement familial, le service appelle atomiquement `CongeService.creerDemandeRegularisation()`. Le solde FIFO du collaborateur est débité, le lot de congé est créé, et le pointage passe automatiquement en statut `CONGE`.
+1. Selon le parcours, un motif saisi ou généré est transmis et conservé ; `RETARD_REEL` requiert la version courante et un retard positif puis écrit le motif prédéfini.
+2. La saisie peut corriger les heures ou qualifier une absence en `CONGE_PAYE`, `PERMISSION_EXCEPTIONNELLE` ou `ABSENCE_DEDUITE` ; une correction d'heures exige la sélection des indemnités dynamiques attendues.
+3. **Couplage transactionnel avec les Congés** : `CONGE_PAYE` appelle `CongeService.regulariserCongeAnnuelDepuisPointageStructure`, qui recherche une régularisation idempotente, refuse un chevauchement avec une demande existante et vérifie la couverture par le solde. Une demande annuelle est créée puis validée et son identifiant est rattaché au pointage lorsque des jours sont couverts. Si le solde est nul, aucune demande n'est créée et la couverture de congé est nulle ; une couverture partielle peut laisser un reliquat traité selon les règles de statut du pointage. `PERMISSION_EXCEPTIONNELLE` appelle le service Congés pour créer/valider une permission, sous réserve d'un type actif et de l'absence d'une demande couvrant la date. Les écritures de congé et de pointage partagent la transaction JDBC. Le seed accorde `POINTAGE_WRITE` à `ROLE_AGENT_POINTAGE`, et l'endpoint autorise cette permission : l'Agent peut donc lancer ce parcours, sous réserve de ces contrôles métier.
 
 ---
 
@@ -282,17 +287,17 @@ En fin de cycle, la Direction Administrative et Financière peut être amenée �
 Ces opérations sont scellées dans la table `pointage_ajustement_periode` :
 
 - Portent sur un volume en **minutes signées** (positives ou négatives, non nulles).
-- Exigent un **motif explicite obligatoire** d'au moins 5 caractères.
+- Chaque ajustement exige un motif d'au moins cinq caractères, contrôlé par le service et la contrainte SQL. Cette règle concerne l'ajustement DAF du solde, pas toutes les régularisations de journée.
 - Sont soumises aux statuts `VALIDE` ou `ANNULE` (avec traçabilité de l'utilisateur ordonnateur).
 - Sont strictement étanches aux corrections de badge journalier : elles interviennent directement au niveau du solde global de période sans altérer les badgeages bruts.
 
 ---
 
-## 11. Scellement de période et architecture des 4 snapshots
+## 11. Gel de période et snapshots versionnés
 
-Lorsque la DAF valide le pointage via la commande `APPROVE` (`POST /periodes/{id}/actions/APPROVE`), le service [`PointageSyntheseService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageSyntheseService.java) passe la période au statut `VALIDEE` et crée un snapshot versionné. Ce gel verrouille les données pour le traitement Paie ; une réouverture ultérieure reste possible sous les conditions administratives décrites plus haut.
+Lorsque la DAF valide le pointage via `APPROVE` (`POST /periodes/{id}/actions/APPROVE`), le workflow appelle [`PointageSyntheseService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageSyntheseService.java), qui crée un cumul versionné par salarié et ses données de provenance. Le cumul actif précédent passe à `REMPLACE`, sauf protection liée à un bulletin mensuel déjà validé. `CONSOMME` indique une utilisation dans le traitement de paie. Ces statuts et relations organisent les versions conservées par l'application ; ils ne garantissent pas une immutabilité absolue des lignes.
 
-Cette transaction réalise le **gel de 4 tables de snapshots immuables** :
+Le gel alimente quatre tables de provenance :
 
 ```
                         TRANSITION DAF : APPROVE
@@ -314,12 +319,18 @@ Cette transaction réalise le **gel de 4 tables de snapshots immuables** :
 └──────────────────┘      └──────────────────┘      └──────────────────┘      └──────────────────┘
 ```
 
-1. **`pointage_snapshot_jour`** : Fige pour chaque journée travaillée les minutes réelles, les retards, les heures de nuit et surtout l'**`heure_entree_effective`** (prenant en compte le plancher d'arrivée).
-2. **`pointage_snapshot_indemnite`** : Fige la valorisation exacte en Ariary des indemnités de déplacement, de repas et des fixes mensuels proratisés, avec leur rattachement à la rubrique de paie (`code_rubrique_paie`) et leur assujettissement fiscal/social (`imposable_irsa`, `soumis_cotisation`).
-3. **`pointage_snapshot_bucket`** : Fige le découpage granulaire de chaque intervalle d'activité avec son éligibilité aux tranches de majoration (`overtime_tier`, `day_special_type`, `night_work_type`).
-4. **`pointage_snapshot_ajustement`** : Fige les arbitrages de minutes signées validés par la DAF lors de la clôture.
+1. **`pointage_snapshot_jour`** : Enregistre les heures et valeurs journalières calculées, dont les retards et l'**`heure_entree_effective`** (avec le plancher s'il est actif).
+2. **`pointage_snapshot_indemnite`** : Enregistre les montants d'indemnités de déplacement, de repas et des fixes mensuels proratisés, avec leur rubrique de paie (`code_rubrique_paie`) et leurs indicateurs fiscaux/sociaux (`imposable_irsa`, `soumis_cotisation`).
+3. **`pointage_snapshot_bucket`** : Enregistre le découpage des intervalles d'activité avec leur qualification (`overtime_tier`, `day_special_type`, `night_work_type`).
+4. **`pointage_snapshot_ajustement`** : Enregistre les arbitrages de minutes signées rattachés au cumul.
 
-> **Consommation en Paie et STC** : `PayrollCalculationContextAssembler` lit les snapshots scellés pour assembler le contexte du bulletin mensuel. `StcService` comporte aussi des lectures directes de `pointage_jour`, notamment de `heures_nuit` et `montant_total_indemnites`, pour ses contrôles et son calcul de sortie. Les snapshots et les bulletins historiques ne sont pas modifiés par la règle d'intégrité des périodes (ancien identifiant SP80) ; retirer ces colonnes demanderait d'abord de sécuriser ces consommateurs et les résultats historiques.
+Le cumul stocke `version_snapshot`, `statut_snapshot` (`GELE`, `REMPLACE`, `CONSOMME`) et `remplace_id_cumul`, avec unicité du triplet employé/période/version et un index unique partiel pour le snapshot `GELE` courant. Le schéma relie les tables de provenance au cumul : certaines clés étrangères utilisent `ON DELETE RESTRICT`, tandis que l'indemnité utilise `ON DELETE CASCADE`. Ces contraintes portent sur les relations et la suppression ; aucun déclencheur SQL général interdisant toute mise à jour des snapshots n'a été identifié. La protection contre le remplacement d'une version consommée ou liée à un bulletin validé relève des contrôles applicatifs. Le bulletin conserve l'identifiant et la version du snapshot ; des contrôles d'obsolescence refusent un lien qui ne correspond plus à la version admissible la plus récente. Ces mécanismes préservent l'historique des versions dans les parcours observés, sans garantir une immutabilité absolue contre toute écriture directe.
+
+> **Consommation en Paie et STC** : `PayrollCalculationContextAssembler` lit le snapshot admissible le plus récent (`GELE` ou `CONSOMME`) et y associe ses indemnités et tranches qualifiées. Le bulletin conserve `id_snapshot_pointage` et `version_snapshot_pointage` ; les contrôles de cohérence comparent ce couple avec le snapshot courant admissible. Les lignes liées à un bulletin validé ne sont pas remplacées par un nouveau gel collectif. Le parcours STC comprend aussi des lectures directes de `pointage_jour`.
+
+### Gel individuel lors d'une sortie
+
+`DeparturePayrollService` appelle `PointageSyntheseService.gelerEmploye` lorsqu'un dossier de sortie doit disposer du pointage du salarié sans attendre la clôture collective. Cette opération gèle uniquement le salarié concerné et ne ferme pas la campagne pour les autres. Le salarié doit appartenir à la synthèse de la période ; les journées ouvrables sans statut, les statuts `ANOMALIE_SAISIE` et les vacations chevauchant deux campagnes bloquent ce gel. Le contrôle de changement d'éligibilité aux heures supplémentaires s'applique également. En cas de gel réussi, une nouvelle version `GELE` est créée avec un lien `remplace_id_cumul` vers la version précédente ; un snapshot déjà consommé ou lié à un bulletin validé est protégé selon le chemin d'appel. Ce gel individuel est distinct de la commande collective `APPROVE`.
 
 ---
 
@@ -329,16 +340,16 @@ Le schéma canonique `05_schema_pointage.sql` organise la persistance autour des
 
 | Table                            | Rôle & Cardinalité                                   | Clés primaires & Contraintes d'intégrité                                                                                                               |
 | :------------------------------- | :----------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `periode_paie`                 | Campagnes mensuelles (26 au 25).                       | PK `id_periode_paie`, contrainte GiST `ex_periode_paie_dates` d'exclusion temporelle, UK `code`, Check `chk_periode_paie_statut` (`BROUILLON`, `EN_COURS`, `A_VALIDER`, `TRANSMIS_DAF`, `VALIDEE`, `PAIE_VALIDEE`, `CLOTUREE`) ; trigger du schéma canonique pour l'immuabilité des bornes (ancien identifiant SP80). |
-| `periode_paie_transition`      | Journal immuable d'audit des transitions d'état.      | PK `id_transition`, FK `id_periode_paie`, FK `id_utilisateur`.                                                                                      |
+| `periode_paie`                 | Périodes de paie aux bornes définies lors de leur création. | PK `id_periode_paie`, contrainte GiST `ex_periode_paie_dates` d'exclusion temporelle, UK `code`, Check `chk_periode_paie_statut` ; trigger du schéma canonique pour l'immuabilité des bornes. Le cycle 26–25 est une convention, non une contrainte SQL. |
+| `periode_paie_transition`      | Journal des transitions d'état enregistrées par le workflow. | PK `id_transition`, FK `id_periode_paie`, FK `id_utilisateur`. Le workflow écrit dans la transaction de commande ; le schéma seul ne rend pas la table append-only contre toute écriture. |
 | `pointage_jour`                | Pointages journaliers individuels.                     | PK `id_pointage`, UK `(id_employe, date_pointage)`, FK `id_site`, FK `id_statut_jour` ; trigger du schéma canonique pour l'appartenance à la période (ancien identifiant SP80). |
 | `pointage_indemnite_jour`      | Source unique de vérité des indemnités de journée. | PK `id_pointage_indemnite`, UK `(id_pointage, id_indemnite, fraction)`.                                                                               |
 | `pointage_ajustement_periode`  | Arbitrages DAF de solde en fin de période.            | PK `id_ajustement`, Check `minutes_signees <> 0`, Check `length(motif) >= 5`.                                                                       |
 | `pointage_cumul_periode`       | Synthèse gelée pour la paie.                         | PK `id_cumul`, UK `(id_employe, id_periode_paie, version_snapshot)`.                                                                                  |
-| `pointage_snapshot_jour`       | Snapshot immuable des journées.                       | PK `(id_cumul, id_pointage)`.                                                                                                                           |
-| `pointage_snapshot_indemnite`  | Snapshot immuable des indemnités valorisées.         | PK `(id_cumul, id_indemnite)`.                                                                                                                          |
-| `pointage_snapshot_bucket`     | Snapshot immuable des tronçons qualifiés.            | PK `id_snapshot_bucket`, FK `id_cumul`.                                                                                                               |
-| `pointage_snapshot_ajustement` | Snapshot immuable des arbitrages DAF.                  | PK `(id_cumul, id_ajustement)`.                                                                                                                         |
+| `pointage_snapshot_jour`       | Valeurs journalières historisées par cumul.            | PK `(id_cumul, id_pointage)`, FK cumul avec restriction de suppression.                                                                                 |
+| `pointage_snapshot_indemnite`  | Montants d'indemnités historisés par cumul.            | PK `(id_cumul, id_indemnite)`, FK cumul avec cascade de suppression.                                                                                   |
+| `pointage_snapshot_bucket`     | Intervalles qualifiés historisés par cumul.            | PK `id_snapshot_bucket`, FK cumul avec restriction de suppression.                                                                                     |
+| `pointage_snapshot_ajustement` | Ajustements DAF rattachés au cumul.                    | PK `(id_cumul, id_ajustement)`, FK cumul avec restriction de suppression.                                                                              |
 
 ---
 
@@ -359,7 +370,7 @@ Le module contient un moteur de génération de documents :
 
 | Identifiant RG      | Énoncé Formel de la Règle                                                                                                                                                                                                          | Fondement Légal / Réglementaire                | Composant Responsable                                                                                                                                                                                          |
 | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RG-PTG-01** | **Cycle de paie décalé 26-25** : Le cycle mensuel d'acquisition s'étend obligatoirement du 26 du mois $M-1$ au 25 du mois $M$. Aucun chevauchement de dates n'est toléré en base.                                      | Accord d'entreprise GALAXAM & Pratique RH        | [`PointagePeriodeController.java`](../../src/main/java/mg/galaxam/sirh/pointage/api/PointagePeriodeController.java)                           |
+| **RG-PTG-01** | **Convention de période 26-25** : Les périodes sont généralement présentées du 26 du mois $M-1$ au 25 du mois $M$ ; l'API accepte des bornes explicites à condition que la fin suive le début et que la période ne chevauche pas une période existante.                                      | Accord d'entreprise GALAXAM & Pratique RH        | [`PointagePeriodeController.java`](../../src/main/java/mg/galaxam/sirh/pointage/api/PointagePeriodeController.java)                           |
 | **RG-PTG-02** | **Application stricte du plancher d'arrivée** : Si le badgeage initial précède le plancher configuré du site, l'heure retenue pour le calcul effectif est bornée à ce plancher : $\max(\text{badge}, \text{plancher})$. | Pouvoir d'organisation de l'employeur (Art. 109) | [`AttendanceEngine.java`](../../src/main/java/mg/galaxam/sirh/pointage/domain/calculation/AttendanceEngine.java)                              |
 | **RG-PTG-03** | **Durée légale de 40 heures hebdomadaires** : La compensation et le décompte des heures supplémentaires s'opèrent strictement sur base hebdomadaire (lundi 00h00 à dimanche 23h59).                                       | **Loi 2024-014, Art. 109 & 110**           | [`AttendanceEngine.java`](../../src/main/java/mg/galaxam/sirh/pointage/domain/calculation/AttendanceEngine.java)                              |
 | **RG-PTG-04** | **Paliers légaux d'heures supplémentaires** : Les 8 premières heures excédentaires de la semaine sont qualifiées en HS 30% ; les heures au-delà sont qualifiées en HS 50%.                                               | **Décret n° 72-226, Art. 2**             | [`AttendanceEngine.java`](../../src/main/java/mg/galaxam/sirh/pointage/domain/calculation/AttendanceEngine.java)                              |
@@ -369,10 +380,10 @@ Le module contient un moteur de génération de documents :
 | **RG-PTG-08** | **Compensation hebdomadaire interne** : Les déficits constatés sur un jour de la semaine sont automatiquement absorbés par les dépassements constatés sur un autre jour de la même semaine.                               | Organisation modulaire du temps de travail       | [`AttendanceEngine.java`](../../src/main/java/mg/galaxam/sirh/pointage/domain/calculation/AttendanceEngine.java)                              |
 | **RG-PTG-09** | **Ordre d'imputation des déficits de période** : Les déficits hebdomadaires résiduels et ajustements DAF négatifs consomment prioritairement les HS 30%, puis les HS 50%, avant de constituer une retenue pour absence.    | Protection du salaire & Arithmétique sociale    | [`PointageSyntheseService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageSyntheseService.java)                       |
 | **RG-PTG-10** | **Suppression de l'indemnité déplacement par véhicule de fonction** : L'indemnité `DPLCT` est automatiquement désactivée pour la journée si `utilise_vehicule_fonction_jour = TRUE`.                                 | Non-cumul des avantages en nature                | [`PointageAllowancePolicy.java`](../../src/main/java/mg/galaxam/sirh/pointage/domain/calculation/PointageAllowancePolicy.java)                |
-| **RG-PTG-11** | **Régularisation motivée et couplage congé** : La régularisation d'une anomalie par motif de congé déclenche obligatoirement la création et la déduction transactionnelle du lot dans le module Congés.                | Intégrité inter-modules & Auditabilité        | [`PointageAnomalieService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageAnomalieService.java)                       |
+| **RG-PTG-11** | **Régularisation et options Congés** : Selon le type choisi, la régularisation peut créer/valider transactionnellement une demande de congé annuel ou une permission, ou enregistrer une absence déduite. Le congé annuel dépend du solde disponible, des chevauchements et des contrôles du service Congés ; aucune demande n'est créée lorsque le solde disponible est nul.                | Intégrité inter-modules & Auditabilité        | [`PointageAnomalieService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageAnomalieService.java)                       |
 | **RG-PTG-12** | **Ajustement DAF étanche** : L'arbitrage de fin de période (`pointage_ajustement_periode`) modifie le solde global de période sans corrompre ni écraser les pointages journaliers d'origine.                              | Traçabilité des actes de gestion               | [`PointageAjustementPeriodeService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageAjustementPeriodeService.java)     |
 | **RG-PTG-13** | **Précontrôle bloquant de transmission** : La période ne peut être transmise à la DAF ni validée si des journées restent en anomalie non traitée ou si des chevauchements d'affectation surviennent.                    | Contrôle interne et barrière de sécurité     | [`PointageTemporalConfigurationGuard.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageTemporalConfigurationGuard.java) |
-| **RG-PTG-14** | **Gel versionné des snapshots** : Lors de la validation du pointage, le cumul passe à `GELE` dans `pointage_cumul_periode` et les 4 tables de snapshots sont alimentées. | Traçabilité technique et consommation par la Paie | [`PointageSyntheseService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageSyntheseService.java) |
+| **RG-PTG-14** | **Gel versionné des snapshots** : `APPROVE` crée un cumul par salarié avec version et données de provenance. Les statuts et références organisent les versions sans garantir une immutabilité absolue des lignes. | Traçabilité technique et consommation par la Paie | [`PointageSyntheseService.java`](../../src/main/java/mg/galaxam/sirh/pointage/application/PointageSyntheseService.java) |
 | **RG-PTG-15** | **Contexte du bulletin mensuel fondé sur les données gelées** : `PayrollCalculationContextAssembler` lit le snapshot admissible le plus récent (`GELE`/`CONSOMME`) ; le parcours STC conserve des lectures directes de `pointage_jour`. | Traçabilité des résultats mensuels | [`PayrollCalculationContextAssembler.java`](../../src/main/java/mg/galaxam/sirh/paie/application/PayrollCalculationContextAssembler.java) |
 | **RG-PTG-16** | **Appartenance journée/période** : La date de chaque journée doit être comprise entre les bornes inclusives de sa période ; ces bornes ne changent plus après création.                                                  | Intégrité du classement temporel des journées | `05_schema_pointage.sql` (SP80 est l'ancien identifiant de l'évolution ; migrations supprimées)                                                                                                                    |
 
@@ -387,7 +398,7 @@ Exemple chiffré conservé tel qu'il figure dans la version antérieure. Sa prov
 | **Régime d'Horaires & Plancher**       | Équipe Quai (Plancher appliqué à **07h00**)       | Siège Administratif (**08h00 - 17h00**)             | `ref_site.heure_entree_minimale_valorisee`                |
 | **Badgeages anticipés observés**      | Badgé 06h40 à 4 reprises $\rightarrow$ borné à 07h00 | Badgé 07h55 à 2 reprises $\rightarrow$ borné à 08h00 | Plancher d'arrivée : neutralisation des avances            |
 | **Heures travaillées brutes**          | 176 h 27 min                                               | 152 h 40 min                                               | Décompte cumulé des minutes effectives                    |
-| **Retards constatés**                  | 0 min (Ponctualité exemplaire)                            | **20 min** de retard net (après tolérance)         | Déduction du temps effectif                                |
+| **Retards constatés**                  | 0 min (Ponctualité exemplaire)                            | **20 min** de retard observé         | Déduction du temps effectif                                |
 | **Congés payés pris**                 | **9 jours ouvrables** régularisés                  | **3 jours ouvrables** régularisés                  | Déduction sur pointage & Ordre de mission                  |
 | **Heures Supplémentaires Tronçons**   | **6 h 27 min** (387 min) à 30%, 0 min à 50%        | 0 min (Dépassements absorbés par les absences)           | Découpage 40h hebdo & Paliers Décret 72-226               |
 | **Ajustement DAF de période**          | **0 min**                                            | **0 min**                                            | Aucun arbitrage manuel nécessaire                          |
@@ -396,7 +407,7 @@ Exemple chiffré conservé tel qu'il figure dans la version antérieure. Sa prov
 | **Retenue pour Absence Résiduelle**    | **0 min**                                            | **20 min** (0,33 h d'absence nette)                  | Déduit sur bulletin : $20/60 \times (S_{base}/173{,}33)$ |
 | **Indemnités Déplacement accordées** | Fixe mensuel Tamatave proratisé                           | Fixe mensuel Tananarive proratisé                         | `site_indemnite_config`                                   |
 | **Indemnités Repas (Panier)**          | **0,00 Ar** (Cantine de site gratuite)               | **44 000,00 Ar** (22 jours $\times$ 2 000 Ar)      | Prise en charge repas physique de midi                      |
-| **État du Scellement**                 | `GELE` (Snapshot V1 créé le 26/08/2026)                | `GELE` (Snapshot V1 créé le 26/08/2026)                | 4 tables de snapshots immuables prêtes pour Paie           |
+| **État du Scellement**                 | `GELE` (Snapshot V1 créé le 26/08/2026)                | `GELE` (Snapshot V1 créé le 26/08/2026)                | Quatre tables de provenance versionnées pour la Paie           |
 
 ---
 
@@ -435,11 +446,6 @@ Exemple chiffré conservé tel qu'il figure dans la version antérieure. Sa prov
 
 ### Note sur les tests d'intégration
 
-Les fixtures de `PointagePhase6IntegrationTest` s'appuient sur une période à
-dates fixes. Exécuter les tests sur une base PostgreSQL dédiée aux tests, jamais
-sur une base partagée contenant des périodes métier, et vérifier la rejouabilité
-sur la même base. Une exécution complète antérieure sur PostgreSQL isolé a
-réussi deux fois (518 tests, 0 échec, 0 erreur, 5 ignorés) ; ce résultat précède
-les dernières modifications STC et ne certifie pas l'état courant de la branche.
+Tests présents dans le dépôt au moment de la vérification : `PayrollPeriodMigrationTargetedTest`, `PayrollPeriodTransitionTargetedTest`, `PointageAuditAtomicityTest`, `PointageDerogationAuthorizationTest`, `PointageImportInvalidWorkbookTest`, `PointageLeaveStatusTest` et `PointageTimeValidationTest`, entre autres tests de calendrier. La classe `PointagePhase6IntegrationTest` n'a pas été retrouvée et la référence à 518 tests ne dispose pas d'un rapport reproductible dans le dépôt. Aucun test n'a été exécuté dans cette mise à jour documentaire ; la présence d'un test ne signifie pas qu'il a été exécuté sur l'état actuel de la branche.
 
 *Documentation technique du module Pointage. Les règles citées et les contrôles décrits ne constituent pas une certification de conformité légale ni un rapprochement de recette indépendant.*

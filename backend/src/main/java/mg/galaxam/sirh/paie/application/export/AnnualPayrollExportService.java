@@ -66,7 +66,7 @@ public class AnnualPayrollExportService {
                 auditedLines.addAll(lines);
                 String key = period.code() + ":" + bulletin.getIdEmploye();
                 String[] identity = GrandLivrePaieExportService.summaryIdentity(bulletin, filiales.get(bulletin.getIdBulletin()));
-                BigDecimal[] values = normalized(GrandLivrePaieExportService.summaryValues(bulletin, lines));
+                BigDecimal[] values = annualValues(bulletin, lines);
                 PayRow previous = monthly.get(key);
                 monthly.put(key, previous == null ? new PayRow(bulletin.getIdEmploye(), period.code(), identity, values, bulletin.getReferenceBulletin(), bulletin.getStatut())
                         : new PayRow(bulletin.getIdEmploye(), period.code(), identity, add(previous.values(), values), bulletin.getReferenceBulletin(), bulletin.getStatut()));
@@ -322,6 +322,26 @@ public class AnnualPayrollExportService {
         BigDecimal[] copy = new BigDecimal[values.length];
         for (int i = 0; i < values.length; i++) copy[i] = values[i] == null ? BigDecimal.ZERO : values[i];
         return copy;
+    }
+
+    private static BigDecimal[] annualValues(BulletinPaie bulletin, List<BulletinPaieLigne> lines) {
+        BigDecimal[] monthly = normalized(GrandLivrePaieExportService.summaryValues(bulletin, lines));
+        BigDecimal[] annual = new BigDecimal[18];
+        System.arraycopy(monthly, 0, annual, 0, 13);
+        BigDecimal loans = lines.stream()
+                .filter(line -> "RETENUE".equals(line.getSens()))
+                .filter(line -> !"ACOMPTE_AVANCE".equals(line.getCategorie()))
+                .filter(line -> {
+                    String code = text(line.getCodeRubrique()).toUpperCase(Locale.ROOT);
+                    String category = text(line.getCategorie()).toUpperCase(Locale.ROOT);
+                    return code.contains("PRET") || category.contains("PRET");
+                })
+                .map(line -> line.getMontantSalarial() == null ? BigDecimal.ZERO : line.getMontantSalarial())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        annual[13] = loans;
+        annual[14] = monthly[13].subtract(loans);
+        System.arraycopy(monthly, 14, annual, 15, 3);
+        return annual;
     }
     private static void writeMonthlyOverview(Workbook book, int year, List<String> periodCodes,
                                              List<PayRow> monthlyRows, int employees,

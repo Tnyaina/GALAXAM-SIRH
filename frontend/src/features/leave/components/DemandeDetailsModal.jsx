@@ -63,6 +63,7 @@ export default function DemandeDetailsModal({
           derogationSoldeNegatif: Boolean(targetDemande.derogationSoldeNegatif),
           derogationDelaiPreavis: Boolean(targetDemande.derogationDelaiPreavis),
           extensionPathologiqueMaternite: Boolean(targetDemande.extensionPathologiqueMaternite),
+          idDemandeConge: targetDemande.idDemandeConge,
         }),
       ]);
       if (!isMounted) return;
@@ -76,6 +77,7 @@ export default function DemandeDetailsModal({
     return () => { isMounted = false; };
   }, [
     isOpen,
+    targetDemande?.idDemandeConge,
     targetDemande?.idEmploye,
     targetDemande?.idTypeConge,
     targetDemande?.dateDebut,

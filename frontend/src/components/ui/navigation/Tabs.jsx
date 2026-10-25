@@ -94,7 +94,7 @@ export function Tabs({
                     aria-label={ariaLabel}
                     aria-orientation="horizontal"
                     onKeyDown={handleKeyDown}
-                    className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-3 overflow-x-auto gap-0.5 ${className}`}
+                    className={`flex flex-wrap border-b border-[var(--color-border-subtle)] ${bgClass} px-3 gap-0.5 ${className}`}
                 >
                     {tabs.map((tab) => {
                         const isActive = activeTab === tab.id;
@@ -112,7 +112,7 @@ export function Tabs({
                                 disabled={tab.disabled}
                                 onClick={() => onChange(tab.id)}
                                 className={`
-                                flex items-center gap-1.5 py-2 px-3 border-b-2 text-xs font-semibold cursor-pointer whitespace-nowrap rounded-none
+                                flex min-w-0 max-w-full min-h-[40px] items-center gap-1.5 py-2 px-3 border-b-2 text-xs font-semibold cursor-pointer whitespace-normal rounded-none
                                 focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] focus-visible:outline-offset-[-2px]
                                 ${isActive
                                 ? 'border-[var(--color-brand-600)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] font-bold'

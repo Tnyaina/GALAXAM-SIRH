@@ -84,7 +84,8 @@ CREATE TABLE demande_conge (
     CONSTRAINT chk_demande_conge_demi_journee CHECK (
         (est_demi_journee IS FALSE AND moment_demi_journee IS NULL) OR
         (est_demi_journee IS TRUE AND date_debut = date_fin AND moment_demi_journee IN ('MATIN', 'APRES_MIDI'))
-    )
+    ),
+    CONSTRAINT uq_demande_conge_id_employe UNIQUE (id_demande_conge, id_employe)
 );
 
 
@@ -94,12 +95,20 @@ CREATE TABLE mouvement_solde_conge (
     id_employe INT NOT NULL REFERENCES employe(id_employe),
     type_mouvement VARCHAR(20) NOT NULL CHECK (type_mouvement IN ('ACQUISITION','BONIFICATION','PRISE','AJUSTEMENT','ANNULATION','EXPIRATION')),
     nb_jours NUMERIC(5,2) NOT NULL,
-    id_demande_conge INT REFERENCES demande_conge(id_demande_conge) ON DELETE SET NULL,
+    id_demande_conge INT,
     date_mouvement DATE NOT NULL DEFAULT CURRENT_DATE,
     commentaire TEXT,
     valeur_source NUMERIC(14,2),
     created_by INT REFERENCES utilisateur(id_utilisateur),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_mouvement_solde_conge_signe CHECK (
+        (type_mouvement IN ('ACQUISITION', 'BONIFICATION', 'ANNULATION') AND nb_jours >= 0)
+        OR (type_mouvement IN ('PRISE', 'EXPIRATION') AND nb_jours <= 0)
+        OR type_mouvement = 'AJUSTEMENT'
+    ),
+    CONSTRAINT uq_mouvement_solde_conge_id_employe UNIQUE (id_mouvement, id_employe),
+    CONSTRAINT fk_mouvement_conge_demande_employe FOREIGN KEY (id_demande_conge, id_employe)
+        REFERENCES demande_conge(id_demande_conge, id_employe)
 );
 
 
@@ -122,6 +131,7 @@ CREATE TABLE conge_periode_reference (
     CONSTRAINT chk_periode_dates CHECK (date_fin >= date_debut),
     CONSTRAINT chk_statut_ref CHECK (statut IN ('OUVERTE', 'CLOTUREE', 'ARCHIVEE')),
     CONSTRAINT chk_mode_reprise CHECK (mode_reprise IN ('FULL_HISTORY', 'AGGREGATED_OPENING', 'MINIMAL_OPENING', 'NEW_HIRE')),
+    CONSTRAINT uq_conge_reference_id_employe UNIQUE (id_periode_reference, id_employe),
     CONSTRAINT uk_conge_reference_temporal_overlap EXCLUDE USING gist (
         id_employe WITH =,
         daterange(date_debut, date_fin, '[]') WITH &&
@@ -146,7 +156,10 @@ CREATE TABLE conge_journal_droit (
     cumul_valorisation NUMERIC(20,2) NOT NULL,
     taux_journalier_conge NUMERIC(20,2) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_conge_journal_emp_annee_mois UNIQUE (id_employe, annee, mois)
+    CONSTRAINT uk_conge_journal_emp_annee_mois UNIQUE (id_employe, annee, mois),
+    CONSTRAINT uq_conge_journal_id_employe UNIQUE (id_journal, id_employe),
+    CONSTRAINT fk_conge_journal_reference_employe FOREIGN KEY (id_periode_reference, id_employe)
+        REFERENCES conge_periode_reference(id_periode_reference, id_employe)
 );
 
 
@@ -163,7 +176,13 @@ CREATE TABLE conge_taux_applicable (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_taux_positif CHECK (taux_journalier > 0),
     CONSTRAINT chk_dates_taux CHECK (date_fin IS NULL OR date_fin > date_effet),
-    CONSTRAINT chk_source_provenance CHECK (source_provenance IN ('KAJY_MIGRATION', 'CALCUL_PERIODE_REFERENCE', 'INITIALISATION_BASE_30', 'REPRISE_CUTOVER'))
+    CONSTRAINT chk_source_provenance CHECK (source_provenance IN ('KAJY_MIGRATION', 'CALCUL_PERIODE_REFERENCE', 'INITIALISATION_BASE_30', 'REPRISE_CUTOVER')),
+    CONSTRAINT fk_conge_taux_reference_employe FOREIGN KEY (id_periode_reference, id_employe)
+        REFERENCES conge_periode_reference(id_periode_reference, id_employe),
+    CONSTRAINT ex_conge_taux_employe_periode EXCLUDE USING gist (
+        id_employe WITH =,
+        daterange(date_effet, date_fin, '[)') WITH &&
+    )
 );
 
 -- Corrections et décisions DAF
@@ -183,19 +202,28 @@ CREATE TABLE conge_cutover_correction (
     motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
     corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
     date_correction TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_cutover_correction_reliquat CHECK (nouveau_reliquat_jours >= 0 AND nouveau_reliquat_valeur >= 0)
+    CONSTRAINT chk_cutover_correction_reliquat CHECK (nouveau_reliquat_jours >= 0 AND nouveau_reliquat_valeur >= 0),
+    CONSTRAINT fk_conge_cutover_mouvement_reprise_employe FOREIGN KEY (id_mouvement_reprise, id_employe)
+        REFERENCES mouvement_solde_conge(id_mouvement, id_employe),
+    CONSTRAINT fk_conge_cutover_mouvement_ajustement_employe FOREIGN KEY (id_mouvement_ajustement, id_employe)
+        REFERENCES mouvement_solde_conge(id_mouvement, id_employe)
 );
 
 -- Rectification DAF d'une valorisation mensuelle : les jours et le bulletin restent figés.
 CREATE TABLE conge_valorisation_mensuelle_correction (
     id_correction SERIAL PRIMARY KEY,
     id_journal INT NOT NULL,
-    id_mouvement_acquisition INT NOT NULL REFERENCES mouvement_solde_conge(id_mouvement),
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_mouvement_acquisition INT NOT NULL,
     ancienne_valeur NUMERIC(20,2) NOT NULL,
     nouvelle_valeur NUMERIC(20,2) NOT NULL CHECK (nouvelle_valeur >= 0),
     motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
     corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
-    date_correction TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    date_correction TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_conge_valorisation_correction_journal_employe FOREIGN KEY (id_journal, id_employe)
+        REFERENCES conge_journal_droit(id_journal, id_employe),
+    CONSTRAINT fk_conge_valorisation_correction_mouvement_employe FOREIGN KEY (id_mouvement_acquisition, id_employe)
+        REFERENCES mouvement_solde_conge(id_mouvement, id_employe)
 );
 
 -- 4b. Décisions DAF relatives aux droits candidats à la prescription
@@ -207,22 +235,19 @@ CREATE TABLE conge_expiration_examen (
     motif TEXT NOT NULL,
     planification_verifiee BOOLEAN NOT NULL DEFAULT FALSE,
     date_prochaine_revue DATE,
-    id_mouvement_expiration INT REFERENCES mouvement_solde_conge(id_mouvement),
+    id_mouvement_expiration INT,
     decide_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_conge_expiration_decision CHECK (
         (decision = 'REPORTE' AND date_prochaine_revue IS NOT NULL AND id_mouvement_expiration IS NULL)
         OR (decision = 'EXPIRE' AND date_prochaine_revue IS NULL AND id_mouvement_expiration IS NOT NULL AND planification_verifiee)
-    )
+    ),
+    CONSTRAINT fk_conge_expiration_mouvement_employe FOREIGN KEY (id_mouvement_expiration, id_employe)
+        REFERENCES mouvement_solde_conge(id_mouvement, id_employe)
 );
 
 
 -- Contraintes différées
-ALTER TABLE conge_valorisation_mensuelle_correction
-    ADD CONSTRAINT fk_conge_valorisation_correction_journal
-    FOREIGN KEY (id_journal) REFERENCES conge_journal_droit(id_journal);
-
-
 -- Index complémentaires
 CREATE INDEX idx_ref_type_conge_pool ON ref_type_conge(id_pool_conge_annuel);
 CREATE INDEX idx_ref_type_conge_bascule ON ref_type_conge(id_type_conge_bascule);
@@ -275,15 +300,25 @@ CREATE OR REPLACE VIEW v_pool_conge_annuel_consommation AS
 SELECT
     d.id_employe,
     tc.id_pool_conge_annuel AS id_pool,
-    EXTRACT(YEAR FROM d.date_debut)::INT AS annee,
-    SUM(CASE WHEN sd.code = 'VALIDE' THEN d.nb_jours_decomptes ELSE 0 END) AS jours_consommes,
-    SUM(CASE WHEN sd.code = 'EN_ATTENTE' THEN d.nb_jours_decomptes ELSE 0 END) AS jours_en_attente
+    y.annee,
+    SUM(CASE WHEN sd.code = 'VALIDE' THEN seg.jours_segmentes ELSE 0 END) AS jours_consommes,
+    SUM(CASE WHEN sd.code = 'EN_ATTENTE' THEN seg.jours_segmentes ELSE 0 END) AS jours_en_attente
 FROM demande_conge d
 JOIN ref_type_conge tc ON tc.id_type_conge = d.id_type_conge
 JOIN ref_statut_demande_conge sd ON sd.id_statut_demande_conge = d.id_statut_demande_conge
+CROSS JOIN LATERAL generate_series(EXTRACT(YEAR FROM d.date_debut)::INT,
+                                    EXTRACT(YEAR FROM d.date_fin)::INT) AS y(annee)
+CROSS JOIN LATERAL (
+    SELECT CASE
+        WHEN d.date_debut = d.date_fin THEN d.nb_jours_decomptes
+        ELSE d.nb_jours_decomptes *
+             ((LEAST(d.date_fin, make_date(y.annee, 12, 31)) - GREATEST(d.date_debut, make_date(y.annee, 1, 1)) + 1)::NUMERIC
+              / (d.date_fin - d.date_debut + 1)::NUMERIC)
+    END AS jours_segmentes
+) seg
 WHERE tc.id_pool_conge_annuel IS NOT NULL
   AND sd.code IN ('VALIDE', 'EN_ATTENTE')
-GROUP BY d.id_employe, tc.id_pool_conge_annuel, EXTRACT(YEAR FROM d.date_debut);
+GROUP BY d.id_employe, tc.id_pool_conge_annuel, y.annee;
 
 CREATE OR REPLACE VIEW v_demande_conge_cpl AS
 SELECT

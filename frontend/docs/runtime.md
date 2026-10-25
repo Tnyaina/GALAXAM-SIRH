@@ -4,51 +4,23 @@
 
 ### Objectif
 
-Une application React professionnelle doit être rapide **et** résiliente : elle doit continuer à fonctionner lorsque le token expire, qu'une requête échoue, que le réseau disparaît ou que plusieurs réponses arrivent dans le mauvais ordre.
+Le runtime React gère le renouvellement des accès, certaines erreurs HTTP et la détection de disponibilité du backend. Ces mécanismes améliorent la reprise des requêtes, mais ne fournissent ni mode hors ligne avec file d'attente, ni reprise automatique des écritures.
 
 ---
 
 ## 1. Frontend Resilience
 
-### Refresh JWT automatique
+### Renouvellement et reprise d'authentification
 
-Problème constaté :
+Le client conserve l'access token en mémoire. `AuthContext` programme un renouvellement silencieux environ 90 secondes avant l'expiration et retente au retour sur un onglet visible si le jeton est proche de l'expiration. L'intercepteur de requête vérifie aussi si le jeton expire dans moins de 10 secondes et lance un refresh proactif.
 
-```text
-Token expire → API 401 → erreur → F5 → ça fonctionne
-```
+`refreshTokenOnce` partage une promesse de renouvellement entre les appels concurrents de la même instance JavaScript. Lorsque l'API Web Locks est disponible, il utilise aussi le verrou navigateur `galaxam-auth-refresh` ; sans cette API, aucun verrou inter-onglets n'est assuré. Le refresh appelle `/auth/refresh` avec les cookies. En cas d'échec de `refreshTokenOnce`, le client efface son access token et émet `auth-expired`. Le renouvellement planifié directement par `AuthContext` efface l'utilisateur et le jeton en cas de réponse 401 ou 403 ; une erreur réseau ou serveur différente ne déclenche pas ce nettoyage immédiat.
 
-Architecture recommandée :
+Si une requête API protégée reçoit un HTTP 401 alors qu'un access token est présent en mémoire, l'intercepteur tente un refresh et rejoue cette requête au plus une fois. Les routes de connexion, refresh et déconnexion ne passent pas par cette reprise. Si aucun access token n'est présent, le client signale l'expiration de session et ne lance pas un refresh depuis cet intercepteur.
 
-```text
-API → 401 → Refresh Token → nouveau Access Token
-                       ↓
-                rejouer la requête
-```
+### Nouvelle tentative réseau
 
-Le frontend doit aussi gérer les cas où le refresh échoue : session invalide → logout propre.
-
-### Refresh Lock
-
-Si plusieurs requêtes obtiennent `401` en même temps, ne jamais lancer plusieurs refresh :
-
-```js
-let refreshPromise = null;
-
-function refreshTokenOnce() {
-  if (!refreshPromise) {
-    refreshPromise = refreshToken()
-      .finally(() => refreshPromise = null);
-  }
-  return refreshPromise;
-}
-```
-
-Toutes les requêtes attendent le même refresh.
-
-### Retry
-
-Après un refresh réussi, rejouer **une seule fois** la requête originale. Éviter les boucles infinies.
+Les nouvelles tentatives réseau automatiques sont limitées à `GET`, `HEAD` et `OPTIONS`, au maximum deux fois, pour les erreurs réseau transitoires (absence de réponse, `ERR_NETWORK`), timeout et statuts 502, 503 ou 504. Les annulations explicites ne sont pas retentées. Le délai augmente avec un aléa. Les autres méthodes ne sont pas automatiquement rejouées par cette politique afin d'éviter de répéter des écritures.
 
 ---
 
@@ -152,23 +124,17 @@ controller.abort();
 
 ## 5. Retry et réseau
 
-Utiliser un backoff :
+Le client implémente un backoff pour les seules requêtes idempotentes admissibles décrites plus haut. Il ne retente pas automatiquement les mutations. Le contexte réseau écoute les événements `online`/`offline`, suit les réponses API et sonde le backend toutes les 15 secondes lorsqu'il est marqué inaccessible (si le navigateur indique être en ligne). Cela signale l'état de connexion ; aucune requête d'écriture n'est mise en file ni rejouée après reconnexion.
+
+Le délai du retry est calculé par la politique du client (750 ms × 2ⁿ, avec jusqu'à 250 ms d'aléa, plafonné à 3 s) :
 
 ```text
 tentative 1
-↓ 500 ms
+↓ délai croissant avec aléa
 tentative 2
-↓ 1 s
-tentative 3
+↓ au plus 2 nouvelles tentatives
 ↓
 échec
-```
-
-Gérer aussi :
-
-```js
-window.addEventListener("offline", ...);
-window.addEventListener("online", ...);
 ```
 
 UX :
@@ -348,41 +314,34 @@ Ces chiffres doivent être remesurés après chaque évolution importante.
 
 # 15. Priorités GALAXAM
 
-### P0
+### État des mécanismes d'authentification et de reprise
 
-1. Refresh JWT automatique
-2. Interceptor 401
-3. Refresh Lock
-4. Retry contrôlé
-5. Logout propre
-6. Protection double soumission
-7. Gestion globale des erreurs
+Les mécanismes de renouvellement proactif, de reprise après un 401, de verrou local au runtime et de retry limité aux lectures idempotentes sont déjà implémentés (voir §1 et §5). Les éléments ci-dessous restent des pistes de travail, pas des fonctionnalités garanties par le code actuel.
 
 ### P1
 
-8. Server state/cache
-9. Invalidation
-10. AbortController
-11. Race conditions
-12. Error Boundary
-13. Offline/reconnexion
-14. Retry avec backoff
+8. Gestion centralisée du server state/cache
+9. Invalidation structurée du cache
+10. Annulation cohérente des requêtes par `AbortController`
+11. Traitement applicatif des réponses arrivant dans le désordre
+12. Error Boundary et parcours de reprise
+13. Mode hors ligne avec mise en file des écritures, si requis
 
 ### P2
 
-15. Virtualisation
-16. Batch API pointage
-17. Synchronisation multi-onglets
-18. Optimistic UI
-19. Prefetch
-20. Profiling React
+14. Virtualisation
+15. Batch API pointage
+16. Synchronisation complète de la session entre onglets
+17. Optimistic UI
+18. Prefetch
+19. Profiling React
 
 ### P3
 
-21. React.memo
-22. useMemo
-23. useCallback
-24. Micro-optimisations
+20. React.memo
+21. useMemo
+22. useCallback
+23. Micro-optimisations
 
 ---
 
@@ -390,12 +349,12 @@ Ces chiffres doivent être remesurés après chaque évolution importante.
 
 ## Auth
 
-- [ ] Refresh automatique
-- [ ] Interceptor 401
-- [ ] Refresh Lock
-- [ ] Retry contrôlé
-- [ ] Logout propre
-- [ ] Session cohérente entre onglets
+- [x] Renouvellement proactif : timer avant expiration, refresh à la reprise d'activité et vérification au départ d'une requête.
+- [x] Intercepteur 401 : refresh puis reprise unique de la requête si un access token est présent en mémoire.
+- [x] Verrou de refresh partagé dans une instance ; Web Locks entre onglets lorsque l'API navigateur est disponible.
+- [x] Retry limité : au plus deux nouvelles tentatives pour GET/HEAD/OPTIONS et erreurs réseau transitoires documentées au §5.
+- [x] Expiration : retrait de l'utilisateur et du jeton local sur événement d'expiration ; appel serveur de déconnexion tenté par l'action explicite de déconnexion.
+- [ ] Synchronisation complète de l'état de session entre onglets : non garantie ; Web Locks ne synchronise pas à lui seul l'état React/localStorage.
 
 ## React
 

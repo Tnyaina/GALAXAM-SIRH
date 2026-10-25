@@ -121,6 +121,7 @@ export function CiviliteStep({
             
             <AutocompleteInput 
                 label="Lieu de Naissance" 
+                required
                 value={formData.lieuNaissance} 
                 onChange={e => set('lieuNaissance', e.target.value)} 
                 onBlur={() => onFieldBlur?.('lieuNaissance')}

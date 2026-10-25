@@ -16,4 +16,25 @@ Ce dossier regroupe le cycle complet du personnel, des contrats et de l'évoluti
 - `domain/` : moteurs et règles métier (`CarriereTransitionValidator`, `ContratValidationEngine`, `AncienneteEngine`, `EmployeValidationEngine`, `MatriculeGeneratorEngine`)
 - `persistence/` : entités Active Record et requêtes SQL (`Employe`, `EmployeCPL`, `ContratTravail`, `WorkflowRh`, `DocumentRh`, `DocumentRhCPL`, `EmployeConjoint`, `EmployeEnfant`, etc.)
 
-Les routes publiques restent sous `/employes/*`, `/contrats/*`, `/documents/*` (dont `/documents/contrat/{idContrat}/preview` et `/documents/contrat/{idContrat}/docx`), `/ref-carriere/*`, `/ref-types-documents/*`. Modèles de contrats RH : `resources/templates/documents/Contrat_{TYPE}_modele.docx` (CDI, CDD, STAGE, PRESTATION, TEMPORAIRE). Le modèle RH `PRESTATION` est conservé pour les dossiers historiques ; les nouvelles missions indépendantes passent par le module Prestataires indépendants, avec dépôt du contrat signé en PDF (voir `../paie/PRESTATAIRES_2026.md`).
+Les routes `/employes/*`, `/contrats/*`, `/documents/*`, `/ref-carriere/*` et
+`/ref-types-documents/*` exigent une authentification (`SecurityConfig`). Les
+contrôleurs appliquent ensuite leurs permissions : `EMPLOYE_READ` pour les
+lectures de fiches, contrats et workflows, `EMPLOYE_WRITE` pour leurs écritures,
+et `EMPLOYE_VALIDATE` pour la validation des workflows (ou `ROLE_ADMIN` selon
+les annotations). La désactivation et la réactivation d'un employé acceptent
+`EMPLOYE_VALIDATE` ou `EMPLOYE_WRITE` ; les coordonnées bancaires nécessitent
+`PAIE_READ` en lecture et `PAIE_WRITE` en écriture. La lecture et le téléchargement
+des documents RH et des contrats générés exigent ensemble `EMPLOYE_READ` et
+`PAIE_READ`, ou `ROLE_ADMIN` ; les attestations et certificats générés exigent
+`EMPLOYE_READ` ou `ROLE_ADMIN`. Les lectures des référentiels de carrière et des
+types de documents exigent une authentification ; leurs mutations exposées sont
+réservées à `ROLE_ADMIN`.
+
+`DocumentRhController` expose `GET /documents/contrat/{idContrat}` et
+`GET /documents/contrat/{idContrat}/docx` ; aucune route `/preview` distincte
+n'est déclarée. Modèles de contrats RH :
+`resources/templates/documents/Contrat_{TYPE}_modele.docx` (CDI, CDD, STAGE,
+PRESTATION, TEMPORAIRE). Le modèle RH `PRESTATION` est conservé pour les dossiers
+historiques ; les nouvelles missions indépendantes passent par le module
+Prestataires indépendants, avec dépôt du contrat signé en PDF (voir
+`../paie/PRESTATAIRES_2026.md`).

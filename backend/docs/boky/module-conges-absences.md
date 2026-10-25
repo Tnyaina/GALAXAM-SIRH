@@ -20,13 +20,13 @@
 
 Ce document décrit le module **Congés & Absences** de GALAXAM SIRH. Le CDC fixe les exigences initiales, le code décrit les comportements implémentés et les résultats de tests/recettes datés précisent ce qui a été vérifié :
 
-1. **Implémentation** : services Java, schémas SQL et vues analytiques décrivent les mécanismes présents. Des tests ciblés existent, notamment `CongeLotValorisationEngineTest`, `CongePostgresIntegrationTest` et `PayrollLeaveAcquisitionPostgresIntegrationTest`. Aucun décompte global ni succès de l'ensemble du module n'est revendiqué ici ; DOC-2 n'a pas exécuté ces tests.
+1. **Implémentation et preuves de test** : services Java, schémas SQL et vues analytiques décrivent les mécanismes présents. Des tests ciblés existent, notamment `CongeLotValorisationEngineTest`, `CongePostgresIntegrationTest`, `PayrollLeaveAcquisitionPostgresIntegrationTest`, `PointageLeaveStatusTest` et `RemunerationCongePolicyTest`. Lors de DOC-04A, le test unitaire backend `RemunerationCongePolicyTest` et le test frontend `remunerationOverride.test.js` ont été exécutés avec succès ; ils couvrent la politique d'autorisation et le payload, pas le calcul de paie ni tous les appels HTTP. Aucun décompte global ni succès de l'ensemble du module n'est revendiqué ; les tests PostgreSQL cités ne sont pas déclarés exécutés dans cette correction documentaire.
 2. **La gestion unifiée des Deux Flux Fondamentaux** : Traitement rigoureux et étanche du **Flux 1 (Nouvel Employé / Embauche Native)** avec carence légale de 12 mois (Art. 130) et du **Flux 2 (Reprise Historique / Cutover à date d'arrêté)** sans import d'historique lourd, avec reprise du stock arrêté, reprise des cumuls intermédiaires d'exercice et audit DAF via `conge_cutover_correction`.
-3. **Le décompte des jours fériés** : `CongeDecompteCalendaireResolver` applique la version datée de `CONGE_DECOMPTE_FERIES`. La configuration actuelle est `INCLUS` ; une version future `EXCLUS` peut activer leur exclusion.
+3. **Le décompte des jours fériés** : `CongeDecompteCalendaireResolver` applique la version datée de `CONGE_DECOMPTE_FERIES`. La configuration actuelle est `INCLUS` : les jours fériés sont compris dans les dates et débités. Le paramètre peut être configuré sur `EXCLUS` si l'entreprise choisit cette politique.
 4. **Le verrouillage strict du solde débiteur** : Interdiction absolue de la prise par anticipation en solde négatif au niveau métier (`DemandeConge.java`, `CongeService.java`, `DemandeCongeController.java`).
 5. **La protection de la continuité opérationnelle** : Détection algorithmique des collisions de présence d'équipe par poste et site géographique (`CongeContinuiteService.java`) avec dérogation bloquante.
 6. **Les mécanismes présents dans le code** : valorisation mensuelle, constitution de lots FIFO et calcul du taux journalier de cycle `TCONGE`. La justification métier et les exemples chiffrés citant `OHATRA KAJY DROITS CONGES` restent à rapprocher de leur source originale.
-7. **Le Grand-Livre des congés (`mouvement_solde_conge`) & Audit DAF** : Traçabilité absolue des mouvements (débits `PRISE`, crédits `ACQUISITION`, `BONIFICATION`, `AJUSTEMENT`, `ANNULATION`, `EXPIRATION`), audit des corrections de cutover (`conge_cutover_correction`), rectifications de valorisation (`conge_valorisation_mensuelle_correction`) et examen motivé des droits candidats à prescription (`conge_expiration_examen`).
+7. **Le Grand-Livre des congés (`mouvement_solde_conge`) & audit DAF** : journalisation des mouvements (`PRISE`, `ACQUISITION`, `BONIFICATION`, `AJUSTEMENT`, `ANNULATION`, `EXPIRATION`), avec contraintes SQL ciblées contre certains doublons, audit des corrections de cutover (`conge_cutover_correction`), rectifications de valorisation (`conge_valorisation_mensuelle_correction`) et examen motivé des droits candidats à prescription (`conge_expiration_examen`). La table n'est pas protégée par SQL contre toute modification ou suppression ; voir le dictionnaire.
 8. **Les intégrations présentes dans le code** avec **Pointage** et **Paie** ; les niveaux de recette diffèrent selon le parcours. Le STC est une extension postérieure au CDC initial, décrite dans le document Paie.
 
 **État des preuves de recette communiquées séparément :** UX-17 rapporte l'observation d'un débit FIFO simple ; le FIFO multi-lots n'est pas démontré en recette navigateur par les éléments disponibles. UX-18 rapporte une acquisition mensuelle observée, tandis que l'activation annuelle TCONGE n'a pas été vérifiée de bout en bout. Ces indications proviennent des comptes rendus UX communiqués dans la conversation ; aucun rapport UX-17/18 distinct n'a été retrouvé dans le dépôt. Les tests automatisés ciblés ne remplacent pas ces recettes métier.
@@ -40,8 +40,8 @@ Ce document décrit le module **Congés & Absences** de GALAXAM SIRH. Le CDC fix
    - 2.1 [Définition des Variables Mensuelles & Trentième](#21-définition-des-variables-mensuelles)
    - 2.2 [Résolution du Taux Journalier Applicable (TCONGE)](#22-résolution-du-taux-journalier-applicable-tconge)
    - 2.3 [Les Deux Flux Fondamentaux : Nouvel Employé vs Reprise Cutover](#23-les-deux-flux-fondamentaux-de-gestion-des-congés)
-3. [Architecture du Modèle de Données PostgreSQL (11 Tables, 1 Table Paie, 3 Vues)](#3-architecture-du-modèle-de-données-postgresql)
-   - 3.1 [Dictionnaire des 11 Tables Relationnelles Dédiées](#31-dictionnaire-des-11-tables-relationnelles-dédiées)
+3. [Architecture du Modèle de Données PostgreSQL (12 Tables Congés, 3 Vues)](#3-architecture-du-modèle-de-données-postgresql)
+   - 3.1 [Dictionnaire des 12 Tables Relationnelles Dédiées](#31-dictionnaire-des-12-tables-relationnelles-dédiées)
    - 3.2 [Vues Analytiques SQL Dédiées](#32-vues-analytiques-sql-dédiées)
 4. [Règles de Gestion Métier (RG) Détaillées](#4-règles-de-gestion-métier-rg-détaillées)
 5. [Workflow & Circuit de Validation Transactionnel](#5-workflow--circuit-de-validation-transactionnel)
@@ -76,7 +76,7 @@ Les congés payés sont régis par des dispositions d'**ordre public absolu** : 
 | **Loi 2024-014, Art. 143** | **Congé de maternité & prolongation médicale**<br>• **14 semaines consécutives (98 jours)**, dont au moins 8 semaines après l'accouchement.<br>• Prolongation médicale jusqu'à **4 semaines (28 jours)**, soit un maximum total de **126 jours**.<br>• Les droits à congé annuel continuent d'être acquis pendant cette période. | • Paramètres `DUREE_MAX_MATERNITE_STANDARD_JOURS = 98` et `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS = 126`.<br>• Flag `extension_pathologique_maternite` dans `demande_conge`. |
 | **Loi 2003-044, Art. 13** | **Maladie ordinaire & Relais de prévoyance CNaPS**<br>• Suspension jusqu'à 6 mois.<br>• Maintien légal de salaire limité au préavis (**30 jours** pour mensuels). | • `RefTypeConge` : type `MALADIE` borné à 30 jours continus payés.<br>• Bascule automatique dès le 31e jour vers `MALADIE_SANS_SOLDE` (`id_type_conge_bascule = 1`) pour prise en charge CNaPS. |
 | **Loi 2024-014, Art. 126**<br>*(Loi 2003-044, Art. 86)* | **Bonifications pour ancienneté**<br>• Majoration de la durée des congés payés selon convention ou règlement d'entreprise. | • Moteur pur [`CongeCalculateurEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/CongeCalculateurEngine.java) : seuil d'activation $\ge 5$ ans révolus, bonus $+1$ jour par tranche complète de 5 ans d'ancienneté (formule : $\lfloor \text{Ancienneté} / 5 \rfloor \times 1\text{ jour}$). Écriture `BONIFICATION` dans le ledger. |
-| **Loi 2024-014, Art. 131**<br>*(Loi 2003-044, Art. 90)* | **Indemnité de congé payé & Règle du salaire continué**<br>• Maintien au moins égal au salaire moyen des 12 derniers mois et non inférieur au salaire continué.<br>• *Point à arbitrer* : La double ligne en paie (`DEDUCTION_CONGE_BASE` au trentième actuel vs `INDEMNITE_CONGE_PAYE` au coût historique déstocké par lots FIFO) est décrite comme convention interne dans la documentation antérieure ; sa justification métier et sa conformité doivent être confirmées indépendamment. La feuille `OHATRA KAJY DROITS CONGES-given on sept26.xls` n'étant pas vérifiée, elle n'en constitue pas une preuve. | • Service [`CongeTauxApplicableService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeTauxApplicableService.java) : valorisation mensuelle $V_m$ et résolution temporelle de `TCONGE`.<br>• [`CongeLotValorisationEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/CongeLotValorisationEngine.java) : déstockage FIFO immuable des lots historiques. |
+| **Loi 2024-014, Art. 131**<br>*(Loi 2003-044, Art. 90)* | **Indemnité de congé payé & Règle du salaire continué**<br>• Maintien au moins égal au salaire moyen des 12 derniers mois et non inférieur au salaire continué.<br>• *Point à arbitrer* : La double ligne en paie (`DEDUCTION_CONGE_BASE` au trentième actuel vs `INDEMNITE_CONGE_PAYE` au coût historique déstocké par lots FIFO) est décrite comme convention interne dans la documentation antérieure ; sa justification métier et sa conformité doivent être confirmées indépendamment. La feuille `OHATRA KAJY DROITS CONGES-given on sept26.xls` n'étant pas vérifiée, elle n'en constitue pas une preuve. | • Service [`CongeTauxApplicableService.java`](../../src/main/java/mg/galaxam/sirh/conge/application/CongeTauxApplicableService.java) : valorisation mensuelle $V_m$ et résolution temporelle de `TCONGE`.<br>• [`CongeLotValorisationEngine.java`](../../src/main/java/mg/galaxam/sirh/conge/domain/CongeLotValorisationEngine.java) : allocation FIFO des lots historiques. |
 
 ---
 
@@ -174,7 +174,7 @@ Le système GALAXAM SIRH distingue avec une rigueur absolue deux flux d'entrée 
 
 ## 3. Architecture du Modèle de Données PostgreSQL
 
-Le modèle de données décrit par les schémas canoniques (`04_schema_conges.sql` et `06_schema_paie.sql`) s'articule autour de **11 tables relationnelles dédiées**, **1 table liée au domaine de la paie** et **3 vues analytiques**. Les contraintes SQL et transactions assurent les invariants définis dans le code ; cette description ne constitue pas une certification indépendante :
+Le schéma canonique `04_schema_conges.sql` définit **12 tables Congés et 3 vues analytiques**. Des tables d'autres domaines, notamment `employe`, `utilisateur` et `periode_paie`, sont référencées mais ne font pas partie de ce décompte. Le diagramme ci-dessous présente les relations principales ; le dictionnaire donne les 12 tables et leurs contraintes canoniques. Les contrôles applicatifs et SQL ne constituent pas une certification indépendante :
 
 ```
                         ┌──────────────────────────────┐
@@ -203,94 +203,49 @@ Le modèle de données décrit par les schémas canoniques (`04_schema_conges.sq
  └──────────────────────┘└──────────────────────────────┘
 ```
 
-### 3.1 Dictionnaire des 11 Tables Relationnelles Dédiées
+### 3.1 Dictionnaire des 12 Tables Relationnelles Dédiées
+
+Le schéma canonique [`04_schema_conges.sql`](../../conception/bdd/04_schema_conges.sql) définit **12 tables** pour ce module. Les tables `employe`, `utilisateur` et `periode_paie` auxquelles certaines font référence appartiennent à d'autres schémas et ne sont pas comptées ici.
 
 #### 1. `ref_pool_conge_annuel`
-Gère les quotas annuels partagés entre plusieurs types ou motifs :
-- `id_pool` (PK SERIAL), `code` (`PERMISSIONS_FAMILIALES`), `libelle`, `plafond_jours_an` (`10.0`).
+Référentiel des quotas partagés : `id_pool` (PK), `code` (unique), `libelle`, `plafond_jours_an`.
 
 #### 2. `ref_type_conge`
-Porte les règles de gestion intrinsèques à chaque typologie d'absence :
-- `id_type_conge` (PK SERIAL), `code` (`ANNUEL`, `MALADIE`, `EXCEPTIONNEL`, `MATERNITE`, `PATERNITE`, `SANS_SOLDE`, `MALADIE_SANS_SOLDE`...)
-- `est_paye` (maintien de salaire), `decompte_solde_acquis` (débit du solde annuel dans le ledger)
-- `exige_anciennete_min_mois` (12 mois pour le congé annuel selon Art. 130)
-- `duree_fixe_jours` (98j pour Maternité, 3j pour Paternité)
-- `plafond_jours_episode` (30j pour Maladie ordinaire selon Art. 13)
-- `id_type_conge_bascule` (FK vers `MALADIE_SANS_SOLDE` après 30 jours)
-- `id_pool_conge_annuel` (FK vers `ref_pool_conge_annuel`, `NULL` pour Paternité)
-- `soumis_delai_preavis` (booléen), `suspend_acquisition_solde` (booléen), `exige_justificatif` (booléen).
+Règles de type : `id_type_conge` (PK), `code` (unique), `libelle`, `est_paye`, `decompte_solde_acquis`, ancienneté minimale, durée fixe, plafond par épisode, type de bascule, pool, indicateurs de préavis, suspension d'acquisition, justificatif et activation. La rémunération par demande peut surcharger `est_paye` uniquement par l'intermédiaire applicatif autorisé ; voir RG-CON-06A.
 
 #### 3. `ref_motif_evenement_familial`
-Référentiel descriptif des événements familiaux (`MARIAGE`, `NAISSANCE`, `DECES_CONJOINT_ENFANT`, `DECES_PARENT`). Le motif n'impose aucune durée : celle-ci vient des dates de la demande. La colonne historique `nb_jours_autorises` est conservée nullable pour compatibilité, ignorée par les règles métier et non exposée comme barème dans l'interface. Le cumul des types `PERMISSION` et `EXCEPTIONNEL` est contrôlé dans le pool partagé de 10 jours/an prévu à l'article 126(4) de la Loi 2024-014.
+Référentiel des motifs : `id_motif` (PK), `code` (unique), `libelle`, `nb_jours_autorises` nullable (colonne historique), `justificatif_requis` et `est_actif`.
 
 #### 4. `ref_statut_demande_conge`
-Porte le cycle de vie des demandes avec libellé et couleur d'affichage :
-- `id_statut_demande_conge` (PK SERIAL), `code` (`BROUILLON`, `EN_ATTENTE`, `VALIDE`, `REFUSE`, `ANNULE`), `libelle`, `couleur_badge`.
+Référentiel des statuts : `id_statut_demande_conge` (PK), `code` (unique), `libelle`. Le schéma ne fixe pas une liste fermée par contrainte SQL ; les codes actuellement utilisés comprennent `BROUILLON`, `EN_ATTENTE`, `VALIDE`, `REFUSE` et `ANNULE`.
 
 #### 5. `demande_conge`
-Enregistre chaque demande et son statut opérationnel :
-- `id_demande_conge` (PK SERIAL), `id_employe` (FK), `id_type_conge` (FK), `id_statut_demande_conge` (FK), `id_motif_evenement_familial` (FK nullable)
-- `date_debut`, `date_fin`, `date_demande`, `nb_jours_decomptes` (NUMERIC(5,2))
-- `derogation_solde_negatif` (booléen), `derogation_delai_preavis` (booléen), `derogation_continuite_service` (booléen), `extension_pathologique_maternite` (booléen)
-- `est_demi_journee` (booléen), `moment_demi_journee` (`MATIN`, `APRES_MIDI`)
-- `saisi_par`, `valide_par`, `date_validation`, `motif_refus`, `commentaire`
-- Contraintes : `chk_demande_conge_dates` (`date_fin >= date_debut`), `chk_demande_conge_demi_journee`.
+Demande et décision : identifiants de demande, salarié, type, statut et motif ; dates, `nb_jours_decomptes`, dérogations, extension maternité, demi-journée et créneau, `est_remunere` nullable, justificatif, commentaire, auteurs et horodatages.
+Contraintes canoniques : dates ordonnées, cohérence demi-journée/créneau et unicité `(id_demande_conge,id_employe)` pour les références composites. `est_remunere = NULL` signifie qu'aucune surcharge de la valeur du type n'est enregistrée ; l'API résout alors le défaut `ref_type_conge.est_paye`.
 
-#### 6. `mouvement_solde_conge` (Grand-Livre Comptable / Ledger)
-Registre immuable de chaque débit et crédit de congés :
-- `id_mouvement` (PK SERIAL), `id_employe` (FK), `date_mouvement`
-- `type_mouvement` (`ACQUISITION`, `BONIFICATION`, `PRISE`, `AJUSTEMENT`, `ANNULATION`, `EXPIRATION`)
-- `nb_jours` (NUMERIC(5,2) signé : positif pour crédit, négatif pour débit)
-- `id_demande_conge` (FK nullable vers la demande d'origine)
-- `valeur_source` (NUMERIC(14,2) pour mémorisation de valorisation financière historique)
-- **Index uniques partiels anti-doublon définis dans le schéma** :
-  - `idx_uniq_mouvement_prise_demande` : empêche toute double écriture de `PRISE` pour une même demande.
-  - `idx_uniq_mouvement_annulation_demande` : garantit l'idempotence stricte de l'opération d'annulation.
+#### 6. `mouvement_solde_conge`
+Grand-livre des acquisitions, bonifications, prises, ajustements, annulations et expirations : `id_mouvement` (PK), salarié, type, jours signés, demande nullable, date, commentaire, valeur source, auteur et date de création. Le schéma impose les types et les signes de certains mouvements, les références demande/salarié et des index uniques partiels pour `PRISE` et `ANNULATION` par demande, ainsi qu'une unicité salarié/année pour `BONIFICATION`.
+Ces contraintes assurent l'intégrité définie par SQL, **pas l'immutabilité** : le schéma ne comporte pas de déclencheur interdisant UPDATE ou DELETE. Les parcours applicatifs usuels ajoutent des écritures de correction ; le modèle JDBC expose également des opérations de modification/suppression et certaines corrections applicatives mettent à jour `valeur_source`. Il faut donc parler de journalisation et de traçabilité, non d'un registre techniquement immuable.
 
-#### 7. `conge_cutover_correction` (Audit des corrections DAF de stock initial)
-Permet à la DAF de corriger les anomalies de reprise de solde sans altérer rétroactivement les bulletins passés :
-- `id_correction` (PK SERIAL), `id_employe` (FK), `id_mouvement_reprise` (FK), `id_mouvement_ajustement` (FK unique)
-- `ancien_reliquat_jours`, `nouveau_reliquat_jours`, `ancien_reliquat_valeur`, `nouveau_reliquat_valeur`
-- `ancien_taux`, `nouveau_taux`, `regularisation_a_examiner`, `motif`, `corrige_par`, `date_correction`.
-- Contrainte : `chk_cutover_correction_reliquat` (`nouveau_reliquat_jours >= 0 AND nouveau_reliquat_valeur >= 0`).
+#### 7. `conge_periode_reference`
+Périodes et cumuls de référence : salarié, bornes, statut, mode de reprise, date de cutover, cumuls d'ouverture/clôture, taux calculé et métadonnées. SQL impose des bornes ordonnées, les valeurs autorisées des statuts/modes, l'unicité composite salarié/période et l'absence de chevauchement de périodes pour un salarié par exclusion GiST.
 
-#### 8. `conge_valorisation_mensuelle_correction` (Rectification DAF de valorisation mensuelle)
-Permet à la DAF de rectifier la valorisation en ariary d'un mois clos sans modifier les jours acquis ni réouvrir la paie :
-- `id_correction` (PK SERIAL), `id_journal` (FK vers `conge_journal_droit`), `id_mouvement_acquisition` (FK)
-- `ancienne_valeur`, `nouvelle_valeur`, `motif`, `corrige_par`, `date_correction`.
+#### 8. `conge_journal_droit`
+Journal mensuel des droits et de leur valorisation : salarié, période de paie nullable, période de référence nullable, année/mois, salaire de base, jours de formule et acquis, base et montant de valorisation, cumuls et taux journalier. SQL impose l'unicité `(id_employe, annee, mois)` et des clés de référence composites.
 
-#### 9. `conge_expiration_examen` (Audit des décisions DAF de prescription)
-Historise les examens des droits candidats à prescription (Loi 2024-014 Art. 129) :
-- `id_examen` (PK SERIAL), `id_employe` (FK), `decision` (`REPORTE` ou `EXPIRE`), `jours_examines`, `motif`
-- `planification_verifiee` (booléen obligatoire pour `EXPIRE`), `date_prochaine_revue` (obligatoire pour `REPORTE`)
-- `id_mouvement_expiration` (FK vers `mouvement_solde_conge`), `decide_par`.
-- **Contrainte CHECK d'intégrité stricte (`chk_conge_expiration_decision`)** :
-  ```sql
-  (decision = 'REPORTE' AND date_prochaine_revue IS NOT NULL AND id_mouvement_expiration IS NULL)
-  OR
-  (decision = 'EXPIRE' AND date_prochaine_revue IS NULL AND id_mouvement_expiration IS NOT NULL AND planification_verifiee)
-  ```
+#### 9. `conge_taux_applicable`
+Historique daté des taux journaliers : salarié, taux, dates d'effet et de fin, provenance, période de référence nullable, commentaire, auteur et création. SQL impose un taux positif, des bornes cohérentes, des provenances autorisées, les références composites et l'absence de chevauchement des intervalles `[date_effet,date_fin[` par salarié.
 
-#### 10. `conge_periode_reference` (Périodes Annuelles Bornées)
-Périodes de 12 mois bornées du 01/01 au 31/12 avec contrainte d'exclusion temporelle GIST (`daterange` sans chevauchement) :
-- `id_periode_reference` (PK SERIAL), `id_employe` (FK), `date_debut`, `date_fin`, `statut` (`OUVERTE`, `CLOTUREE`, `ARCHIVEE`)
-- `mode_reprise` : `FULL_HISTORY`, `AGGREGATED_OPENING`, `MINIMAL_OPENING`, `NEW_HIRE`
-- `date_cutover` (DATE pivot d'arrêté)
-- `cumul_droits_ouverture`, `cumul_valorisation_ouverture` (cumuls acquis pré-cutover)
-- `taux_calcule_cloture`, `cumul_droits_cloture`, `cumul_valorisation_cloture` (indicateurs consolidés à la clôture)
-- **Garde-fou d'intégrité du Cutover** : Si un dossier collaborateur repris en mode cutover ne possède pas ses cumuls d'ouverture (`cumul_droits_ouverture` / `cumul_valorisation_ouverture`) lors de la clôture annuelle, le système bloque la génération automatique du taux TCONGE et lève l'exception `CYCLE_ACCUMULATORS_UNKNOWN`, exigeant une régularisation formelle de la DAF.
-- Contrainte GiST anti-chevauchement : `uk_conge_reference_temporal_overlap EXCLUDE USING gist (id_employe WITH =, daterange(date_debut, date_fin, '[]') WITH &&)`.
+#### 10. `conge_cutover_correction`
+Trace les corrections DAF du stock initial : ancien/nouveau reliquat en jours et valeur, anciens/nouveaux taux, régularisation à examiner, motif, auteur, date, et références aux mouvements de reprise et d'ajustement. Le schéma impose des reliquats corrigés non négatifs et les clés étrangères associées.
 
-#### 11. `conge_taux_applicable` (Historique du Taux Unitaire Journalier)
-Historisation rigoureuse du taux journalier `TCONGE` avec convention $[date\_effet, date\_fin[$ :
-- `id_taux_applicable` (PK SERIAL), `id_employe` (FK), `taux_journalier` (NUMERIC(20,2)), `date_effet`, `date_fin`
-- `source_provenance` : `KAJY_MIGRATION`, `CALCUL_PERIODE_REFERENCE`, `INITIALISATION_BASE_30`, `REPRISE_CUTOVER`
-- `id_periode_reference` (FK), `commentaire`, `cree_par`.
+#### 11. `conge_valorisation_mensuelle_correction`
+Trace une rectification de valorisation : références au journal mensuel et au mouvement d'acquisition du salarié, ancienne/nouvelle valeur, motif, auteur et date. SQL exige les références composites, un motif non vide et une nouvelle valeur non négative.
 
-#### 12. `conge_journal_droit` (Grand-Livre Mensuel de Paie — `06_schema_paie.sql`)
-Trace mois par mois la constitution des droits et de la réserve financière :
-- `id_journal` (PK SERIAL), `id_employe` (FK), `id_periode_paie` (FK), `id_periode_reference` (FK)
-- `salaire_base`, `jours_travailles_formule`, `jours_droit_acquis`, `base_valorisation`, `valorisation_mensuelle`, `cumul_jours_droit`, `cumul_valorisation`, `taux_journalier_conge`.
+#### 12. `conge_expiration_examen`
+Trace les décisions `REPORTE` ou `EXPIRE`, jours examinés, motif, vérification de planification, prochaine revue, mouvement d'expiration éventuel, décideur et date. La contrainte `chk_conge_expiration_decision` lie les champs requis à chaque décision et la référence composite lie le mouvement au salarié.
+
+Les tables Paie et les vues présentées dans les sections suivantes ne sont pas incluses dans ce décompte des 12 tables Congés.
 
 ### 3.2 Vues Analytiques SQL Dédiées
 
@@ -321,7 +276,7 @@ Trace mois par mois la constitution des droits et de la réserve financière :
 - **Droit normal** : **2,50 jours calendaires** par mois de service effectif (Article 125 du Code du Travail 2024).
 - **Proratisation légale au trentième** : En cas d'absences injustifiées ou non rémunérées dans le mois :
   $$F = 30 - \max(0, J_{abs} - J_{conge}), \quad D_m = 2{,}5 \times \frac{F}{30}$$
-- **Idempotence de clôture** : L'acquisition est calculée et figée lors de la clôture de la paie mensuelle dans `conge_journal_droit` et créditée dans `mouvement_solde_conge`. Aucun cron n'accorde d'anticipation non travaillée.
+- **Déclenchement** : `PayrollService.cloturerDonneesPaie` alimente le journal via `PayrollLeaveJournalService.mettreAJourJournalConge` dans la transaction de clôture. Les bulletins STC sont ignorés. Le service réutilise les jours d'absence et jours travaillés du bulletin, calcule le droit et la valorisation, puis inscrit le journal et le crédit `ACQUISITION` ; une valeur mensuelle déjà figée ne peut pas être recalculée silencieusement. Aucun scheduler Congés n'accorde mensuellement un droit anticipé hors de ce parcours de clôture.
 
 ### RG-CON-03 : Bonification pour Ancienneté
 - Calculée à la date anniversaire par palier de 5 ans d'ancienneté révolus (+1 jour ouvrable par tranche complète de 5 ans).
@@ -353,11 +308,18 @@ Trace mois par mois la constitution des droits et de la réserve financière :
 - En base de données, le paramètre `PLAFOND_SOLDE_CONGE_NEGATIF` est configuré avec `est_actif = FALSE`. Le solde débiteur est formellement prohibé.
 - Les ajustements manuels verrouillent l'employé et refusent un débit supérieur au solde disponible.
 
-### RG-CON-06 : Délais de Préavis Réglementaires
-Pour les congés soumis à préavis (`soumis_delai_preavis = true` sur `ref_type_conge`) :
-- Demande courte ($\le 3$ jours) : **2 jours ouvrables** de délai minimum.
-- Demande longue ($> 3$ jours) : **15 jours calendaires** de délai minimum.
-- Les congés d'urgence (`MALADIE`, `MATERNITE`, `PATERNITE`, `EXCEPTIONNEL`) sont exemptés de préavis. Une dérogation expresse (`derogationDelaiPreavis = true`) permet de passer outre pour les congés annuels.
+### RG-CON-06 : Délais de Préavis
+Pour les types dont `soumis_delai_preavis = true`, le code mesure le préavis par `ChronoUnit.DAYS.between(dateDemande, dateDebut)` : les **jours écoulés sont calendaires**, sans exclusion des week-ends ni jours fériés. Le délai requis est choisi selon le nombre de jours décomptés : si celui-ci dépasse `SEUIL_JOURS_PREAVIS_LONG`, le code applique `DELAI_PREAVIS_LONG_JOURS`, sinon `DELAI_PREAVIS_COURT_JOURS`. Les valeurs initiales du schéma canonique sont : seuil 3 jours, délai court 2 jours, délai long 15 jours. Les paramètres actifs à la date de référence peuvent évoluer. Une `derogationDelaiPreavis` vraie désactive ce contrôle. Ne pas décrire le délai court comme un nombre de jours ouvrables.
+
+### RG-CON-06A : Rémunération d'une demande
+Le type de congé fournit la valeur par défaut via `ref_type_conge.est_paye`. `demande_conge.est_remunere` est nullable : sans surcharge, la vue de demande résout la valeur effective avec `COALESCE(d.est_remunere, tc.est_paye)`.
+
+- Le salarié et l'Agent Pointage ne peuvent pas choisir ou modifier explicitement `est_remunere`. Leurs créations et régularisations sans surcharge conservent le défaut du type.
+- Un validateur qui n'a pas `ROLE_ADMIN` peut valider une demande, mais ne peut pas joindre une valeur explicite pour en changer la rémunération.
+- Seul `ROLE_ADMIN` peut choisir explicitement `true` ou `false`, ou rétablir le défaut du type lors d'une modification ou validation.
+- À la création, une surcharge explicite non administrateur est refusée par le backend. Lors d'une modification, l'omission du champ conserve la valeur enregistrée ; l'autorisation ne dépend pas de l'interface React.
+
+Le code de calcul de paie examiné sélectionne les congés validés en fonction de `decompte_solde_acquis` et ne lit pas `est_remunere` dans le parcours `PayrollCalculationContextAssembler` / `PayrollExecutionEngine`. Le champ et sa valeur effective sont stockés et exposés par la vue, mais l'effet de la surcharge sur le calcul du bulletin n'est pas démontré par ce chemin : ne pas en déduire une retenue ou indemnité automatique.
 
 ### RG-CON-07 : Pool Annuel des Événements Familiaux (10 jours/an)
 - Quota légal partagé de **10,0 jours par année civile** pour `PERMISSION` et `EXCEPTIONNEL` (Article 126(4), Loi 2024-014).
@@ -393,34 +355,24 @@ Pour les congés soumis à préavis (`soumis_delai_preavis = true` sur `ref_type
 
 ## 5. Workflow & Circuit de Validation Transactionnel
 
-### 5.1 Diagramme d'états décrit par le workflow
+### 5.1 États et opérations réellement exposées
+
+Toute création via `POST /conges/demandes` attribue directement le statut `EN_ATTENTE`. `BROUILLON` reste un code du référentiel et certains services savent traiter une demande déjà dans cet état, mais ce n'est pas une étape obligatoire du parcours courant. Le contrôleur n'expose aucune route de soumission ni de suppression d'une demande.
 
 ```
-                  ┌──────────────┐
-                  │  BROUILLON   │
-                  └──────┬───────┘
-                         │ soumettre()
-                         ▼
-                  ┌──────────────┐
-                  │  EN_ATTENTE  │◄────────────────┐
-                  └──┬────────┬──┘                 │
-     validerDemande()│        │refuserDemande()    │
-                     │        ▼                    │
-                     │  ┌──────────────┐           │
-                     │  │    REFUSE    │           │
-                     │  └──────────────┘           │
-                     ▼                             │
-               ┌──────────────┐                    │
-               │    VALIDE    │                    │
-               └──┬───────────┘                    │
- annulerDemande() │ (Génération PRISE au Ledger)   │
-                  ▼                                │
-           ┌──────────────┐                        │
-           │    ANNULE    │                        │
-           └──────────────┘                        │
-         (Génération ANNULATION au Ledger)         │
-         (Annulation idempotente / index unique)───┘
+        POST /demandes
+              │
+              ▼
+        EN_ATTENTE ── POST /{id}/valider ──► VALIDE
+             │                                  │
+             ├── POST /{id}/refuser ───────► REFUSE
+             │                                  │
+             └── POST /{id}/annuler ────────► ANNULE
+                                                ▲
+                         POST /{id}/annuler ────┘
 ```
+
+L'annulation est une opération séparée autorisée par le contrôleur aux détenteurs de `CONGE_WRITE`, `CONGE_VALIDATE` ou `ROLE_ADMIN`. Pour une demande `VALIDE`, le service applique les contrôles existants et peut enregistrer le mouvement compensatoire `ANNULATION`.
 
 ### 5.2 Isolation Transactionnelle & Verrous Pessimistes (`FOR UPDATE`)
 
@@ -440,15 +392,16 @@ Pour éliminer tout risque d'incohérence sous accès concurrentiel (ex: deux va
 
 ### 5.3 Matrice Dynamique des Actions Disponibles (`availableActions`)
 
-Le backend calcule dynamiquement pour chaque demande la liste des actions permises selon le statut, le rôle utilisateur et la clôture de la paie :
+Le backend calcule `availableActions` selon le statut, les permissions globales `CONGE_WRITE`/`CONGE_VALIDATE`, le verrouillage Pointage et l'état de la période de paie. Ces capacités d'interface ne constituent pas la liste exhaustive des routes HTTP et ne remplacent pas leurs contrôles d'accès :
 
-| Statut Demande | Salarié (`ROLE_USER`) | Approbateur / RH (`CONGE_VALIDATE` / `ADMIN`) | Si Période de Paie Clôturée |
-| :--- | :--- | :--- | :--- |
-| **`BROUILLON`** | `EDITER`, `SOUMETTRE`, `SUPPRIMER` | `EDITER`, `SOUMETTRE`, `SUPPRIMER` | Aucune action (`[]`) |
-| **`EN_ATTENTE`** | `ANNULER` | `VALIDER`, `REFUSER`, `MODIFIER` | Aucune action (`[]`) |
-| **`VALIDE`** | `DEMANDER_ANNULATION` | `ANNULER` (avec motif obligatoire) | Aucune action (`[]`) |
-| **`REFUSE`** | Aucune action | Aucune action | Aucune action (`[]`) |
-| **`ANNULE`** | Aucune action | Aucune action | Aucune action (`[]`) |
+| Statut | Capacités calculées (`availableActions`) | Opérations HTTP actuellement exposées |
+| :--- | :--- | :--- |
+| **`BROUILLON`** | `EDIT` selon `CONGE_WRITE`; `SUBMIT` peut être calculée pour `CONGE_WRITE`; validation n'est pas proposée par cette matrice. | Pas de route de soumission ou suppression. Le service de validation accepte néanmoins `BROUILLON` si cet état existe déjà. |
+| **`EN_ATTENTE`** | `EDIT` selon `CONGE_WRITE`; `VALIDATE`/`APPROVE` et `REJECT` selon `CONGE_VALIDATE`; `CANCEL` selon `CONGE_WRITE` ou `CONGE_VALIDATE`, sous réserve des blocages. | `PUT /{id}`, `POST /{id}/valider`, `POST /{id}/refuser`, `POST /{id}/annuler`, avec contrôles d'autorisation et d'état côté serveur. |
+| **`VALIDE`** | `MODIFY_DATES` pour un validateur si la demande est future et déverrouillée; `CANCEL` selon permission et contrôles. | `PUT /{id}` ne permet la modification d'une demande validée que pour RH/administrateur et sous conditions métier; l'annulation exige `CONGE_WRITE`, `CONGE_VALIDATE` ou `ROLE_ADMIN`. |
+| **`REFUSE`**, **`ANNULE`** | Aucune action métier n'est indiquée par cette matrice. | Le service refuse leur annulation et la modification directe selon ses règles d'état. |
+
+**Limite connue pour le propriétaire :** `PUT /{id}` autorise l'accès au propriétaire sans `CONGE_WRITE`, mais `enrichirActions` ne tient compte que des permissions globales pour calculer `EDIT`. Il peut donc renvoyer `EDIT = FORBIDDEN` alors que l'API permet au propriétaire de modifier sa demande. À l'inverse, une capacité `CANCEL` calculée ne dispense pas de la permission exigée par `@PreAuthorize`. Cette différence de présentation et de contrat reste un point technique à harmoniser.
 
 ---
 
@@ -469,23 +422,31 @@ Lorsque le collaborateur pose sa demande de congé à l'avance et que celle-ci e
 4. **Calcul de synthèse mensuelle (`PointageSyntheseService.calculerSyntheseEmploye`)** : Les congés validés sont réintégrés dans les tronçons hebdomadaires (`Result.Status.LEAVE`). L'objectif requis de travail est abaissé proportionnellement (8h par jour ouvré de congé), et la fiche collaborateur affiche `X prévus (+Y j congé)` avec l'objectif mensuel réduit (ex: 120h00 au lieu de 176h00).
 
 #### B. Cas 2 : Absence constatée régularisée a posteriori (Module Pointage)
-Lorsque l'absence a été constatée en cours de pointage (collaborateur non badgé) :
-- Réalisée par `CongeService.regulariserCongeAnnuelDepuisPointageStructure` via le menu *Suivi & Anomalies* :
-  1. `CongeService` crée et valide atomiquement la demande avec le préfixe `[REGULARISATION_POINTAGE]` et débite le solde acquis dans `mouvement_solde_conge`.
-  2. `PointageAnomalieService` enregistre la journée dans `pointage_jour` avec `id_statut_jour = CONGE` et lie la clé étrangère `id_demande_conge`.
-- Le solde de congé doit couvrir l'intégralité de la période à régulariser sous peine de rejet immédiat.
-- En cas d'annulation ultérieure de la demande validée issue d'une régularisation, le solde de congé est restitué et les pointages redeviennent automatiquement des absences non justifiées dans la même transaction.
+La commande Pointage `PUT /pointages/anomalies/{idPointage}/regulariser` accepte `POINTAGE_WRITE`, `POINTAGE_VALIDATE` ou `ROLE_ADMIN`. Le rôle `ROLE_AGENT_POINTAGE` reçoit `POINTAGE_WRITE` dans le schéma canonique ; aucun `CONGE_WRITE` n'est requis pour cet appel interne à `CongeService`. L'opération reste soumise aux contrôles de période, de chevauchement et de solde.
+
+Pour l'option `CONGE_PAYE`, `CongeService.regulariserCongeAnnuelDepuisPointageStructure` tente de couvrir l'absence avec le solde annuel acquis, puis `PointageAnomalieService` rattache la demande créée au pointage. Les résultats diffèrent selon le solde :
+
+1. **Couverture complète :** la demande annuelle est créée et validée pour toute la durée ; un mouvement `PRISE` est enregistré et le pointage reçoit le statut `CONGE` avec l'identifiant de demande.
+2. **Couverture partielle d'une journée :** si le solde est supérieur à zéro mais inférieur à la durée demandée, la demande est créée et validée pour la fraction couverte. Le pointage reçoit `DEMI_JOURNEE` et conserve le lien vers cette demande ; le reste n'est pas débité comme congé. La fraction non couverte n'est pas transformée par ce code en ligne de paie dédiée ; son effet salarial n'est pas établi ici.
+3. **Solde nul :** aucune demande ni mouvement `PRISE` n'est créé. Le pointage reste traité comme une absence : `ABSENCE_JUSTIFIEE` si un motif est renseigné, sinon `ABSENCE_NON_JUSTIFIEE`.
+
+La couverture partielle est limitée à une seule journée. Pour une période de plusieurs jours, le service exige un solde couvrant toute la durée et rejette la régularisation sinon. Les contrôles des journées supplémentaires (période ouverte, absence de temps ou congé déjà lié) s'appliquent avant l'écriture. Les écritures Congés et Pointage sont effectuées dans la transaction JDBC de régularisation.
+
+#### C. Permission exceptionnelle oubliée dans le pointage
+L'option `PERMISSION_EXCEPTIONNELLE` appelle `CongeService.regulariserPermissionDepuisPointage` : le service recherche un type actif `PERMISSION`, ou à défaut `EXCEPTIONNEL`, refuse l'opération si aucun de ces types n'est actif ou si une demande couvre déjà la date, puis crée et valide une demande d'un jour avec le préfixe `[REGULARISATION_POINTAGE]`. La commande est exécutée sous les mêmes permissions Pointage (`POINTAGE_WRITE`, `POINTAGE_VALIDATE` ou `ROLE_ADMIN`) et passe par les contrôles Congés de création et validation, dont les contrôles de pool lorsqu'ils s'appliquent. Elle ne permet pas à l'Agent Pointage de définir explicitement `est_remunere` ; la valeur par défaut du type s'applique.
+
+Une annulation ultérieure suit le workflow d'annulation de Congés et ses contrôles de période/pointage ; ne pas décrire le résultat comme un retour systématique à `ABSENCE_NON_JUSTIFIEE` sans distinguer le statut initial et le motif.
 
 La matérialisation directe d'une journée de congé par la synthèse Pointage est également soumise à la protection SQL du schéma canonique (ancien identifiant historique **SP80**) : `date_pointage` doit appartenir à la période référencée, bornes incluses. Une demande de congé validée en amont ne crée pas à elle seule une ligne `pointage_jour`. Les anciennes migrations SP ont été volontairement supprimées ; le schéma canonique sert à initialiser une base neuve et ne décrit pas la mise à niveau d'une base existante.
 
 ### 6.2 Pont Réel Congés $\rightarrow$ Moteur de Paie
 
 Lors du calcul du bulletin mensuel :
-1. **Retenue sur salaire de base pour congé pris** (au trentième légal) :
-   $$\text{DEDUCTION\_CONGE\_BASE} = \text{Jours Congé Pris} \times \frac{\text{Salaire de Base Contractuel}}{30}$$
-2. **Indemnité de congé payé** : chaque fraction de prise consomme la valeur historique de son lot FIFO. Le bulletin additionne les montants imputés :
+1. **Déduction de la base pour les jours de congé** : si `salaireParJour` contient les salaires datés de la campagne, le moteur exige aussi une ventilation des jours de congé par date, vérifie que les jours correspondent et calcule la somme `salaire applicable à la date × jours / 30`. Si cette ventilation salariale n'est pas fournie, il utilise le salaire de base contractuel et le taux journalier au trentième (`jours × salaire de base / 30`).
+2. **Valorisation par lots** : dans le parcours de préparation du bulletin, `PayrollCalculationContextAssembler` demande à `CongeLotValorisationService` la valeur des prises sur la période. L'indemnité transmise au moteur correspond à cette valorisation historique des lots FIFO ; le calcul générique de repli du moteur utilise le TCONGE journalier s'il n'a pas reçu de montant par lots :
    $$\text{INDEMNITE\_CONGE\_PAYE} = \sum_{lot} (\text{Jours Pris}_{lot} \times \mathbf{TCONGE}_{lot})$$
-3. **Écart normal entre retenue et indemnité** : Le taux historique du lot peut différer du salaire courant / 30. Les deux lignes de paie figurent distinctement sur le bulletin de paie.
+3. **Limite liée à `est_remunere`** : le chemin de chargement des jours de congé retient les demandes `VALIDE` dont le type `decompte_solde_acquis` est vrai ; les méthodes de calcul examinées ne filtrent pas cette sélection par `demande_conge.est_remunere` ou `ref_type_conge.est_paye`. La portée de la surcharge `est_remunere` sur les montants du bulletin n'est donc pas démontrée par ces méthodes et reste à vérifier séparément. Les formules ci-dessus décrivent les branches techniques observées, pas une conclusion juridique sur leur traitement.
+4. **Deux lignes distinctes** : le moteur produit `DEDUCTION_CONGE_BASE` et `INDEMNITE_CONGE_PAYE` ; les taux historiques FIFO peuvent différer du salaire courant au trentième.
 
 ### 6.3 Pont Réel Congés $\rightarrow$ Solde de Tout Compte (STC) & Extinction des Droits
 
@@ -512,7 +473,7 @@ Lors de la rupture du contrat de travail (licenciement, démission, départ à l
 | Horaire | Composant Scheduler | Rôle & Traitement Effectué |
 | :---: | :--- | :--- |
 | **02:30 chaque jour** | `NotificationRhScheduler` | Détection et dispatching des alertes RH de supervision effectivement câblées ; aucune alerte de première tranche de 15 jours n'est implémentée. |
-| **1er du mois, 01:00** | `AcquisitionCongeScheduler` | Vérification des bonifications d'ancienneté du mois échu. Après une panne, les mois manqués sont repris depuis la première période inscrite dans `scheduler_execution`, au plus six par cycle de rattrapage. L'acquisition mensuelle standard est enregistrée dans la transaction de clôture de paie. |
+| **1er du mois, 01:00** | `AcquisitionCongeScheduler` | Vérification des bonifications d'ancienneté du mois échu. Après une panne, les mois manqués sont repris depuis la première période inscrite dans `scheduler_execution`, au plus six par cycle de rattrapage. L'acquisition mensuelle standard est enregistrée par le service Paie dans la transaction de clôture de paie. |
 | — | — | **Aucun cron nocturne ne purge automatiquement les congés prescrits.** L'examen est obligatoirement instruit par la DAF. |
 
 Les exécutions planifiées sont inscrites par `SchedulerExecutionRegistry` avec
@@ -522,8 +483,11 @@ reprendre la tentative ; le jeton empêche l'ancien worker de prolonger le bail
 ou de finaliser son statut. Il n'arrête pas le traitement métier de cet ancien
 worker : les écritures doivent donc être atomiques/idempotentes séparément.
 Pour les bonifications, l'insertion est protégée par une unicité PostgreSQL
-salarié/année (`idx_uniq_mouvement_bonification_annee`) et l'évolution historiquement référencée SP77
-bloque si des doublons historiques doivent être arbitrés.
+salarié/année (`idx_uniq_mouvement_bonification_annee`) définie dans le schéma
+canonique. La migration historique SP77 n'est pas présente dans le dépôt et son
+exécution sur une base existante ne peut pas être confirmée ici. Les doublons
+historiques, s'il en existe, nécessiteraient un arbitrage avant d'appliquer une
+migration équivalente.
 
 ---
 
@@ -600,48 +564,52 @@ L'architecture frontend est strictement **backend-driven** : elle n'exécute auc
 
 ### 8.3 Catalogue Complet des Endpoints REST
 
+Les endpoints du module ne sont pas accessibles anonymement. `@PreAuthorize` exige une authentification ou une permission spécifique ; certaines opérations de demande complètent ce contrôle par la vérification côté serveur du dossier salarié associé au compte. La capacité React `availableActions` n'accorde aucun droit API.
+
 #### 1. Cycle de Vie des Demandes (`/conges/demandes`)
 | Méthode | URI | Contrôle d'Accès / Rôle | Description Métier & Contrat |
 | :---: | :--- | :--- | :--- |
-| `POST` | `/simuler` | `CONGE_READ` | Simulation temps réel du décompte de jours ouvrés/calendaires et projection de solde. |
-| `POST` | `/simuler-valorisation` | `CONGE_READ` | Estimation prévisionnelle de la valorisation de la prise par déstockage virtuel des lots FIFO (`CongeLotValorisationService.simulerPrise`), projection des soldes avant/après, valeur financière estimée en Ariary et inventaire des demandes concurrentes en attente. |
-| `POST` | `/verifier-conflits` | `CONGE_READ` | Détection des collisions d'absence sur le même poste/site (`CongeContinuiteService`). |
-| `POST` | `/` | `CONGE_WRITE` | Création d'une nouvelle demande de congé (brouillon ou soumission directe). |
-| `PUT` | `/{id}` | `CONGE_WRITE` | Mise à jour d'une demande existante en statut modifiable. |
-| `GET` | `/employe/{idEmploye}` | `CONGE_READ` | Historique exhaustif des demandes d'un employé. |
-| `GET` | `/{id}` | `CONGE_READ` | Consultation unitaire d'une demande avec `availableActions`. |
-| `GET` | `/validation` | `CONGE_VALIDATE` | Liste des demandes en attente de validation pour le manager/RH connecté. |
-| `GET` | `/all` | `CONGE_READ` | Consultation globale de toutes les demandes avec filtres multicritères. |
-| `POST` | `/{id}/valider` | `CONGE_VALIDATE` | Validation transactionnelle : génération du débit `PRISE` au Grand-Livre. |
-| `POST` | `/{id}/refuser` | `CONGE_VALIDATE` | Refus motivé d'une demande avec notification. |
-| `POST` | `/{id}/annuler` | `CONGE_WRITE` / `CONGE_VALIDATE` | Annulation : restitution du solde au Grand-Livre (`ANNULATION`) et mise à jour pointage. |
+| `POST` | `/simuler` | `CONGE_READ`/`ROLE_ADMIN` ou dossier personnel associé | Simulation temps réel du décompte des jours et du quota annuel. |
+| `POST` | `/simuler-valorisation` | `CONGE_READ`/`ROLE_ADMIN` ou dossier personnel associé | Estimation prévisionnelle de la valorisation de la prise par déstockage virtuel des lots FIFO (`CongeLotValorisationService.simulerPrise`), projection des soldes avant/après, valeur financière estimée en Ariary et inventaire des demandes concurrentes en attente. |
+| `POST` | `/verifier-conflits` | `CONGE_READ`/`ROLE_ADMIN` ou dossier personnel associé | Détection des collisions d'absence sur le même poste/site (`CongeContinuiteService`). |
+| `POST` | `/` | `CONGE_WRITE`/`ROLE_ADMIN` ou dossier personnel associé | Création d'une demande. L'identité salarié correspondante est résolue côté serveur. |
+| `PUT` | `/{id}` | Authentifié ; `CONGE_WRITE` ou propriétaire pour demandes modifiables ; `CONGE_VALIDATE`/`ROLE_ADMIN` pour les cas RH autorisés | Mise à jour sous contrôles d'état et de période. Les demandes validées ne sont modifiables que par RH/administrateur, sous conditions métier. |
+| `GET` | `/employe/{idEmploye}` | `CONGE_READ`/`ROLE_ADMIN` ou propriétaire | Historique d'un salarié, limité au dossier personnel sans permission globale. |
+| `GET` | `/{id}` | `CONGE_READ`/`ROLE_ADMIN` ou propriétaire | Consultation unitaire d'une demande avec `availableActions`. |
+| `GET` | `/me` | Authentifié avec e-mail salarié unique | Liste des demandes du compte courant. |
+| `GET` | `/me/dossier` | Authentifié avec e-mail salarié unique | Résolution du dossier salarié utilisé pour créer sa propre demande. |
+| `GET` | `/validation` | `CONGE_VALIDATE` ou `ROLE_ADMIN` | Liste des demandes en attente de validation pour le manager/RH connecté. |
+| `GET` | `/all` | `CONGE_READ`/`ROLE_ADMIN` | Consultation globale de toutes les demandes avec filtres multicritères. |
+| `POST` | `/{id}/valider` | `CONGE_VALIDATE` ou `ROLE_ADMIN` | Validation transactionnelle : génération du débit `PRISE` au Grand-Livre. |
+| `POST` | `/{id}/refuser` | `CONGE_VALIDATE` ou `ROLE_ADMIN` | Refus motivé d'une demande avec notification. |
+| `POST` | `/{id}/annuler` | `CONGE_WRITE`, `CONGE_VALIDATE` ou `ROLE_ADMIN` | Annulation sous contrôles métier ; restitution éventuelle du solde au Grand-Livre (`ANNULATION`) et mise à jour des pointages liés. |
 
 #### 2. Soldes, Grand-Livre, Cutover & Expiration (`/conges`)
 | Méthode | URI | Contrôle d'Accès / Rôle | Description Métier & Contrat |
 | :---: | :--- | :--- | :--- |
-| `GET` | `/solde/employe/{idEmploye}` | `CONGE_READ` | Compteurs temps réel issus de `v_solde_conge_employe`. |
-| `GET` | `/solde/employe/{idEmploye}/situation` | `CONGE_READ` | Synthèse complète : solde, période active, TCONGE, expiration et pools. |
-| `GET` | `/solde/valorisation-lots/{idEmploye}` | `CONGE_READ` | Détail des lots FIFO d'acquisition et valeurs restantes en Ariary. |
-| `GET` | `/solde/imputation/{idEmploye}` | `CONGE_READ` | Diagnostic d'imputation financière des congés. |
-| `GET` | `/mouvements/employe/{idEmploye}` | `CONGE_READ` | Grand-Livre des écritures comptables (`mouvement_solde_conge`). |
+| `GET` | `/solde/employe/{idEmploye}` | `CONGE_READ` ou `ROLE_ADMIN` | Compteurs temps réel issus de `v_solde_conge_employe`. |
+| `GET` | `/solde/employe/{idEmploye}/situation` | `CONGE_READ` ou `ROLE_ADMIN` | Synthèse complète : solde, période active, TCONGE, expiration et pools. |
+| `GET` | `/solde/valorisation-lots/{idEmploye}` | `CONGE_READ` ou `ROLE_ADMIN` | Détail des lots FIFO d'acquisition et valeurs restantes en Ariary. |
+| `GET` | `/solde/imputation/{idEmploye}` | `CONGE_READ` ou `ROLE_ADMIN` | Diagnostic d'imputation financière des congés. |
+| `GET` | `/mouvements/employe/{idEmploye}` | `CONGE_READ` ou `ROLE_ADMIN` | Grand-Livre des écritures comptables (`mouvement_solde_conge`). |
 | `POST` | `/solde/ajustement` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Ajustement manuel de solde motivé par la DAF. |
 | `POST` | `/solde/cutover-opening` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Reprise à date d'arrêté $T_0$ : injection stock initial et cumuls Janvier $\rightarrow T_0$. |
 | `POST` | `/solde/cutover/{idEmploye}/corriger` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Correction DAF auditée du stock initial de reprise (`conge_cutover_correction`). |
-| `GET` | `/planning` | `CONGE_READ` | Planning global consolidé des congés pour affichage Gantt. |
-| `GET` | `/expiration/employe/{idEmploye}` | `CONGE_READ` | Examen des droits candidats à prescription triennale (Loi 2024-014, Art. 129). |
+| `GET` | `/planning` | `CONGE_READ` ou `ROLE_ADMIN` | Planning global consolidé des congés pour affichage Gantt. |
+| `GET` | `/expiration/employe/{idEmploye}` | `CONGE_READ` ou `ROLE_ADMIN` | Examen des droits candidats à prescription triennale (Loi 2024-014, Art. 129). |
 | `POST` | `/expiration/employe/{idEmploye}/reporter` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Décision DAF de report d'expiration avec date de prochaine revue. |
 | `POST` | `/expiration/employe/{idEmploye}/confirmer`| `CONGE_VALIDATE` / `ROLE_ADMIN` | Confirmation d'expiration avec coche de planification et débit `EXPIRATION`. |
-| `GET` | `/pool-consommation/employe/{idEmploye}`| `CONGE_READ` | Consommation courante sur les pools partagés (ex: événements familiaux 10j). |
+| `GET` | `/pool-consommation/employe/{idEmploye}`| `CONGE_READ` ou `ROLE_ADMIN` | Consommation courante sur les pools partagés (ex: événements familiaux 10j). |
 
 #### 3. Périodes de Référence, Clôtures & Exports (`/conges/periodes-reference`)
 | Méthode | URI | Contrôle d'Accès / Rôle | Description Métier & Contrat |
 | :---: | :--- | :--- | :--- |
-| `POST` | `/` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Création d'une nouvelle période de référence annuelle. |
+| `POST` | `/` | `CONGE_WRITE` ou `ROLE_ADMIN` | Création d'une nouvelle période de référence ; contrôle métier des bornes et chevauchements. |
 | `GET` | `/employe/{idEmploye}` | `CONGE_READ` | Historique des périodes de référence d'un collaborateur. |
 | `GET` | `/employe/{idEmploye}/statut-configuration` | `CONGE_READ` | Évaluation de l'état de configuration et éligibilité à l'activation du TCONGE. |
-| `GET` | `/en-attente-activation` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Périodes clôturées dont le taux TCONGE est calculé mais pas encore activé. |
+| `GET` | `/en-attente-activation` | `CONGE_READ` ou `ROLE_ADMIN` | Périodes clôturées dont le taux TCONGE est calculé mais pas encore activé. |
 | `GET` | `/{idPeriodeReference}/mois` | `CONGE_READ` | Journal mensuel des 12 mois de référence issu de `conge_journal_droit`. |
-| `POST` | `/{idPeriodeReference}/cloturer` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Clôture formelle de la période et calcul du ratio officiel $\mathbf{TCONGE} = \frac{CV_{12}}{CD_{12}}$. |
+| `POST` | `/{idPeriodeReference}/cloturer` | `CONGE_WRITE` ou `ROLE_ADMIN` | Clôture formelle de la période et calcul du ratio officiel $\mathbf{TCONGE} = \frac{CV_{12}}{CD_{12}}$. |
 | `POST` | `/{idPeriodeReference}/activer-taux` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Activation opérationnelle du taux journalier dans `conge_taux_applicable`. |
 | `GET` | `/{idPeriodeReference}/corrections-valorisation` | `CONGE_READ` | Audit des rectifications de valorisation de la période. |
 | `POST` | `/{idPeriodeReference}/mois/{idJournal}/corriger-valorisation` | `CONGE_VALIDATE` / `ROLE_ADMIN` | Rectification DAF auditée de la valorisation d'un mois clos (`conge_valorisation_mensuelle_correction`). |
@@ -652,10 +620,11 @@ L'architecture frontend est strictement **backend-driven** : elle n'exécute auc
 #### 4. Référentiels & Paramétrage Légal (`/conges/referentiels`)
 | Méthode | URI | Contrôle d'Accès / Rôle | Description Métier & Contrat |
 | :---: | :--- | :--- | :--- |
-| `GET` | `/all` | `CONGE_READ` | Référentiel global complet (types, motifs, pools, statuts). |
-| `GET` | `/types`, `/motifs`, `/pools`, `/statuts` | `CONGE_READ` | Listes unitaires des référentiels de congés. |
+| `GET` | `/all` | Authentifié | Référentiel global complet (types, motifs, pools, statuts). |
+| `GET` | `/types`, `/motifs`, `/pools`, `/statuts` | Authentifié | Listes unitaires des référentiels de congés. |
 | `POST` | `/types`, `/motifs` | `ROLE_ADMIN` | Création d'un nouveau type de congé ou motif légal. |
-| `PUT` | `/types/{id}`, `/motifs/{id}` | `ROLE_ADMIN` | Modification des règles et plafonds d'un type ou motif. |
+| `PUT` | `/types/{id}` | `ROLE_ADMIN` | Modification du type. Tant qu'aucune demande ne le référence, ses règles sont modifiables. Dès qu'une demande le référence, code et règles de calcul sont verrouillés ; seul le libellé reste modifiable par cette route. Désactiver le type et en créer un nouveau pour changer ses règles. |
+| `PUT` | `/motifs/{id}` | `ROLE_ADMIN` | Modification du code, du libellé et de l'exigence de justificatif d'un motif familial. |
 | `PUT` | `/types/{id}/activer`, `/desactiver` | `ROLE_ADMIN` | Activation ou désactivation logique d'un type de congé. |
 | `PUT` | `/motifs/{id}/activer`, `/desactiver` | `ROLE_ADMIN` | Activation ou désactivation logique d'un motif familial. |
 
@@ -787,10 +756,12 @@ Conservés à titre comparatif pour l'audit des contrats antérieurs et l'analys
 
 **Corrections appliquées** : la création et le déplacement d'une demande contrôlent le verrouillage du pointage et de la paie ; un ajustement manuel ne peut plus rendre le solde négatif. Le paramètre `CONGE_DECOMPTE_FERIES` conserve le réglage actuel `INCLUS` et l'option datée `EXCLUS`.
 
+**Durcissements complémentaires implémentés** : contraintes SQL de cohérence salarié entre demandes, mouvements et corrections ; exclusion des chevauchements de taux TCONGE par salarié ; quota annuel réparti sur les années civiles couvertes par la demande ; verrouillage du salarié lors des contrôles concurrents ; accès personnel limité aux demandes appartenant au compte associé. Le rattachement personnel s'appuie actuellement sur l'e-mail partagé entre le compte et le dossier salarié; l'absence ou l'ambiguïté bloque l'accès personnel. L'installation canonique passe sur PostgreSQL vierge et les tests PostgreSQL isolés ciblés sont passés le 24 octobre 2026.
+
 **Points encore ouverts avant préproduction** :
 
-1. **Référentiel des types de congé** : `PUT /conges/types/{id}` peut modifier rétroactivement `est_paye`, `decompte_solde_acquis`, les durées et les pools d'un type déjà utilisé. Les demandes historiques et le grand-livre peuvent alors être interprétés selon des règles différentes de celles en vigueur à leur validation. Il faut rendre ces champs immuables après utilisation ou introduire des versions datées, puis tester les lectures et la paie historiques.
+1. **Référentiel des types de congé** : dès qu'une ligne de `demande_conge` référence un type, l'API verrouille son code et ses règles qui affectent le calcul (`est_paye`, `decompte_solde_acquis`, ancienneté, durées, plafonds, bascule, pool, préavis, suspension d'acquisition et justificatif). Le contrôle couvre également les demandes qui ne sont plus actives, afin de préserver leur interprétation historique. Le libellé reste modifiable ; activation et désactivation passent par leurs routes dédiées. Pour appliquer de nouvelles règles, désactiver l'ancien type et en créer un nouveau. Ce contrôle est appliqué dans une transaction côté API ; aucune table ni colonne supplémentaire n'est requise.
 2. **Première tranche annuelle** : aucune planification/alerte ne suit les 15 jours continus à prendre dans les trois mois après l'ouverture du droit. La justification des nécessités de service et les exceptions doivent être définies avec la RH avant automatisation.
-3. **Recette sur base isolée** : les tests PostgreSQL du module sont conditionnés à `GALAXAM_CONGE_TEST_DB_URL` et ont été ignorés dans la vérification du 24 octobre. Les tests Java purs (13) et les 53 tests du front passent ; lint et build du front passent. Une base jetable et une recette des parcours congé/paie/pointage restent requises.
+3. **Rattachement des comptes salariés** : l'accès personnel utilise l'e-mail partagé entre le compte et le dossier employé et échoue si le lien est absent ou ambigu. En base locale, un compte sur deux est associé sans ambiguïté. Il faut rattacher les comptes de salariés concernés avant leur ouverture en préproduction, puis faire la recette navigateur avec un compte associé.
 
 *Documentation technique du module Congés & Absences — décrit l'implémentation et les preuves explicitement citées ; ne vaut pas certification juridique ni recette exhaustive.*

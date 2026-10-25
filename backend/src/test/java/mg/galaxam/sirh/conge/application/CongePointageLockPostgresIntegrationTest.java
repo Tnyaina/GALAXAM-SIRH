@@ -19,6 +19,11 @@ import mg.galaxam.sirh.conge.persistence.VDemandeCongeCpl;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import mg.galaxam.sirh.securite.CustomUserDetails;
 
 /** Lock and rollback behavior against an isolated disposable PostgreSQL database. */
 class CongePointageLockPostgresIntegrationTest {
@@ -112,6 +117,10 @@ class CongePointageLockPostgresIntegrationTest {
                 c.commit();
 
                 var controller = new mg.galaxam.sirh.conge.api.DemandeCongeController();
+                CustomUserDetails testUser = new CustomUserDetails(1, "integration-test", "unused",
+                        java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN")), true);
+                SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                        testUser, "unused", testUser.getAuthorities()));
                 setField(controller, "dataSource", dataSource);
                 setField(controller, "congeService", new CongeService(
                         new CongeCalculateurEngine(), new CalendrierOuvrableEngine()));
@@ -293,4 +302,6 @@ class CongePointageLockPostgresIntegrationTest {
         field.setAccessible(true);
         field.set(target, value);
     }
+    @AfterEach
+    void clearSecurity() { SecurityContextHolder.clearContext(); }
 }

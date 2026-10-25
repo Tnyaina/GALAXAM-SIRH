@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import useUnsavedChanges from '@/hooks/useUnsavedChanges';
+import { useAuth } from '@/context/AuthContext';
+import { defaultLeavePayable } from '@/features/leave/utils/defaultLeavePayable';
 
 // Hooks
 import { useDemandeCongeForm } from '@/features/leave/hooks/useDemandeCongeForm';
@@ -19,7 +21,6 @@ import { useDemandeCongeForm } from '@/features/leave/hooks/useDemandeCongeForm'
 import DatesCongeSection from './formulaire/DatesCongeSection';
 import ConflitsPostePreview from './formulaire/ConflitsPostePreview';
 import SimulationValorisationConge from './formulaire/SimulationValorisationConge';
-import { defaultLeavePayable } from '@/features/leave/utils/defaultLeavePayable';
 
 export default function DemandeCongeModal({
   idEmploye: idEmployeProp,
@@ -34,6 +35,9 @@ export default function DemandeCongeModal({
 }) {
   const toast = useToast();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const { hasPermission, hasRole } = useAuth();
+  const canWriteForOthers = hasPermission('CONGE_WRITE');
+  const canOverrideRemuneration = hasRole('ROLE_ADMIN');
 
   const {
     // États et setters
@@ -68,6 +72,7 @@ export default function DemandeCongeModal({
     handleSubmit
   } = useDemandeCongeForm({
     idEmployeProp,
+    canOverrideRemuneration,
     initialDemande,
     initialDateDebut,
     initialDateFin,
@@ -152,12 +157,12 @@ export default function DemandeCongeModal({
           {/* Colonne Gauche (Formulaire de saisie) */}
           <div className="lg:col-span-7 space-y-4">
             {/* Section 0 : Employé concerné */}
-            {(idEmployeProp || initialDemande || employeeContext) ? (
+            {(idEmployeProp || initialDemande || employeeContext || !canWriteForOthers) ? (
                 <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-between">
                   <div>
                     <span className="text-[11px] text-[var(--color-fg-muted)] block font-medium">Employé concerné</span>
                     <span className="font-semibold text-sm text-[var(--color-fg)]">
-                      {employeeContext?.nom || `${initialDemande?.prenom || ''} ${initialDemande?.nom || ''}`.trim() || 'Employé sélectionné'}
+                      {employeeContext?.nom || `${initialDemande?.prenom || ''} ${initialDemande?.nom || ''}`.trim() || (canWriteForOthers ? 'Employé sélectionné' : 'Mon dossier')}
                       {(employeeContext?.matricule || initialDemande?.matricule) ? ` (${employeeContext?.matricule || initialDemande.matricule})` : ''}
                     </span>
                   </div>
@@ -188,8 +193,6 @@ export default function DemandeCongeModal({
                 value={idTypeConge}
                 onChange={(value) => {
                   setIdTypeConge(value);
-                  const selected = typesConge.find((type) => String(type.idTypeConge) === String(value));
-                  setEstRemunere(defaultLeavePayable(selected));
                   setIdMotifEvenementFamilial('');
                   setFieldErrors((current) => ({ ...current, idTypeConge: null }));
                 }}
@@ -313,21 +316,28 @@ export default function DemandeCongeModal({
               </button>
               {showOptionsAvancees && (
                 <div className="px-3.5 pb-3 pt-1 border-t border-[var(--color-border-subtle)] space-y-2.5 bg-[var(--color-surface)]">
-                  {setEstRemunere && (
+                  {canOverrideRemuneration && (
                     <label className="flex items-start gap-2.5 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                       <input
                         type="checkbox"
-                        checked={estRemunere ?? true}
+                        checked={estRemunere == null ? defaultLeavePayable(selectedType) : estRemunere}
                         onChange={(event) => setEstRemunere(event.target.checked)}
                         className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
                       />
                       <span className="text-xs font-medium text-[var(--color-fg)]">
                         Congé rémunéré
                         <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5 font-normal">
-                          Coché : indemnité de congés payés. Décoché : congé sans solde.
+                          {estRemunere == null
+                            ? `Valeur par défaut du type : ${defaultLeavePayable(selectedType) ? 'rémunéré' : 'sans solde'}. Cochez pour définir explicitement une autre valeur.`
+                            : 'Valeur définie explicitement par un administrateur.'}
                         </span>
                       </span>
                     </label>
+                  )}
+                  {canOverrideRemuneration && estRemunere != null && (
+                    <button type="button" className="text-xs underline" onClick={() => setEstRemunere(null)}>
+                      Utiliser la valeur par défaut du type
+                    </button>
                   )}
                   <label className="flex items-start gap-2.5 cursor-pointer">
                     <input

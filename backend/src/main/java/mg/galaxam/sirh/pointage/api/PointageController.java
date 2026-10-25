@@ -415,7 +415,7 @@ public class PointageController {
     }
 
     @GetMapping("/parametres/derogations")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDerogations() {
         try (Connection c = dataSource.getConnection()) {
             return ResponseEntity.ok(EmployeIndemniteDerogation.listAllActive(c));

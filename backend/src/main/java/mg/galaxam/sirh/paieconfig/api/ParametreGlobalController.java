@@ -35,7 +35,7 @@ public class ParametreGlobalController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllParametresGlobaux(@RequestParam(required = false) String categorie) {
         try (Connection c = dataSource.getConnection()) {
             List<ParametreGlobal> list = categorie == null || categorie.isBlank()
@@ -52,7 +52,7 @@ public class ParametreGlobalController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getParametreGlobalById(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             ParametreGlobal pg = new ParametreGlobal();
@@ -69,7 +69,7 @@ public class ParametreGlobalController {
 
     /** Bascule une règle métier en transaction, en versionnant ensemble tous ses paramètres. */
     @PutMapping("/groupes/{groupe}/toggle-actif")
-    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN') or hasAuthority('ORGANISATION_WRITE') or hasAuthority('POINTAGE_WRITE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> toggleGroupeActif(@PathVariable String groupe, @RequestBody Map<String, Object> body) {
         List<String> codes = GROUPES_ACTIVATION.get(groupe);
         if (codes == null) throw new IllegalArgumentException("Groupe de paramètres inconnu : " + groupe);
@@ -139,7 +139,7 @@ public class ParametreGlobalController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createParametreGlobal(@RequestBody ParametreGlobalRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -180,7 +180,7 @@ public class ParametreGlobalController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateParametreGlobal(@PathVariable int id, @RequestBody ParametreGlobalRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -280,7 +280,7 @@ public class ParametreGlobalController {
     }
 
     @RequestMapping(value = "/{id}/toggle-actif", method = {RequestMethod.PATCH, RequestMethod.PUT})
-    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN') or hasAuthority('ORGANISATION_WRITE') or hasAuthority('POINTAGE_WRITE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> toggleActif(@PathVariable int id, @RequestBody(required = false) java.util.Map<String, Object> body) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -410,7 +410,7 @@ public class ParametreGlobalController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> annulerProgramme(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

@@ -380,6 +380,7 @@ CREATE TABLE notification_rh (
 -- Index complémentaires
 CREATE INDEX idx_employe_nom_prenom ON employe(nom, prenom);
 CREATE INDEX idx_employe_matricule ON employe(matricule);
+CREATE INDEX idx_employe_email_lower_trim ON employe (LOWER(TRIM(email))) WHERE email IS NOT NULL;
 CREATE INDEX idx_employe_cin ON employe(cin_numero);
 CREATE INDEX idx_employe_enfant_emp ON employe_enfant(id_employe);
 CREATE INDEX idx_employe_contact_urgence_emp ON employe_contact_urgence(id_employe);

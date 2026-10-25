@@ -16,7 +16,7 @@ export default function PeriodNavigator({
     onDateChange,        // Callback (newDateStr)
     allowFutureDates = true,
     showTodayButton = false,
-    className = 'h-[32px]',
+    className = 'h-10',
 }) {
     const dateInputRef = useRef(null);
 
@@ -124,6 +124,7 @@ export default function PeriodNavigator({
                 <button
                     type="button"
                     onClick={() => handleNavigate(-1)}
+                    aria-label="Période précédente"
                     className="h-full px-2.5 flex items-center justify-center text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                     title="Précédent"
                 >
@@ -134,8 +135,10 @@ export default function PeriodNavigator({
                 <span className="self-center h-4 w-[1px] bg-[var(--color-border-subtle)] shrink-0" />
 
                 {/* Libellé de la période + Icône Calendrier cliquable */}
-                <div
-                    onClick={() => dateInputRef.current?.showPicker()}
+                <button
+                    type="button"
+                    onClick={() => dateInputRef.current?.showPicker?.()}
+                    aria-label={`Choisir une date, période actuelle : ${getFormattedLabel()}`}
                     className="h-full flex items-center justify-between gap-3 px-3 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
                 >
                     <span className="text-xs sm:text-[13px] font-bold text-[var(--color-fg)] tracking-tight">
@@ -144,16 +147,17 @@ export default function PeriodNavigator({
 
                     <CalendarIcon size={14} className="text-[var(--color-fg)] hover:text-[var(--color-brand-500)] shrink-0 transition-colors" />
 
-                    {/* Input invisible pour ouvrir le DatePicker natif */}
-                    <input
-                        ref={dateInputRef}
-                        type="date"
-                        value={selectedDate}
-                        max={!allowFutureDates ? todayStr : undefined}
-                        onChange={(e) => e.target.value && onDateChange(e.target.value)}
-                        className="sr-only"
-                    />
-                </div>
+                </button>
+                <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={selectedDate}
+                    max={!allowFutureDates ? todayStr : undefined}
+                    onChange={(e) => e.target.value && onDateChange(e.target.value)}
+                    aria-label="Date de pointage"
+                    tabIndex={-1}
+                    className="sr-only"
+                />
 
                 {/* Séparateur vertical discret */}
                 <span className="self-center h-4 w-[1px] bg-[var(--color-border-subtle)] shrink-0" />
@@ -162,6 +166,7 @@ export default function PeriodNavigator({
                 <button
                     type="button"
                     onClick={() => handleNavigate(1)}
+                    aria-label="Période suivante"
                     disabled={isFutureBlocked}
                     className={`h-full px-2.5 flex items-center justify-center text-[var(--color-fg)] transition-colors ${
                         isFutureBlocked

@@ -16,13 +16,13 @@ Les classes de `persistence/` conservent la rigueur Active Record : `Connection`
 
 Le lien d'une affectation vers son contrat est contrôlé avec le couple
 `(id_contrat, id_employe)`, et le lien vers le service avec
-`(id_service, id_departement)`. Les contraintes composées sont définies dans
-`backend/conception/bdd/migrations/26-10-16-sp74-affectation-integrity.sql`
-et intégrées aux schémas canoniques 02 et 03. Elles complètent la validation
-applicative et préservent les règles de mobilité et d'historisation existantes ;
-elles ne changent pas le rattachement des départements aux filiales ni le
-modèle des sites partagés.
+`(id_service, id_departement)`. Les clés étrangères composées figurent dans
+`backend/conception/bdd/03_schema_employes_contrats.sql`, avec les contraintes
+uniques correspondantes dans les schémas canoniques 02 et 03. Elles complètent
+les validations applicatives sans changer le modèle des départements ni celui
+des sites partagés.
 
-Avant SP74 sur une base existante, exécuter les diagnostics décrits dans le
-script. Toute incohérence bloque la migration et doit être arbitrée/corrigée
-explicitement. Les tests de référence sont validés via `ContratTravailControllerPostgresTest` et `EmployeSatelliteLifecycleTest`.
+Ces schémas servent à initialiser une base neuve ; ils ne constituent pas une
+procédure de mise à niveau d'une base existante. Les tests
+`ContratTravailControllerPostgresTest` et `EmployeSatelliteLifecycleTest`
+vérifient des comportements ciblés, sans valider une migration de schéma.

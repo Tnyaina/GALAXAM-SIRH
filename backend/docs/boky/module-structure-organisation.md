@@ -6,7 +6,7 @@
 ---
 
 > **État des preuves au 23 octobre 2026 :** les schémas canoniques et le contrôleur d'organisation décrivent le modèle et les API. Aucun rapport de recette Organisation dédié ni exécution datée des totaux de tests précédemment cités n'a été retrouvé dans le dépôt. Les contrôles de navigation et d'accès rapportés en UX-20/21 proviennent des comptes rendus communiqués séparément ; ils ne constituent pas une certification globale.
-> - **Périmètre modélisé** : 32 tables de référentiels `ref_*`, 37 paramètres globaux versionnés à date d'effet, gouvernance multi-filiales et multi-sites.
+> - **Périmètre modélisé** : 15 tables `ref_*` déclarées dans le schéma Organisation 02 (30 déclarations `ref_*` sur les six schémas canoniques), 37 paramètres globaux versionnés à date d'effet, gouvernance multi-filiales et multi-sites.
 > - **Cadre Juridique** : [Loi n° 2024-014 du 14 août 2024 portant Code du Travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf) (adoptée le 01/07/2024, validée par la HCC le 08/08/2024 Décision n° 11-HCC/D3, promulguée le 14/08/2024) & Loi n° 2003-044, CGI 2026, Décret n° 72-226, Décret n° 64-161, Décret n° 69-145 (CNaPS), Loi n° 2014-038 (Données personnelles).
 
 ---
@@ -32,7 +32,7 @@
 
 Le présent document constitue le document maître du domaine **Structure, Organisation, Référentiels et Administration** du SIRH GALAXAM. Le périmètre Sécurité est décrit plus en détail dans `module-securite-audit.md` ; `parametre_global` reste partagé avec les domaines consommateurs.
 
-L'écran `/admin/organisation` est protégé côté React par `ORGANISATION_WRITE` ; la navigation n'affiche son lien qu'à `ROLE_ADMIN` ou à un utilisateur disposant de cette permission, sous réserve du menu `ADMIN_ORGANISATION`. `ROLE_ADMIN` hérite des permissions, dont `ORGANISATION_READ` et `ORGANISATION_WRITE`, dans `SecurityConfig`. Dans `OrganisationController`, les endpoints GET demandent `isAuthenticated()` et n'exigent pas explicitement `ORGANISATION_READ` ; les mutations exigent `ORGANISATION_WRITE` ou `ROLE_ADMIN`. La permission `ORGANISATION_READ` existe dans la hiérarchie backend mais ne gouverne actuellement ni cette route frontend ni les annotations GET du contrôleur. Le contrôle serveur reste l'autorité pour les API.
+L'écran `/admin/organisation` est protégé côté React par `ORGANISATION_WRITE` ; la navigation n'affiche son lien qu'à `ROLE_ADMIN` ou à un utilisateur disposant de cette permission, sous réserve du menu `ADMIN_ORGANISATION`. `ROLE_ADMIN` hérite des permissions, dont `ORGANISATION_READ` et `ORGANISATION_WRITE`, dans `SecurityConfig`. Dans `OrganisationController`, les endpoints GET demandent `isAuthenticated()` et n'exigent pas explicitement `ORGANISATION_READ` ; cette lecture de référentiels sert aussi aux parcours métier (par exemple les sites consommés par la grille Pointage). Les mutations exigent `ORGANISATION_WRITE` ou `ROLE_ADMIN`. L'accès aux écrans d'administration et l'accès aux données de référence nécessaires au fonctionnement métier sont donc distincts. Les paramètres globaux (`/referentiel/parametres-globaux`) suivent une règle distincte : toutes leurs routes, même les GET et les bascules de paramètres, sont réservées à `ROLE_ADMIN`.
 
 Le CDC initial définit le périmètre fonctionnel du mémoire. Les schémas canoniques et le code décrivent l'implémentation actuelle ; les tests et recettes datés déterminent le niveau de vérification. Les évolutions d'architecture et de base de données (notamment l'unification du plancher d'arrivée, le contrôleur unifié et la résolution triétat des paramètres) peuvent rendre certaines descriptions historiques obsolètes, sans effacer les exigences du CDC.
 
@@ -513,46 +513,44 @@ Pilote le régime de cotisations sociales et la fiscalité de la rémunération 
 
 ---
 
-## 15. Inventaire Exhaustif de Tous les Référentiels Socle (`ref_*`)
+## 15. Inventaire des Référentiels Socle (`ref_*`)
 
-Le tableau suivant répertorie **l'ensemble des 32 tables de référence (`ref_*`)** existant dans le schéma relationnel physique de GALAXAM SIRH :
+Les six schémas SQL canoniques déclarent 30 tables `ref_*` au total. Le schéma Organisation 02 (`02_schema_referentiels_rh.sql`) en déclare 15 ; les 15 autres sont réparties entre les schémas 01, 03, 04, 05 et 06. Ce décompte porte sur les instructions `CREATE TABLE` des DDL, et ne décrit pas nécessairement le contenu d’une base déjà initialisée ou modifiée.
 
-| N° | Table Physique | Domaine Propriétaire | Modules Consommateurs | Mutable ? | Historisé ? | Rôle dans l'Architecture |
-| :---: | :--- | :--- | :--- | :---: | :---: | :--- |
-| 1 | `ref_filiale` | Structure | Employés, Paie | Oui (Admin) | Oui (`date_desactivation`) | Personnes morales du groupe (NIF, STAT, RCS) |
-| 2 | `ref_banque` | Structure / Socle | Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements bancaires & codes SWIFT |
-| 3 | `ref_site` | Structure | Pointage, Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements physiques, horaires & plancher d'arrivée |
-| 4 | `ref_departement` | Structure | Employés, Organisation | Oui (Admin) | Non (Flag actif) | Pôles fonctionnels majeurs |
-| 5 | `ref_service` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Découpage des départements (`uk_service_departement`) |
-| 6 | `ref_fonction` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Postes, métiers et dispenses de pointage |
-| 7 | `ref_type_contrat` | Employés | Employés, Paie | Oui (Admin) | Non (Flag actif) | Typologie des contrats d'embauche (CDI, CDD, etc.) |
-| 8 | `ref_type_intervenant`| Paie / Légal | Employés, Paie | Oui (Admin) | Non (Flag actif) | Régimes fiscaux (IRSA/ISI) et sociaux (CNaPS/Santé) |
-| 9 | `ref_statut_rh` | Employés | Employés, Contrats | Non (Système) | Non (Ordre d'état) | États du cycle de vie collaborateur |
-| 10 | `ref_type_evenement_rh`| Employés | Carrière, Workflows | Non (Système) | Non | Événements de carrière (mutation, promotion, etc.) |
-| 11 | `ref_motif_sortie` | Employés | Contrats, Paie STC | Oui (Admin) | Non (Flag actif) | Motifs légaux de fin de contrat (démission, etc.) |
-| 12 | `ref_motif_mouvement` | Employés | Carrière | Oui (Admin) | Non (Flag actif) | Motifs d'avenants et mutations |
-| 13 | `ref_mode_calcul_paie` | Paie | Carrière, Paie | Non (Système) | Non (Flag actif) | Modes de calcul : Mensuel, Horaire, Journalier |
-| 14 | `ref_categorie_professionnelle` | Structure / Paie | Pointage, Paie, Employés | Oui (Admin) | Non (Flag actif) | Grille conventionnelle, Cadre, Éligibilité HS |
-| 15 | `ref_type_document` | Employés | Dossier Salarié | Oui (Admin) | Non (Flag actif) | Typologie des justificatifs RH (CIN, Diplômes, etc.) |
-| 16 | `ref_calendrier_ferie` | Structure / Légal | Pointage, Congés, Paie | Oui (Admin) | Non (Par date) | Jours fériés légaux et chômés |
-| 17 | `ref_periode_chomee` | Structure / Exploitation | Pointage, Paie | Oui (Admin) | Oui (Par dates) | Chômage technique ou fermetures collectives |
-| 18 | `ref_role` | Sécurité / IAM | Sécurité, Tous | Oui (Admin) | Oui (`date_desactivation`) | Rôles du modèle RBAC applicatif |
-| 19 | `ref_module` | Sécurité / IAM | Sécurité | Non (Système) | Non (Flag actif) | Découpage applicatif du SIRH (EMPLOYE, PAIE, etc.) |
-| 20 | `ref_menu` | Sécurité / IAM | Frontend Navigation | Oui (Admin) | Non | Arborescence de la navigation UI |
-| 21 | `ref_pool_conge_annuel`| Congés | Congés, Solde | Non (Système) | Non | Quotas partagés (permissions 10 jours Art. 88) |
-| 22 | `ref_type_conge` | Congés | Congés, Pointage, Paie | Oui (Admin) | Non (Flag actif) | Types d'absences, règles d'imputation et justificatifs |
-| 23 | `ref_motif_evenement_familial` | Congés | Congés | Oui (Admin) | Non (Flag actif) | Motifs d'événements familiaux (mariage, décès, etc.) |
-| 24 | `ref_statut_demande_conge` | Congés | Congés | Non (Système) | Non | Circuit de validation du congé (SOUMIS, APPROUVE, etc.) |
-| 25 | `ref_statut_pointage_jour` | Pointage | Pointage, Paie | Non (Système) | Non | Qualification journalière du pointage (PRESENT, etc.) |
-| 26 | `ref_statut_periode_paie` | Pointage / Paie | Pointage, Paie | Non (Système) | Non | États du cycle mensuel de paie (OUVERTE, VALIDEE, etc.) |
-| 27 | `ref_indemnite` | Pointage / Paie | Pointage, Paie | Oui (Admin) | Non (Flag actif) | Catalogue indemnités (DPLCT, REPAS) |
-| 28 | `ref_type_cotisation` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Cotisations sociales CNaPS, Santé, FMFP |
-| 29 | `ref_taux_majoration` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Taux d'heures sup (+30%, +50%, nuit, dimanche) |
-| 30 | `ref_type_mouvement_paie`| Paie | Paie Variables | Oui (Admin) | Non (Flag actif) | Catalogue des variables DAF (primes, retenues) |
-| 31 | `ref_mode_paiement` | Paie | Paie Sorties | Oui (Admin) | Non (Flag actif) | Virement, Chèque, Espèces, Mobile Money |
-| 32 | `ref_type_bulletin` | Paie | Paie Bulletins | Non (Système) | Non (Flag actif) | Types de bulletin (MENSUEL, STC, GRATIFICATION) |
+Le tableau distingue les référentiels définis dans le schéma 02 de ceux créés par les autres schémas, qui sont indiqués pour situer les dépendances intermodules. Les noms ci-dessous correspondent aux déclarations présentes dans les DDL canoniques.
 
----
+| N° | Table physique | Schéma DDL | Domaine propriétaire | Modules consommateurs | Mutable ? | Historisé ? | Rôle dans l’architecture |
+| :---: | :--- | :--- | :--- | :--- | :---: | :---: | :--- |
+| 1 | `ref_role` | `01_schema_core_securite.sql` | Sécurité / IAM | Sécurité, Tous | Oui (Admin) | Oui (`date_desactivation`) | Rôles du modèle RBAC applicatif |
+| 2 | `ref_module` | `01_schema_core_securite.sql` | Sécurité / IAM | Sécurité | Non (Système) | Non (Flag actif) | Découpage applicatif du SIRH (EMPLOYE, PAIE, etc.) |
+| 3 | `ref_menu` | `01_schema_core_securite.sql` | Sécurité / IAM | Frontend Navigation | Oui (Admin) | Non | Arborescence de la navigation UI |
+| 4 | `ref_filiale` | `02_schema_referentiels_rh.sql` | Structure | Employés, Paie | Oui (Admin) | Oui (`date_desactivation`) | Personnes morales du groupe (NIF, STAT, RCS) |
+| 5 | `ref_banque` | `02_schema_referentiels_rh.sql` | Structure / Socle | Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements bancaires & codes SWIFT |
+| 6 | `ref_site` | `02_schema_referentiels_rh.sql` | Structure | Pointage, Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements physiques, horaires & plancher d'arrivée |
+| 7 | `ref_departement` | `02_schema_referentiels_rh.sql` | Structure | Employés, Organisation | Oui (Admin) | Non (Flag actif) | Pôles fonctionnels majeurs |
+| 8 | `ref_service` | `02_schema_referentiels_rh.sql` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Découpage des départements (`uk_service_departement`) |
+| 9 | `ref_fonction` | `02_schema_referentiels_rh.sql` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Postes, métiers et dispenses de pointage |
+| 10 | `ref_type_contrat` | `02_schema_referentiels_rh.sql` | Employés | Employés, Paie | Oui (Admin) | Non (Flag actif) | Typologie des contrats d'embauche (CDI, CDD, etc.) |
+| 11 | `ref_type_intervenant` | `02_schema_referentiels_rh.sql` | Paie / Légal | Employés, Paie | Oui (Admin) | Non (Flag actif) | Régimes fiscaux (IRSA/ISI) et sociaux (CNaPS/Santé) |
+| 12 | `ref_statut_rh` | `02_schema_referentiels_rh.sql` | Employés | Employés, Contrats | Non (Système) | Non (Ordre d'état) | États du cycle de vie collaborateur |
+| 13 | `ref_type_evenement_rh` | `02_schema_referentiels_rh.sql` | Employés | Carrière, Workflows | Non (Système) | Non | Événements de carrière (mutation, promotion, etc.) |
+| 14 | `ref_motif_sortie` | `02_schema_referentiels_rh.sql` | Employés | Contrats, Paie STC | Oui (Admin) | Non (Flag actif) | Motifs légaux de fin de contrat (démission, etc.) |
+| 15 | `ref_motif_mouvement` | `02_schema_referentiels_rh.sql` | Employés | Carrière | Oui (Admin) | Non (Flag actif) | Motifs d'avenants et mutations |
+| 16 | `ref_mode_calcul_paie` | `02_schema_referentiels_rh.sql` | Paie | Carrière, Paie | Non (Système) | Non (Flag actif) | Modes de calcul : Mensuel, Horaire, Journalier |
+| 17 | `ref_categorie_professionnelle` | `02_schema_referentiels_rh.sql` | Structure / Paie | Pointage, Paie, Employés | Oui (Admin) | Non (Flag actif) | Grille conventionnelle, Cadre, Éligibilité HS |
+| 18 | `ref_calendrier_ferie` | `02_schema_referentiels_rh.sql` | Structure / Légal | Pointage, Congés, Paie | Oui (Admin) | Non (Par date) | Jours fériés légaux et chômés |
+| 19 | `ref_type_document` | `03_schema_employes_contrats.sql` | Employés | Dossier Salarié | Oui (Admin) | Non (Flag actif) | Typologie des justificatifs RH (CIN, Diplômes, etc.) |
+| 20 | `ref_pool_conge_annuel` | `04_schema_conges.sql` | Congés | Congés, Solde | Non (Système) | Non | Quotas partagés (permissions 10 jours Art. 88) |
+| 21 | `ref_type_conge` | `04_schema_conges.sql` | Congés | Congés, Pointage, Paie | Oui (Admin) | Non (Flag actif) | Types d'absences, règles d'imputation et justificatifs |
+| 22 | `ref_motif_evenement_familial` | `04_schema_conges.sql` | Congés | Congés | Oui (Admin) | Non (Flag actif) | Motifs d'événements familiaux (mariage, décès, etc.) |
+| 23 | `ref_statut_demande_conge` | `04_schema_conges.sql` | Congés | Congés | Non (Système) | Non | Circuit de validation du congé (SOUMIS, APPROUVE, etc.) |
+| 24 | `ref_statut_pointage_jour` | `05_schema_pointage.sql` | Pointage | Pointage, Paie | Non (Système) | Non | Qualification journalière du pointage (PRESENT, etc.) |
+| 25 | `ref_indemnite` | `05_schema_pointage.sql` | Pointage / Paie | Pointage, Paie | Oui (Admin) | Non (Flag actif) | Catalogue indemnités (DPLCT, REPAS) |
+| 26 | `ref_organisme_social` | `06_schema_paie.sql` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Organismes sociaux utilisés pour les cotisations |
+| 27 | `ref_type_cotisation` | `06_schema_paie.sql` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Cotisations sociales CNaPS, Santé, FMFP |
+| 28 | `ref_taux_majoration` | `06_schema_paie.sql` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Taux d'heures sup (+30%, +50%, nuit, dimanche) |
+| 29 | `ref_type_mouvement_paie` | `06_schema_paie.sql` | Paie | Paie Variables | Oui (Admin) | Non (Flag actif) | Catalogue des variables DAF (primes, retenues) |
+| 30 | `ref_mode_paiement` | `06_schema_paie.sql` | Paie | Paie Sorties | Oui (Admin) | Non (Flag actif) | Virement, Chèque, Espèces, Mobile Money |
 
 ## 16. Moteur des Paramètres Globaux (`parametre_global`)
 
@@ -919,10 +917,13 @@ Le tableau ci-dessous dresse l'inventaire exhaustif des routes HTTP relatives à
 | **GET** | `/api/ref-carriere/categories-pro` | Authentifié | Query param `actifUniquement` | `List<RefCategorieProfessionnelle>`| [`RefCarriereController`](../../src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
 | **POST** | `/api/ref-carriere/categories-pro` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` (201)| [`RefCarriereController`](../../src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
 | **PUT** | `/api/ref-carriere/categories-pro/{id}` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` | [`RefCarriereController`](../../src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
-| **GET** | `/api/referentiel/parametres-globaux` | `PAIE_READ` / Admin | Query param `categorie` | `List<ParametreGlobal>` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
-| **POST** | `/api/referentiel/parametres-globaux` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` (201) | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
-| **PUT** | `/api/referentiel/parametres-globaux/{id}` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
-| **PATCH/PUT**| `/api/referentiel/parametres-globaux/{id}/toggle-actif`| `PAIE_WRITE` / `ROLE_ADMIN` | `{estActif}` (optionnel) | `ParametreGlobal` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **GET** | `/api/referentiel/parametres-globaux` | `ROLE_ADMIN` | Query param `categorie` | `List<ParametreGlobal>` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **GET** | `/api/referentiel/parametres-globaux/{id}` | `ROLE_ADMIN` | ID du paramètre | `ParametreGlobal` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **POST** | `/api/referentiel/parametres-globaux` | `ROLE_ADMIN` | `ParametreGlobalRequest` | `ParametreGlobal` (201) | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **PUT** | `/api/referentiel/parametres-globaux/{id}` | `ROLE_ADMIN` | `ParametreGlobalRequest` | `ParametreGlobal` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **PUT** | `/api/referentiel/parametres-globaux/groupes/{groupe}/toggle-actif` | `ROLE_ADMIN` | `{estActif, dateEffet}` | Paramètres du groupe versionnés | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **PATCH/PUT**| `/api/referentiel/parametres-globaux/{id}/toggle-actif`| `ROLE_ADMIN` | `{estActif}` (optionnel) | `ParametreGlobal` | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **DELETE** | `/api/referentiel/parametres-globaux/{id}` | `ROLE_ADMIN` | ID du programme futur | Annulation du paramètre programmé | [`ParametreGlobalController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
 | **GET** | `/api/referentiel/indemnites` | `PAIE_READ` / Admin | N/A | `List<RefIndemnite>` | [`IndemniteController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
 | **POST** | `/api/referentiel/indemnites` | `PAIE_WRITE` / Admin | `IndemniteRequest` | `RefIndemnite` (201) | [`IndemniteController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
 | **GET** | `/api/referentiel/indemnites/site-config` | `PAIE_READ` / Admin | N/A | `List<SiteIndemniteConfig>` | [`IndemniteController`](../../src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
@@ -938,7 +939,7 @@ Le tableau ci-dessous dresse l'inventaire exhaustif des routes HTTP relatives à
 
 ### 24.1. Philosophie Architecturale (Zéro JPA / Zéro Hibernate)
 GALAXAM SIRH fait le choix délibéré d'**exclure tout framework ORM lourd** (JPA, Hibernate) au profit d'un pattern **Active Record en pur JDBC** encapsulé par la superclasse abstraite [`bean.ClassMere`](../../src/main/java/bean/ClassMere.java) :
-- **Transparence SQL intégrale** : Aucune génération magique de requêtes, aucun proxy dynamique, aucun problème de lazy-loading imprévisible (*N+1 queries*). Chaque entité fille ([`RefSite`](../../src/main/java/mg/galaxam/sirh/organisation/persistence/RefSite.java), [`RefRole`](../../src/main/java/mg/galaxam/sirh/admin/persistence/RefRole.java), [`ParametreGlobal`](../../src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java)) rédige explicitement ses requêtes `PreparedStatement`.
+- **Requêtes SQL explicites** : Les classes de persistance concernées formulent leurs requêtes `PreparedStatement` ([`RefSite`](../../src/main/java/mg/galaxam/sirh/organisation/persistence/RefSite.java), [`RefRole`](../../src/main/java/mg/galaxam/sirh/admin/persistence/RefRole.java), [`ParametreGlobal`](../../src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java)). JDBC donne un contrôle direct sur les requêtes, mais ne garantit à lui seul ni l'absence de motifs N+1 ni les performances ; celles-ci dépendent des requêtes et doivent être mesurées.
 - **Pilotage Transactionnel Strict** : Toutes les méthodes de persistance prennent obligatoirement un objet `java.sql.Connection` en argument. Le contrôle de la transaction (`c.setAutoCommit(false)`, `c.commit()`, `c.rollback()`) reste **exclusivement dévolu à la couche contrôleur ou au service métier**, garantissant l'atomicité multi-tables.
 - **Cycle de vie standardisé** :
   1. Instanciation en mémoire de l'objet ;
@@ -1069,10 +1070,10 @@ erDiagram
 
 ## 26. Cycle de Vie : Désactivation Logique vs Suppression Physique
 
-Une règle d'ingénierie fondamentale gouverne GALAXAM SIRH : **l'interdiction absolue de la suppression physique (`DELETE`) sur toute entité organisationnelle ou référentielle déjà consommée par l'historique**.
+Les API de `OrganisationController` exposent la désactivation et la réactivation des structures, mais pas de route `DELETE` pour les filiales, sites, départements, services ou fonctions. Les classes de persistance disposent néanmoins de méthodes `supprimer` qui exécutent un `DELETE` SQL. La protection contre une suppression physique dépend des clés étrangères effectivement présentes et des lignes qui référencent la structure ; elle n'est pas une interdiction universelle codée dans ces méthodes.
 
 ### Justifications Techniques et Réglementaires :
-1. **Intégrité référentielle BDD** : Les tables transactionnelles (`employe_affectation_carriere`, `pointage_jour`, `bulletin_paie`) détiennent des contraintes de clés étrangères `REFERENCES ref_site(id_site)` ou `REFERENCES ref_service(id_service)`. Un ordre SQL `DELETE` déclencherait une violation d'intégrité (`DATA_REFERENCED`, code HTTP 409).
+1. **Intégrité référentielle BDD** : `employe_affectation_carriere` référence notamment le site, la fonction et le couple service/département. Une clé étrangère sans cascade peut faire rejeter un `DELETE` lorsque des lignes dépendantes existent ; d'autres relations ont une politique différente, notamment `ref_service.id_departement` avec `ON DELETE CASCADE`. Un `DELETE` SQL direct ne correspond pas à une réponse HTTP déterminée.
 2. **Rejouabilité et Contrôle Fiscal / CNaPS** : En cas de contrôle fiscal de la DGI ou de la CNaPS sur un bulletin de paie émis trois ans auparavant, le système doit pouvoir réafficher la fiche de paie avec son site d'origine et sa catégorie, même si ce site a été fermé entre-temps.
 3. **Comportement du flag `est_actif`** :
    - *Création d'un dossier / Nouvelle affectation* : Les sélecteurs de l'UI interrogent le backend avec `actifUniquement = true`. Les structures fermées n'apparaissent plus dans les listes déroulantes.
@@ -1085,7 +1086,7 @@ Une règle d'ingénierie fondamentale gouverne GALAXAM SIRH : **l'interdiction a
 - **RG-STR-01 (Unicité des Codes Métier)** : Tout code d'identification d'une structure (`ref_filiale.code_filiale`, `ref_site.code_site`, `ref_departement.code_departement`, `ref_fonction.code_fonction`, `ref_categorie_professionnelle.code`) doit être strictement unique au niveau du groupe, saisi en majuscules sans espaces superflus.
 - **RG-STR-02 (Unicité Relative du Service)** : Un code de service doit être strictement unique au sein de son département de rattachement (`uk_service_departement UNIQUE (code_service, id_departement)`). `uq_ref_service_id_departement UNIQUE (id_service, id_departement)` sert également de cible à la FK composée de l'affectation.
 - **RG-STR-03 (Cohérence du Plancher d'Arrivée)** : Un site ne peut activer son plancher d'arrivée valorisé (`plancher_arrivee_actif = TRUE`) que si une heure d'entrée minimale valide est renseignée (`heure_entree_minimale_valorisee IS NOT NULL`). Contrainte vérifiée par la contrainte SQL `chk_ref_site_plancher_arrivee` et applicativement par [`OrganisationService.java`](../../src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L323-L359).
-- **RG-STR-04 (Immutabilité des Structures Utilisées)** : La suppression physique (`DELETE`) d'un site, département, service, filiale ou fonction est interdite dès lors qu'il existe au moins une affectation de carrière ou un pointage lié. Seule la désactivation logique (`est_actif = FALSE`) est autorisée.
+- **RG-STR-04 (Désactivation et suppression des structures)** : `OrganisationController` propose la désactivation logique (`est_actif = FALSE`) et la réactivation, sans endpoint `DELETE` pour les filiales, sites, départements, services et fonctions. Les modèles de persistance comportent des méthodes de suppression physique ; les contraintes SQL peuvent rejeter cette suppression selon les références existantes et leur politique de clé étrangère. La présence d'un historique ne constitue donc pas, à elle seule, une garantie universelle formulable pour toutes ces tables.
 - **RG-STR-05 (Garde-Fou de Désactivation Filiale)** : Une filiale ne peut être désactivée tant qu'elle détient au moins un site actif ou au moins un contrat de travail en cours d'exécution ([`OrganisationService.java:190-225`](../../src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190-L225)).
 - **RG-STR-06 (Priorité de Dispense de Pointage)** : Si la fonction du salarié (`ref_fonction.dispense_pointage = TRUE`) ou sa catégorie (`ref_categorie_professionnelle.dispense_pointage = TRUE`) prévoit une dispense, le collaborateur est réputé dispensé de pointage sans anomalie.
 - **RG-STR-07 (Décorrélation Cadre et Heures Sup)** : Les attributs `est_cadre` et `est_eligible_hs` sont indépendants. L'éligibilité aux heures supplémentaires découle exclusivement de `est_eligible_hs`.
@@ -1096,7 +1097,7 @@ Une règle d'ingénierie fondamentale gouverne GALAXAM SIRH : **l'interdiction a
 - **RG-STR-12 (Protection des Constantes Système)** : Tout paramètre portant `est_desactivable = FALSE` ne peut pas être désactivé par l'API administrative (`toggle-actif`).
 - **RG-STR-13 (Exigence d'Effet Métier sur Désactivation)** : Aucun paramètre ne peut être déclaré `est_desactivable = TRUE` sans qu'un effet métier formel soit implémenté et restitué par `ParametreGlobal.getEffetDesactivation()`.
 - **RG-STR-14 (Immutabilité Rétroactive de `CONGE_DECOMPTE_FERIES`)** : Le paramètre `CONGE_DECOMPTE_FERIES` ne peut être modifié que pour une version future ($\text{date\_debut} \ge \text{demain}$) et avec les valeurs `INCLUS` ou `EXCLUS` (`ck_conge_decompte_feries_valeur`).
-- **RG-STR-15 (Complexité Mot de Passe)** : Tout mot de passe utilisateur doit comporter au moins 8 caractères, incluant au moins une majuscule et un chiffre, et être haché en BCrypt.
+- **RG-STR-15 (Complexité Mot de Passe)** : La politique et le hachage sont décrits dans [le module Sécurité, RG-SEC-05](./module-securite-audit.md). Le contrôle actuel exige au moins 8 caractères, une majuscule, une minuscule et un chiffre ; le stockage utilise BCrypt.
 - **RG-STR-16 (Motif Obligatoire de Désactivation Utilisateur)** : La désactivation d'un compte utilisateur (`utilisateur`) exige obligatoirement la fourniture d'un motif textuel non vide.
 - **RG-STR-17 (Idempotence du Compte Racine)** : Le mécanisme de bootstrap de l'administrateur système ne doit modifier aucun compte dès lors qu'un compte administrateur actif existe déjà dans la base.
 - **RG-STR-18 (Habilitation des Menus par Rôle)** : L'arborescence de navigation délivrée au client web est strictement restreinte aux menus rattachés au rôle de l'utilisateur dans `role_menu`.

@@ -41,8 +41,22 @@ public final class DemandeCongeRequests {
             Boolean derogationContinuiteService,
             Boolean extensionPathologiqueMaternite,
             Boolean justificatifFourni,
-            String commentaire
-    ) {}
+            String commentaire,
+            Boolean estRemunere,
+            Boolean utiliserRemunerationParDefaut
+    ) {
+        public ModifierDemandeRequest(Integer idTypeConge, Integer idMotifEvenementFamilial,
+                LocalDate dateDebut, LocalDate dateFin, Boolean estDemiJournee,
+                String momentDemiJournee, Boolean derogationSoldeNegatif,
+                Boolean derogationDelaiPreavis, Boolean derogationContinuiteService,
+                Boolean extensionPathologiqueMaternite, Boolean justificatifFourni,
+                String commentaire) {
+            this(idTypeConge, idMotifEvenementFamilial, dateDebut, dateFin, estDemiJournee,
+                    momentDemiJournee, derogationSoldeNegatif, derogationDelaiPreavis,
+                    derogationContinuiteService, extensionPathologiqueMaternite,
+                    justificatifFourni, commentaire, null, null);
+        }
+    }
 
     public record SimulerDemandeRequest(
             Integer idEmploye,
@@ -55,7 +69,8 @@ public final class DemandeCongeRequests {
             Boolean estDemiJournee,
             Boolean derogationSoldeNegatif,
             Boolean derogationDelaiPreavis,
-            Boolean extensionPathologiqueMaternite
+            Boolean extensionPathologiqueMaternite,
+            Integer idDemandeConge
     ) {}
 
     public record VerifierConflitsRequest(

@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.List;
 import mg.galaxam.sirh.conge.persistence.DemandeConge;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
 import mg.galaxam.sirh.conge.persistence.RefMotifEvenementFamilial;
@@ -55,6 +56,11 @@ public class CongeService {
 
     public void appliquerActionsDisponibles(VDemandeCongeCpl demande,
             boolean canWrite, boolean canValidate, Connection c) throws Exception {
+        appliquerActionsDisponibles(demande, canWrite, canValidate, false, c);
+    }
+
+    public void appliquerActionsDisponibles(VDemandeCongeCpl demande,
+            boolean canWrite, boolean canValidate, boolean isOwner, Connection c) throws Exception {
         if (demande == null) return;
         String statut = demande.getCodeStatutDemande();
         boolean brouillon = "BROUILLON".equalsIgnoreCase(statut);
@@ -80,7 +86,7 @@ public class CongeService {
         }
 
         java.util.Map<String, ActionCapability> actions = new java.util.LinkedHashMap<>();
-        actions.put("EDIT", capability(canWrite, (brouillon || attente) && !periodeFermee,
+        actions.put("EDIT", editCapability(statut, canWrite, isOwner, periodeFermee,
                 periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
         actions.put("SUBMIT", capability(canWrite, brouillon && !periodeFermee,
                 periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
@@ -106,6 +112,12 @@ public class CongeService {
     private static ActionCapability capability(boolean authorized, boolean stateAllowed, String reason) {
         if (!authorized) return ActionCapability.denied("FORBIDDEN");
         return stateAllowed ? ActionCapability.permit() : ActionCapability.denied(reason);
+    }
+
+    static ActionCapability editCapability(String statut, boolean canWrite, boolean isOwner,
+            boolean periodeFermee, String reason) {
+        boolean editableState = "BROUILLON".equalsIgnoreCase(statut) || "EN_ATTENTE".equalsIgnoreCase(statut);
+        return capability(canWrite || isOwner, editableState && !periodeFermee, reason);
     }
 
     private int getParamGlobalInt(String code, LocalDate dateMetier, Connection c) {
@@ -675,6 +687,16 @@ public class CongeService {
             Date dateDebut, Date dateFin, boolean estDemiJournee,
             boolean derogationSoldeNegatif, boolean derogationDelaiPreavis,
             boolean extensionPathologiqueMaternite, Connection c) throws Exception {
+        return simulerDemande(idEmploye, idTypeConge, idMotifEvenementFamilial, dateDebut, dateFin,
+                estDemiJournee, derogationSoldeNegatif, derogationDelaiPreavis,
+                extensionPathologiqueMaternite, null, c);
+    }
+
+    public CongeCalculateurEngine.SimulationResult simulerDemande(
+            Integer idEmploye, Integer idTypeConge, Integer idMotifEvenementFamilial,
+            Date dateDebut, Date dateFin, boolean estDemiJournee,
+            boolean derogationSoldeNegatif, boolean derogationDelaiPreavis,
+            boolean extensionPathologiqueMaternite, Integer idDemandeCongeExclusion, Connection c) throws Exception {
         if (dateDebut == null || idTypeConge == null) {
             throw new IllegalArgumentException("Le type de congé et la date de début sont obligatoires.");
         }
@@ -715,23 +737,79 @@ public class CongeService {
 
         BigDecimal consommationPool = null;
         BigDecimal plafondPool = null;
+        java.util.List<String> violationsQuota = new java.util.ArrayList<>();
         if (idEmploye != null && type.getIdPoolCongeAnnuel() != null) {
             RefPoolCongeAnnuel pool = RefPoolCongeAnnuel.rechercherParId(type.getIdPoolCongeAnnuel(), c);
             plafondPool = pool != null ? pool.getPlafondJoursAn() : null;
             RefPoolCongeAnnuel.Consommation consommation = RefPoolCongeAnnuel.rechercherConsommation(
                     idEmploye, type.getIdPoolCongeAnnuel(), dateDebut.toLocalDate().getYear(), c);
             consommationPool = consommation != null ? consommation.getJoursEngages() : BigDecimal.ZERO;
+            LocalDate debut = dateDebut.toLocalDate();
+            LocalDate fin = dateFinEffective.toLocalDate();
+            if (estDemiJournee) fin = debut;
+            BigDecimal totalCalendaires = BigDecimal.valueOf(java.time.temporal.ChronoUnit.DAYS.between(debut, fin) + 1);
+            for (int year = debut.getYear(); year <= fin.getYear(); year++) {
+                RefPoolCongeAnnuel.Consommation annual = RefPoolCongeAnnuel.rechercherConsommation(
+                        idEmploye, type.getIdPoolCongeAnnuel(), year, c);
+                if (annual == null || annual.getPlafond() == null) {
+                    throw new IllegalStateException("Configuration du pool annuel introuvable pour " + year + ".");
+                }
+                LocalDate segmentStart = debut.isAfter(LocalDate.of(year, 1, 1)) ? debut : LocalDate.of(year, 1, 1);
+                LocalDate segmentEnd = fin.isBefore(LocalDate.of(year, 12, 31)) ? fin : LocalDate.of(year, 12, 31);
+                BigDecimal requestSegment = joursDemandes.multiply(BigDecimal.valueOf(
+                        java.time.temporal.ChronoUnit.DAYS.between(segmentStart, segmentEnd) + 1))
+                        .divide(totalCalendaires, 8, RoundingMode.HALF_UP);
+                BigDecimal oldSegment = BigDecimal.ZERO;
+                if (idDemandeCongeExclusion != null) {
+                    oldSegment = calculerPartQuotaDemande(idDemandeCongeExclusion, year, type.getIdPoolCongeAnnuel(), c);
+                }
+                if (annual.getJoursEngages().subtract(oldSegment).add(requestSegment).compareTo(annual.getPlafond()) > 0) {
+                    violationsQuota.add(CongeCalculateurEngine.LEAVE_POOL_EXCEEDED);
+                    break;
+                }
+            }
         }
 
         LocalDate dateRefMetier = dateDebut.toLocalDate();
         int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", dateRefMetier, c);
         int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", dateRefMetier, c);
         int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", dateRefMetier, c);
-        return calculateurEngine.simuler(new CongeCalculateurEngine.SimulationInput(
+        CongeCalculateurEngine.SimulationResult simulation = calculateurEngine.simuler(new CongeCalculateurEngine.SimulationInput(
                 dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee,
                 soldeAvant, type.isDecompteSoldeAcquis(), joursDebites, joursDemandes, derogationSoldeNegatif,
                 type.isSoumisDelaiPreavis(), derogationDelaiPreavis, LocalDate.now(),
                 seuilLong, delaiCourt, delaiLong, consommationPool, plafondPool));
+        if (violationsQuota.isEmpty()) return simulation;
+        java.util.List<String> violations = new java.util.ArrayList<>(simulation.violations());
+        if (!violations.contains(CongeCalculateurEngine.LEAVE_POOL_EXCEEDED)) {
+            violations.add(CongeCalculateurEngine.LEAVE_POOL_EXCEEDED);
+        }
+        return new CongeCalculateurEngine.SimulationResult(simulation.dateDebut(), simulation.dateFin(),
+                simulation.nbJours(), simulation.soldeAvant(), simulation.soldeApres(), simulation.joursDebites(),
+                simulation.quotaAvant(), simulation.quotaApres(), simulation.joursPreavisConstates(),
+                simulation.joursPreavisRequis(), simulation.warnings(), List.copyOf(violations),
+                simulation.requirements(), simulation.requiresOverride(), false);
+    }
+
+    private BigDecimal calculerPartQuotaDemande(int idDemande, int year, int idPool, Connection c) throws Exception {
+        String sql = "SELECT d.nb_jours_decomptes,d.date_debut,d.date_fin FROM demande_conge d "
+                + "JOIN ref_type_conge t ON t.id_type_conge=d.id_type_conge "
+                + "JOIN ref_statut_demande_conge s ON s.id_statut_demande_conge=d.id_statut_demande_conge "
+                + "WHERE d.id_demande_conge=? AND t.id_pool_conge_annuel=? AND s.code IN ('VALIDE','EN_ATTENTE')";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idDemande); ps.setInt(2, idPool);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return BigDecimal.ZERO;
+                LocalDate start = rs.getDate("date_debut").toLocalDate();
+                LocalDate end = rs.getDate("date_fin").toLocalDate();
+                if (year < start.getYear() || year > end.getYear()) return BigDecimal.ZERO;
+                LocalDate yearStart = start.isAfter(LocalDate.of(year, 1, 1)) ? start : LocalDate.of(year, 1, 1);
+                LocalDate yearEnd = end.isBefore(LocalDate.of(year, 12, 31)) ? end : LocalDate.of(year, 12, 31);
+                BigDecimal total = BigDecimal.valueOf(java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1);
+                BigDecimal segment = BigDecimal.valueOf(java.time.temporal.ChronoUnit.DAYS.between(yearStart, yearEnd) + 1);
+                return rs.getBigDecimal("nb_jours_decomptes").multiply(segment).divide(total, 8, RoundingMode.HALF_UP);
+            }
+        }
     }
 
     /** Identifiants des demandes à venir qui ne débitent pas encore le ledger avant validation. */
@@ -761,6 +839,7 @@ public class CongeService {
         if (d.getDateDebut() == null || d.getDateFin() == null) {
             throw new IllegalArgumentException("Les dates de début et de fin sont obligatoires.");
         }
+        RefPoolCongeAnnuel.verrouillerQuota(d.getIdEmploye(), c);
         verifierPointageNonVerrouille(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
 
         RefStatutDemandeConge enAttente = RefStatutDemandeConge.rechercherParCode("EN_ATTENTE", c);
@@ -831,8 +910,29 @@ public class CongeService {
             Integer currentUserId,
             boolean isAdminOrRh,
             Connection c) throws Exception {
+        return modifierDemande(id, req, currentUserId, isAdminOrRh, false, c);
+    }
+
+    public DemandeConge modifierDemande(
+            int id,
+            mg.galaxam.sirh.conge.domain.DemandeCongeRequests.ModifierDemandeRequest req,
+            Integer currentUserId,
+            boolean isAdminOrRh,
+            boolean administrator,
+            Connection c) throws Exception {
         String statutCode;
         Date dateDebutCourante = null;
+        Integer idEmployeCible;
+        try (PreparedStatement psEmploye = c.prepareStatement(
+                "SELECT id_employe FROM demande_conge WHERE id_demande_conge = ?")) {
+            psEmploye.setInt(1, id);
+            try (ResultSet rsEmploye = psEmploye.executeQuery()) {
+                if (!rsEmploye.next()) throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
+                idEmployeCible = rsEmploye.getInt(1);
+            }
+        }
+        RefPoolCongeAnnuel.verrouillerQuota(idEmployeCible, c);
         String sqlLock = "SELECT s.code, dc.id_statut_demande_conge, dc.date_debut FROM demande_conge dc " +
                 "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
                 "WHERE dc.id_demande_conge = ? FOR UPDATE";
@@ -902,6 +1002,8 @@ public class CongeService {
         boolean ancienDebite = ancienType != null && ancienType.isDecompteSoldeAcquis();
 
         if (req != null) {
+            d.setEstRemunere(RemunerationCongePolicy.resolve(d.getEstRemunere(), req.estRemunere(),
+                    Boolean.TRUE.equals(req.utiliserRemunerationParDefaut()), administrator));
             if (req.idTypeConge() != null) d.setIdTypeConge(req.idTypeConge());
             if (req.idMotifEvenementFamilial() != null) d.setIdMotifEvenementFamilial(req.idMotifEvenementFamilial());
             if (req.dateDebut() != null) d.setDateDebut(Date.valueOf(req.dateDebut()));
@@ -1702,7 +1804,8 @@ public class CongeService {
             return java.util.Map.of();
         }
 
-        String sql = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.nb_jours_decomptes " +
+        String sql = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.nb_jours_decomptes, " +
+                     "dc.est_remunere, tc.est_paye " +
                      "FROM demande_conge dc " +
                      "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
                      "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
@@ -1719,6 +1822,9 @@ public class CongeService {
             ps.setDate(3, Date.valueOf(dateDebutPeriode));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    Boolean surchargeRemuneration = (Boolean) rs.getObject("est_remunere");
+                    boolean remunerationType = rs.getBoolean("est_paye");
+                    if (!CongePayrollPolicy.estRemunere(surchargeRemuneration, remunerationType)) continue;
                     LocalDate dDeb = rs.getDate("date_debut").toLocalDate();
                     LocalDate dFin = rs.getDate("date_fin").toLocalDate();
                     boolean estDemiJournee = rs.getBoolean("est_demi_journee");

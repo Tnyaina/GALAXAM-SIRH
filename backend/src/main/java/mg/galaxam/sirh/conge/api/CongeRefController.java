@@ -116,14 +116,26 @@ public class CongeRefController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateTypeConge(@PathVariable Integer id, @RequestBody RefTypeConge typeConge) {
         try (Connection c = dataSource.getConnection()) {
-            RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
-            if (existant == null) {
-                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
+            c.setAutoCommit(false);
+            try {
+                RefTypeConge existant = RefTypeConge.verrouillerParId(id, c);
+                if (existant == null) {
+                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
+                }
+                if (existant.isEstUtilise() && !existant.aLesMemesRegles(typeConge)) {
+                    throw new SirhBusinessException(
+                            SirhErrorCode.STATE_CONFLICT,
+                            "Ce type est déjà utilisé par des demandes de congé. Son code et ses règles de calcul sont verrouillés ; seul le libellé peut être modifié. Désactivez-le et créez un nouveau type pour appliquer d'autres règles.");
+                }
+                typeConge.setIdTypeConge(id);
+                typeConge.controler(c);
+                typeConge.update(c);
+                c.commit();
+                return ResponseEntity.ok(typeConge);
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
             }
-            typeConge.setIdTypeConge(id);
-            typeConge.controler(c);
-            typeConge.update(c);
-            return ResponseEntity.ok(typeConge);
         } catch (IllegalArgumentException e) {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {

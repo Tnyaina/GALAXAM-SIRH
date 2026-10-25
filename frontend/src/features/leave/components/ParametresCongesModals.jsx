@@ -28,6 +28,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
+  const rulesLocked = Boolean(initialData?.estUtilise);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -88,10 +89,15 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
     try {
       const payload = {
         ...formData,
+        ...(initialData ? {
+          code: initialData.code,
+          idTypeCongeBascule: initialData.idTypeCongeBascule ?? null,
+          idPoolCongeAnnuel: initialData.idPoolCongeAnnuel ?? null,
+        } : {}),
         dureeFixeJours: formData.dureeFixeJours ? parseFloat(formData.dureeFixeJours) : null,
         plafondJoursEpisode: formData.plafondJoursEpisode ? parseFloat(formData.plafondJoursEpisode) : null,
         exigeAncienneteMinMois: parseInt(formData.exigeAncienneteMinMois) || 0,
-        estActif: true
+        estActif: initialData ? initialData.estActif !== false : true
       };
 
       if (initialData) {
@@ -131,6 +137,12 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
     >
       <form id="typeCongeForm" onSubmit={handleSubmit} className="space-y-5 text-sm">
         {error && <FormError message={error} />}
+        {rulesLocked && (
+          <div className="flex gap-2.5 items-start bg-warning-500/10 border border-warning-500/20 text-warning-700 dark:text-warning-300 p-3.5 text-xs rounded-none">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <p>Ce type est déjà lié à des demandes. Son code et ses règles de calcul sont verrouillés pour préserver l’historique. Seul le libellé peut être modifié ; désactivez ce type et créez-en un nouveau pour appliquer d’autres règles.</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -166,6 +178,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               label="Ancienneté min. (mois)"
               value={formData.exigeAncienneteMinMois}
               onChange={(e) => handleChange('exigeAncienneteMinMois', e.target.value)}
+              disabled={rulesLocked}
               hint="Ancienneté requise, ex : 12 mois"
               error={fieldErrors.exigeAncienneteMinMois}
             />
@@ -178,6 +191,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               label="Durée fixe légale (jours)"
               value={formData.dureeFixeJours}
               onChange={(e) => handleChange('dureeFixeJours', e.target.value)}
+              disabled={rulesLocked}
               placeholder="Ex : 98 pour Maternité"
               hint="Durée forfaitaire obligatoire"
               error={fieldErrors.dureeFixeJours}
@@ -191,6 +205,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               label="Plafond par demande (jours)"
               value={formData.plafondJoursEpisode}
               onChange={(e) => handleChange('plafondJoursEpisode', e.target.value)}
+              disabled={rulesLocked}
               placeholder="Ex : 30 pour Maladie"
               hint="Max. par absence continue"
               error={fieldErrors.plafondJoursEpisode}
@@ -214,6 +229,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               type="checkbox"
               checked={formData.estPaye}
               onChange={(e) => handleChange('estPaye', e.target.checked)}
+              disabled={rulesLocked}
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0 rounded-none"
             />
             <span className="text-sm text-[var(--color-fg)]">Congé payé <span className="block text-xs text-[var(--color-fg-muted)]">Maintien de salaire à 100 %</span></span>
@@ -224,6 +240,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               type="checkbox"
               checked={formData.decompteSoldeAcquis}
               onChange={(e) => handleChange('decompteSoldeAcquis', e.target.checked)}
+              disabled={rulesLocked}
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0 rounded-none"
             />
             <span className="text-sm text-[var(--color-fg)]">Déductible du solde acquis <span className="block text-xs text-[var(--color-fg-muted)]">Solde annuel, 2,5 j/mois</span></span>
@@ -234,6 +251,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               type="checkbox"
               checked={formData.exigeJustificatif}
               onChange={(e) => handleChange('exigeJustificatif', e.target.checked)}
+              disabled={rulesLocked}
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0 rounded-none"
             />
             <span className="text-sm text-[var(--color-fg)]">Justificatif obligatoire <span className="block text-xs text-[var(--color-fg-muted)]">Certificat, acte, etc.</span></span>
@@ -244,6 +262,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               type="checkbox"
               checked={formData.soumisDelaiPreavis}
               onChange={(e) => handleChange('soumisDelaiPreavis', e.target.checked)}
+              disabled={rulesLocked}
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0 rounded-none"
             />
             <span className="text-sm text-[var(--color-fg)]">Soumis au délai de préavis <span className="block text-xs text-[var(--color-fg-muted)]">15 jours légaux</span></span>
@@ -254,6 +273,7 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
               type="checkbox"
               checked={formData.suspendAcquisitionSolde}
               onChange={(e) => handleChange('suspendAcquisitionSolde', e.target.checked)}
+              disabled={rulesLocked}
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0 rounded-none"
             />
             <span className="text-sm text-[var(--color-fg)]">Suspend l'acquisition automatique de solde <span className="block text-xs text-[var(--color-fg-muted)]">Période non assimilée à du temps de travail effectif</span></span>

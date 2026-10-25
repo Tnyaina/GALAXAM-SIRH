@@ -50,6 +50,22 @@ public class PointageSyntheseService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PointageSyntheseService.class);
 
+    static String validatedLeaveStatus(boolean paid, boolean halfDay) {
+        if (halfDay && paid) return "DEMI_JOURNEE";
+        return paid ? "CONGE" : "ABSENCE_JUSTIFIEE";
+    }
+
+    static String appliquerStatutCongeValide(String statutCourant, double heuresTravaillees,
+            boolean remunere, boolean demiJournee) {
+        boolean absenceOuAnomalie = "ABSENCE_NON_JUSTIFIEE".equals(statutCourant)
+                || "ABSENCE_JUSTIFIEE".equals(statutCourant) || "ANOMALIE_SAISIE".equals(statutCourant);
+        boolean demiJourneeNonRemuneree = !remunere && demiJournee && "DEMI_JOURNEE".equals(statutCourant);
+        if (heuresTravaillees <= 0.0 || absenceOuAnomalie || demiJourneeNonRemuneree) {
+            return validatedLeaveStatus(remunere, demiJournee);
+        }
+        return statutCourant;
+    }
+
     private record PeriodTotals(long workedMinutes, long overtime30Minutes, long overtime50Minutes,
                                 long nightMinutes, long sundayMinutes, long publicHolidayMinutes,
                                 long absenceMinutes, long lateMinutes, int mealDays,
@@ -569,9 +585,10 @@ public class PointageSyntheseService {
             parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>());
         }
 
-        record CongeValideInfo(int idDemande, boolean estDemi, String libelle) {}
+        record CongeValideInfo(int idDemande, boolean estDemi, boolean estRemunere, String libelle) {}
         Map<LocalDate, CongeValideInfo> congesValidesEmploye = new HashMap<>();
-        String sqlCongesPeriode = "SELECT dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, tc.libelle " +
+        String sqlCongesPeriode = "SELECT dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, " +
+                "COALESCE(dc.est_remunere, tc.est_paye) AS est_remunere, tc.libelle " +
                 "FROM demande_conge dc " +
                 "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
@@ -588,10 +605,11 @@ public class PointageSyntheseService {
                     LocalDate dFin = rsCP.getDate("date_fin").toLocalDate();
                     boolean estDemi = rsCP.getBoolean("est_demi_journee");
                     String typeLib = rsCP.getString("libelle");
+                    boolean estRemunere = rsCP.getBoolean("est_remunere");
                     LocalDate from = dDeb.isBefore(dateDebut) ? dateDebut : dDeb;
                     LocalDate to = dFin.isAfter(dateFin) ? dateFin : dFin;
                     for (LocalDate cur = from; !cur.isAfter(to); cur = cur.plusDays(1)) {
-                        congesValidesEmploye.put(cur, new CongeValideInfo(idDemandeVal, estDemi, typeLib));
+                        congesValidesEmploye.put(cur, new CongeValideInfo(idDemandeVal, estDemi, estRemunere, typeLib));
                     }
                 }
             }
@@ -617,8 +635,9 @@ public class PointageSyntheseService {
                     double th = rsPtg.getDouble("total_heures");
 
                     CongeValideInfo congeValide = congesValidesEmploye.get(dPointage);
-                    if (congeValide != null && (th <= 0.0 || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode) || "ANOMALIE_SAISIE".equals(stCode))) {
-                        stCode = congeValide.estDemi() ? "DEMI_JOURNEE" : "CONGE";
+                    if (congeValide != null) {
+                        stCode = appliquerStatutCongeValide(stCode, th,
+                                congeValide.estRemunere(), congeValide.estDemi());
                     }
 
                     boolean isAbsenceOuConge = "CONGE".equals(stCode) || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode) || "FERIE_CHOME".equals(stCode);
@@ -739,7 +758,7 @@ public class PointageSyntheseService {
                         "ON CONFLICT (id_employe, date_pointage) DO UPDATE SET " +
                         "id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
                         "id_demande_conge = EXCLUDED.id_demande_conge, motif_ajustement = EXCLUDED.motif_ajustement, version = pointage_jour.version + 1")) {
-                    String codeSt = estDemi ? "DEMI_JOURNEE" : "CONGE";
+                    String codeSt = validatedLeaveStatus(cv.estRemunere(), estDemi);
                     psMat.setInt(1, idPeriode);
                     psMat.setInt(2, idEmp);
                     psMat.setInt(3, curSite);
@@ -755,13 +774,15 @@ public class PointageSyntheseService {
             }
 
             if (!CalendrierOuvrableEngine.isWeekend(cur) && !joursChomesEmploye.contains(cur)) {
-                conges += (estDemi ? 0.5 : 1);
+                if (cv.estRemunere()) conges += (estDemi ? 0.5 : 1);
+                else if (!estDemi) absences++;
             }
 
             LocalDate lundiSemaine = cur.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
             parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
             parSemaine.get(lundiSemaine).add(new AttendanceEngine.Result(
-                    idEmp, cur, estDemi ? AttendanceEngine.Result.Status.HALF_DAY : AttendanceEngine.Result.Status.LEAVE,
+                    idEmp, cur, estDemi && cv.estRemunere() ? AttendanceEngine.Result.Status.HALF_DAY
+                            : cv.estRemunere() ? AttendanceEngine.Result.Status.LEAVE : AttendanceEngine.Result.Status.ABSENT,
                     0, 0, 0, 0, 0, 0, 0, cur.getDayOfWeek() == DayOfWeek.SUNDAY,
                     joursChomesEmploye.contains(cur), 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of()));
         }
@@ -1784,6 +1805,21 @@ public class PointageSyntheseService {
         var vacationsChevauchantes = vacationsSurDeuxCampagnes(idPeriode, c);
         List<PointagePreflight.Blocker> blockers = new ArrayList<>();
         List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c);
+        for (var employe : synthese) {
+            int totalHsHebdo = (employe.getMinutesHs30Hebdo() == null ? 0 : employe.getMinutesHs30Hebdo())
+                    + (employe.getMinutesHs50Hebdo() == null ? 0 : employe.getMinutesHs50Hebdo());
+            int hsDetailleesParSemaine = employe.getTronconsSemaine() == null ? 0
+                    : employe.getTronconsSemaine().stream()
+                    .mapToInt(troncon -> (int) Math.round((troncon.getHeuresHs30() + troncon.getHeuresHs50()) * 60d))
+                    .sum();
+            int minutesHsSansSemaine = totalHsHebdo - hsDetailleesParSemaine;
+            if (minutesHsSansSemaine > 0) {
+                blockers.add(new PointagePreflight.Blocker(
+                        employe.getIdEmploye() == null ? 0 : employe.getIdEmploye(),
+                        employe.getMatricule(), employe.getNom(), employe.getPrenom(),
+                        minutesHsSansSemaine));
+            }
+        }
         var changementsEligibilite = changementsEligibiliteHs(idPeriode, synthese, c);
         return new PointagePreflight(idPeriode, synthese.size(), List.copyOf(blockers),
                 List.copyOf(journeesOuvrablesSansStatut(idPeriode, synthese, c)),

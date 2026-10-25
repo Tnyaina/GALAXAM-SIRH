@@ -144,7 +144,7 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     {/* Module Congés & Absences                             */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute requiredPermission="CONGE_READ" />}>
+                    <Route element={<ProtectedRoute allowAuthenticated requiredPermission="CONGE_READ" />}>
                         <Route path="/conges" element={<GestionCongesPage />} />
                         <Route path="/conges/*" element={<GestionCongesPage />} />
                     </Route>

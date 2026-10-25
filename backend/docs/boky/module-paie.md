@@ -118,13 +118,14 @@ Le pointage et la paie partagent la période mais ont des statuts distincts. Le 
 Vue simplifiée des états constatés :
 
 ```text
-BROUILLON → EN_COURS → A_VALIDER / TRANSMIS_DAF → VALIDEE (pointage figé)
-                                              → bulletins CALCULE
-                                              → bulletins validés / PAIE_VALIDEE
-                                              → CLOTUREE
+BROUILLON --OPEN--> EN_COURS --SUBMIT--> TRANSMIS_DAF --APPROVE--> VALIDEE (pointage figé)
+                           <--REJECT-- TRANSMIS_DAF
+VALIDEE --calcul--> bulletins CALCULE (période toujours VALIDEE)
+VALIDEE --validation de paie--> PAIE_VALIDEE --CLOSE--> CLOTUREE
+CLOTUREE --REOPEN avec motif et contrôles--> EN_COURS
 ```
 
-Le rejet de validation du pointage ramène à une étape de correction en cours. La réouverture d’une période clôturée est une action contrôlée avec motif. Le détail des transitions et des motifs appartient à `PayrollPeriodWorkflowService` et aux résolveurs de statut ; ne pas inférer une transition uniquement à partir d’un libellé UI.
+`A_VALIDER` reste un statut reconnu par les commandes `APPROVE` et `REJECT` et par le schéma SQL ; aucune commande courante de `PayrollPeriodWorkflowService` ne fait passer `EN_COURS` à `A_VALIDER`. Le rejet de validation du pointage ramène à `EN_COURS`. La réouverture d’une période clôturée requiert un motif d'au moins cinq caractères, `ROLE_ADMIN` et l'absence de bulletin mensuel bloqué par un règlement, un virement en attente ou un STC actif. Le détail des préconditions appartient au workflow ; un libellé UI ne suffit pas à établir une transition.
 
 ## 5. Architecture d’exécution d’un bulletin
 
@@ -165,7 +166,7 @@ Le résultat du moteur et des consultations de bulletins (`PayrollService.obteni
    - `ecartAvecTotalEnregistre` : contrôle d'intégrité entre la somme des lignes et `bulletin.totalGainsBruts` ;
    - `ecartArrondiNet` : traçabilité de l'arrondi monétaire (écart entre `netAPayer` et `netAvantArrondi`).
 4. **Explication transparente du calcul (`ExplicationPaieDTO`)** :
-   - *Absences et retards* : `minutesAbsenceRetenues`, `heuresAbsenceRetenues`, `minutesRetard`, `diviseurMensuelHeures` (173.3333h), `tauxHoraire`, `montantRetenueAbsence`.
+   - *Absences et retards* : `minutesAbsenceRetenues`, `heuresAbsenceRetenues`, `minutesRetard`, `diviseurMensuelHeures` (résolu depuis la configuration légale datée), `tauxHoraire`, `montantRetenueAbsence`.
    - *Congés payés* : `nbJoursConge`, `salaireBaseContractuel`, `tauxJournalierTrentieme`, `deductionCongeTrentieme`, `tauxJournalierConge`, `indemniteConge`, `impactNetConge`.
    - *Heures majorées* : `heuresHs30`, `montantHs30`, `heuresHs50`, `montantHs50`, `heuresNuit`, `montantNuit`, `heuresDimanche`, `montantDimanche`, `heuresFerie`, `montantFerie`.
 5. **Détail de la fiscalité IRSA (`ExplicationFiscaliteDTO`)** :
@@ -175,7 +176,9 @@ Le résultat du moteur et des consultations de bulletins (`PayrollService.obteni
    - `idsAvancesImputees` (`List<Integer>`) : liste des identifiants des mouvements retenus ;
    - `imputationsMouvements` (`List<MouvementImputation>`) : détail unitaire `(idMouvement, montantImpute)`.
 
-La simulation utilise le même contexte métier mais ne doit ni créer un bulletin persistant ni consommer un mouvement. Le calcul effectif enregistre bulletin, lignes et imputations de façon transactionnelle. Lors du recalcul d’un brouillon, les imputations antérieures sont restituées puis recalculées pour éviter le double prélèvement.
+La simulation utilise le même contexte métier mais ne doit ni créer un bulletin persistant ni consommer un mouvement. Le calcul effectif enregistre bulletin, lignes et imputations de façon transactionnelle. Un bulletin `CALCULE` peut être recalculé : ses imputations antérieures sont restituées puis recalculées pour éviter le double prélèvement. Un bulletin `VALIDE` ou `CLOTURE` ne peut pas être recalculé directement ; la réouverture contrôlée de la période est nécessaire. Un recalcul collectif exécuté depuis `PAIE_VALIDEE` replace la période en `VALIDEE` ; les bulletins `VALIDE` ou `CLOTURE` ne sont pas recalculés directement.
+
+Le bulletin réel conserve l'identifiant et la version du snapshot Pointage consommé. L'assembleur charge les tranches horaires figées ; il refuse des heures majorées sans tranches auditables. Avant validation, le service vérifie notamment la fraîcheur du contexte d'emploi, de la configuration légale et du snapshot Pointage ; le workflow examine aussi les mouvements et les demandes de congé pertinentes modifiés depuis le calcul. Ces contrôles ne valent pas preuve qu'une modification tardive de toute donnée source est automatiquement détectée.
 
 ### Dates métier
 
@@ -190,13 +193,13 @@ Les dates de couverture ne sont pas toutes équivalentes. Une règle de fin de m
 
 ## 6. Données et modèle de persistance
 
-Le schéma canonique de référence est `backend/conception/bdd/06_schema_paie.sql`, pour l'initialisation d'une base neuve. Les anciennes migrations SP01–SP84 ont été volontairement supprimées. Les références SP conservées dans ce document repèrent des évolutions historiques uniquement ; elles ne constituent ni une procédure de mise à niveau d'une base existante ni un mécanisme automatique d'installation.
+Les schémas canoniques `backend/conception/bdd/05_schema_pointage.sql` et `06_schema_paie.sql` décrivent respectivement la période partagée avec Pointage et les structures propres aux bulletins, pour l'initialisation d'une base neuve. Les anciennes migrations SP01–SP84 ont été volontairement supprimées. Les références SP conservées dans ce document repèrent des évolutions historiques uniquement ; elles ne constituent ni une procédure de mise à niveau d'une base existante ni un mécanisme automatique d'installation.
 
 | Table / famille | Rôle |
 |---|---|
-| `periode_paie` et références de statut | Période, bornes calendaires et état du workflow |
+| `periode_paie`, `periode_paie_transition` (`05_schema_pointage.sql`) | Période partagée avec Pointage, bornes calendaires, état et journal des transitions |
 | `bulletin_paie` | En-tête et totaux du bulletin, statuts, montants scellés et versions |
-| `bulletin_paie_employeur_snapshot` | Identité employeur figée à la validation du bulletin (`id_filiale`, raison sociale, NIF, STAT, adresse, téléphone, email), garantissant la reproduction immuable des réimpressions |
+| `bulletin_paie_employeur_snapshot` | Identité employeur capturée à la validation du bulletin (`id_filiale`, raison sociale, NIF, STAT, adresse, téléphone, email) et lue en priorité lors des réimpressions ; la table ne garantit pas une immutabilité SQL absolue |
 | `bulletin_paie_ligne` | Détail des gains, cotisations, impôts et retenues (historise l’organisme social figé : `id_organisme_social`, code et nom) |
 | `ref_organisme_social` | Référentiel des organismes déclaratifs sociaux (CNaPS, FMFP, OSTIE, OMSI, AMIT...) avec code stable et statut actif |
 | `ref_type_cotisation` | Types de cotisations (CNaPS, Santé, FMFP...), assiettes, taux par défaut et lien vers l’organisme déclaratif par défaut |
@@ -231,9 +234,9 @@ Les tables d’origine Pointage, Contrat et Congés restent possédées par leur
 L’ordre fonctionnel général du moteur est strictement ordonnancé selon le cycle de paie :
 
 1. **Salaire de base et prorata temporis** (contrat, entrées/sorties en cours de mois).
-2. **Retenues d'absence et retards** (valorisation horaire et décompte au trentième).
+2. **Retenues d'absence et retards** (valorisation des minutes ou heures retenues selon le snapshot Pointage).
 3. **Majorations légales d'heures supplémentaires, de nuit, dimanches et fériés** (Loi 2024-014).
-4. **Indemnités de congés payés** (déstockage des lots FIFO et indemnité compensatrice).
+4. **Congés rémunérés** (déduction distincte de la base au trentième et indemnité calculée à partir des lots FIFO).
 5. **Primes et indemnités brutes** (assujetties ou exonérées).
 6. **Calcul des assiettes sociales et cotisations salariales/patronales** (CNaPS, FMFP, Santé).
 7. **Net imposable et barème progressif IRSA** (CGI LF 2026, déductions pour charges de famille et minimum de perception).
@@ -244,23 +247,22 @@ L’ordre fonctionnel général du moteur est strictement ordonnancé selon le c
 ### Catalogue des Règles de Gestion Métier (RG de A à Z)
 
 #### RG-PAIE-01 : Taux horaire de référence
-Le taux horaire conventionnel ($TH$) sert de pivot à l'ensemble des valorisations horaires (retenues pour absence, retards, majorations d'heures supplémentaires, heures de nuit). Il est calculé avec une précision de 4 décimales sur la base de la durée légale hebdomadaire de 40 heures (Art. 109 Loi 2024-014), soit un diviseur mensuel invariable de $173{,}3333$ heures :
-$$TH = \frac{\text{Salaire de Base Contractuel}}{173{,}3333\dots} = \frac{\text{Salaire de Base Contractuel} \times 12}{52 \times 40}$$
+Le taux horaire de référence ($TH$) est calculé à partir du salaire de base contractuel et du diviseur mensuel d'heures de la configuration légale applicable à la fin de la campagne :
+$$TH = \frac{\text{Salaire de base contractuel}}{\text{Diviseur mensuel d'heures configuré}}$$
+`PayrollLegalContextResolver` exige un diviseur configuré strictement positif pour le calcul mensuel réel ; son absence ou son invalidité bloque la préparation. `PayrollCalculationInput` possède un repli technique à `173.33` lorsque son diviseur est absent ou non positif, notamment pour les entrées construites hors de ce parcours. Le taux effectif est calculé à huit décimales (`HALF_UP`) lorsque aucun taux horaire positif n'est déjà fourni ; l'arrondi monétaire des lignes intervient séparément.
 
 #### RG-PAIE-02 : Retenues pour absence et retards
-Toute absence non rémunérée ou retard non justifié constaté dans le snapshot de pointage donne lieu à une retenue sur salaire calculée comme suit :
-- **Absence horaire / Retard** : $\text{Retenue} = \frac{\text{Minutes Retenues}}{60} \times TH$.
-- **Absence journalière complète (décompte au trentième)** : conformément aux usages et à l'Art. 125/131 de la Loi 2024-014, le salaire journalier moyen est égal à :
-$$T30 = \frac{\text{Salaire de Base Contractuel}}{30}$$
-$$\text{Retenue Journalière} = \text{Jours d'absence} \times T30$$
+`RETENUE_ABSENCE` utilise les heures d'absence non rémunérée transmises par le snapshot Pointage. Quand celui-ci fournit des minutes d'absence non rémunérée, le moteur calcule `salaireBasePlein × minutes / (diviseurMensuelHeures × 60)` ; sinon il utilise `salaireBasePlein × heures / diviseurMensuelHeures`. Le montant est arrondi par `MoneyRoundingPolicy.amount` et plafonné au salaire de base de la ligne du bulletin. Si plusieurs salaires journaliers s'appliquent pendant la campagne et que l'absence n'est pas attribuée à une date salariale, le calcul est bloqué pour arbitrage.
+
+`DEDUCTION_CONGE_BASE` est une ligne distincte pour les jours de congé rémunéré valorisés. Elle applique le trentième au salaire applicable à chaque date lorsque cette ventilation existe ; sinon elle utilise le taux journalier au trentième de l'entrée de calcul. La même prise rémunérée génère une `INDEMNITE_CONGE_PAYE` calculée à partir de la valorisation FIFO des lots. Les deux montants sont arrondis par `MoneyRoundingPolicy.amount`. Une journée d'absence non rémunérée ne déclenche pas, à elle seule, `DEDUCTION_CONGE_BASE`.
 
 #### RG-PAIE-03 : Heures supplémentaires et majorations (Loi 2024-014, Art. 109 à 124)
-La durée légale du travail est fixée à 40 heures par semaine (Art. 109). Les heures excédentaires hebdomadaires validées dans le snapshot de pointage sont ventilées selon le barème légal :
-- **Tranche 1 (41e à 48e heure hebdomadaire)** : majoration de $+30\%$ sur le taux horaire ($1{,}30 \times TH$, Décret 72-226). Code rubrique `HS30`.
-- **Tranche 2 (au-delà de la 48e heure hebdomadaire)** : majoration de $+50\%$ sur le taux horaire ($1{,}50 \times TH$, Décret 72-226). Code rubrique `HS50`.
-- **Heures de nuit (22h00 à 05h00)** : majoration légale de nuit de $+30\%$ (Art. 117-124, ex-Art. 83). Code rubrique `NUIT`.
-- **Dimanches travaillés** : majoration conventionnelle de $+40\%$ (ou $+50\%$, Art. 114 & 116). Code rubrique `DIMANCHE`.
-- **Jours fériés chômés et payés travaillés** : majoration légale de $+100\%$ ($2{,}00 \times TH$, Art. 115 & 116). Code rubrique `FERIE`.
+Le Pointage qualifie les tranches horaires du snapshot ; `OvertimePayCalculator` les valorise sans recalculer leur durée ni leurs seuils. Les taux `HS_30`, `HS_50`, `NUIT`, `DIMANCHE` et `FERIE` sont résolus depuis `ref_taux_majoration` selon la date civile de chaque tranche. Le schéma canonique initialise notamment `+30 %`, `+50 %`, `+30 %`, `+40 %` et `+100 %` respectivement ; ces valeurs initiales ne sont pas des constantes du moteur. Les rubriques du bulletin sont `HS30`, `HS50`, `NUIT`, `DIMANCHE` et `FERIE`. Lorsque plusieurs sujétions s'appliquent à la même tranche, le contexte de production transmet la politique de cumul additif des majorations.
+
+#### Congés rémunérés, non rémunérés et couverture partielle
+`CongePayrollPolicy` détermine la rémunération effective d'une demande : `demande_conge.est_remunere` lorsqu'une surcharge explicite existe, sinon `ref_type_conge.est_paye`. Le statut validé et les règles de décompte du solde restent des conditions distinctes. Une demande validée rémunérée et décomptée du solde alimente les jours valorisés, `DEDUCTION_CONGE_BASE` et l'indemnité issue des lots FIFO (`INDEMNITE_CONGE_PAYE`). Une demande non rémunérée est exclue de ces jours valorisés et de l'indemnité FIFO ; le Pointage traite sa part non rémunérée comme absence pour la retenue horaire. Le débit éventuel du solde ne signifie donc pas que la demande est rémunérée.
+
+La même distinction s'applique à une demi-journée. Lorsqu'une régularisation d'une journée depuis Pointage n'est couverte qu'en partie par le solde, la demande créée porte la fraction couverte et le reliquat reste une absence ; la paie valorise seulement la fraction de congé rémunérée et retient les minutes d'absence transmises par le snapshot. Une couverture nulle ne crée pas de prise de congé. Pour une période de plusieurs jours, la régularisation partielle est refusée si le solde est insuffisant. Les tests unitaires `CongePayrollRemunerationTest` et `PointageLeaveStatusTest` couvrent des règles de calcul ciblées ; ils ne constituent pas une vérification PostgreSQL de bout en bout du bulletin.
 
 #### RG-PAIE-04 : Exonération fiscale des heures supplémentaires (CGI LF 2026)
 Conformément aux dispositions de la Loi de Finances 2026, la rémunération brute des heures supplémentaires et de leurs majorations est exonérée de l'Impôt sur les Revenus Salariaux et Assimilés (IRSA) dans la limite du plafond mensuel configuré (`paie_config_legale.plafond_mensuel_hs_exonerees`). Cette fraction exonérée est déduite du net imposable pour constituer l'assiette IRSA effective.
@@ -377,7 +379,7 @@ Le domaine sépare strictement les responsabilités pour préserver la traçabil
 ┌────────────────────────────────────────────────────────────────────────┐
 │ 2. DÉCOMPTE FINANCIER SCELLÉ (paie_stc & bulletin_paie STC)            │
 │    Calcul fiscal/social figé, ICCP (FIFO congés), prorata trentième,   │
-│    snapshot employeur immuable (bulletin_paie_employeur_snapshot)      │
+│    identité employeur capturée (bulletin_paie_employeur_snapshot)      │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ alimente (POST /{id}/reglement)
                                     ▼
@@ -585,15 +587,17 @@ est prévisualisé et n’est pas conservé comme pièce jointe.
 
 ## 12. Bulletins, documents, exports et paiements
 
-### Bulletin individuel & Snapshot Employeur Immuable
+### Bulletin individuel et instantané employeur
 
 Le bulletin affiche les données d’emploi/période et les lignes de gains et retenues. Les documents individuels sont accessibles depuis la campagne et par les routes bulletin. Le backend génère notamment les formats PDF et Excel pris en charge par `BulletinDocumentService`.
 
-À la validation définitive de la paie (`PayrollService.validerPaiePeriode`) ainsi qu'au scellement du STC (`StcService.validerBulletinStc`), le service `PayrollEmployerSnapshotService` capture et fige l'identité légale de l'employeur dans la table `bulletin_paie_employeur_snapshot`. Tout téléchargement ultérieur ou réimpression historique d'un bulletin (PDF/Excel) ou d'un export social lit en priorité absolue ce snapshot. Ainsi, une réorganisation juridique, une modification d'adresse ou un avenant rétroactif sur `ref_filiale` ne peut en aucun cas altérer l'identité de l'employeur telle qu'émise le jour de la paie.
+Lors de la validation d'un bulletin mensuel, `PayrollService` appelle `PayrollEmployerSnapshotService.capture` dans la transaction pour enregistrer l'identité légale de l'employeur dans `bulletin_paie_employeur_snapshot`. Le service de génération PDF/Excel lit cet instantané en priorité ; lorsqu'il n'existe pas, il résout l'employeur à partir des données datées du contrat et de la filiale. Les anciens bulletins dépourvus d'instantané restent donc sensibles à une correction ultérieure de ces données. Certains exports sociaux privilégient également l'instantané lorsqu'il est disponible.
+
+La table ne possède pas de contrainte ou de trigger garantissant une immutabilité absolue de ses lignes ; la méthode de capture utilise un `UPSERT`. Le parcours applicatif courant capture l'identité à la validation. La présence de cet `UPSERT` ne démontre pas qu'un utilisateur peut modifier librement l'identité d'un bulletin validé.
 
 ### Catalogue d’exports de l’interface
 
-`/paie/declarations` classe les documents par mois, trimestre et année, s'appuyant sur le contrat serveur centralisé `PayrollDocumentCatalogService` et l'éligibilité stricte `PayrollExportEligibility` (période en `PAIE_VALIDEE` ou `CLOTUREE`, bulletins en `VALIDE` ou `CLOTURE`) :
+`/paie/declarations` classe les documents par mois, trimestre et année. `PayrollDocumentCatalogService` calcule leur disponibilité ; pour le mensuel, il consulte la capacité `GENERATE_OUTPUT` du workflow. Les exports mensuels, trimestriels et annuels appliquent les contrôles de période finalisée (`PAIE_VALIDEE` ou `CLOTUREE`) et de bulletins finalisés (`VALIDE` ou `CLOTURE`) selon leur parcours :
 
 | Fréquence | Document affiché | Condition/fonction actuelle |
 |---|---|---|
@@ -605,6 +609,8 @@ Le bulletin affiche les données d’emploi/période et les lignes de gains et r
 | Annuelle | Récapitulatif annuel de paie Excel | Utilise les campagnes validées via `AnnualPayrollExportService` ; peut être partiel |
 
 Le catalogue de l'interface présente les états Excel utiles au contrôle interne. Les anciens endpoints SAFI, DNTS et modèles par organisme restent dans le backend, mais ne sont plus proposés sur cet écran ; leur conformité et leur acceptation par un portail ne sont pas établies. L'ordre de virement CSV n'est pas un état de paie interne. Les exports trimestriels attendent trois mois validés dans le trimestre. L’export annuel indique les mois disponibles et ne complète pas les mois absents par des données estimées.
+
+Le téléchargement direct `GET /bulletin/{id}/document/{format}` suit une autre condition : il exige `PAIE_READ` ou `ROLE_ADMIN`, accepte `pdf` et `xlsx` et peut produire le document d'un bulletin encore `CALCULE`. Le tiroir de consultation du bulletin utilise cette route. Cette disponibilité directe ne rend pas les sorties finales du catalogue disponibles avant validation. Le code n'ajoute pas de mention « PROVISOIRE » propre à ce téléchargement.
 
 > [!IMPORTANT]
 > **Distinction stricte entre sorties internes et modèles officiels :**  
@@ -727,8 +733,8 @@ La liste ci-dessus donne les points d’entrée principaux. Pour le détail exac
 5. **Exports officiels** : les modèles nécessitent revue DAF et vérification du format et des portails actuels. Ne pas utiliser « certifié », « conforme » ou « officiellement accepté » sans preuve de recette externe datée.
 6. **Réglementation** : les règles sont datées/configurables. Une valeur en base n’est pas, à elle seule, une validation juridique. La DAF doit faire confirmer taux, plafonds, assiettes et retenues pour chaque période concernée.
 7. **ISI 2026** : le calcul général et l’ancien export EDI sont hors du parcours courant. Les enregistrements historiques ne signifient pas qu’une retenue ISI doit être réactivée.
-8. **Identité historique employeur scellée** : l'identité légale complète de l'employeur (filiale, raison sociale, NIF, STAT, adresse de siège, téléphone, email) est désormais automatiquement capturée dans `bulletin_paie_employeur_snapshot` dès la validation du bulletin ou du décompte STC. Les réimpressions historiques sont scellées et protégées contre toute modification ultérieure des référentiels d'entreprise. Pour les très anciens bulletins antérieurs à l'évolution historiquement référencée `SP71`, un fallback dynamique sur l'historique contrat reste actif.
-9. **État de recette** : les tests vérifient différents moteurs et parcours, mais aucun compte de tests ne prouve une couverture exhaustive ni une certification légale absolue du produit.
+8. **Identité employeur des bulletins** : l'identité est capturée dans `bulletin_paie_employeur_snapshot` à la validation et lue en priorité lors des réimpressions. Si la ligne d'instantané manque, la génération utilise les données datées du contrat et de la filiale ; le schéma ne garantit pas l'immutabilité absolue de cette table. `SP71` est un identifiant historique dont la migration n'est plus présente dans le dépôt.
+9. **État de recette** : `PayrollCalculationTargetedTest`, `PayrollLegalContextResolverTest` et les tests de workflow présents couvrent des comportements ciblés. `CongePayrollRemunerationTest` construit ses entrées en mémoire ; les tests PostgreSQL de liaison du snapshot et de fraîcheur des congés nécessitent une base isolée. Aucun de ces tests, par sa seule présence, ne prouve une validation de bout en bout ou une certification des montants.
 
 ## 16. Procédures de vérification
 
@@ -793,10 +799,10 @@ La liste ci-dessus donne les points d’entrée principaux. Pour le détail exac
 | Workflow période et mouvements | `backend/src/main/java/mg/galaxam/sirh/paie/application/workflow/` (`PayrollPeriodWorkflowService.java`, `PayrollAdjustmentWorkflowService.java`, `PayrollWorkflowStatusResolver.java`, `PayrollWorkflowCommands.java`) |
 | Services d'export et snapshots | `backend/src/main/java/mg/galaxam/sirh/paie/application/export/` (`PayrollEmployerSnapshotService.java`, `PayrollExportEligibility.java`, `PayrollDocumentCatalogService.java`, `SafiXlsExportService.java`, `SafiExportService.java`, `DntsExportService.java`, `AnnualPayrollExportService.java`, `EtatSocialMensuelExportService.java`, `GrandLivrePaieExportService.java`, `IrsaExcelExportService.java`, `QuarterlySocialDataService.java`, `BulletinDocumentService.java`) |
 | Moteurs de calcul déterministes | `backend/src/main/java/mg/galaxam/sirh/paie/domain/engine/` (`PayrollExecutionEngine.java`, `PayrollTaxCalculations.java`, `SocialContributionCalculator.java`, `ManualPayrollRules.java`, `OvertimePayCalculator.java`) |
-| Entités et accès SQL immuables | `backend/src/main/java/mg/galaxam/sirh/paie/persistence/` (`BulletinPaie.java`, `BulletinPaieLigne.java`, `PaieDossierSortie.java`, `PaieStc.java`, `PaieAvanceAcompte.java`, `PaieBulletinReglement.java`, `PaieStcReglement.java`) |
+| Entités et accès SQL | `backend/src/main/java/mg/galaxam/sirh/paie/persistence/` (`BulletinPaie.java`, `BulletinPaieLigne.java`, `PaieDossierSortie.java`, `PaieStc.java`, `PaieAvanceAcompte.java`, `PaieBulletinReglement.java`, `PaieStcReglement.java`) |
 | Configuration légale/API | `backend/src/main/java/mg/galaxam/sirh/paieconfig/` |
-| Schéma canonique | `backend/conception/bdd/06_schema_paie.sql` |
-| Tests d'intégration et unitaires | `backend/src/test/java/mg/galaxam/sirh/paie/` (`PayrollCalculationTargetedTest.java`, `PayrollLegalContextResolverTest.java`, `PayrollBankAccountCompatibilityTest.java`, `PayrollLeaveJournalValuationTest.java`) & `frontend/` (`npm run test:api`, 14 tests d'intégration API) |
+| Schémas canoniques | `backend/conception/bdd/05_schema_pointage.sql` (période partagée), `06_schema_paie.sql` (bulletins et tables Paie) |
+| Tests présents, non assimilés à une recette complète | `backend/src/test/java/mg/galaxam/sirh/paie/` (`PayrollCalculationTargetedTest.java`, `PayrollLegalContextResolverTest.java`, `PayrollBankAccountCompatibilityTest.java`, `PayrollLeaveJournalValuationTest.java`) ; `backend/src/test/java/mg/galaxam/sirh/conge/application/CongePayrollRemunerationTest.java` ; `frontend/package.json` (`test:api`, tests Node du dossier `frontend/test/`) |
 
 ---
 

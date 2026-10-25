@@ -456,8 +456,10 @@ export default function SaisiePeriodeEmployePage({
                         options={sitesList.map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || ''} — ${s.libelle}` }))}
                         value={selectedSiteId ? String(selectedSiteId) : ''}
                         onChange={(val) => requestNav({ type: 'site', value: val ? Number(val) : null })}
+                        aria-label="Filtrer par site"
                         placeholder="Tous les sites"
                         size="sm"
+                        buttonClassName="!h-10 min-h-[40px]"
                         className="min-w-[190px] text-xs"
                     />
                 </div>

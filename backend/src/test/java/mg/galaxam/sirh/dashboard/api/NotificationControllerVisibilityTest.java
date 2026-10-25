@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.dashboard.api;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -20,14 +21,18 @@ class NotificationControllerVisibilityTest {
     @AfterEach void clearSecurity() { SecurityContextHolder.clearContext(); }
 
     @Test void individualMarkUsesUserAndRoleVisibility() throws Exception {
-        checkVisibility("ROLE_RH", false);
+        checkVisibility("ROLE_RH", false, 0);
     }
 
     @Test void adminMarkUsesSameVisibilityAsAdminList() throws Exception {
-        checkVisibility("ROLE_ADMIN", true);
+        checkVisibility("ROLE_ADMIN", true, 0);
     }
 
-    private void checkVisibility(String role, boolean admin) throws Exception {
+    @Test void visibleNotificationKeepsTheExistingSuccessResponse() throws Exception {
+        checkVisibility("ROLE_RH", false, 1);
+    }
+
+    private void checkVisibility(String role, boolean admin, int updatedRows) throws Exception {
         DataSource ds = mock(DataSource.class);
         Connection c = mock(Connection.class);
         PreparedStatement roleStatement = mock(PreparedStatement.class);
@@ -41,7 +46,7 @@ class NotificationControllerVisibilityTest {
         when(roleStatement.executeQuery()).thenReturn(roleResult);
         when(roleResult.next()).thenReturn(true);
         when(roleResult.getString("code_role")).thenReturn(role);
-        when(updateStatement.executeUpdate()).thenReturn(0); // notification hors périmètre
+        when(updateStatement.executeUpdate()).thenReturn(updatedRows);
 
         CustomUserDetails principal = mock(CustomUserDetails.class);
         when(principal.getIdUtilisateur()).thenReturn(17);
@@ -49,7 +54,7 @@ class NotificationControllerVisibilityTest {
                 new UsernamePasswordAuthenticationToken(principal, null));
         NotificationController controller = new NotificationController();
         ReflectionTestUtils.setField(controller, "dataSource", ds);
-        controller.marquerUne(99);
+        var response = controller.marquerUne(99);
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         verify(c, atLeastOnce()).prepareStatement(sql.capture());
@@ -65,6 +70,13 @@ class NotificationControllerVisibilityTest {
         verify(updateStatement).setInt(1, 99);
         verify(updateStatement).setObject(2, 17, java.sql.Types.INTEGER);
         verify(updateStatement).executeUpdate();
+        if (updatedRows == 0) {
+            assertEquals(404, response.getStatusCode().value());
+            assertEquals(java.util.Map.of("message", "Notification introuvable ou non accessible."), response.getBody());
+        } else {
+            assertEquals(200, response.getStatusCode().value());
+            assertEquals(java.util.Map.of("id", 99, "lue", true), response.getBody());
+        }
         SecurityContextHolder.clearContext();
     }
 }

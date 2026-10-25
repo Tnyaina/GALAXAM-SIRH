@@ -261,43 +261,56 @@ public class DemandeConge extends ClassMere {
         // 7. Contrôle du pool annuel configuré en BDD.
         // VALIDE = consommé, EN_ATTENTE = réservé ; le contrôle porte sur le total engagé.
         if (typeConge.getIdPoolCongeAnnuel() != null) {
-            int annee = dateDebut.toLocalDate().getYear();
+            int anneeDebut = dateDebut.toLocalDate().getYear();
+            int anneeFin = dateFin.toLocalDate().getYear();
             RefPoolCongeAnnuel.verrouillerQuota(idEmploye, c);
-            RefPoolCongeAnnuel.Consommation consommation = RefPoolCongeAnnuel.rechercherConsommation(
-                    idEmploye, typeConge.getIdPoolCongeAnnuel(), annee, c);
-            if (consommation == null || consommation.getPlafond() == null) {
-                throw new IllegalStateException("Configuration du pool annuel introuvable.");
-            }
-            BigDecimal engagesActuels = consommation.getJoursEngages();
-            BigDecimal joursDejaPrisEnCompte = BigDecimal.ZERO;
-            if (this.idDemandeConge != null) {
-                String sqlOld = "SELECT dc.nb_jours_decomptes FROM demande_conge dc " +
-                        "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
-                        "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
-                        "WHERE dc.id_demande_conge = ? AND tc.id_pool_conge_annuel = ? " +
-                        "AND EXTRACT(year FROM dc.date_debut) = ? " +
-                        "AND sc.code IN ('VALIDE', 'EN_ATTENTE')";
-                try (PreparedStatement psOld = c.prepareStatement(sqlOld)) {
-                    psOld.setInt(1, this.idDemandeConge);
-                    psOld.setInt(2, typeConge.getIdPoolCongeAnnuel());
-                    psOld.setInt(3, annee);
-                    try (ResultSet rsOld = psOld.executeQuery()) {
-                        if (rsOld.next()) {
-                            joursDejaPrisEnCompte = rsOld.getBigDecimal(1);
-                            if (joursDejaPrisEnCompte == null) joursDejaPrisEnCompte = BigDecimal.ZERO;
+            LocalDate quotaStart = dateDebut.toLocalDate();
+            LocalDate quotaEnd = dateFin.toLocalDate();
+            BigDecimal joursTotauxCalendaires = BigDecimal.valueOf(
+                    ChronoUnit.DAYS.between(quotaStart, quotaEnd) + 1);
+            for (int annee = anneeDebut; annee <= anneeFin; annee++) {
+                RefPoolCongeAnnuel.Consommation consommation = RefPoolCongeAnnuel.rechercherConsommation(
+                        idEmploye, typeConge.getIdPoolCongeAnnuel(), annee, c);
+                if (consommation == null || consommation.getPlafond() == null) {
+                    throw new IllegalStateException("Configuration du pool annuel introuvable.");
+                }
+                LocalDate debutSegment = quotaStart.isAfter(LocalDate.of(annee, 1, 1))
+                        ? quotaStart : LocalDate.of(annee, 1, 1);
+                LocalDate finSegment = quotaEnd.isBefore(LocalDate.of(annee, 12, 31))
+                        ? quotaEnd : LocalDate.of(annee, 12, 31);
+                BigDecimal joursSegment = nbJoursDecomptes.multiply(BigDecimal.valueOf(
+                        ChronoUnit.DAYS.between(debutSegment, finSegment) + 1))
+                        .divide(joursTotauxCalendaires, 8, java.math.RoundingMode.HALF_UP);
+                BigDecimal joursDejaPrisEnCompte = BigDecimal.ZERO;
+                if (this.idDemandeConge != null) {
+                    String sqlOld = "SELECT dc.nb_jours_decomptes, dc.date_debut, dc.date_fin FROM demande_conge dc "
+                            + "JOIN ref_type_conge tc ON dc.id_type_conge=tc.id_type_conge "
+                            + "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge=sc.id_statut_demande_conge "
+                            + "WHERE dc.id_demande_conge=? AND tc.id_pool_conge_annuel=? AND sc.code IN ('VALIDE','EN_ATTENTE')";
+                    try (PreparedStatement psOld = c.prepareStatement(sqlOld)) {
+                        psOld.setInt(1, this.idDemandeConge);
+                        psOld.setInt(2, typeConge.getIdPoolCongeAnnuel());
+                        try (ResultSet rsOld = psOld.executeQuery()) {
+                            if (rsOld.next()) {
+                                LocalDate oldStart = rsOld.getDate("date_debut").toLocalDate();
+                                LocalDate oldEnd = rsOld.getDate("date_fin").toLocalDate();
+                                if (annee >= oldStart.getYear() && annee <= oldEnd.getYear()) {
+                                    LocalDate oldYearStart = oldStart.isAfter(LocalDate.of(annee, 1, 1)) ? oldStart : LocalDate.of(annee, 1, 1);
+                                    LocalDate oldYearEnd = oldEnd.isBefore(LocalDate.of(annee, 12, 31)) ? oldEnd : LocalDate.of(annee, 12, 31);
+                                    BigDecimal oldTotalDays = BigDecimal.valueOf(ChronoUnit.DAYS.between(oldStart, oldEnd) + 1);
+                                    joursDejaPrisEnCompte = rsOld.getBigDecimal("nb_jours_decomptes")
+                                            .multiply(BigDecimal.valueOf(ChronoUnit.DAYS.between(oldYearStart, oldYearEnd) + 1))
+                                            .divide(oldTotalDays, 8, java.math.RoundingMode.HALF_UP);
+                                }
+                            }
                         }
                     }
                 }
-            }
-            BigDecimal engagesHorsDemandeCourante = engagesActuels.subtract(joursDejaPrisEnCompte);
-            BigDecimal plafond = consommation.getPlafond();
-            BigDecimal totalApresDemande = engagesHorsDemandeCourante.add(nbJoursDecomptes);
-            if (totalApresDemande.compareTo(plafond) > 0) {
-                throw new IllegalArgumentException(
-                        "Le quota du pool annuel des permissions exceptionnelles (" + plafond + " jours/an) est dépassé pour l'année "
-                                + annee + ". (Engagé hors demande courante: " + engagesHorsDemandeCourante
-                                + "j, Demandé: " + nbJoursDecomptes
-                                + "j). Dérogation RH requise.");
+                BigDecimal engagesHorsDemande = consommation.getJoursEngages().subtract(joursDejaPrisEnCompte);
+                if (engagesHorsDemande.add(joursSegment).compareTo(consommation.getPlafond()) > 0) {
+                    throw new IllegalArgumentException("Le quota annuel du pool (" + consommation.getPlafond()
+                            + " jours) est dépassé pour l'année " + annee + ".");
+                }
             }
         }
 

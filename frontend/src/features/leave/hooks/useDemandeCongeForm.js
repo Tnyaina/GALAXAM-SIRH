@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
-import { defaultLeavePayable } from '@/features/leave/utils/defaultLeavePayable';
 import { hasFixedLeaveDuration } from '@/features/leave/utils/leaveDurationPolicy';
+import { remunerationOverridePayload } from '@/features/leave/utils/remunerationOverride';
 import { 
   formatDateForInput, 
   isDateAnterieure,
   isValidIsoDate
 } from '@/utils/dateUtils';
 
-export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
+export function useDemandeCongeForm({ idEmployeProp, canOverrideRemuneration, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
   // État local : formulaire, dérogations, simulation et validation.
   const [selectedEmployeId, setSelectedEmployeId] = useState('');
   const [idTypeConge, setIdTypeConge] = useState('');
@@ -28,7 +28,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const [derogationDelaiPreavis, setDerogationDelaiPreavis] = useState(false);
   const [derogationContinuiteService, setDerogationContinuiteService] = useState(false);
   const [extensionPathologiqueMaternite, setExtensionPathologiqueMaternite] = useState(false);
-  const [estRemunere, setEstRemunere] = useState(false);
+  const [estRemunere, setEstRemunere] = useState(null);
   const [showOptionsAvancees, setShowOptionsAvancees] = useState(false);
 
   // Simulation, Conflits de poste & Continuité de service
@@ -84,16 +84,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setDerogationDelaiPreavis(!!initialDemande.derogationDelaiPreavis);
         setDerogationContinuiteService(!!initialDemande.derogationContinuiteService);
         setExtensionPathologiqueMaternite(!!initialDemande.extensionPathologiqueMaternite);
-        if (initialDemande.estRemunere !== undefined && initialDemande.estRemunere !== null) {
-          setEstRemunere(Boolean(initialDemande.estRemunere));
-        } else if (initialDemande.estPaye !== undefined) {
-          setEstRemunere(Boolean(initialDemande.estPaye));
-        } else {
-          const type = (referentiels?.typesConge || []).find(
-            (item) => String(item.idTypeConge) === String(initialDemande.idTypeConge)
-          );
-          setEstRemunere(defaultLeavePayable(type));
-        }
+        setEstRemunere(initialDemande.estRemunere == null ? null : Boolean(initialDemande.estRemunere));
         if (initialDemande.derogationSoldeNegatif || initialDemande.derogationDelaiPreavis || initialDemande.derogationContinuiteService || initialDemande.extensionPathologiqueMaternite) {
           setShowOptionsAvancees(true);
         } else {
@@ -110,7 +101,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setEstDemiJournee(false);
         setMomentDemiJournee('MATIN');
         setDerogationSoldeNegatif(false);
-        setEstRemunere(false);
+        setEstRemunere(null);
         const isPastInit = initialDateDebut && (() => {
           const [y, m, d] = String(initialDateDebut).split('T')[0].split('-').map(Number);
           const t = (y && m && d) ? new Date(y, m - 1, d, 0, 0, 0, 0) : new Date(initialDateDebut);
@@ -179,6 +170,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
           derogationSoldeNegatif: false,
           derogationDelaiPreavis,
           extensionPathologiqueMaternite,
+          idDemandeConge: initialDemande?.idDemandeConge || null,
         });
         if (!active) return;
         setSimulationReport(report);
@@ -199,7 +191,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     return () => { active = false; clearTimeout(timer); };
   }, [dateDebut, dateFin, idTypeConge, idMotifEvenementFamilial, estDemiJournee,
     extensionPathologiqueMaternite, isMaternite, derogationSoldeNegatif, derogationDelaiPreavis,
-    idEmployeProp, selectedEmployeId, selectedType?.dureeFixeJours]);
+    idEmployeProp, selectedEmployeId, selectedType?.dureeFixeJours, initialDemande?.idDemandeConge]);
 
   // Estimation informative des lots : endpoint backend, sans écriture ni calcul FIFO côté navigateur.
   useEffect(() => {
@@ -227,6 +219,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
           derogationSoldeNegatif: false,
           derogationDelaiPreavis,
           extensionPathologiqueMaternite,
+          idDemandeConge: initialDemande?.idDemandeConge || null,
         });
         if (active) setSimulationLotsReport(report);
       } catch (err) {
@@ -240,7 +233,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     return () => { active = false; clearTimeout(timer); };
   }, [idEmployeProp, selectedEmployeId, selectedType?.decompteSoldeAcquis,
     simulationReport, idTypeConge, idMotifEvenementFamilial, dateDebut, dateFin,
-    estDemiJournee, derogationDelaiPreavis, extensionPathologiqueMaternite]);
+    estDemiJournee, derogationDelaiPreavis, extensionPathologiqueMaternite, initialDemande?.idDemandeConge]);
 
   // Analyse serveur de continuité de service & simulation des jours (backend-driven)
   useEffect(() => {
@@ -356,10 +349,15 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         derogationDelaiPreavis: Boolean(derogationDelaiPreavis),
         derogationContinuiteService: Boolean(derogationContinuiteService),
         extensionPathologiqueMaternite: Boolean(extensionPathologiqueMaternite),
-        estRemunere: Boolean(estRemunere),
       };
 
       const isEditMode = !!initialDemande?.idDemandeConge;
+      Object.assign(payload, remunerationOverridePayload({
+        administrator: canOverrideRemuneration,
+        value: estRemunere,
+        originalValue: initialDemande?.estRemunere,
+        editing: isEditMode,
+      }));
       if (isEditMode) {
         await congeService.updateDemande(initialDemande.idDemandeConge, payload);
         showToast({

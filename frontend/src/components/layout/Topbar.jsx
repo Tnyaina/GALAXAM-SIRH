@@ -63,8 +63,8 @@ export default function Topbar({ onMenuClick, title}) {
                 <div ref={profileRef} className="relative">
                     <button
                         onClick={() => setShowDropdown((v) => !v)}
-                        className="h-8 px-2 flex items-center gap-2 hover:opacity-80 rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
-                        aria-label="Menu profil utilisateur"
+                        className="min-h-[40px] min-w-[40px] px-2 flex items-center gap-2 hover:opacity-80 rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
+                        aria-label={`Menu profil de ${user?.identifiant || 'l’utilisateur'}`}
                         aria-expanded={showDropdown}
                         aria-haspopup="menu"
                     >

@@ -29,3 +29,15 @@ export function etapesAfficheesCampagnePaie(steps, closed = false) {
     if (!closed) return safeSteps;
     return safeSteps.map(step => step.state === 'LOCKED' ? { ...step, state: 'COMPLETED' } : step);
 }
+
+/** Présente toujours séparément l'avancement du pointage et celui de la paie. */
+export function resumeStatutsPeriode(period) {
+    const workflowStatuses = period?.workflowStatuses;
+    const labels = [
+        workflowStatuses?.pointage?.label && `Pointage : ${workflowStatuses.pointage.label}`,
+        workflowStatuses?.paie?.label && `Paie : ${workflowStatuses.paie.label}`,
+    ].filter(Boolean);
+
+    if (labels.length) return labels.join(' · ');
+    return period?.statutLibelle || period?.statutCode || period?.statut || period?.state || 'Statut indisponible';
+}

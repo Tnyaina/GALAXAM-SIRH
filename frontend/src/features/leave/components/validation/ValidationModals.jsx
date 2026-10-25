@@ -9,6 +9,8 @@ import Modal from '@/components/ui/overlays/Modal';
 import congeService from '@/features/leave/api/congeService';
 import DemandeDetailsModal from '@/features/leave/components/DemandeDetailsModal';
 import { formatLeaveDaysPreview } from '@/features/leave/utils/leavePreviewPresentation';
+import { defaultLeavePayable } from '@/features/leave/utils/defaultLeavePayable';
+import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (value) => {
   if (!value) return 'date non renseignée';
@@ -45,14 +47,33 @@ export default function ValidationModals({
   actionLoading,
   actionError
 }) {
+  const { hasRole } = useAuth();
+  const canOverrideRemuneration = hasRole('ROLE_ADMIN');
   // État local : informations complémentaires demandées lors de la validation.
   const [justificatifFourni, setJustificatifFourni] = useState(false);
-  const [estRemunere, setEstRemunere] = useState(true);
+  const [estRemunere, setEstRemunere] = useState(null);
   const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [simulation, setSimulation] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(false);
+  const [typeDefaultRemuneration, setTypeDefaultRemuneration] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setTypeDefaultRemuneration(null);
+    if (!selectedDemande?.idTypeConge) return () => { active = false; };
+    congeService.getTypesConge(false).then((types) => {
+      if (!active) return;
+      const type = (Array.isArray(types) ? types : []).find(
+        (item) => String(item.idTypeConge) === String(selectedDemande.idTypeConge)
+      );
+      if (type) setTypeDefaultRemuneration(defaultLeavePayable(type));
+    }).catch(() => {
+      // Le détail peut ne pas contenir le paramètre par défaut du type.
+    });
+    return () => { active = false; };
+  }, [selectedDemande?.idTypeConge]);
 
   // Effets : réinitialise et charge le solde pour la demande sélectionnée.
   useEffect(() => {
@@ -79,6 +100,7 @@ export default function ValidationModals({
           derogationSoldeNegatif: Boolean(derogationSoldeNegatif),
           derogationDelaiPreavis: Boolean(selectedDemande.derogationDelaiPreavis),
           extensionPathologiqueMaternite: Boolean(selectedDemande.extensionPathologiqueMaternite),
+          idDemandeConge: selectedDemande.idDemandeConge,
         }),
       ]);
       if (!isMounted) return;
@@ -91,14 +113,12 @@ export default function ValidationModals({
       fetchSolde();
     }
     return () => { isMounted = false; };
-  }, [showValiderModal, showDetailModal, selectedDemande?.idEmploye, selectedDemande?.idTypeConge, selectedDemande?.dateDebut, selectedDemande?.dateFin, selectedDemande?.estDemiJournee, selectedDemande?.idMotifEvenementFamilial, selectedDemande?.derogationDelaiPreavis, selectedDemande?.extensionPathologiqueMaternite, derogationSoldeNegatif]);
+  }, [showValiderModal, showDetailModal, selectedDemande?.idDemandeConge, selectedDemande?.idEmploye, selectedDemande?.idTypeConge, selectedDemande?.dateDebut, selectedDemande?.dateFin, selectedDemande?.estDemiJournee, selectedDemande?.idMotifEvenementFamilial, selectedDemande?.derogationDelaiPreavis, selectedDemande?.extensionPathologiqueMaternite, derogationSoldeNegatif]);
 
   useEffect(() => {
     if (showValiderModal && selectedDemande) {
       setJustificatifFourni(Boolean(selectedDemande.justificatifFourni));
-      setEstRemunere(selectedDemande.estRemunere !== undefined && selectedDemande.estRemunere !== null
-        ? Boolean(selectedDemande.estRemunere)
-        : Boolean(selectedDemande.estPaye));
+      setEstRemunere(selectedDemande.estRemunere == null ? null : Boolean(selectedDemande.estRemunere));
       setDerogationSoldeNegatif(Boolean(selectedDemande.derogationSoldeNegatif));
     }
   }, [showValiderModal, selectedDemande]);
@@ -110,6 +130,9 @@ export default function ValidationModals({
   const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? selectedDemande?.soldeRestant ?? selectedDemande?.soldeActuel ?? null;
   const joursDebites = simulation?.joursDebites ?? null;
   const soldeApres = simulation?.soldeApres ?? null;
+  const effectiveEstRemunere = estRemunere == null
+    ? typeDefaultRemuneration ?? defaultLeavePayable({ estPaye: selectedDemande?.estPaye })
+    : estRemunere;
 
   // Rendu
   return (
@@ -133,7 +156,12 @@ export default function ValidationModals({
         message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${joursDemandesLabel} de ${selectedDemande?.libelleTypeConge || selectedDemande?.codeTypeConge || 'type non renseigné'}, du ${formatDate(selectedDemande?.dateDebut)} au ${formatDate(selectedDemande?.dateFin)}) ?`}
         confirmLabel="Valider la demande"
         variant="success"
-        onConfirm={() => onConfirmValider(justificatifFourni, estRemunere, false)}
+        onConfirm={() => onConfirmValider(
+          justificatifFourni,
+          canOverrideRemuneration ? estRemunere : null,
+          false,
+          canOverrideRemuneration && selectedDemande?.estRemunere != null && estRemunere == null
+        )}
         onClose={onCloseValider}
         loading={actionLoading}
       >
@@ -148,7 +176,7 @@ export default function ValidationModals({
           <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-3 py-2 text-xs">
             <p className="font-semibold text-[var(--color-fg)]">Conséquence de la décision</p>
             <p className="mt-0.5 text-[var(--color-fg-muted)]">
-              {estRemunere
+              {effectiveEstRemunere
                 ? 'La demande validée sera rémunérée et valorisée selon les droits à congé applicables.'
                 : 'La demande validée sera sans solde et entraînera une retenue d’absence en paie.'}
             </p>
@@ -195,22 +223,29 @@ export default function ValidationModals({
               </div>
             )}
           </div>
-          <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+          {canOverrideRemuneration && <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
             <input
               type="checkbox"
-              checked={estRemunere}
+              checked={effectiveEstRemunere}
               onChange={(e) => setEstRemunere(e.target.checked)}
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
             />
             <span className="text-sm font-medium text-[var(--color-fg)]">
               Congé rémunéré (indemnisé sur les droits acquis)
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
-                {estRemunere
+                {estRemunere == null && typeDefaultRemuneration == null
+                  ? 'Valeur par défaut du type indisponible dans les données chargées.'
+                  : effectiveEstRemunere
                   ? "Congé rémunéré : indemnité de congés payés versée selon la valorisation des droits acquis de l'employé."
                   : "Non rémunéré (congé sans solde) : retenue au taux d'absence sur le bulletin de paie."}
               </span>
             </span>
-          </label>
+          </label>}
+          {canOverrideRemuneration && estRemunere != null && (
+            <button type="button" className="text-xs underline" onClick={() => setEstRemunere(null)}>
+              Utiliser la valeur par défaut du type
+            </button>
+          )}
           {!selectedDemande?.justificatifFourni && (
             <Checkbox
               label="Marquer le justificatif comme fourni (Requis pour valider certains congés comme Maladie)"
@@ -288,7 +323,9 @@ export default function ValidationModals({
           {selectedDemande?.codeStatutDemande === 'VALIDE' ? (
             <Alert
               type="warning"
-              message={`Ce congé est validé. L'annulation va ré-incrémenter automatiquement ${selectedDemande.nbJoursDecomptes || selectedDemande.dureeJours || 0} jour(s) sur le solde acquis de ${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}. Un motif justificatif est obligatoire pour la traçabilité.`}
+              message={selectedDemande.estRemunere === false || selectedDemande.estPaye === false
+                ? `Cette absence validée est sans solde. Son annulation ne recréditera aucun jour payé. Un motif justificatif est obligatoire pour la traçabilité.`
+                : `Ce congé est validé. L'annulation va ré-incrémenter automatiquement ${selectedDemande.nbJoursDecomptes || selectedDemande.dureeJours || 0} jour(s) sur le solde acquis de ${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}. Un motif justificatif est obligatoire pour la traçabilité.`}
             />
           ) : (
             <Alert

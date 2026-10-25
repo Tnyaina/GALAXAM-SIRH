@@ -193,15 +193,11 @@ public class PointageService {
         if (timeStr == null || timeStr.trim().isEmpty() || "—".equals(timeStr) || "--:--".equals(timeStr)) {
             return null;
         }
-        try {
-            String clean = timeStr.trim();
-            if (clean.length() == 5) {
-                clean += ":00";
-            }
-            return Time.valueOf(clean);
-        } catch (Exception e) {
-            return null;
+        String clean = timeStr.trim();
+        if (!clean.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?")) {
+            throw new IllegalArgumentException("Heure invalide : format HH:mm attendu.");
         }
+        return Time.valueOf(clean.length() == 5 ? clean + ":00" : clean);
     }
 
     private static LocalTime toLocalTime(Time value) {
@@ -1230,7 +1226,7 @@ public class PointageService {
                                 dto.setHeureSortieMatin("");
                                 dto.setHeureEntreeAm("");
                                 dto.setHeureSortieAm("");
-                                dto.setTotalHeures(dureeJourReference);
+                                dto.setTotalHeures(0.0);
                                 dto.setMinutesRetard(0);
                                 dto.setCodeStatut("REPOS");
                                 dto.setLibelleStatut("Repos de fin de semaine");

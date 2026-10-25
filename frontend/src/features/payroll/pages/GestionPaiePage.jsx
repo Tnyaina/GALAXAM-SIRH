@@ -18,6 +18,7 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 import HasPermission from '@/features/auth/components/HasPermission';
+import { resumeStatutsPeriode } from '@/features/payroll/utils/payrollPresentation';
 
 const PeriodePaiePage = lazy(() => import('@/features/payroll/pages/PeriodePaiePage'));
 const VariablesPaieTab = lazy(() => import('@/features/payroll/components/tabs/VariablesPaieTab'));
@@ -236,7 +237,7 @@ export default function GestionPaiePage() {
                             onChange={(val) => val && selectPeriode(Number(val))}
                             options={periodes.map(p => {
                                 const pId = p.idPeriodePaie || p.id_periode_paie || p.id;
-                                const statut = p.statutCode || p.statut || p.state || 'EN_COURS';
+                                const statut = resumeStatutsPeriode(p);
                                 return {
                                     value: String(pId),
                                     label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(pId),

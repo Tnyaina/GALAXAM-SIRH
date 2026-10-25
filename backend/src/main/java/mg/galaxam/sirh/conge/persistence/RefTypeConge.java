@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class RefTypeConge extends ClassMere {
 
@@ -27,6 +28,7 @@ public class RefTypeConge extends ClassMere {
     private boolean suspendAcquisitionSolde = false;
     private boolean exigeJustificatif = false;
     private boolean estActif = true;
+    private boolean estUtilise;
     private Timestamp createdAt;
 
     public RefTypeConge() {
@@ -137,7 +139,17 @@ public class RefTypeConge extends ClassMere {
 
     public static RefTypeConge rechercherParId(Integer id, Connection c) throws Exception {
         if (id == null) return null;
-        String sql = "SELECT * FROM ref_type_conge WHERE id_type_conge = ?";
+        return rechercherParId(id, c, false);
+    }
+
+    public static RefTypeConge verrouillerParId(Integer id, Connection c) throws Exception {
+        if (id == null) return null;
+        return rechercherParId(id, c, true);
+    }
+
+    private static RefTypeConge rechercherParId(Integer id, Connection c, boolean verrouiller) throws Exception {
+        String sql = "SELECT t.*, EXISTS (SELECT 1 FROM demande_conge d WHERE d.id_type_conge = t.id_type_conge) AS est_utilise "
+                + "FROM ref_type_conge t WHERE t.id_type_conge = ?" + (verrouiller ? " FOR UPDATE OF t" : "");
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -151,7 +163,8 @@ public class RefTypeConge extends ClassMere {
 
     public static RefTypeConge rechercherParCode(String code, Connection c) throws Exception {
         if (code == null || code.isBlank()) return null;
-        String sql = "SELECT * FROM ref_type_conge WHERE code = ?";
+        String sql = "SELECT t.*, EXISTS (SELECT 1 FROM demande_conge d WHERE d.id_type_conge = t.id_type_conge) AS est_utilise "
+                + "FROM ref_type_conge t WHERE t.code = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code.trim().toUpperCase());
             try (ResultSet rs = ps.executeQuery()) {
@@ -165,9 +178,10 @@ public class RefTypeConge extends ClassMere {
 
     public static List<RefTypeConge> listAll(Connection c, boolean actifUniquement) throws Exception {
         List<RefTypeConge> list = new ArrayList<>();
-        String sql = "SELECT * FROM ref_type_conge " +
+        String sql = "SELECT t.*, EXISTS (SELECT 1 FROM demande_conge d WHERE d.id_type_conge = t.id_type_conge) AS est_utilise " +
+                "FROM ref_type_conge t " +
                 (actifUniquement ? "WHERE est_actif = TRUE " : "") +
-                "ORDER BY id_type_conge";
+                "ORDER BY t.id_type_conge";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -193,6 +207,7 @@ public class RefTypeConge extends ClassMere {
         obj.setSuspendAcquisitionSolde(rs.getBoolean("suspend_acquisition_solde"));
         obj.setExigeJustificatif(rs.getBoolean("exige_justificatif"));
         obj.setEstActif(rs.getBoolean("est_actif"));
+        obj.setEstUtilise(rs.getBoolean("est_utilise"));
         obj.setCreatedAt(rs.getTimestamp("created_at"));
         return obj;
     }
@@ -254,6 +269,29 @@ public class RefTypeConge extends ClassMere {
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }
+
+    public boolean isEstUtilise() { return estUtilise; }
+    public void setEstUtilise(boolean estUtilise) { this.estUtilise = estUtilise; }
+
+    public boolean aLesMemesRegles(RefTypeConge autre) {
+        return autre != null
+                && Objects.equals(code == null ? null : code.trim().toUpperCase(), autre.code == null ? null : autre.code.trim().toUpperCase())
+                && estPaye == autre.estPaye
+                && decompteSoldeAcquis == autre.decompteSoldeAcquis
+                && Objects.equals(exigeAncienneteMinMois, autre.exigeAncienneteMinMois)
+                && memesValeurs(dureeFixeJours, autre.dureeFixeJours)
+                && memesValeurs(plafondJoursEpisode, autre.plafondJoursEpisode)
+                && Objects.equals(idTypeCongeBascule, autre.idTypeCongeBascule)
+                && Objects.equals(idPoolCongeAnnuel, autre.idPoolCongeAnnuel)
+                && soumisDelaiPreavis == autre.soumisDelaiPreavis
+                && suspendAcquisitionSolde == autre.suspendAcquisitionSolde
+                && exigeJustificatif == autre.exigeJustificatif
+                && estActif == autre.estActif;
+    }
+
+    private static boolean memesValeurs(BigDecimal gauche, BigDecimal droite) {
+        return gauche == null ? droite == null : droite != null && gauche.compareTo(droite) == 0;
+    }
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }

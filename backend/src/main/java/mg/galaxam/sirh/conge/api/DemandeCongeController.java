@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.PageDTO;
+import mg.galaxam.sirh.conge.application.RemunerationCongePolicy;
 import mg.galaxam.sirh.conge.domain.DemandeCongeRequests.CreerDemandeRequest;
 import mg.galaxam.sirh.conge.domain.DemandeCongeRequests.DecisionDemandeRequest;
 import mg.galaxam.sirh.conge.domain.DemandeCongeRequests.ModifierDemandeRequest;
@@ -50,7 +51,7 @@ public class DemandeCongeController {
     private mg.galaxam.sirh.common.transaction.TransactionRunner transactionRunner;
 
     @PostMapping("/simuler")
-    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> simulerDemande(@RequestBody SimulerDemandeRequest req) {
         if (req == null || req.dateDebut() == null || req.idTypeConge() == null) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
@@ -59,6 +60,8 @@ public class DemandeCongeController {
         }
 
         try (Connection c = dataSource.getConnection()) {
+            verifierAccesEmploye(req.idEmploye(), "CONGE_READ", c);
+            verifierDemandeSimulation(req.idDemandeConge(), req.idEmploye(), c);
             Date dateDebut = Date.valueOf(req.dateDebut());
             Date dateFin = req.dateFin() != null ? Date.valueOf(req.dateFin()) : null;
             return ResponseEntity.ok(congeService.simulerDemande(
@@ -66,7 +69,7 @@ public class DemandeCongeController {
                     Boolean.TRUE.equals(req.estDemiJournee()),
                     Boolean.TRUE.equals(req.derogationSoldeNegatif()),
                     Boolean.TRUE.equals(req.derogationDelaiPreavis()),
-                    Boolean.TRUE.equals(req.extensionPathologiqueMaternite()), c));
+                    Boolean.TRUE.equals(req.extensionPathologiqueMaternite()), req.idDemandeConge(), c));
         } catch (Exception e) {
             log.warn("Erreur simulation congé : {}", e.getMessage());
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
@@ -74,7 +77,7 @@ public class DemandeCongeController {
     }
 
     @PostMapping("/simuler-valorisation")
-    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> simulerValorisation(@RequestBody SimulerDemandeRequest req) {
         if (req == null || req.idEmploye() == null || req.dateDebut() == null
                 || req.idTypeConge() == null || req.dateFin() == null) {
@@ -83,6 +86,8 @@ public class DemandeCongeController {
                     "L'employé, le type et les dates de la demande sont requis pour l'estimation.");
         }
         try (Connection c = dataSource.getConnection()) {
+            verifierAccesEmploye(req.idEmploye(), "CONGE_READ", c);
+            verifierDemandeSimulation(req.idDemandeConge(), req.idEmploye(), c);
             var type = mg.galaxam.sirh.conge.persistence.RefTypeConge.rechercherParId(req.idTypeConge(), c);
             if (type == null || !type.isEstActif()) throw new IllegalArgumentException("Type de congé inactif ou introuvable.");
             if (!type.isDecompteSoldeAcquis()) {
@@ -94,7 +99,7 @@ public class DemandeCongeController {
                     req.idMotifEvenementFamilial(), debut, fin,
                     Boolean.TRUE.equals(req.estDemiJournee()), Boolean.TRUE.equals(req.derogationSoldeNegatif()),
                     Boolean.TRUE.equals(req.derogationDelaiPreavis()),
-                    Boolean.TRUE.equals(req.extensionPathologiqueMaternite()), c);
+                    Boolean.TRUE.equals(req.extensionPathologiqueMaternite()), req.idDemandeConge(), c);
             var estimate = congeLotValorisationService.simulerPrise(req.idEmploye(), req.dateDebut(),
                     report.joursDebites(), c);
             var demandesConcurrentes = congeService.demandesSoldeEnAttente(req.idEmploye(), req.dateDebut(), c);
@@ -110,7 +115,7 @@ public class DemandeCongeController {
     }
 
     @PostMapping("/verifier-conflits")
-    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> verifierConflits(@RequestBody VerifierConflitsRequest req) {
         if (req == null || req.dateDebut() == null || req.dateFin() == null) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
@@ -119,6 +124,8 @@ public class DemandeCongeController {
         }
 
         try (Connection c = dataSource.getConnection()) {
+            verifierAccesEmploye(req.idEmploye(), "CONGE_READ", c);
+            verifierDemandeSimulation(req.idDemandeConge(), req.idEmploye(), c);
             Date dateDebut = Date.valueOf(req.dateDebut());
             Date dateFin = Date.valueOf(req.dateFin());
             Map<String, Object> result = congeService.verifierConflitsDemande(
@@ -134,7 +141,7 @@ public class DemandeCongeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> creerDemande(@RequestBody CreerDemandeRequest req) {
         if (req == null || req.idEmploye() == null) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
@@ -147,7 +154,22 @@ public class DemandeCongeController {
                     "Le type de congé, la dateDebut et la dateFin sont obligatoires.");
         }
 
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities().stream().noneMatch(a ->
+                "ROLE_ADMIN".equals(a.getAuthority()) || "CONGE_WRITE".equals(a.getAuthority()))) {
+            try (Connection c = dataSource.getConnection()) {
+                if (!idEmployeConnecte(c).equals(req.idEmploye())) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "Vous pouvez créer une demande uniquement pour votre dossier.");
+                }
+            } catch (Exception e) {
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            }
+        }
+
         return transactionRunner.required(c -> {
+            verifierAccesEmploye(req.idEmploye(), "CONGE_WRITE", c);
+            boolean administrator = isAdministrator();
             DemandeConge d = new DemandeConge();
             d.setIdEmploye(req.idEmploye());
             d.setIdTypeConge(req.idTypeConge());
@@ -166,9 +188,7 @@ public class DemandeCongeController {
             if (req.extensionPathologiqueMaternite() != null) {
                 d.setExtensionPathologiqueMaternite(req.extensionPathologiqueMaternite());
             }
-            if (req.estRemunere() != null) {
-                d.setEstRemunere(req.estRemunere());
-            }
+            d.setEstRemunere(RemunerationCongePolicy.resolve(null, req.estRemunere(), false, administrator));
             d.setJustificatifFourni(Boolean.TRUE.equals(req.justificatifFourni()));
             if (req.commentaire() != null && !req.commentaire().isBlank()) {
                 d.setCommentaire(req.commentaire().trim());
@@ -182,16 +202,23 @@ public class DemandeCongeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> modifierDemande(
             @PathVariable Integer id,
             @RequestBody ModifierDemandeRequest req) {
         return transactionRunner.required(c -> {
             Authentication authModif = SecurityContextHolder.getContext().getAuthentication();
+            boolean administrator = isAdministrator();
             boolean isAdminOrRh = authModif != null && authModif.getAuthorities().stream()
                     .anyMatch(a -> "CONGE_VALIDATE".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
 
-            DemandeConge d = congeService.modifierDemande(id, req, CustomUserDetails.getCurrentUserId(), isAdminOrRh, c);
+            RemunerationCongePolicy.resolve(null, req == null ? null : req.estRemunere(),
+                    req != null && Boolean.TRUE.equals(req.utiliserRemunerationParDefaut()), administrator);
+
+            verifierAccesDemande(id, c, isAdminOrRh ? new String[] {"CONGE_VALIDATE"} : new String[] {"CONGE_WRITE"});
+
+            DemandeConge d = congeService.modifierDemande(
+                    id, req, CustomUserDetails.getCurrentUserId(), isAdminOrRh, administrator, c);
             VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
             enrichirActions(cpl, c);
             return ResponseEntity.ok(cpl);
@@ -199,7 +226,7 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/employe/{idEmploye}")
-    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getDemandesParEmploye(
             @PathVariable Integer idEmploye,
             @RequestParam(required = false) String statut,
@@ -207,12 +234,14 @@ public class DemandeCongeController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
+            verifierAccesEmploye(idEmploye, "CONGE_READ", c);
             page = Math.max(1, page);
             size = Math.max(1, Math.min(100, size));
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countParEmploye(idEmploye, statut, q, c);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, statut, q, c, size, offset);
-            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c);
+            Integer employeConnecte = idEmployeConnecteOuNull(c);
+            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c, employeConnecte);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
@@ -222,14 +251,45 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getDemandeParId(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
+            verifierAccesDemande(id, "CONGE_READ", c);
             VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
             if (cpl == null)
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
             enrichirActions(cpl, c);
             return ResponseEntity.ok(cpl);
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getMesDemandes(
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try (Connection c = dataSource.getConnection()) {
+            Integer idEmploye = idEmployeConnecte(c);
+            page = Math.max(1, page);
+            size = Math.max(1, Math.min(100, size));
+            long total = VDemandeCongeCpl.countParEmploye(idEmploye, statut, q, c);
+            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, statut, q, c, size, (page - 1) * size);
+            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c, idEmploye);
+            return ResponseEntity.ok(new PageDTO<>(list, total, page, size));
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @GetMapping("/me/dossier")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getMonDossierEmploye() {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok(Map.of("idEmploye", idEmployeConnecte(c)));
         } catch (Exception e) {
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
@@ -245,7 +305,8 @@ public class DemandeCongeController {
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countAll(c, "EN_ATTENTE", q);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, "EN_ATTENTE", q, size, offset);
-            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c);
+            Integer employeConnecte = idEmployeConnecteOuNull(c);
+            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c, employeConnecte);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
@@ -266,7 +327,8 @@ public class DemandeCongeController {
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countAll(c, statut, q, idTypeConge);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, statut, q, idTypeConge, size, offset);
-            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c);
+            Integer employeConnecte = idEmployeConnecteOuNull(c);
+            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c, employeConnecte);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
@@ -275,14 +337,23 @@ public class DemandeCongeController {
         }
     }
 
+    /** Compatibilité des appels Java existants; le point d'entrée HTTP est la surcharge ci-dessous. */
+    public ResponseEntity<?> validerDemande(Integer id, boolean justificatifFourni,
+            Boolean estRemunere, boolean derogationSoldeNegatif) {
+        return validerDemande(id, justificatifFourni, estRemunere, false, derogationSoldeNegatif);
+    }
+
     @PostMapping("/{id}/valider")
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> validerDemande(
             @PathVariable Integer id,
             @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni,
             @RequestParam(required = false) Boolean estRemunere,
+            @RequestParam(required = false, defaultValue = "false") boolean utiliserRemunerationParDefaut,
             @RequestParam(required = false, defaultValue = "false") boolean derogationSoldeNegatif) {
         return transactionRunner.required(c -> {
+            boolean administrator = isAdministrator();
+            RemunerationCongePolicy.resolve(null, estRemunere, utiliserRemunerationParDefaut, administrator);
             DemandeConge d = DemandeConge.rechercherParId(id, c);
             if (d == null)
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
@@ -290,9 +361,8 @@ public class DemandeCongeController {
             if (justificatifFourni) {
                 d.setJustificatifFourni(true);
             }
-            if (estRemunere != null) {
-                d.setEstRemunere(estRemunere);
-            }
+            d.setEstRemunere(RemunerationCongePolicy.resolve(
+                    d.getEstRemunere(), estRemunere, utiliserRemunerationParDefaut, administrator));
             if (derogationSoldeNegatif) {
                 throw new IllegalArgumentException("La prise par anticipation avec solde négatif est désactivée.");
             }
@@ -375,6 +445,7 @@ public class DemandeCongeController {
             @PathVariable Integer id,
             @RequestBody(required = false) DecisionDemandeRequest payload) {
         return transactionRunner.required(c -> {
+            verifierAccesDemande(id, c, "CONGE_WRITE", "CONGE_VALIDATE");
             DemandeConge d = DemandeConge.rechercherParId(id, c);
             if (d == null)
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
@@ -423,7 +494,99 @@ public class DemandeCongeController {
         });
     }
 
+    private void verifierAccesDemande(Integer idDemande, String permission, Connection c) throws Exception {
+        verifierAccesDemande(idDemande, c, permission);
+    }
+
+    private void verifierDemandeSimulation(Integer idDemande, Integer idEmploye, Connection c) throws Exception {
+        if (idDemande == null) return;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM demande_conge WHERE id_demande_conge=? AND id_employe=?")) {
+            ps.setInt(1, idDemande);
+            ps.setInt(2, idEmploye);
+            try (var rs = ps.executeQuery()) {
+                if (!rs.next()) throw new org.springframework.security.access.AccessDeniedException(
+                        "La demande exclue de la simulation ne correspond pas au salarié ciblé.");
+            }
+        }
+    }
+
+    private void verifierAccesDemande(Integer idDemande, Connection c, String... permissions) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement("SELECT id_employe FROM demande_conge WHERE id_demande_conge=?")) {
+            ps.setInt(1, idDemande);
+            try (var rs = ps.executeQuery()) {
+                if (!rs.next()) throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
+                verifierAccesEmploye(rs.getInt(1), c, permissions);
+            }
+        }
+    }
+
+    private void verifierAccesEmploye(Integer idEmploye, String permission, Connection c) throws Exception {
+        verifierAccesEmploye(idEmploye, c, permission);
+    }
+
+    private void verifierAccesEmploye(Integer idEmploye, Connection c, String... permissions) throws Exception {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new org.springframework.security.access.AccessDeniedException("Authentification requise.");
+        }
+        boolean privilegie = auth.getAuthorities().stream().anyMatch(a ->
+                "ROLE_ADMIN".equals(a.getAuthority()) || java.util.Arrays.asList(permissions).contains(a.getAuthority()));
+        if (privilegie) return;
+        if (idEmploye == null || !(auth.getPrincipal() instanceof CustomUserDetails user)) {
+            throw new org.springframework.security.access.AccessDeniedException("Accès limité au dossier personnel.");
+        }
+        Integer employeeId = idEmployeConnecte(c, user);
+        if (!employeeId.equals(idEmploye)) throw new org.springframework.security.access.AccessDeniedException(
+                "Accès limité au dossier personnel.");
+    }
+
+    private Integer idEmployeConnecte(Connection c) throws Exception {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails user)) {
+            throw new org.springframework.security.access.AccessDeniedException("Compte salarié non associé.");
+        }
+        return idEmployeConnecte(c, user);
+    }
+
+    private Integer idEmployeConnecte(Connection c, CustomUserDetails user) throws Exception {
+        String email = user.getUsername();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_employe FROM employe WHERE email IS NOT NULL AND LOWER(TRIM(email))=LOWER(TRIM(?))")) {
+            ps.setString(1, email);
+            try (var rs = ps.executeQuery()) {
+                if (!rs.next()) throw new org.springframework.security.access.AccessDeniedException(
+                        "Aucun dossier salarié ne correspond au compte connecté.");
+                int employeConnecte = rs.getInt(1);
+                if (rs.next()) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "L'adresse du compte correspond à plusieurs dossiers salariés.");
+                }
+                return employeConnecte;
+            }
+        }
+    }
+
+    private Integer idEmployeConnecteOuNull(Connection c) throws Exception {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails user)) return null;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_employe FROM employe WHERE email IS NOT NULL AND LOWER(TRIM(email))=LOWER(TRIM(?))")) {
+            ps.setString(1, user.getUsername());
+            try (var rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                int idEmploye = rs.getInt(1);
+                return rs.next() ? null : idEmploye;
+            }
+        }
+    }
+
     private void enrichirActions(VDemandeCongeCpl demande, Connection c) throws Exception {
+        enrichirActions(demande, c, idEmployeConnecteOuNull(c));
+    }
+
+    private void enrichirActions(VDemandeCongeCpl demande, Connection c, Integer employeConnecte) throws Exception {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean admin = auth != null && auth.getAuthorities().stream()
                 .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
@@ -431,6 +594,13 @@ public class DemandeCongeController {
                 .anyMatch(a -> "CONGE_WRITE".equals(a.getAuthority())));
         boolean validate = admin || (auth != null && auth.getAuthorities().stream()
                 .anyMatch(a -> "CONGE_VALIDATE".equals(a.getAuthority())));
-        congeService.appliquerActionsDisponibles(demande, write, validate, c);
+        boolean isOwner = employeConnecte != null && employeConnecte.equals(demande.getIdEmploye());
+        congeService.appliquerActionsDisponibles(demande, write, validate, isOwner, c);
+    }
+
+    private static boolean isAdministrator() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 }

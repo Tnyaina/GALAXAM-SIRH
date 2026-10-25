@@ -1,5 +1,6 @@
 # Production : image backend empaquetée, sans sources montées ni compilation Maven.
-# Définir GALAXAM_CORS_ORIGIN sur l'origine HTTPS publique avant le démarrage.
+# Définir GALAXAM_CORS_ORIGIN avec l'origine HTTPS publique et l'origine desktop
+# http://127.0.0.1:18888 avant le démarrage.
 name: galaxam-sirh-prod
 
 services:

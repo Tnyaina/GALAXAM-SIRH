@@ -142,10 +142,10 @@ public class CongeValorisationMensuelleService {
             }
         }
         try (PreparedStatement ps=c.prepareStatement("INSERT INTO conge_valorisation_mensuelle_correction "
-                + "(id_journal,id_mouvement_acquisition,ancienne_valeur,nouvelle_valeur,motif,corrige_par) "
-                + "VALUES (?,?,?,?,?,?)")) {
-            ps.setInt(1,journal); ps.setInt(2,mouvement); ps.setBigDecimal(3,ancienne);
-            ps.setBigDecimal(4,nouvelleValeur); ps.setString(5,motif.trim()); ps.setInt(6,auteur); ps.executeUpdate();
+                + "(id_journal,id_employe,id_mouvement_acquisition,ancienne_valeur,nouvelle_valeur,motif,corrige_par) "
+                + "VALUES (?,?,?,?,?,?,?)")) {
+            ps.setInt(1,journal); ps.setInt(2,employe); ps.setInt(3,mouvement); ps.setBigDecimal(4,ancienne);
+            ps.setBigDecimal(5,nouvelleValeur); ps.setString(6,motif.trim()); ps.setInt(7,auteur); ps.executeUpdate();
         }
         return Map.of("idJournal",journal,"annee",annee,"mois",mois,
                 "ancienneValeur",ancienne,"nouvelleValeur",nouvelleValeur,

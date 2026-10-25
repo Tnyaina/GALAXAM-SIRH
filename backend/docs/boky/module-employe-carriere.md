@@ -453,7 +453,14 @@ SELECT * FROM workflow_rh WHERE id_workflow = ? FOR UPDATE;
 ```
 
 ### 6.2 Cycle d'États d'un Workflow RH
-1. **`BROUILLON`** : Créé par un gestionnaire RH (`EMPLOYE_WRITE`). Le nouveau contrat et la nouvelle affectation sont créés à l'état `BROUILLON`.
+```mermaid
+flowchart LR
+    Creation[Création du brouillon d'embauche] --> W[Workflow BROUILLON]
+    Creation --> C[Contrat BROUILLON]
+    Creation --> A[Affectation PLANIFIE]
+```
+
+1. **`BROUILLON`** : Créé par un gestionnaire RH (`EMPLOYE_WRITE`). `WorkflowRhService.creerBrouillonEmbauche` crée le workflow et le contrat cible au statut `BROUILLON`, mais l'affectation cible au statut `PLANIFIE`.
 2. **Décision DAF (`validerWorkflow`)** :
    - **Effet Immédiat ($\text{dateEffet} \le \text{Aujourd'hui}$)** :
      - Clôture de l'ancien contrat à $\text{dateEffet} - 1\text{ jour}$ (`id_statut_rh = CLOTURE`).
@@ -499,8 +506,8 @@ flowchart LR
 ### 8.1 Les 3 Écrans Majeurs Frontend (`frontend/src/features/employees`)
 1. **Annuaire du Personnel (`/employes` — `EmployeListPage.jsx`)** :
    - Tableau interactif avec pagination serveur `PageDTO`.
-   - Filtres multi-critères : Statut d'activité, Filiale, Site (Antananarivo / Toamasina), Département, Service.
-   - Recherche textuelle full-text (Nom, Prénom, Matricule, CIN).
+   - Filtres multi-critères : Statut d'activité, Site, Département, Service. La filiale affichée dans les données du salarié n'est pas un filtre de cet annuaire.
+   - Recherche textuelle partielle : la requête SQL utilise `LOWER(...) LIKE` sur le matricule, le nom, le prénom, le numéro CIN et le téléphone, sans opérateur PostgreSQL de recherche plein texte.
 2. **Fiche Salarié Détaillée (`/employes/:id` — `EmployeFicheDetailPage.jsx`)** :
    - Barre latérale de synthèse : Photo avec protection IDOR via endpoint dédié (`GET /employes/{id}/photo`), matricule, badge d'ancienneté, alertes documents obligatoires manquants.
    - **7 Onglets Spécialisés** :
@@ -514,7 +521,7 @@ flowchart LR
 3. **Cockpit de Supervision des Carrières (`/carrieres` — `CarrieresSupervisionPage.jsx`)** :
    - Registre exhaustif des contrats et workflows.
    - Panneau « À traiter en priorité » : fins de CDD imminentes (< 60 jours), fins de période d'essai imminentes (< 45 jours).
-   - Export CSV officiel du Registre Général du Personnel conforme aux exigences de l'Inspection du Travail de Madagascar.
+   - Export CSV du registre des contrats (`GET /contrats/export`) : matricule et identité du salarié, numéro, type, statut et dates du contrat, site, département et fonction. Le code et les tests identifiés ne démontrent pas une conformité réglementaire de cet export.
 
 ---
 
@@ -527,7 +534,7 @@ flowchart LR
 | **RG-EMP-03** | **Format et antériorité de la CIN** | **Décret n° 64-195** | Exactement 12 chiffres (`^[0-9]{12}$`). Délivrance obligatoirement postérieure au 16ème anniversaire. |
 | **RG-EMP-04** | **Unicité d'immatriculation CNaPS** | **Décret n° 69-145 (CPS)** | Contrainte SQL `UNIQUE` sur `num_affiliation_cnaps`. Empêche la création de doublons salariés. |
 | **RG-EMP-05** | **Compte bancaire principal unique** | Procédure de virement DAF | Index unique partiel `uq_compte_principal_employe`. Complétude obligatoire Banque + RIB. |
-| **RG-EMP-06** | **Désactivation motivée du dossier** | Norme d'audit et RGPD | Passage de `est_actif = FALSE` avec obligation de renseigner un motif parmi `motif_desactivation_enum`. Dossier conservé pour historique légal. |
+| **RG-EMP-06** | **Désactivation motivée du dossier** | Contrôles de `EmployeValidationEngine` et `Employe.desactiver` | Passage de `est_actif = FALSE` avec motif obligatoire appartenant à `motif_desactivation_enum` ; dossier conservé. Une désactivation directe est refusée si un contrat `ACTIF` ou une affectation `ACTIVE` existe : utiliser le workflow RH de sortie. |
 | **RG-CTR-01** | **Terme obligatoire des contrats temporaires** | **Loi 2024-014, Art. 23-25** (Loi 2003-044, Art. 8-10) | Date de fin obligatoire pour `CDD`, `TEMPORAIRE` et `STAGE`. Bloqué par `ContratValidationEngine`. |
 | **RG-CTR-02** | **Cohérence chronologique des termes** | Logique temporelle relationnelle | Contrainte `chk_contrat_dates_coherentes` imposant `date_fin >= date_debut`. |
 | **RG-CTR-03** | **Plafonnement des renouvellements de CDD** | **Loi 2024-014, Art. 25** (ex-Art. 28) | Limité à `NB_MAX_RENOUVELLEMENTS_CDD` (2 max) et durée totale $\le 72$ mois. Au-delà, requalification CDI obligatoire. |

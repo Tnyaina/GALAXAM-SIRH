@@ -69,6 +69,7 @@ export default function Pagination({
                     <div className="flex items-center gap-1 ml-1.5">
                         <span className="text-[var(--color-fg-subtle)] text-[11px]">Afficher :</span>
                         <select
+                            aria-label="Nombre de lignes par page"
                             value={pageSize}
                             onChange={(e) => onPageSizeChange(Number(e.target.value))}
                             className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] font-data font-semibold px-1.5 py-0.5 text-xs outline-none rounded-none cursor-pointer focus:border-[var(--color-brand-500)]"
@@ -93,7 +94,7 @@ export default function Pagination({
                     disabled={currentPage === 1}
                     onClick={() => onPageChange(1)}
                     icon={<ChevronsLeft size={13} />}
-                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
+                    className="!w-10 !h-10 !min-h-[40px] !min-w-[40px] !p-0 flex items-center justify-center"
                     title="Première page"
                     aria-label="Première page"
                 />
@@ -106,7 +107,7 @@ export default function Pagination({
                     disabled={currentPage === 1}
                     onClick={() => onPageChange(currentPage - 1)}
                     icon={<ChevronLeft size={13} />}
-                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
+                    className="!w-10 !h-10 !min-h-[40px] !min-w-[40px] !p-0 flex items-center justify-center"
                     title="Page précédente"
                     aria-label="Page précédente"
                 />
@@ -130,7 +131,7 @@ export default function Pagination({
                                 aria-label={`Page ${p}`}
                                 aria-current={isActive ? 'page' : undefined}
                                 className={`
-                  min-w-[28px] h-[28px] px-2 font-data text-xs font-semibold rounded-none border cursor-pointer flex items-center justify-center
+                  min-w-[40px] min-h-[40px] px-2 font-data text-xs font-semibold rounded-none border cursor-pointer flex items-center justify-center
                   ${isActive
                                         ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-[var(--color-on-color)]'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
@@ -151,7 +152,7 @@ export default function Pagination({
                     disabled={currentPage === totalPages}
                     onClick={() => onPageChange(currentPage + 1)}
                     icon={<ChevronRight size={13} />}
-                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
+                    className="!w-10 !h-10 !min-h-[40px] !min-w-[40px] !p-0 flex items-center justify-center"
                     title="Page suivante"
                     aria-label="Page suivante"
                 />
@@ -164,7 +165,7 @@ export default function Pagination({
                     disabled={currentPage === totalPages}
                     onClick={() => onPageChange(totalPages)}
                     icon={<ChevronsRight size={13} />}
-                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
+                    className="!w-10 !h-10 !min-h-[40px] !min-w-[40px] !p-0 flex items-center justify-center"
                     title="Dernière page"
                     aria-label="Dernière page"
                 />

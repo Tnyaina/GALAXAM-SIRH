@@ -10,7 +10,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.UUID;
-import mg.galaxam.sirh.conge.domain.CongeLotValorisationEngine;
 import org.junit.jupiter.api.Test;
 
 /** PostgreSQL integration checks. Point only at an isolated disposable database. */
@@ -94,6 +93,32 @@ class CongePostgresIntegrationTest {
     }
 
     @Test
+    void quotaPoolEstRepartiEntreLesAnneesSelonLesJoursCouverts() throws Exception {
+        assumeDatabaseConfigured();
+        try (Connection c = connection()) {
+            c.setAutoCommit(false);
+            try {
+                int employee = insertEmployee(c);
+                int type = scalarInt(c, "SELECT id_type_conge FROM ref_type_conge WHERE code='EXCEPTIONNEL'");
+                try (PreparedStatement ps = c.prepareStatement("INSERT INTO demande_conge "
+                        + "(id_employe,id_type_conge,id_statut_demande_conge,date_debut,date_fin,nb_jours_decomptes) "
+                        + "VALUES (?, ?, (SELECT id_statut_demande_conge FROM ref_statut_demande_conge WHERE code='VALIDE'), "
+                        + "DATE '2025-12-30',DATE '2026-01-02',4)")) {
+                    ps.setInt(1, employee); ps.setInt(2, type); ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement("SELECT annee,jours_consommes FROM v_pool_conge_annuel_consommation WHERE id_employe=? ORDER BY annee")) {
+                    ps.setInt(1, employee);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        assertTrue(rs.next()); assertEquals(2025, rs.getInt(1)); decimal("2", rs.getBigDecimal(2));
+                        assertTrue(rs.next()); assertEquals(2026, rs.getInt(1)); decimal("2", rs.getBigDecimal(2));
+                        assertFalse(rs.next());
+                    }
+                }
+            } finally { c.rollback(); }
+        }
+    }
+
+    @Test
     void simulationEtValorisationPersisteeSuiventLeFifoEtLaPaieLitLeMemeMontant() throws Exception {
         assumeDatabaseConfigured();
         try (Connection c = connection()) {
@@ -168,6 +193,12 @@ class CongePostgresIntegrationTest {
 
     private static Connection connection() throws Exception {
         return DriverManager.getConnection(URL, USER, PASSWORD);
+    }
+
+    private static int scalarInt(Connection c, String sql) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            assertTrue(rs.next()); return rs.getInt(1);
+        }
     }
 
     private static int insertEmployee(Connection c) throws Exception {

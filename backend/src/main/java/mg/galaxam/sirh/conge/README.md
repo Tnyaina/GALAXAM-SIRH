@@ -8,7 +8,7 @@ Ce dossier regroupe l'ensemble du cycle de vie des congés : demandes, validatio
 - Exports Excel : `CongeAnnuelExcelExportService` et `CongeGrandRecapExcelExportService` ; génération seule, sans écriture de règles métier.
 - `persistence/` : entités et requêtes SQL (`DemandeConge`, `MouvementSoldeConge`, `RefTypeConge`, `VSoldeCongeEmploye`, `VDemandeCongeCpl`, etc.)
 
-Les routes publiques restent sous `/conges/*`, notamment `/conges/periodes-reference/employe/{idEmploye}/export-excel` (canevas `resources/templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`).
+Les routes HTTP du module sont sous `/conges/*` ; elles ne sont pas publiques au sens d'un accès anonyme. Spring Security exige une authentification et les contrôleurs appliquent ensuite les permissions globales ou l'accès au dossier personnel selon l'opération. Par exemple, la lecture d'un dossier personnel peut être autorisée au propriétaire, tandis que les opérations de validation et de paramétrage exigent leurs permissions dédiées. Les exports restent soumis à `CONGE_READ` ou `ROLE_ADMIN`, notamment `/conges/periodes-reference/employe/{idEmploye}/export-excel` (canevas `resources/templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`).
 
 La reprise historique exige la référence identifiable de l'arrêté DAF ; elle
 reste conservée dans les commentaires du taux de reprise et du mouvement de
@@ -22,4 +22,4 @@ idempotentes par une unicité salarié/année, avec diagnostic bloquant en cas d
 données historiques dupliquées. Ces protections empêchent les doubles écritures
 de bonification, mais le bail ne peut pas annuler un traitement métier déjà
 exécuté par un ancien worker : chaque effet métier doit rester idempotent ou
-protégé dans sa propre transaction. Voir le registre de migrations pour SP77.
+protégé dans sa propre transaction. Les scripts de migration SP historiques ne sont pas présents dans le dépôt ; l'index `idx_uniq_mouvement_bonification_annee` est décrit dans le schéma canonique `backend/conception/bdd/04_schema_conges.sql`. Ce schéma initialise une base vierge et ne documente pas une migration depuis une base existante.

@@ -417,8 +417,10 @@ public class PointageImportService {
             }
             lines.sort(Comparator.comparing(ImportLine::date).thenComparingInt(ImportLine::ligne));
             return new ImportPreview(lines, headers);
-        } catch (org.apache.poi.openxml4j.exceptions.OLE2NotOfficeXmlFileException error) {
-            throw new IllegalArgumentException("Le fichier doit être au format XLSX.", error);
+        } catch (org.apache.poi.openxml4j.exceptions.NotOfficeXmlFileException
+                 | org.apache.poi.openxml4j.exceptions.InvalidFormatException
+                 | java.io.IOException error) {
+            throw new IllegalArgumentException("Le fichier n'est pas un classeur XLSX valide ou n'a pas pu être lu. Téléchargez le modèle de pointage puis réessayez.", error);
         }
     }
 

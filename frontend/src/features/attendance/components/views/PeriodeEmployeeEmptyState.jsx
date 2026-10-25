@@ -33,7 +33,7 @@ export default function PeriodeEmployeeEmptyState({
                 </div>
 
                 {/* Recherche rapide */}
-                <div className="relative min-w-[280px]">
+                <div className="relative w-full min-w-0 md:w-72">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
                     <input
                         type="text"
@@ -81,10 +81,12 @@ export default function PeriodeEmployeeEmptyState({
                             {employesList.map((emp) => {
                                 const isEmpAutonome = Boolean(emp.estAutonome || emp.isCadre || emp.categorie === 'CADRE');
                                 return (
-                                    <div
+                                    <button
+                                        type="button"
                                         key={emp.idEmploye}
                                         onClick={() => onSelectEmploye(emp.idEmploye)}
-                                        className="p-3 border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)]/60 transition-all cursor-pointer bg-[var(--color-surface)] flex items-center justify-between group shadow-2xs"
+                                        aria-label={`Ouvrir la feuille de pointage de ${emp.nom} ${emp.prenom || ''}`.trim()}
+                                        className="w-full min-h-[44px] p-3 border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)]/60 focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] transition-all cursor-pointer bg-[var(--color-surface)] flex items-center justify-between group shadow-2xs text-left"
                                     >
                                         <div className="flex items-center gap-3 min-w-0">
                                             <Avatar
@@ -117,7 +119,7 @@ export default function PeriodeEmployeeEmptyState({
                                         </div>
 
                                         <ChevronRight size={16} className="text-[var(--color-fg-muted)] group-hover:text-[var(--color-brand-600)] shrink-0 transition-transform group-hover:translate-x-0.5" />
-                                    </div>
+                                    </button>
                                 );
                             })}
                         </div>

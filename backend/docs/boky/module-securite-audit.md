@@ -1,7 +1,7 @@
 # GALAXAM SIRH — Module Sécurité, IAM, RBAC & Piste d'Audit
 ## Document Canonique — Mis à jour Octobre 2026
 
-> **Source de vérité** : `backend/conception/bdd/01_schema_core_securite.sql` + `frontend/src/features/administration/api/referentielService.js` + `frontend/src/features/administration/pages/securite/SecuriteAdminPanel.jsx`  
+> **Références d'implémentation** : `securite/api/AuthController.java`, `config/SecurityConfig.java`, `securite/IdleSessionService.java`, `frontend/src/context/AuthContext.jsx` et `backend/conception/bdd/01_schema_core_securite.sql`.
 > **Cadre Juridique** : Loi n° 2014-038 (Protection des données personnelles, Madagascar) — NIST SP 800-107 (HS512) — OWASP API Security Top 10.
 
 ---
@@ -19,7 +19,11 @@
 | `scheduler_execution` | Non documentée | Table avec verrou distribué `(job_code, execution_key)` PK |
 | Menus seeedés | Liste partielle | **25 menus total** (6 niv.1 + 19 niv.2) seedés dans `ref_menu` et rattachés à `ROLE_ADMIN` |
 
-**Lecture par rapport au CDC initial :** le CDC regroupe « Administrateur / DAF » dans un profil fonctionnel, et distingue l'Agent de Pointage. Ce libellé ne signifie pas qu'un rôle technique `DAF` existe ou a été seedé. Le seed actuel contient `ROLE_ADMIN` et `ROLE_AGENT_POINTAGE` ; des permissions granulaires peuvent être attribuées aux rôles, mais une recette effectuée avec `ROLE_ADMIN` ne démontre pas un profil DAF à privilèges limités. Les profils RH et DAF limités n’ont pas été vérifiés dynamiquement comme tels dans les éléments de recette disponibles.
+**Rôles présents dans le seed :** `ROLE_ADMIN` et `ROLE_AGENT_POINTAGE`. Des rôles supplémentaires peuvent être créés par l'administration ; aucun rôle technique DAF ou RH n'est seedé. Les tests repérés ne vérifient pas toutes les combinaisons de rôles et de permissions configurables.
+
+**Contrôle ciblé des deux rôles seedés :** `ROLE_AGENT_POINTAGE` conserve lecture et écriture du module Pointage sans validation et sans accès PAIE. La liste des dérogations d'indemnités par salarié (`GET /pointages/parametres/derogations`) est réservée à `PAIE_READ` ou `ROLE_ADMIN`, car elle expose des exceptions de rémunération nominatives. Les tests backend de `PointageDerogationAuthorizationTest` vérifient le refus de l'agent et l'accès des autorités PAIE et ADMIN.
+
+**Paramètres globaux :** leur consultation, création, modification, activation/désactivation et annulation programmée sont réservées à `ROLE_ADMIN`, y compris par appel API direct. Les autorisations `PAIE_READ`, `PAIE_WRITE`, `ORGANISATION_WRITE` et `POINTAGE_WRITE` ne suffisent pas. Cette règle ne bloque pas les API de lecture des référentiels Organisation nécessaires aux parcours métier (par exemple le chargement des sites de la grille Pointage) ; leurs mutations restent protégées par `ORGANISATION_WRITE` ou `ROLE_ADMIN`. `ParametreGlobalAuthorizationTest` vérifie les expressions d'accès de toutes les routes du contrôleur de paramètres.
 
 ---
 
@@ -27,11 +31,11 @@
 
 La gestion RH manipule des données hautement sensibles : identités civiles (CIN), données bancaires (RIB), salaires, motifs de rupture contractuelle. Dans le contexte multi-sites de GALAXAM, le système applique trois principes fondamentaux :
 
-1. **Stateless API** : Aucune session HTTP côté serveur. Chaque requête est authentifiée par un token JWT signé HMAC-SHA512.
+1. **API sans session servlet** : les requêtes protégées utilisent un access token JWT signé HMAC-SHA512. L'état des familles de refresh tokens et de leur inactivité est néanmoins conservé en base dans `utilisateur_session`.
+2. **Contrôles d'autorisation** : `SecurityConfig` ouvre explicitement quelques routes, réserve `/auth/register`, `/admin/**` et `/securite/**` à `ROLE_ADMIN`, puis exige une authentification pour le reste. Les contrôleurs concernés ajoutent des contrôles `@PreAuthorize` ou des vérifications métier selon l'opération ; les routes publiques d'authentification utilisent leurs propres validations.
+3. **Piste d'audit conservée par le cycle applicatif** : `audit_log` est liée par `ON DELETE SET NULL`. `AuditLog` refuse modification et suppression via son modèle, et `Utilisateur.delete` refuse la suppression physique d'un compte. Ces règles ne rendent pas la table immuable face à des écritures SQL directes ; une suppression SQL de l'utilisateur supprimerait les lignes de `journal_connexion` (`ON DELETE CASCADE`) et détacherait ses lignes d'audit.
 
 Les écritures métier qui nécessitent un auteur exigent une identité authentifiée dans le contexte Spring Security. En l'absence de cette identité, la requête est refusée ; aucun identifiant d'administrateur par défaut n'est attribué. L'octroi automatique de toutes les permissions est réservé au code de rôle exact `ROLE_ADMIN`.
-2. **Double niveau d'autorisation** : Filtrage HTTP grossier (`SecurityConfig`) + vérification fine `@PreAuthorize` sur chaque contrôleur REST.
-3. **Piste d'audit conservée par le cycle applicatif** : `audit_log` est liée par `ON DELETE SET NULL`. La suppression physique d'un utilisateur est refusée par `Utilisateur.delete`; le fonctionnement normal est la désactivation. Une suppression SQL directe contournerait cette règle et supprimerait les lignes de `journal_connexion` (`ON DELETE CASCADE`), tout en détachant l'audit de l'utilisateur.
 
 ### 1.1 Session et expiration pour inactivité
 
@@ -59,6 +63,21 @@ révoquée et ses refresh tokens sont invalidés; un access token signé encore
 valide ne suffit donc pas à rétablir l'accès. La déconnexion manuelle révoque
 la famille courante, et la désactivation du compte révoque les familles de cet
 utilisateur.
+
+Le refresh token courant est conservé dans `utilisateur_session`, avec le token
+précédent et la date de rotation. Un renouvellement normal remplace le token
+courant. Pendant les dix secondes suivant cette rotation, une requête
+concurrente portant l'ancien token peut récupérer le nouveau token de la même
+famille ; elle ne prolonge pas l'activité. Les colonnes `refresh_token` du compte
+`utilisateur` servent à l'import des anciens tokens au démarrage.
+
+Dans React, l'access token reste en mémoire dans `apiClient`. `AuthContext`
+conserve dans `localStorage` les informations utilisateur décodées du JWT
+(`galaxam-user`) et l'échéance d'inactivité partagée entre onglets ; le refresh
+token demeure dans le cookie HttpOnly. Le client tente un renouvellement avant
+l'expiration de l'access token, au besoin à la reprise, et coordonne les
+renouvellements concurrents. Ces contrôles d'interface n'accordent aucune
+permission côté serveur.
 
 Les classes concernées sont `securite/IdleSessionService.java`,
 `securite/JwtAuthenticationFilter.java`, `securite/JwtService.java` et
@@ -138,12 +157,14 @@ rôle à chaque utilisateur. L'email est unique sans distinction de casse ;
 `identifiant` dispose d'un index `LOWER` non unique et ne doit donc pas être
 présenté comme unique par la base.
 
-La désactivation et la réactivation effacent `refresh_token` et
+La désactivation, la réactivation et le changement de mot de passe par un
+administrateur effacent `refresh_token` et
 `refresh_token_expiration`. L'ancien cookie ne peut pas être rafraîchi après
-réactivation ; l'utilisateur doit se reconnecter. Le filtre JWT vérifie que le
+ces opérations ; l'utilisateur doit se reconnecter. Le filtre JWT vérifie que le
 compte chargé est actif et que la session `sid` du jeton n'est pas révoquée à
-chaque requête. La désactivation révoque ces sessions en base ; un ancien access
-token reste refusé après réactivation. Une nouvelle connexion est nécessaire.
+chaque requête. La désactivation et le changement de mot de passe révoquent ces
+sessions en base ; un ancien access token reste refusé. Une nouvelle connexion
+est nécessaire.
 
 Les appels `/auth/refresh` et `/auth/logout`, qui utilisent le cookie de session,
 exigent une origine explicitement autorisée par `app.cors.allowed-origins`.
@@ -269,6 +290,18 @@ une limite de renouvellement à 23 heures.
 | `roles` | `RolesAndPermissionsTab.jsx` | Gestion rôles + matrice R/W/V par module + attribution menus par rôle. |
 | `menus` | `MenuManagementTab.jsx` | CRUD arborescence de navigation niv.1 et niv.2. |
 
+Le formulaire peut transmettre un nouveau `motDePasse` lors de la modification
+d'un compte. `UtilisateurController.updateUser` le vérifie puis le hache via
+`Utilisateur.controler` avant enregistrement. Si un nouveau mot de passe non
+vide est fourni, la même transaction efface les colonnes de refresh héritées du
+compte et révoque toutes ses familles via `IdleSessionService.revokeAllForUser`.
+Les access tokens déjà émis sont alors refusés par le filtre JWT, qui vérifie
+la session `sid` à chaque requête protégée. Une modification du compte sans
+nouveau mot de passe ne déclenche pas cette révocation. Le test ciblé
+`UtilisateurPasswordChangeTest` vérifie ces deux cas et l'annulation de la
+transaction si la révocation échoue ; le test PostgreSQL de révocation des
+familles nécessite une base de test isolée.
+
 ---
 
 ## 5. Catalogue des Endpoints API (Code réel)
@@ -287,7 +320,7 @@ une limite de renouvellement à 23 heures.
 | Liste des utilisateurs | GET | `/securite/utilisateurs` | `ROLE_ADMIN` |
 | Utilisateur par ID | GET | `/securite/utilisateurs/{id}` | `ROLE_ADMIN` |
 | Créer utilisateur | POST | `/securite/utilisateurs` | `ROLE_ADMIN` |
-| Modifier utilisateur | PUT | `/securite/utilisateurs/{id}` | `ROLE_ADMIN` |
+| Modifier utilisateur (dont mot de passe si fourni) | PUT | `/securite/utilisateurs/{id}` | `ROLE_ADMIN` |
 | Désactiver utilisateur | PUT | `/securite/utilisateurs/{id}/desactiver` ← body `{motifDesactivation}` | `ROLE_ADMIN` |
 | Réactiver utilisateur | PUT | `/securite/utilisateurs/{id}/activer` | `ROLE_ADMIN` |
 | **Rôles (`/referentiel/roles`)** | | | |
@@ -313,7 +346,7 @@ une limite de renouvellement à 23 heures.
 | **Support Desktop & Cycle de Vie (`/desktop` & `/admin`)** | | | |
 | Amorçage admin initial | POST | `/desktop/setup/admin` (Profile `desktop`, boucle locale, capability) | Capability Bearer |
 | Arrêt gracieux service | POST | `/desktop/internal/shutdown` (Profile `desktop`, token SCM supervisor) | Token interne |
-| Autorisation backup natif | GET | `/admin/desktop-backup/authorize` (Confirme session administrateur vivante) | Authentifié |
+| Autorisation backup natif | GET | `/admin/desktop-backup/authorize` (Confirme session administrateur vivante) | `ROLE_ADMIN` via `/admin/**` |
 
 **Cache frontend** : `referentielService.js` cache `modules`, `roles`, `menusFlat`, `menusTree`. Toute mutation appelle `invalidateReferentielCache()` + `notifyMenuChanged()` (bus d'événements pour rafraîchir la navigation immédiatement).
 
@@ -329,36 +362,37 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant JWT as JwtService (HS512)
 
-    Client->>Auth: POST /auth/login {identifiant, motDePasse}
-    Auth->>DB: SELECT par identifiant (index LOWER)
-    alt Compte inactif ou inconnu
-        Auth->>DB: INSERT journal_connexion (ECHEC/COMPTE_DESACTIVE)
-        Auth-->>Client: 401/403
-    else Compte valide
-        Auth->>Auth: BCrypt.checkpw(motDePasse, hash)
-        alt Mauvais mot de passe
-            Auth->>DB: INSERT journal_connexion (ECHEC_MDP)
-            Auth-->>Client: 401
-        else OK
-            Auth->>DB: INSERT journal_connexion (SUCCES)
-            Auth->>JWT: generateAccessToken (HS512)
-            Auth->>JWT: generateRefreshToken (7 jours)
-            Auth->>DB: UPDATE utilisateur SET refresh_token, expiration
-            Auth-->>Client: 200 {accessToken} + Cookie HttpOnly refreshToken
-        end
+    Client->>Auth: POST /auth/login {email, motDePasse}
+    Auth->>DB: SELECT utilisateur par LOWER(email)
+    alt Email inconnu
+        Auth-->>Client: Erreur d'authentification (aucun journal lié à un utilisateur)
+    else Compte désactivé
+        Auth->>DB: INSERT journal_connexion (COMPTE_DESACTIVE)
+        Auth-->>Client: Accès refusé
+    else Mot de passe incorrect
+        Auth->>Auth: Vérifier le mot de passe avec BCrypt
+        Auth->>DB: INSERT journal_connexion (ECHEC)
+        Auth-->>Client: Erreur d'authentification
+    else Compte actif et mot de passe valide
+        Auth->>Auth: Vérifier le mot de passe avec BCrypt
+        Auth->>DB: INSERT journal_connexion (SUCCES)
+        Auth->>JWT: Générer refresh token HS512
+        Auth->>DB: INSERT utilisateur_session (session_id, refresh_token)
+        Auth->>JWT: Générer access token HS512 avec sid
+        Auth-->>Client: 200 {accessToken} + cookie HttpOnly refreshToken
     end
 ```
 
 ---
 
-## 7. Conformité et Standards
+## 7. Contrôles techniques observés
 
-| Standard | Implémentation concrète dans le code |
+| Domaine | Implémentation observable et limite |
 |---|---|
-| **Loi n° 2014-038** (Madagascar) | `audit_log` conservé par la politique applicative de désactivation, `ON DELETE SET NULL`, accès cloisonné par rôle RBAC |
-| **NIST SP 800-107** | HMAC-SHA512, fail-fast si clé < 64 octets au démarrage |
-| **OWASP BOLA** | Filtrage par filiale/site dans `EmploymentContextResolver` |
-| **OWASP SQL Injection** | Requêtes JDBC paramétrées exclusivement (`PreparedStatement`) |
+| **Conservation applicative des traces** | `AuditLog` refuse modification et suppression via le modèle ; `audit_log.id_utilisateur` utilise `ON DELETE SET NULL`. Ces faits ne constituent pas à eux seuls une certification légale ou une protection contre les écritures SQL directes. |
+| **Signature des JWT** | HMAC-SHA512 ; `JwtService.validateJwtSecret` refuse au démarrage une clé décodée de moins de 64 octets. |
+| **Contrôles d'accès aux données** | Permissions et contrôles métier dépendent des endpoints ; leur couverture complète n'est pas démontrée par ce document. |
+| **Requêtes SQL du module** | Les requêtes JDBC examinées dans les parcours d'authentification et de comptes emploient des `PreparedStatement` pour les valeurs variables. Ce constat ne couvre pas toutes les requêtes du projet. |
 | **BCrypt** | Hachage adaptatif des mots de passe |
 | **SessionSecurityScheduler** | Nettoyage nocturne des refresh tokens expirés ; son exécution est inscrite dans `scheduler_execution` |
 
@@ -370,14 +404,14 @@ sequenceDiagram
 |:---|:---|:---|:---|
 | **RG-SEC-01** | **Authentification Stateless JWT (HS512)** | NIST SP 800-107 & OWASP Top 10 | Signature cryptographique HMAC-SHA512 avec clé secrète $\ge 64$ octets vérifiée au démarrage (`JwtService`). Les requêtes HTTP ne créent aucune session servlet côté serveur. |
 | **RG-SEC-02** | **Expiration d'Inactivité Glissante (900s)** | Norme de sécurité des sessions bancaires/RH | Session invalidée après 900 secondes (paramètre `idle-timeout-seconds`) sans interaction explicite (clics, frappes). Les requêtes API en arrière-plan et les timers ne prolongent pas le délai. |
-| **RG-SEC-03** | **Rotation Stricte des Refresh Tokens** | Recommandations OAuth2 / IETF BCP | Chaque appel à `/auth/refresh` invalide immédiatement le refresh token consommé et en délivre un nouveau au sein de la même famille de session (`utilisateur_session`). |
-| **RG-SEC-04** | **Révocation en Cascade des Sessions** | Sécurité réactive et IAM | La déconnexion manuelle (`POST /auth/logout`) révoque la session active ; la désactivation d'un compte utilisateur révoque instantanément toutes ses sessions actives et refresh tokens. |
-| **RG-SEC-05** | **Politique et Hachage des Mots de Passe** | OWASP Authentication Cheat Sheet | Hachage adaptatif en BCrypt avec sel aléatoire. Politique de complexité minimale : au moins 8 caractères, une majuscule et un chiffre. |
-| **RG-SEC-06** | **Double Barrière d'Autorisation (RBAC)** | Défense en profondeur | Filtrage grossier par URI dans `SecurityConfig` (Spring Security Filter Chain) + contrôle granulaire `@PreAuthorize("hasAuthority('...')")` sur chaque méthode de contrôleur REST. |
+| **RG-SEC-03** | **Rotation des Refresh Tokens** | Implémentation de `IdleSessionService` | Un renouvellement remplace le token courant dans `utilisateur_session`. Le token précédent peut servir pendant dix secondes à récupérer le token déjà émis lors d'une requête concurrente, sans prolonger l'activité. |
+| **RG-SEC-04** | **Révocation des Sessions** | `IdleSessionService` et `UtilisateurController` | La déconnexion manuelle (`POST /auth/logout`) révoque la famille courante ; la désactivation ou le changement de mot de passe par un administrateur révoque toutes les familles du compte dans la même transaction que la mise à jour. |
+| **RG-SEC-05** | **Politique et Hachage des Mots de Passe** | `Utilisateur.controler` | Hachage BCrypt. Le mot de passe fourni doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre. |
+| **RG-SEC-06** | **Contrôles d'autorisation (RBAC)** | `SecurityConfig` et contrôleurs | Filtrage des URI publiques, administrateur et authentifiées par Spring Security ; contrôles `@PreAuthorize` ou vérifications métier selon les endpoints. Une permission affichée dans React ne remplace pas le contrôle serveur. |
 | **RG-SEC-07** | **Arborescence Dynamique Filtrée par Rôle** | Moindre privilège d'interface | L'API `GET /auth/menu` ne renvoie au client React que les menus et sous-menus (parmi les 25 du référentiel `ref_menu`) explicitement habilités pour le rôle de l'utilisateur dans `role_menu`. |
-| **RG-SEC-08** | **Immutabilité de la Piste d'Audit** | Loi n° 2014-038 & Traçabilité légale | La table `audit_log` est protégée contre la suppression en cascade (`ON DELETE SET NULL`). La suppression physique des utilisateurs est interdite par `Utilisateur.delete` au profit d'une désactivation logique motivée. |
+| **RG-SEC-08** | **Conservation applicative de la Piste d'Audit** | `AuditLog`, `Utilisateur` et schéma SQL | Le modèle `AuditLog` refuse modification et suppression ; `Utilisateur.delete` refuse la suppression physique. `ON DELETE SET NULL` conserve les lignes d'audit si un compte est supprimé directement en SQL, sans garantir l'immutabilité de la table. |
 | **RG-SEC-09** | **Bootstrap Sécurisé de l'Administrateur** | Sécurité d'initialisation en environnement Desktop | L'endpoint `/desktop/setup/admin` exige un jeton de capacité éphémère à usage unique généré par le superviseur natif, et refuse toute création si un compte administrateur actif existe déjà. |
-| **RG-SEC-10** | **Éradication des Injections SQL et XSS** | OWASP Top 10 A01/A03 | Utilisation exclusive de requêtes paramétrées JDBC (`PreparedStatement`) et sanitisation des entrées/sorties textuelles et CSV contre les injections de formules (`=+-@`). |
+| **RG-SEC-10** | **Paramétrage des requêtes du module** | Requêtes examinées dans `Utilisateur` et `CustomUserDetailsService` | Les recherches et mutations de comptes examinées lient leurs paramètres avec `PreparedStatement`. Cette règle ne garantit pas à elle seule l'absence d'injection SQL ou XSS dans tout le projet. |
 
 ---
 

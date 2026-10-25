@@ -7,29 +7,19 @@ import { getErrorMessage } from '@/api/apiClient';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
-const THEME_STORAGE_KEY = 'galaxam-theme';
-
-const getInitialTheme = () => {
-    if (typeof window === 'undefined') return false;
-    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved === 'dark') return true;
-    if (saved === 'light') return false;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
-
 export default function Layout({ children }) {
     // Contexte, état local et navigation courante.
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
+    const isDarkMode = false;
     const { pathname } = useLocation();
     const { isAuthenticated } = useAuth();
     const { menu, loading: menuLoading, error: menuError, refreshMenu } = useMenu();
 
-    // Effet : applique et mémorise le thème.
+    // L'application reste en mode clair, quelle que soit la préférence du système.
     useEffect(() => {
-        document.documentElement.classList.toggle('dark', isDarkMode);
-        window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? 'dark' : 'light');
-    }, [isDarkMode]);
+        document.documentElement.classList.remove('dark');
+        window.localStorage.setItem('galaxam-theme', 'light');
+    }, []);
 
     // Rendu : garde non authentifiée.
     if (!isAuthenticated) {
@@ -62,7 +52,6 @@ export default function Layout({ children }) {
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
                 <Topbar
                     onMenuClick={() => setSidebarOpen(true)}
-                    onThemeToggle={() => setIsDarkMode((prev) => !prev)}
                     isDarkMode={isDarkMode}
                     title={title}
                 />

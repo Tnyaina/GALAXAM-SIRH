@@ -141,7 +141,7 @@ export default function PayrollCampaignShell({
                 </div>
 
                 {/* Bannière de Recalcul si STALE */}
-                {recalcRequired && (
+                {recalcRequired && !payrollClosed && (
                     <div className="mt-3 p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex items-center justify-between gap-3 text-xs text-[var(--color-warning-800)] dark:text-[var(--color-warning-200)] flex-wrap">
                         <div className="flex items-center gap-2">
                             <span className="font-bold">⚠ Calcul obsolète :</span>

@@ -49,10 +49,11 @@ class CongeCorrectionsPostgresIntegrationTest {
                 decimal("51000", scalarDecimal(c, "SELECT cumul_valorisation FROM conge_journal_droit WHERE id_journal=?", secondJournal));
                 decimal("51000", new CongeLotValorisationService().situation(employee, LocalDate.of(2026, 4, 30), c).soldeValorisation());
                 assertEquals(1, scalarInt(c, "SELECT COUNT(*) FROM conge_valorisation_mensuelle_correction WHERE id_journal=? AND id_mouvement_acquisition=?", firstJournal, movement));
-                try (PreparedStatement ps = c.prepareStatement("SELECT ancienne_valeur,nouvelle_valeur,motif,corrige_par,date_correction FROM conge_valorisation_mensuelle_correction WHERE id_journal=?")) {
+                try (PreparedStatement ps = c.prepareStatement("SELECT ancienne_valeur,nouvelle_valeur,motif,corrige_par,date_correction,id_employe FROM conge_valorisation_mensuelle_correction WHERE id_journal=?")) {
                     ps.setInt(1, firstJournal); try (ResultSet rs = ps.executeQuery()) {
                         assertTrue(rs.next()); decimal("25000", rs.getBigDecimal(1)); decimal("26000", rs.getBigDecimal(2));
                         assertEquals("Correction DAF mensuelle", rs.getString(3)); assertEquals(author, rs.getInt(4)); assertNotNull(rs.getTimestamp(5));
+                        assertEquals(employee, rs.getInt(6));
                     }
                 }
                 var history = correction.historique(reference, c);

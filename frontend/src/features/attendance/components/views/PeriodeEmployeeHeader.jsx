@@ -106,7 +106,7 @@ export default function PeriodeEmployeeHeader({
                             disabled={currentEmpIndex <= 0}
                             title="Collaborateur précédent (Alt+←)"
                             aria-label="Collaborateur précédent"
-                            className="rounded-none border-0"
+                            className="!min-h-[40px] !min-w-[40px] rounded-none border-0"
                         />
                         <div className="px-3 py-1 text-xs font-medium border-x border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
                             {employesList.length > 0 ? (
@@ -126,7 +126,7 @@ export default function PeriodeEmployeeHeader({
                             disabled={currentEmpIndex < 0 || currentEmpIndex >= employesList.length - 1}
                             title="Collaborateur suivant (Alt+→)"
                             aria-label="Collaborateur suivant"
-                            className="rounded-none border-0"
+                            className="!min-h-[40px] !min-w-[40px] rounded-none border-0"
                         />
                     </div>
 
@@ -141,7 +141,9 @@ export default function PeriodeEmployeeHeader({
                             if (val) onSelectEmploye(Number(val));
                         }}
                         placeholder="Rechercher un employé…"
+                        aria-label="Rechercher un collaborateur dans la période"
                         size="sm"
+                        buttonClassName="!h-10 min-h-[40px]"
                         className="min-w-[220px] text-xs"
                     />
                 </div>
@@ -200,6 +202,7 @@ export default function PeriodeEmployeeHeader({
                             size="xs"
                             aria-pressed={filterJour === key}
                             onClick={() => setFilterJour(key)}
+                            className="!min-h-[40px]"
                         >
                             <span>{label}</span>
                             <span className="tabular-nums text-[10px] opacity-75">{count}</span>

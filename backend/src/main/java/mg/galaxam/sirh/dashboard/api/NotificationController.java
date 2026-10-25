@@ -127,7 +127,10 @@ public class NotificationController {
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, id);
                 bindVisibility(ps, 2, idUtilisateur, userRoleCode, isAdmin);
-                ps.executeUpdate();
+                if (ps.executeUpdate() == 0) {
+                    return ResponseEntity.status(404)
+                            .body(Map.of("message", "Notification introuvable ou non accessible."));
+                }
             }
             return ResponseEntity.ok(Map.of("id", id, "lue", true));
         } catch (Exception e) {

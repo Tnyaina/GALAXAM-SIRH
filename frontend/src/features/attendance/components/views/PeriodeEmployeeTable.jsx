@@ -244,7 +244,7 @@ export default function PeriodeEmployeeTable({
                         <div className="attendance-week-header px-3.5 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3 text-xs font-bold text-[var(--color-fg)]">
                             <button type="button" aria-expanded={isExpanded} aria-controls={`week-${week.weekKey}`}
                                 onClick={() => setExpandedWeeks(previous => ({ ...previous, [week.weekKey]: !isExpanded }))}
-                                className="flex items-center gap-2 text-left cursor-pointer hover:text-[var(--color-brand-700)]">
+                                className="flex min-h-[40px] items-center gap-2 text-left cursor-pointer hover:text-[var(--color-brand-700)]">
                                 {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                                 <span>Semaine {week.weekNumber || wIdx + 1}</span>
                                 <span className="font-normal text-[var(--color-fg-muted)]">
@@ -270,7 +270,7 @@ export default function PeriodeEmployeeTable({
                                 )}
                                 {weekMissing > 0 && <span className="text-[var(--color-warning-700)]">{weekMissing} à saisir</span>}
                                 {canEditPeriod && (
-                                    <Button variant="outline" size="xs" onClick={() => requestWeekFill(summaryRows)}>
+                                    <Button variant="outline" size="xs" className="!min-h-[40px]" onClick={() => requestWeekFill(summaryRows)}>
                                         <ClockCheck size={13} /> Remplir semaine
                                     </Button>
                                 )}
@@ -318,7 +318,8 @@ export default function PeriodeEmployeeTable({
                                             rowBorderCue = 'border-l-2 border-l-[var(--color-success-500)]';
                                         }
 
-                                        const canEditRow = canEditPeriod && row.canCorrect !== false;
+                                        const isFutureDay = row.statut === 'NON_ECHU' || row.isNonEchu === true;
+                                        const canEditRow = canEditPeriod && row.canCorrect !== false && !isFutureDay;
                                         const chomeColSpan = 7;
 
                                         return (
@@ -350,7 +351,7 @@ export default function PeriodeEmployeeTable({
                                                             <button
                                                                 type="button"
                                                                 onClick={() => toggleDayContinu(row.datePointage)}
-                                                                className={`text-[9px] px-1 py-0.2 font-sans font-semibold rounded border transition-colors cursor-pointer shrink-0 ${
+                                                                className={`min-h-[40px] min-w-[40px] text-[9px] px-1 py-0.2 font-sans font-semibold rounded border transition-colors cursor-pointer shrink-0 ${
                                                                     row.horaireContinu
                                                                         ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/40 hover:bg-[var(--color-brand-500)]/20'
                                                                         : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
@@ -371,7 +372,7 @@ export default function PeriodeEmployeeTable({
                                                 {isConge && !hasPunches ? (
                                                     <Td role="cell" data-label="Situation" data-mobile-span="full" colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] font-medium">
                                                         <div className="flex items-center justify-center gap-2">
-                                                            <Badge variant="info" size="sm">Congé payé validé</Badge>
+                                                            <Badge variant="info" size="sm">{row.congePaye === false ? 'Congé sans solde validé' : 'Congé payé validé'}</Badge>
                                                         </div>
                                                     </Td>
                                                 ) : isFerie && !hasPunches ? (

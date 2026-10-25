@@ -18,6 +18,8 @@ import Modal from '@/components/ui/overlays/Modal';
 import { useAuth } from '@/context/AuthContext';
 import { fmtDateInput } from '@/utils/dateUtils';
 import { resolvePendingTcongeResult } from '@/features/leave/utils/pendingTcongeState';
+import MesDemandesPanel from '@/features/leave/components/MesDemandesPanel';
+import OwnRequestForm from '@/features/leave/components/OwnRequestForm';
 
 // Sous-composants Onglets
 const SoldesOverviewTab     = lazy(() => import('@/features/leave/components/SoldesOverviewTab'));
@@ -26,6 +28,8 @@ const PeriodesReferenceTab  = lazy(() => import('@/features/leave/components/Per
 
 export default function GestionCongesPage() {
   const { hasPermission } = useAuth();
+  const canReadGlobal = hasPermission('CONGE_READ');
+  const canValidate = hasPermission('CONGE_VALIDATE');
   // Contexte et navigation
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -36,6 +40,10 @@ export default function GestionCongesPage() {
   const [pendingRatesStatus, setPendingRatesStatus] = useState('loading');
   const [error, setError] = useState(null);
   const [showGrandRecap, setShowGrandRecap] = useState(false);
+  const [showOwnRequestForm, setShowOwnRequestForm] = useState(false);
+  const [ownDemandeToEdit, setOwnDemandeToEdit] = useState(null);
+  const [ownRequestsRefreshKey, setOwnRequestsRefreshKey] = useState(0);
+  const [ownReferentiels, setOwnReferentiels] = useState(null);
   const [dateFin, setDateFin] = useState(() => fmtDateInput(new Date()));
   const [dateDebut, setDateDebut] = useState(() => `${new Date().getFullYear()}-01-01`);
   const [exporting, setExporting] = useState(false);
@@ -44,13 +52,15 @@ export default function GestionCongesPage() {
 
   // Données dérivées
   const tabFromUrl = searchParams.get('tab');
-  const activeTab = ['demandes', 'periodes'].includes(tabFromUrl) ? tabFromUrl : 'planning';
+  const activeTab = canReadGlobal
+    ? (['demandes', 'periodes'].includes(tabFromUrl) ? tabFromUrl : 'planning')
+    : 'mes-demandes';
   const nbTauxAActiver = pendingRatesStatus === 'success' ? periodesEnAttente.length : null;
-  const tabsList = [
+  const tabsList = canReadGlobal ? [
     { id: 'planning', label: 'Planning des absences' },
     { id: 'demandes', label: 'Demandes et décisions', badge: nbEnAttente > 0 ? nbEnAttente : undefined },
     { id: 'periodes', label: 'Contrôle des droits', badge: nbTauxAActiver > 0 ? nbTauxAActiver : undefined }
-  ];
+  ] : [{ id: 'mes-demandes', label: 'Mes demandes' }];
 
   // Effets
   const loadGlobalData = useCallback(async () => {
@@ -58,23 +68,32 @@ export default function GestionCongesPage() {
     setError(null);
     setPendingRatesStatus('loading');
     setPeriodesEnAttente([]);
-    const needsReferentiels = activeTab !== 'periodes';
+    const needsReferentiels = canReadGlobal && activeTab !== 'periodes';
     const [pendingResult, refsResult, pendingRatesResult] = await Promise.allSettled([
-        congeService.getAllDemandes({ statut: 'EN_ATTENTE', page: 1, size: 1 }),
+        canValidate && canReadGlobal ? congeService.getAllDemandes({ statut: 'EN_ATTENTE', page: 1, size: 1 }) : Promise.resolve(null),
         needsReferentiels ? congeService.getAllReferentiels() : Promise.resolve(null),
-        congeService.getPeriodesEnAttenteActivation(),
+        canValidate && canReadGlobal ? congeService.getPeriodesEnAttenteActivation() : Promise.resolve([]),
     ]);
     if (requestId !== requestSequence.current) return;
-    setNbEnAttente(pendingResult.status === 'fulfilled' ? pendingResult.value?.totalElements ?? null : null);
+    setNbEnAttente(pendingResult?.status === 'fulfilled' ? pendingResult.value?.totalElements ?? null : null);
     if (needsReferentiels) {
       setReferentiels(refsResult.status === 'fulfilled' ? refsResult.value?.data || refsResult.value || null : null);
     }
-    const pendingRates = resolvePendingTcongeResult(pendingRatesResult);
+    if (!canReadGlobal && refsResult.status === 'fulfilled') {
+      setOwnReferentiels(refsResult.value?.data || refsResult.value || null);
+    }
+    const pendingRates = canValidate && canReadGlobal ? resolvePendingTcongeResult(pendingRatesResult) : { status: 'success', periods: [] };
     setPendingRatesStatus(pendingRates.status);
     setPeriodesEnAttente(pendingRates.periods);
-    const failed = [pendingResult, refsResult].find(result => result.status === 'rejected');
+    const failed = [pendingResult, refsResult].filter(Boolean).find(result => result.status === 'rejected');
     if (failed) setError(getErrorMessage(failed.reason, 'Certaines données des congés sont indisponibles.'));
-  }, [activeTab]);
+  }, [activeTab, canReadGlobal, canValidate]);
+
+  useEffect(() => {
+    if (!canReadGlobal) congeService.getAllReferentiels()
+      .then(value => setOwnReferentiels(value?.data || value))
+      .catch(() => setError('Les types de congé sont momentanément indisponibles.'));
+  }, [canReadGlobal]);
 
   useEffect(() => {
     loadGlobalData();
@@ -110,9 +129,9 @@ export default function GestionCongesPage() {
 
       <PageHeader
         title="Congés et absences"
-        subtitle="Planifier les absences de l'équipe et traiter les demandes."
+        subtitle={canReadGlobal ? "Planifier les absences de l'équipe et traiter les demandes." : 'Consulter et soumettre vos demandes de congé.'}
         icon={CalendarDays}
-        actions={hasPermission('CONGE_READ') && (
+        actions={canReadGlobal && (
           <Button variant="outline" size="sm" iconLeft={<FileSpreadsheet size={15} />}
             onClick={() => { setExportError(null); setShowGrandRecap(true); }}>
             Grand récapitulatif Excel
@@ -127,18 +146,18 @@ export default function GestionCongesPage() {
       {error && (
         <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />
       )}
-      {pendingRatesStatus === 'error' && (
+          {canValidate && canReadGlobal && pendingRatesStatus === 'error' && (
         <Alert type="error" title="Activations TCONGE indisponibles"
           message="Impossible de vérifier les périodes en attente. Aucune conclusion ne peut être tirée sur les activations nécessaires."
           actionLabel="Réessayer" onAction={loadGlobalData} />
       )}
-      {pendingRatesStatus === 'loading' && activeTab !== 'periodes' && (
+      {canValidate && canReadGlobal && pendingRatesStatus === 'loading' && activeTab !== 'periodes' && (
         <div role="status" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
           <Loading size="sm" label="Vérification des activations TCONGE en attente…" />
         </div>
       )}
 
-      <section aria-label="Étapes annuelles des droits à congé" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3">
+      {canReadGlobal && <section aria-label="Étapes annuelles des droits à congé" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3">
         <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             ['1', 'Acquisitions mensuelles', 'Après chaque clôture de paie'],
@@ -154,18 +173,18 @@ export default function GestionCongesPage() {
             </li>
           ))}
         </ol>
-      </section>
+      </section>}
 
       {/* Barre d'onglets sobre de premier niveau */}
-      <Tabs
+      {canReadGlobal && <Tabs
         tabs={tabsList}
         activeTab={activeTab}
         onChange={handleTabChange}
         variant="underline"
         showScrollHint
-      />
+      />}
 
-      <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés" size="lg">
+      {canReadGlobal && <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés" size="lg">
         <div className="space-y-4">
           <p className="text-sm text-[var(--color-fg-muted)]">
             Solde avant la période, mouvements entre les deux dates et valeur du stock
@@ -188,12 +207,17 @@ export default function GestionCongesPage() {
             </Button>
           </div>
         </div>
-      </Modal>
+      </Modal>}
 
       {/* Contenu fluide de l'onglet actif (sans sur-boîte étouffante) */}
       <div className="space-y-5">
         <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
-          {activeTab === 'planning' && (
+          {!canReadGlobal && <MesDemandesPanel
+            refreshKey={ownRequestsRefreshKey}
+            onNewRequest={() => { setOwnDemandeToEdit(null); setShowOwnRequestForm(true); }}
+            onEdit={(demande) => { setOwnDemandeToEdit(demande); setShowOwnRequestForm(true); }}
+          />}
+          {canReadGlobal && activeTab === 'planning' && (
             <SoldesOverviewTab
               nbEnAttente={nbEnAttente}
               referentiels={referentiels}
@@ -202,14 +226,14 @@ export default function GestionCongesPage() {
             />
           )}
 
-          {activeTab === 'demandes' && (
+          {canReadGlobal && activeTab === 'demandes' && (
             <DemandesValidationTab
               referentiels={referentiels}
               onReload={loadGlobalData}
             />
           )}
 
-          {activeTab === 'periodes' && (
+          {canReadGlobal && activeTab === 'periodes' && (
             pendingRatesStatus === 'loading' ? (
               <div role="status" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
                 <Loading size="sm" label="Vérification des activations TCONGE en attente…" />
@@ -236,6 +260,13 @@ export default function GestionCongesPage() {
           )}
         </Suspense>
       </div>
+      {!canReadGlobal && showOwnRequestForm && ownReferentiels && (
+        <OwnRequestForm referentiels={ownReferentiels} initialDemande={ownDemandeToEdit} onClose={() => setShowOwnRequestForm(false)} onSuccess={() => {
+          setShowOwnRequestForm(false);
+          setOwnDemandeToEdit(null);
+          setOwnRequestsRefreshKey(key => key + 1);
+        }} />
+      )}
     </div>
   );
 }

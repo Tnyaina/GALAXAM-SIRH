@@ -128,6 +128,24 @@ class IdleSessionServicePostgresTest {
     }
 
     @Test
+    void revokeAllForUserInvalidatesAccessAndRefreshForEveryDevice() throws Exception {
+        String first = create("refresh-first");
+        String second = create("refresh-second");
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            sessions.revokeAllForUser(41, c);
+            c.commit();
+        }
+
+        assertFalse(sessions.isActive(first, "agent@example.test"));
+        assertFalse(sessions.isActive(second, "agent@example.test"));
+        try (Connection c = dataSource.getConnection()) {
+            assertNull(sessions.findTokensByRefreshToken("refresh-first", c));
+            assertNull(sessions.findTokensByRefreshToken("refresh-second", c));
+        }
+    }
+
+    @Test
     void startupMigrationImportsLegacyRefreshTokenIdempotently() throws Exception {
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
             s.execute("DROP TABLE utilisateur_session");

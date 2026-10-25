@@ -881,6 +881,8 @@ public class PointageEmployeService {
         double retardCompense = synDto != null ? synDto.getRetardCompense() : 0.0;
         double deficitNet = synDto != null && synDto.getMinutesAbsenceFinale() != null
                 ? toLegacyDecimalHours(synDto.getMinutesAbsenceFinale()) : (synDto != null ? synDto.getHeuresAbsenceRetenues() : toLegacyDecimalHours(retardsMins));
+        // Une période entièrement future n'a encore aucune absence constatée.
+        if (startDate.isAfter(today)) deficitNet = 0.0;
         double hNuit = synDto != null ? synDto.getHeuresNuitTotal() : totalHeuresNuit;
         double hDim = synDto != null ? synDto.getHeuresDimancheTotal() : totalHeuresDimanche;
         double hFer = synDto != null ? synDto.getHeuresFerieTotal() : totalHeuresFerie;
@@ -1089,16 +1091,17 @@ public class PointageEmployeService {
         } catch (SQLException exception) {
             throw new IllegalStateException("Impossible de charger les statuts de correction du pointage.", exception);
         }
-        result.setSoldePeriode(synDto);
+        // Le solde final n'est pertinent qu'une fois la période entamée.
+        result.setSoldePeriode(startDate.isAfter(today) ? null : synDto);
         regles.put("dureeJourNormale", String.valueOf(dureeJourMins / 60.0));
-        recap.put("deficitHebdo", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesDeficitHebdo()));
+        recap.put("deficitHebdo", synDto == null ? "—" : startDate.isAfter(today) ? "00h00" : formatHoursMinutes(synDto.getMinutesDeficitHebdo()));
         recap.put("hs50Hebdo", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs50Hebdo()));
         recap.put("hs50Finales", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs50Finales()));
         recap.put("hsTotalHebdo", synDto == null || synDto.getMinutesHs30Hebdo() == null || synDto.getMinutesHs50Hebdo() == null ? "—" : formatHoursMinutes(Math.addExact(synDto.getMinutesHs30Hebdo(), synDto.getMinutesHs50Hebdo())));
         recap.put("hs30Hebdo", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs30Hebdo()));
         recap.put("ajustements", synDto == null ? "—" : signedHours(synDto.getMinutesAjustementPeriode()));
-        recap.put("soldeFinal", synDto == null ? "—" : signedHours(synDto.getMinutesSoldePeriode()));
-        recap.put("absenceFinale", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesAbsenceFinale()));
+        recap.put("soldeFinal", synDto == null ? "—" : startDate.isAfter(today) ? "00h00" : signedHours(synDto.getMinutesSoldePeriode()));
+        recap.put("absenceFinale", synDto == null ? "—" : startDate.isAfter(today) ? "00h00" : formatHoursMinutes(synDto.getMinutesAbsenceFinale()));
         recap.put("hs30Finales", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs30Finales()));
         Map<String, BigDecimal> totauxIndemnites = new LinkedHashMap<>();
         list.forEach(jour -> jour.getIndemnites().values().stream()

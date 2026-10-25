@@ -351,6 +351,16 @@ const congeService = {
     return response.data;
   },
 
+  getMesDemandes: async (params = {}) => {
+    const response = await apiClient.get('/conges/demandes/me', { params });
+    return response.data;
+  },
+
+  getMonDossier: async () => {
+    const response = await apiClient.get('/conges/demandes/me/dossier');
+    return response.data;
+  },
+
   /**
    * Récupère le détail d'une demande de congé par son ID
    */
@@ -403,6 +413,9 @@ const congeService = {
     }
     if (options.estRemunere !== undefined && options.estRemunere !== null) {
       params.append('estRemunere', String(options.estRemunere));
+    }
+    if (options.utiliserRemunerationParDefaut) {
+      params.append('utiliserRemunerationParDefaut', 'true');
     }
     if (options.derogationSoldeNegatif) {
       params.append('derogationSoldeNegatif', 'true');

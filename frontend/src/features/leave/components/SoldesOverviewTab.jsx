@@ -168,12 +168,14 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
   };
   const closeDetail = () => { setShowDetailModal(false); setSelectedDemande(null); };
 
-  const onConfirmValider = async (justificatifFourni, estRemunere, derogationSoldeNegatif) => {
+  const onConfirmValider = async (justificatifFourni, estRemunere, derogationSoldeNegatif, utiliserRemunerationParDefaut) => {
     if (!selectedDemande) return;
     try {
       setActionLoading(true);
       setActionError(null);
-      await congeService.validerDemande(selectedDemande.idDemandeConge, { justificatifFourni, estRemunere, derogationSoldeNegatif });
+      await congeService.validerDemande(selectedDemande.idDemandeConge, {
+        justificatifFourni, estRemunere, derogationSoldeNegatif, utiliserRemunerationParDefaut,
+      });
       toast({ title: 'Demande validée', message: `La demande #${selectedDemande.idDemandeConge} a été validée.`, type: 'success', duration: 3000 });
       setShowValiderModal(false);
       setShowDetailModal(false);

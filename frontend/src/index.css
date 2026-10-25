@@ -378,9 +378,9 @@
   --color-sidebar-brand: #5598b3;
 
   --color-fg: #18242d;
-  --color-fg-muted: #62717a;
-  /* Contraste > 5.3:1 sur blanc — texte secondaire lisible */
-  --color-fg-subtle: #7f8c94;
+  --color-fg-muted: #334862;
+  /* Contraste renforcé pour les libellés secondaires sur fond clair. */
+  --color-fg-subtle: #4a617c;
   /* Muted / placeholder */
 
   --color-border: #d5dde1;

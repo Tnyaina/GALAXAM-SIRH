@@ -13,8 +13,6 @@ import java.util.UUID;
 import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
-import mg.galaxam.sirh.paie.application.PayrollLeaveJournalService;
-import mg.galaxam.sirh.paie.application.PayrollService;
 import org.junit.jupiter.api.Test;
 
 /** Integration characterization of payroll close → monthly leave acquisition on isolated PostgreSQL. */

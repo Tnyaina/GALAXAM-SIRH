@@ -32,7 +32,7 @@ export default function PointageToolbar({
             <div className="px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
 
                 {/* Bloc 1 : Sélection Site, Date & Recherche */}
-                <div className="flex items-center gap-3">
+                <div className="flex w-full min-w-0 flex-wrap items-center gap-3">
                     {/* Site */}
                     <div className="flex items-center gap-1 shrink-0">
                         <SearchSelect
@@ -40,8 +40,10 @@ export default function PointageToolbar({
                             value={selectedSite ? String(selectedSite) : ''}
                             onChange={(val) => onSiteChange(val || '')}
                             disabled={isReadOnly}
+                            aria-label="Site de pointage"
                             placeholder="Sélectionner un site..."
                             size="sm"
+                            buttonClassName="!h-10 min-h-[40px]"
                             className="text-xs min-w-[190px]"
                         />
                     </div>
@@ -55,7 +57,7 @@ export default function PointageToolbar({
                             selectedDate={selectedDate}
                             onDateChange={(val) => onDateChange(val)}
                             allowFutureDates={false}
-                            className="h-[32px] [&_button]:px-2"
+                            className="h-10 [&_button]:min-h-[40px] [&_button]:px-2"
                         />
                     </div>
 
@@ -70,9 +72,10 @@ export default function PointageToolbar({
                     <div className="h-5 w-px bg-[var(--color-border-subtle)] shrink-0" />
 
                     {/* Recherche */}
-                    <div className="w-[190px] shrink-0">
+                    <div className="w-full shrink-0 sm:w-[190px]">
                         <Input
                             icon={<Search size={12} className="text-[var(--color-fg-muted)]" />}
+                            aria-label="Rechercher un collaborateur par nom ou matricule"
                             placeholder="Nom, matricule…"
                             value={searchTerm}
                             onChange={(e) => onSearchChange(e.target.value)}
@@ -82,13 +85,13 @@ export default function PointageToolbar({
                 </div>
 
                 {/* Bloc 2 : Outils d'automatisation, Congés & Enregistrement */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                     <button
                         type="button"
                         disabled={isReadOnly}
                         onClick={onAutoFillStandard}
                         title="Préremplir les plages matin et après-midi du site aux lignes non saisies"
-                        className="flex items-center gap-1 px-2 h-[30px] text-[11px] font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                        className="flex min-h-[40px] min-w-[40px] items-center gap-1 px-2 text-[11px] font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
                         <ClockCheck size={13} className="text-[var(--color-success-600)] shrink-0" />
                         <span>Plages du site</span>
@@ -98,7 +101,7 @@ export default function PointageToolbar({
                         disabled={isReadOnly}
                         onClick={onAutoDeducePauses}
                         title="Déduire automatiquement la pause déjeuner pour les pointages continus"
-                        className="flex items-center gap-1 px-2 h-[30px] text-[11px] font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                        className="flex min-h-[40px] min-w-[40px] items-center gap-1 px-2 text-[11px] font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
                         <Coffee size={13} className="text-[var(--color-warning-600)] shrink-0" />
                         <span>Déduire pauses</span>
@@ -108,7 +111,7 @@ export default function PointageToolbar({
                             type="button"
                             onClick={onAddConge}
                             title="Déclarer un congé ou une absence pour un collaborateur"
-                            className="flex items-center gap-1 px-2 h-[30px] text-[11px] font-semibold border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)] hover:bg-[var(--color-warning-500)]/20 transition-colors cursor-pointer whitespace-nowrap"
+                            className="flex min-h-[40px] min-w-[40px] items-center gap-1 px-2 text-[11px] font-semibold border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)] hover:bg-[var(--color-warning-500)]/20 transition-colors cursor-pointer whitespace-nowrap"
                         >
                             <CalendarOff size={13} className="shrink-0" />
                             <span>Congé / Absence</span>
@@ -123,7 +126,7 @@ export default function PointageToolbar({
                         disabled={isReadOnly || saving}
                         onClick={onSave}
                         className={`
-                            flex items-center gap-1 px-2.5 h-[30px] text-[11px] font-bold shrink-0 transition-all cursor-pointer border whitespace-nowrap
+                            flex min-h-[40px] min-w-[40px] items-center gap-1 px-2.5 text-[11px] font-bold shrink-0 transition-all cursor-pointer border whitespace-nowrap
                             ${dirtyCount > 0
                                 ? 'bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-[var(--color-on-color)] border-[var(--color-brand-600)] shadow-sm'
                                 : isReadOnly

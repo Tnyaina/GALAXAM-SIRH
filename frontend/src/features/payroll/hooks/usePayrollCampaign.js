@@ -110,7 +110,7 @@ export function usePayrollCampaign(requestedPeriodId = null, enabled = true) {
     /** Changer de période et recharger le contexte */
     const selectPeriode = useCallback((newPeriodeId) => {
         setSelectedPeriodeId(newPeriodeId);
-        loadData(newPeriodeId);
+        loadData(newPeriodeId, { reloadPeriods: true });
     }, [loadData]);
 
     /** Rechargement manuel (bouton Actualiser ou après une action) */

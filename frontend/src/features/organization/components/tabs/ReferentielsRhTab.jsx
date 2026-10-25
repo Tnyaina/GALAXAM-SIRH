@@ -425,7 +425,7 @@ export default function ReferentielsRhTab() {
                 variant={confirmState.variant}
                 loading={confirmState.loading}
                 onConfirm={confirmState.onConfirm}
-                onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
             />
         </SideTabs>
     );

@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/layout/Layout';
 import Loading from '@/components/ui/feedback/Loading';
 
-export default function ProtectedRoute({ allowedRoles, requiredPermission, children }) {
+export default function ProtectedRoute({ allowedRoles, requiredPermission, allowAuthenticated = false, children }) {
     const location = useLocation();
     const { isAuthenticated, user, hasPermission, getDefaultHomeRoute, loading } = useAuth();
 
@@ -30,7 +30,7 @@ export default function ProtectedRoute({ allowedRoles, requiredPermission, child
     }
 
     // Redirige si la permission requise est manquante
-    if (requiredPermission && !hasPermission(requiredPermission)) {
+    if (requiredPermission && !hasPermission(requiredPermission) && !allowAuthenticated) {
         // Si l'utilisateur atterrit sur /dashboard sans avoir EMPLOYE_READ, on le redirige vers son module principal
         if (location.pathname === '/dashboard') {
             const defaultHome = getDefaultHomeRoute();

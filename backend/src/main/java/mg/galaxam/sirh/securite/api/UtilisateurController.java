@@ -195,12 +195,19 @@ public class UtilisateurController {
                 }
                 existing.setIdRole(request.getIdRole());
             }
-            if (request.getMotDePasse() != null && !request.getMotDePasse().isBlank()) {
+            boolean passwordChanged = request.getMotDePasse() != null && !request.getMotDePasse().isBlank();
+            if (passwordChanged) {
                 existing.setMotDePasseEnClair(request.getMotDePasse());
             }
 
             existing.controler(c);
+            if (passwordChanged) {
+                existing.effacerRefreshToken();
+            }
             existing.update(c);
+            if (passwordChanged) {
+                idleSessionService.revokeAllForUser(id, c);
+            }
 
             AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
 

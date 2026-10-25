@@ -318,7 +318,8 @@ public class CongeLotValorisationService {
                     trace.tauxHistorique()));
         }
         BigDecimal total = BigDecimal.ZERO;
-        String sql = "SELECT d.id_demande_conge, d.date_debut, d.date_fin, d.est_demi_journee "
+        String sql = "SELECT d.id_demande_conge, d.date_debut, d.date_fin, d.est_demi_journee, "
+                + "d.est_remunere, t.est_paye "
                 + "FROM demande_conge d JOIN ref_statut_demande_conge s ON s.id_statut_demande_conge = d.id_statut_demande_conge "
                 + "JOIN ref_type_conge t ON t.id_type_conge = d.id_type_conge "
                 + "WHERE d.id_employe = ? AND s.code = 'VALIDE' AND t.decompte_solde_acquis = TRUE "
@@ -330,6 +331,9 @@ public class CongeLotValorisationService {
             ps.setDate(3, Date.valueOf(debut));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    Boolean surchargeRemuneration = (Boolean) rs.getObject("est_remunere");
+                    boolean remunerationType = rs.getBoolean("est_paye");
+                    if (!CongePayrollPolicy.estRemunere(surchargeRemuneration, remunerationType)) continue;
                     int demande = rs.getInt("id_demande_conge");
                     LocalDate debutConge = rs.getDate("date_debut").toLocalDate();
                     LocalDate finConge = rs.getDate("date_fin").toLocalDate();

@@ -60,7 +60,7 @@ son adéquation au format attendu par la banque doit être vérifiée avant envo
 
 L'API est dans `api/BulletinReglementController.java`, sous
 `/paie/reglements`. Les tables sont définies dans le schéma canonique 06 ;
-la migration SP84 les ajoute aux bases existantes. L'interface de la période
+`SP84` est une référence historique dont la migration n'est plus disponible dans le dépôt. L'interface de la période
 est `ReglementsBulletinsPage`, et le même panneau
 `BulletinReglementSlideOver` est ouvert depuis la fiche salarié. Un bulletin
 `MENSUEL` et un bulletin `STC` restent deux pièces distinctes : le premier
@@ -98,16 +98,19 @@ variable reste une étape distincte avant le calcul réel du bulletin.
 `PayrollCalculationContextAssembler` construit l'unique `PayrollCalculationInput` transmis à
 `PayrollExecutionEngine`. Sa méthode `assemble` appelle, dans l'ordre, les lectures de période,
 emploi, salaire et ancienneté datés, banque, famille fiscale, snapshot Pointage, congés et lots historiques,
-configuration légale, mouvements approuvés et prêt actif. Les méthodes unitaires partagent la
+configuration légale et mouvements approuvés d'acomptes ou d'avances. Les méthodes unitaires partagent la
 même connexion et la même transaction. `PayrollService.preparerInput` reste la façade publique.
 Avant le retour, l'assembleur contrôle la couverture salariale, le snapshot, la configuration
 légale, le site, la catégorie, le mode de calcul et les taux obligatoires selon l'assujettissement.
 Une configuration absente bloque le calcul ; elle ne devient pas un site, une catégorie ou un
 paramètre inventé.
 
-La date de fin de campagne résout les paramètres mensuels ; les heures majorées utilisent la
-date de chaque tranche de pointage, le salaire suit ses jours d'effet, et les congés consommés
-conservent la valeur de leurs lots. L'assembleur prépare les valeurs ; le moteur calcule sans SQL.
+La date de fin de campagne résout les paramètres mensuels, dont le diviseur horaire positif exigé
+pour le calcul réel ; l'objet `PayrollCalculationInput` a un repli technique à `173.33` hors de ce
+parcours. Les heures majorées utilisent la date de chaque tranche de pointage et les taux datés de
+`ref_taux_majoration` ; les pourcentages du schéma canonique sont des valeurs initiales. Le salaire
+suit ses jours d'effet, et les congés rémunérés consommés conservent la valeur de leurs lots.
+L'assembleur prépare les valeurs ; le moteur calcule sans SQL.
 En calcul réel, la préparation verrouille les mouvements et peut actualiser le montant d'une
 rubrique dérivée dans la transaction. La simulation annule ces effets à son point de sauvegarde.
 Ce contexte appartient au bulletin mensuel. Le STC, le journal des acquisitions congé et les
@@ -149,10 +152,13 @@ un contrat futur ne peut plus changer l'employeur affiché sur une ancienne camp
 DNTS et SAFI partagent `PayrollExportContextResolver` pour ne déclarer un départ
 que dans la campagne concernée. Une exportation sans bulletin ne devine plus la
 filiale à partir de la première fiche active.
-L'identité légale de l'employeur n'est toutefois pas figée dans `bulletin_paie` : une
-modification rétroactive d'un contrat ou de `ref_filiale` peut encore modifier une
-réimpression historique. Résoudre ce dernier cas demande une décision de conservation
-des données d'émission avant toute migration de schéma.
+L'identité légale n'est pas stockée dans l'en-tête `bulletin_paie` :
+`bulletin_paie_employeur_snapshot` la capture à la validation et les documents PDF/Excel
+la lisent en priorité. Si cet instantané manque, la réimpression résout les données
+datées du contrat et de la filiale et peut donc refléter une correction ultérieure.
+Le schéma ne protège pas cette table par une règle d'immutabilité absolue ; la méthode
+de capture utilise un `UPSERT`, sans démontrer qu'un utilisateur peut modifier librement
+un bulletin validé.
 
 - `api/` : contrôleurs REST (`PaieController`, `PaieAjustementController`, `PaieRubriqueController`, `StcController`)
 - `api/dto/` : contrats DTO (`PayrollCampaignStep`, `CalculPeriodeRequest`, `stc/*`, etc.)
@@ -160,7 +166,9 @@ des données d'émission avant toute migration de schéma.
 - `domain/` : moteurs de calculs purs et invariants fiscaux (`engine/`, `dto/`)
 - `persistence/` : entités de paie et tables historiques (`BulletinPaie`, `BulletinPaieLigne`, `PaieAvanceAcompte`, `PaieStc`, etc.)
 
-Toutes les routes d'origine restent préservées sous `/paie/*`, `/stc/*`, `/api/paie/*`.
+Les routes principales de paie utilisent `/paie/*`, avec les alias déclarés par leurs contrôleurs.
+Les objets de période partagés avec Pointage (`periode_paie`, `periode_paie_transition`) sont créés
+dans `05_schema_pointage.sql` ; `bulletin_paie` et ses lignes sont créés dans `06_schema_paie.sql`.
 
 ## Où modifier la paie
 
@@ -187,6 +195,13 @@ ses imputations, `calculerPaiePeriode` pour le calcul collectif,
 `mettreAJourJournalConge` pour déclencher l'acquisition dans la transaction de
 clôture. `PayrollLeaveJournalService` porte son calcul, la référence congé et
 la valorisation mensuelle, en appelant les règles du domaine Congés.
+Un bulletin `CALCULE` peut être recalculé après restitution de ses imputations ;
+un bulletin `VALIDE` ou `CLOTURE` ne l'est pas directement. Le recalcul collectif
+peut remettre la période de `PAIE_VALIDEE` à `VALIDEE`. Le bulletin réel conserve
+l'identifiant et la version du snapshot Pointage ; des heures majorées sans tranches
+horaires figées auditables bloquent la préparation. Le service vérifie avant validation
+la fraîcheur de l'emploi, de la configuration et du snapshot ; le workflow examine
+aussi les mouvements et demandes de congé pertinents modifiés depuis le calcul.
 `PayrollCockpitService` porte
 les projections de période, les indicateurs et la pagination du cockpit DAF.
 `PayrollEmployeeReadService` porte l'historique et la synthèse de l'onglet Paie
@@ -243,12 +258,10 @@ technique pour les retries ; la même clé associée à un contenu différent es
 refusée. Les contrôles applicatifs bloquent les opérations ordinaires de
 règlement ou d'annulation lorsque le dossier associé est clôturé.
 
-Les changements de schéma correspondants sont portés par SP75 (sécurité du
-journal de règlements) et SP78 (traçabilité de clôture). Le schéma canonique 06
-contient les colonnes et index déclarés. Pour une base existante, appliquer les
-migrations dans l'ordre enregistré, après vérification de leur état. La partie
-STC en cours de modification doit être considérée comme non finalisée tant que
-la branche et ses tests n'ont pas été validés.
+Les références SP75 et SP78 désignent des évolutions historiques ; leurs fichiers
+de migration ne sont plus présents dans le dépôt. Le schéma canonique 06 contient
+les colonnes et index actuels pour une base neuve et ne constitue pas une procédure
+de mise à niveau d'une base existante.
 
 ### Statuts et capacités de campagne
 
@@ -258,7 +271,9 @@ utilisent le même contrôle de fin de période, de validation de paie, de calcu
 à jour et de couverture des bulletins. Le statut affiché provient de
 `describeWorkflowStatuses`, qui délègue sa traduction à
 `PayrollWorkflowStatusResolver` ; le code persistant `VALIDEE` désigne seulement
-le pointage figé. Le sélecteur Paie demande `GET /periodes?lightweight=true&includePayrollStatus=true`
+le pointage figé. `SUBMIT` conduit de `EN_COURS` à `TRANSMIS_DAF`. `A_VALIDER`
+est reconnu par `APPROVE` et `REJECT`, sans transition courante identifiée qui
+y conduise depuis `EN_COURS`. Le sélecteur Paie demande `GET /periodes?lightweight=true&includePayrollStatus=true`
 pour recevoir ces statuts sans recalculer leur sens dans le navigateur. Le
 sélecteur Pointage peut conserver la réponse légère sans cet enrichissement.
 
@@ -304,25 +319,35 @@ sont requises ; cette référence ne vaut pas validation juridique automatique.
 `PayrollCalculatorRegistry` expose la capacité de configuration dans le catalogue.
 Il décrit les calculateurs existants ; il ne remplace pas leur exécution métier.
 Les primes dédiées, cotisations, fiscalité et heures majorées utilisent leurs
-paramètres de domaine. Congés, rupture, prêts et acomptes gardent leur circuit.
-La base des congés reste valorisée par le taux historique du domaine congés.
+paramètres de domaine. Congés, rupture, avances et acomptes gardent leur circuit.
+Pour une absence non rémunérée, `RETENUE_ABSENCE` part des heures ou minutes du
+snapshot Pointage et du diviseur horaire configuré ; le montant arrondi est plafonné
+au salaire de base de la ligne. `DEDUCTION_CONGE_BASE` et `INDEMNITE_CONGE_PAYE`
+concernent les jours de congé rémunéré valorisés : la première suit le trentième
+des salaires applicables ou de la base contractuelle, la seconde la valeur des lots FIFO.
+`CongePayrollPolicy` retient `demande_conge.est_remunere` si renseigné, sinon
+`ref_type_conge.est_paye`. Les congés non rémunérés sont exclus de ces jours valorisés
+et de l'indemnité FIFO ; leur part non rémunérée relève du Pointage. Cette distinction
+vaut aussi pour une demi-journée et une couverture partielle de régularisation : la
+fraction couverte peut débiter le solde, tandis que le reliquat reste une absence.
+Le débit du solde et la rémunération sont deux décisions distinctes.
 Aucune case « base congés » non exécutée, formule libre, ordre arbitraire,
 exonération partielle générique ou imputation comptable n'est proposée.
 
-### Mise à niveau et recette
+### Schéma actuel et limites des tests
 
-`26-10-01-sp47-methodes-rubriques.sql` ajoute uniquement des colonnes aux tables
-existantes. Les taux de lignes sont élargis pour accepter des prix unitaires,
-et les codes de mouvements suivent les 40 caractères du référentiel.
-Les réglages par défaut conservent les calculs précédents.
+Le schéma canonique 06 décrit les colonnes et contraintes actuelles des rubriques.
+L'ancien fichier `26-10-01-sp47-methodes-rubriques.sql` et les migrations SP
+ne sont plus présents dans ce dépôt ; ce README ne constitue pas une procédure
+de mise à niveau d'une base existante.
 
-La recette opt-in `PayrollVariablesCopiedDataTest` utilise exclusivement
-`sirh_galaxam_recette_variables_20261001`, copie des données réelles. Elle vérifie
-les trois interventions, les assiettes séparées, les versions et conditions,
-les méthodes dérivées, la simulation, la persistance annulée transactionnellement,
-les exports et les retenues partiellement imputées. Le bulletin de référence
-Agent Y conserve brut 411 361,01 Ar, cotisations 8 227,22 Ar, IRSA 3 000 Ar,
-net final 399 120 Ar. Ces tests ne constituent pas une certification réglementaire.
+`PayrollCalculationTargetedTest`, `PayrollLegalContextResolverTest` et les tests
+de workflow présents couvrent des règles ciblées. `CongePayrollRemunerationTest`
+construit des entrées de calcul en mémoire pour comparer congés rémunérés et non
+rémunérés, journées, demi-journées et couverture partielle. Les tests PostgreSQL
+de snapshot et de fraîcheur nécessitent une base jetable isolée. La classe
+`PayrollVariablesCopiedDataTest` n'a pas été retrouvée dans le dépôt actuel ;
+ses chiffres historiques ne constituent pas un résultat de test reproductible ici.
 
 ### Propriété des règles de saisie (sprint 2)
 
@@ -360,13 +385,18 @@ mais ne sont plus proposés comme états internes. Les générateurs restent
 propriétaires de leurs formats ; la génération ne prouve pas l'acceptation par un
 organisme.
 
-À partir de la migration `26-10-16-sp71-paie-identite-employeur-bulletin.sql`,
-`PayrollEmployerSnapshotService` fige la filiale, la raison sociale, le NIF et
+Le catalogue final conserve ses conditions de disponibilité. En parallèle,
+`GET /bulletin/{id}/document/{format}` permet à un titulaire de `PAIE_READ`
+(ou `ROLE_ADMIN`) de télécharger directement en PDF ou XLSX un bulletin encore
+`CALCULE`. Le code n'ajoute pas de mention « PROVISOIRE » propre à ce document.
+
+`PayrollEmployerSnapshotService` capture la filiale, la raison sociale, le NIF et
 les coordonnées dans la transaction de validation du bulletin. Les bulletins,
-grands livres et modèles trimestriels réutilisent cet instantané. Les bulletins
-validés avant cette migration n'ont pas d'instantané fiable : ils conservent la
-résolution par contrat daté, qui peut refléter une correction ultérieure de la
-fiche filiale. Aucun ancien instantané n'est inventé ou rempli automatiquement.
+grands livres et modèles trimestriels utilisent l'instantané lorsqu'il existe.
+Les bulletins qui en sont dépourvus conservent une résolution par données datées,
+susceptible de refléter une correction ultérieure de la fiche filiale. Aucun ancien
+instantané n'est inventé ou rempli automatiquement. `SP71` est une référence
+historique dont la migration n'est plus présente dans le dépôt actuel.
 Le bulletin STC capture aussi cette identité lors de sa validation ; son reçu
 ancien sans identité employeur figée reste consultable, mais non imprimable.
 

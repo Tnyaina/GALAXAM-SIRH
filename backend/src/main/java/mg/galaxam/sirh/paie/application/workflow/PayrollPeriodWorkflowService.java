@@ -254,13 +254,13 @@ public class PayrollPeriodWorkflowService {
             int periodId, String state, Map<String, ActionCapability> actions, String currentStep) {
         if (actions == null || actions.isEmpty()) return null;
         if (actions.getOrDefault("EDIT_POINTAGE", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("SAISIE", "/pointages?tab=saisie");
+            return new PayrollPeriodContextView.NextStep("SAISIE", "/pointages?tab=saisie&periode=" + periodId);
         }
         if (actions.getOrDefault("SUBMIT", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("TRANSMISSION", "/pointages?tab=validation");
+            return new PayrollPeriodContextView.NextStep("TRANSMISSION", "/pointages?tab=validation&periode=" + periodId);
         }
         if (actions.getOrDefault("APPROVE", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("VALIDATION_POINTAGE", "/pointages?tab=validation");
+            return new PayrollPeriodContextView.NextStep("VALIDATION_POINTAGE", "/pointages?tab=validation&periode=" + periodId);
         }
         if ("PAIE_VALIDEE".equals(state) && "CALCULATION".equals(currentStep)
                 && actions.getOrDefault("CALCULATE", ActionCapability.denied("NA")).allowed()) {

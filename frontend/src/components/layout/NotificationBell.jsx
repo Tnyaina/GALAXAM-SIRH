@@ -167,7 +167,7 @@ export default function NotificationBell() {
                     id="btn-notifications"
                     type="button"
                     onClick={() => setOpen((v) => !v)}
-                    className="relative flex items-center justify-center w-8 h-8 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
+                    className="relative flex items-center justify-center min-w-[40px] min-h-[40px] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
                     aria-label="Notifications"
                     aria-expanded={open}
                     aria-haspopup="true"
@@ -198,7 +198,7 @@ export default function NotificationBell() {
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="w-8 h-8 shrink-0 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
+                                className="min-w-[40px] min-h-[40px] shrink-0 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
                                 aria-label="Fermer le panneau"
                             >
                                 <X size={16} strokeWidth={2} />
