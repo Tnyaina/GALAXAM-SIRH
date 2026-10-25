@@ -55,6 +55,28 @@ public class PointageSyntheseService {
         return paid ? "CONGE" : "ABSENCE_JUSTIFIEE";
     }
 
+    static boolean isRealizedDate(LocalDate day, LocalDate businessDate) {
+        return day != null && businessDate != null && !day.isAfter(businessDate);
+    }
+
+    static double joursCongePourAttendu(AttendanceEngine.Result.Status statut,
+            boolean congeValide, boolean remunere, boolean demiJournee) {
+        if (congeValide) {
+            if (demiJournee) return 0.5;
+            return remunere ? 1.0 : 0.0;
+        }
+        if (statut == AttendanceEngine.Result.Status.LEAVE) return 1.0;
+        if (statut == AttendanceEngine.Result.Status.HALF_DAY) return 0.5;
+        return 0.0;
+    }
+
+    static long minutesAttendues(BigDecimal seuilHeuresJour, double joursOuvres, double joursConge) {
+        BigDecimal joursRequis = BigDecimal.valueOf(joursOuvres)
+                .subtract(BigDecimal.valueOf(joursConge)).max(BigDecimal.ZERO);
+        return seuilHeuresJour.multiply(joursRequis).multiply(BigDecimal.valueOf(60))
+                .setScale(0, RoundingMode.HALF_UP).longValueExact();
+    }
+
     static String appliquerStatutCongeValide(String statutCourant, double heuresTravaillees,
             boolean remunere, boolean demiJournee) {
         boolean absenceOuAnomalie = "ABSENCE_NON_JUSTIFIEE".equals(statutCourant)
@@ -465,6 +487,7 @@ public class PointageSyntheseService {
             emptyDto.setIdPeriodePaie(idPeriode);
             return emptyDto;
         }
+        LocalDate businessDate = LocalDate.now();
         PointageTemporalConfigurationGuard.verify(idEmp, dateDebut, dateFin, c);
         boolean useFrozenSnapshot = hasFrozenSnapshot(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c);
         Map<LocalDate, mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay> contextesJournaliers =
@@ -578,8 +601,8 @@ public class PointageSyntheseService {
         Map<LocalDate, List<AttendanceEngine.Result>> parSemaine = new LinkedHashMap<>();
         Set<LocalDate> datesAvecPointage = new HashSet<>();
 
-        // Une semaine sans aucun badge reste une semaine à contrôler : son objectif
-        // doit produire une absence, et non disparaître de la synthèse.
+        // Une semaine sans badge reste à contrôler jusqu'à la date métier.
+        // Les jours futurs restent planifiés et ne produisent ni réalisé ni déficit.
         for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
             LocalDate monday = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
             parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>());
@@ -626,6 +649,7 @@ public class PointageSyntheseService {
             try (ResultSet rsPtg = psPtg.executeQuery()) {
                 while (rsPtg.next()) {
                     LocalDate dPointage = rsPtg.getDate("date_pointage").toLocalDate();
+                    if (!isRealizedDate(dPointage, businessDate)) continue;
                     boolean autonomeCeJour = contextesJournaliers.containsKey(dPointage)
                             && contextesJournaliers.get(dPointage).dispensePointage();
                     datesAvecPointage.add(dPointage);
@@ -737,6 +761,7 @@ public class PointageSyntheseService {
         // Prise en compte des congés validés sur la période n'ayant pas encore de ligne dans pointage_jour
         for (Map.Entry<LocalDate, CongeValideInfo> entry : congesValidesEmploye.entrySet()) {
             LocalDate cur = entry.getKey();
+            if (!isRealizedDate(cur, businessDate)) continue;
             if (datesAvecPointage.contains(cur)) continue;
             datesAvecPointage.add(cur);
 
@@ -792,7 +817,7 @@ public class PointageSyntheseService {
         if (contextesJournaliers.values().stream().anyMatch(
                 mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay::dispensePointage)) {
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
-                if (datesAvecPointage.contains(day) || congesValidesEmploye.containsKey(day)
+                if (!isRealizedDate(day, businessDate) || datesAvecPointage.contains(day) || congesValidesEmploye.containsKey(day)
                         || CalendrierOuvrableEngine.isWeekend(day)) continue;
                 var contexteJour = contextesJournaliers.get(day);
                 if (contexteJour == null || !contexteJour.dispensePointage()) continue;
@@ -852,6 +877,7 @@ public class PointageSyntheseService {
             int joursOuvresTroncon = 0;
             int joursFerieTroncon = 0;
             for (LocalDate cur = debutTroncon; !cur.isAfter(finTroncon); cur = cur.plusDays(1)) {
+                if (!isRealizedDate(cur, businessDate)) continue;
                 if (!contextesJournaliers.containsKey(cur) || CalendrierOuvrableEngine.isWeekend(cur)) continue;
                 if (joursChomesEmploye.contains(cur)) joursFerieTroncon++;
                 else joursOuvresTroncon++;
@@ -861,21 +887,17 @@ public class PointageSyntheseService {
             // (évite le cumul : un jour férié chômé ne peut pas être décompté deux fois)
             double joursCongeTroncon = 0.0;
             for (AttendanceEngine.Result j : jours) {
+                if (!isRealizedDate(j.date(), businessDate)) continue;
                 if (!contextesJournaliers.containsKey(j.date())) continue;
                 if (!CalendrierOuvrableEngine.isWeekend(j.date()) && !joursChomesEmploye.contains(j.date())) {
-                    if (j.status() == AttendanceEngine.Result.Status.LEAVE) {
-                        joursCongeTroncon += 1.0;
-                    } else if (j.status() == AttendanceEngine.Result.Status.HALF_DAY) {
-                        joursCongeTroncon += 0.5;
-                    }
+                    CongeValideInfo conge = congesValidesEmploye.get(j.date());
+                    joursCongeTroncon += joursCongePourAttendu(j.status(), conge != null,
+                            conge != null && conge.estRemunere(), conge != null && conge.estDemi());
                 }
             }
 
             // Seuil d'heures attendu de la semaine abaissé proportionnellement aux congés
-            double joursRequis = Math.max(0.0, (double) joursOuvresTroncon - joursCongeTroncon);
-            long expectedMinutes = seuilHeuresJour
-                    .multiply(BigDecimal.valueOf(joursRequis)).multiply(BigDecimal.valueOf(60))
-                    .setScale(0, RoundingMode.HALF_UP).longValueExact();
+            long expectedMinutes = minutesAttendues(seuilHeuresJour, joursOuvresTroncon, joursCongeTroncon);
             long configuredFirstBandMinutes = seuilHsTranche1.multiply(BigDecimal.valueOf(60))
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
             long nominalWeekMinutes = seuilHeuresJour.multiply(BigDecimal.valueOf(
