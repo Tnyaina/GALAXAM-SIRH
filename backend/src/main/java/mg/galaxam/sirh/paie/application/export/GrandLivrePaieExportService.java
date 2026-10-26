@@ -38,7 +38,7 @@ public class GrandLivrePaieExportService {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.FRANCE);
 
     public record Result(byte[] bytes, String periodCode, int bulletinCount, int detailCount) {}
-    private record Period(String code, LocalDate start, LocalDate end) {}
+    record Period(String code, LocalDate start, LocalDate end) {}
 
     public Result export(Integer periodId, Connection connection) throws Exception {
         Period period = loadPeriod(periodId, connection);
@@ -182,14 +182,14 @@ public class GrandLivrePaieExportService {
             if (amounts[i] != null) c.setCellValue(amounts[i].doubleValue());
         }
     }
-    private static void writeChecks(Sheet sheet, Period period, int count, int lines, int totalRow, Styles s) {
+    static void writeChecks(Sheet sheet, Period period, int count, int lines, int totalRow, Styles s) {
         banner(sheet, "CONTRÔLE DU GRAND LIVRE", 1, s.title);
         title(sheet, 1, "Période " + period.code() + " · bulletins validés et clôturés uniquement", s.subtitle);
         sheet.setColumnWidth(0, 10000); sheet.setColumnWidth(1, 6500); sheet.setColumnWidth(2, 6500);
         cell(sheet, 3, 0, s.header).setCellValue("Indicateur");
         cell(sheet, 3, 1, s.header).setCellValue("Valeur");
         String[] labels = {"Nombre de bulletins", "Nombre de lignes de rubrique", "Salaire brut total", "Net imposable total", "IRSA total", "Net à payer total", "Cotisations patronales totales"};
-        int[] cols = {-1, -1, 13, 16, 17, 19, 20};
+        int[] cols = {-1, -1, 13, 16, 17, 20, 21};
         for (int i = 0; i < labels.length; i++) {
             cell(sheet, 4 + i, 0, s.text).setCellValue(labels[i]);
             Cell value = cell(sheet, 4 + i, 1, s.money);
@@ -225,7 +225,7 @@ public class GrandLivrePaieExportService {
         for (int i = 0; i < columns.length; i++) cell(sheet, row, i, style).setCellValue(columns[i]);
         sheet.getRow(row).setHeightInPoints(32);
     }
-    private static class Styles {
+    static class Styles {
         final CellStyle title, subtitle, header, text, money, totalLabel, totalMoney;
         Styles(XSSFWorkbook book) {
             byte[] navy = new byte[]{7, 50, 74};               // #07324A --color-brand-900

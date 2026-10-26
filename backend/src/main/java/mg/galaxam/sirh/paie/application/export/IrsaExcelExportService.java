@@ -99,11 +99,16 @@ public class IrsaExcelExportService {
                     if (sheet.getMergedRegion(i).getLastRow() > totalRowIndex) sheet.removeMergedRegion(i);
                 }
                 sheet.createFreezePane(9, FIRST_DATA_ROW);
-                workbook.setForceFormulaRecalculation(true);
+                evaluateAndMarkForRecalculation(workbook);
                 workbook.write(out);
                 return new Result(out.toByteArray(), header.code(), data.size());
             }
         }
+    }
+
+    static void evaluateAndMarkForRecalculation(HSSFWorkbook workbook) {
+        workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
+        workbook.setForceFormulaRecalculation(true);
     }
 
     private static void writeEmployee(Row row, SafiRowDto v) {
