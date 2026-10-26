@@ -345,7 +345,7 @@ export default function SoldesGantt({
                 variant="outline"
                 size="xs"
                 onClick={viewMode === 'MOIS' ? handleToday : handleTodayWeek}
-                className="h-8 text-xs font-semibold"
+                className="font-semibold"
               >
                 Aujourd'hui
               </Button>
@@ -356,7 +356,7 @@ export default function SoldesGantt({
               size="xs"
               iconLeft={<RefreshCw size={13} />}
               onClick={onReload}
-              className="h-8 text-xs font-semibold"
+              className="font-semibold"
               title="Actualiser le planning"
             >
               Actualiser

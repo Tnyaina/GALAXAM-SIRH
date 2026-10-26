@@ -5,7 +5,7 @@ export default function ConnectionSwitchConfirm({ target, busy, onCancel, onConf
   const remote = target.mode === 'remote';
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50 p-4" role="presentation">
-      <section role="alertdialog" aria-modal="true" aria-labelledby="connection-switch-title" aria-describedby="connection-switch-description" className="w-full max-w-lg space-y-5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl sm:p-6">
+      <section role="alertdialog" aria-modal="true" aria-labelledby="connection-switch-title" aria-describedby="connection-switch-description" className="ui-dialog-viewport w-full max-w-lg overflow-y-auto space-y-5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 id="connection-switch-title" className="text-lg font-semibold">Changer la connexion</h2>
@@ -22,9 +22,9 @@ export default function ConnectionSwitchConfirm({ target, busy, onCancel, onConf
           <p>Les données locales et distantes restent séparées : aucune donnée ne sera effacée, copiée ou transférée.</p>
           <p>GALAXAM redémarrera pour appliquer ce changement.</p>
         </div>
-        <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
-          <Button autoFocus variant="secondary" onClick={onCancel} disabled={busy}>Annuler</Button>
-          <Button onClick={onConfirm} disabled={busy} iconRight={<ArrowRight size={15} />}>{busy ? 'Changement en cours…' : `Passer ${remote ? 'au serveur distant' : 'à la base locale'}`}</Button>
+        <div className="ui-modal-actions">
+          <Button autoFocus variant="secondary" onClick={onCancel} disabled={busy} wrapLabel>Annuler</Button>
+          <Button onClick={onConfirm} disabled={busy} iconRight={<ArrowRight size={15} />} wrapLabel>{busy ? 'Changement en cours…' : `Passer ${remote ? 'au serveur distant' : 'à la base locale'}`}</Button>
         </div>
       </section>
     </div>

@@ -101,12 +101,11 @@ public class BulletinDocumentService {
         List<Rubrique> result = new ArrayList<>();
         if (complet.getLignes() == null) return result;
         for (BulletinPaieLigne l : complet.getLignes()) {
-            if ("PATRONAL".equals(l.getSens())) continue;
+            if ("PATRONAL".equals(l.getSens()) || "IMPOT_IRSA_BRUT".equals(l.getCodeRubrique())) continue;
             BigDecimal taux = l.getTauxSalarial();
             // Les rubriques non proportionnelles utilisent parfois ce champ pour une valeur monétaire.
             if (taux != null && taux.abs().compareTo(BigDecimal.valueOf(100)) > 0) taux = null;
-            String libelle = "IMPOT_IRSA_BRUT".equals(l.getCodeRubrique())
-                    ? "IRSA brut arrondi à la dizaine supérieure" : n(l.getLibelleRubrique());
+            String libelle = n(l.getLibelleRubrique());
             if ("GAIN_NET".equals(l.getEtapeCalcul())) libelle = "Ajout au net : " + libelle;
             result.add(new Rubrique(libelle,
                     l.getBaseCalcul() != null ? l.getBaseCalcul() : l.getQuantite(), taux,

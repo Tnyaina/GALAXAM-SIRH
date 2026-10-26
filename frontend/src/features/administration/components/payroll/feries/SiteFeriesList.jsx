@@ -75,7 +75,7 @@ export default function SiteFeriesList({
                                 <Td className="text-right">
                                     <SharedButton plain
                                         onClick={() => setDeleteTarget(sf)}
-                                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                        className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                         title="Supprimer l'association"
                                         aria-label={`Supprimer association ${sf.siteLibelle || sf.idSite} et ${sf.ferieLibelle || sf.ferieDate}`}
                                     >

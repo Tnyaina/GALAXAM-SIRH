@@ -101,7 +101,7 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                                 }}
                                                 variant="outline"
                                                 size="xs"
-                                                className="min-h-[44px] inline-flex items-center justify-center border-[var(--color-warning-500)]/30 text-[var(--color-warning-600)] hover:bg-[var(--color-warning-500)]/10"
+                                                className="border-[var(--color-warning-500)]/30 text-[var(--color-warning-600)] hover:bg-[var(--color-warning-500)]/10"
                                                 aria-label={`Relecture du mouvement ${wf.libelleTypeEvenement || ''}`}
                                             >
                                                 Relecture

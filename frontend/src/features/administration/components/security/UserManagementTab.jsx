@@ -313,7 +313,7 @@ export default function UserManagementTab() {
                                     <div className="flex justify-end items-center gap-2">
                                         <button
                                             onClick={() => handleOpenEditModal(user)}
-                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier l'utilisateur"
                                             aria-label={`Modifier ${user.identifiant}`}
                                         >
@@ -321,7 +321,7 @@ export default function UserManagementTab() {
                                         </button>
                                         <button
                                             onClick={() => user.estActif ? handleOpenDeactivateModal(user) : requestActivate(user)}
-                                            className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
+                                            className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
                                                 user.estActif
                                                     ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'

@@ -20,7 +20,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import BulletinVariableCorrection from './BulletinVariableCorrection';
 import { summarizeNetDeductions } from '@/features/payroll/utils/netDeductions';
-import { libelleRubriqueBulletin } from '@/features/payroll/utils/payrollPresentation';
+import { libelleRubriqueBulletin, rubriquesPaieAffichables } from '@/features/payroll/utils/payrollPresentation';
 
 /** Consultation du bulletin calculé. */
 export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onRecalculateSuccess }) {
@@ -479,7 +479,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     <section aria-labelledby="bulletin-rubriques" className="space-y-3">
                                         {(() => {
                                             // Séparer rubriques salariales et patronales
-                                            const lignesSal = lignes.filter(l => !l.categorie?.includes('PATRONAL') && !l.codeRubrique?.endsWith('_PAT') && l.sens !== 'PATRONAL');
+                                            const lignesSal = rubriquesPaieAffichables(lignes).filter(l => !l.categorie?.includes('PATRONAL') && !l.codeRubrique?.endsWith('_PAT') && l.sens !== 'PATRONAL');
                                             const lignesPat = lignes.filter(l => l.categorie?.includes('PATRONAL') || l.codeRubrique?.endsWith('_PAT') || l.sens === 'PATRONAL');
 
                                             const renderTableSalarial = (rows) => (

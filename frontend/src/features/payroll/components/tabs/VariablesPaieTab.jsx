@@ -3,6 +3,7 @@ import { default as SharedInput, Checkbox as SharedCheckbox } from '@/components
 import ManualVariableValueFields from '../ManualVariableValueFields';
 import { manualMethod, manualValuePayload } from '../../utils/manualVariableCalculation';
 import { summarizeNetDeductions } from '../../utils/netDeductions';
+import { rubriquesPaieAffichables } from '../../utils/payrollPresentation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     SlidersHorizontal, 
@@ -481,6 +482,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const previewRetenues = previewBulletin?.totalRetenuesAvancesAcomptes ?? previewBulletin?.total_retenues_avances_acomptes;
     const previewAvantArrondi = previewBulletin?.netAvantArrondi ?? previewBulletin?.net_avant_arrondi;
     const previewLines = Array.isArray(bulletinPreview?.lignes) ? bulletinPreview.lignes : [];
+    const visiblePreviewLines = rubriquesPaieAffichables(previewLines);
     const previewNetDeductions = summarizeNetDeductions(previewLines, previewRetenues);
     const previewFiscalite = bulletinPreview?.explicationFiscalite;
     const previewHsExoneree = Number(previewFiscalite?.remunerationHsExonereeIrsa
@@ -1072,13 +1074,13 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 )}
 
                                 {/* Rubriques calculées du bulletin provisoire */}
-                                {previewLines.length > 0 && (
+                                {visiblePreviewLines.length > 0 && (
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 space-y-2">
                                         <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-1 border-b border-[var(--color-border-subtle)]">
-                                            Rubriques calculées ({previewLines.length})
+                                            Rubriques calculées ({visiblePreviewLines.length})
                                         </p>
                                         <div className="space-y-1">
-                                            {previewLines.map((line, index) => (
+                                            {visiblePreviewLines.map((line, index) => (
                                                 <div key={`${line.codeRubrique || line.code_rubrique || 'ligne'}-${index}`} className="flex justify-between items-center gap-3 py-1 text-xs border-b border-[var(--color-border-subtle)]/30 last:border-0">
                                                     <span className="text-[var(--color-fg-muted)]">{line.libelleRubrique || line.libelle_rubrique || line.codeRubrique || line.code_rubrique || 'Élément de paie'}</span>
                                                     <strong className={`shrink-0 font-data text-xs ${line.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : line.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>

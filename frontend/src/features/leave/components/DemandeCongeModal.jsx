@@ -371,7 +371,7 @@ export default function DemandeCongeModal({
       title="Demande de congé en cours"
       message="Une demande de congé est en cours de rédaction. Si vous quittez sans enregistrer, toutes vos saisies seront perdues."
       confirmLabel="Abandonner la demande"
-      cancelLabel="Poursuivre la saisie"
+      cancelLabel="Continuer la saisie"
       variant="danger"
     />
     </>

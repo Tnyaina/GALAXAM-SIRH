@@ -62,7 +62,7 @@ export default function TypesIntervenantList({
                                     <div className="flex justify-end items-center gap-1.5">
                                         <button
                                             onClick={() => onOpenEdit(ti)}
-                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier"
                                             aria-label={`Modifier ${ti.libelle}`}
                                         >
@@ -71,7 +71,7 @@ export default function TypesIntervenantList({
                                         {onToggleStatus && (
                                             <button
                                                 onClick={() => onToggleStatus(ti)}
-                                                className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
                                                     ti.estActif !== false
                                                         ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                         : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'

@@ -85,7 +85,7 @@ export default function Modal({
                     aria-labelledby="modal-title"
                     tabIndex={-1}
                     className={`
-              relative w-full ${sizes[size] || sizes.md} bg-[var(--color-surface)] border border-[var(--color-border)]
+              ui-dialog-viewport relative w-full ${sizes[size] || sizes.md} bg-[var(--color-surface)] border border-[var(--color-border)]
               shadow-2xl rounded-none flex flex-col overflow-hidden animate-in fade-in zoom-in-95 
               ${className}
             `}
@@ -107,13 +107,13 @@ export default function Modal({
                     </div>
 
                     {/* Body */}
-                    <div className="p-4 sm:p-5 overflow-y-auto max-h-[82vh] space-y-3.5">
+                    <div className="min-h-0 flex-1 p-4 sm:p-5 overflow-y-auto space-y-3.5">
                         {children}
                     </div>
 
                     {/* Footer */}
                     {footer && (
-                        <div className="px-4 py-3 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex justify-end items-center gap-2 shrink-0">
+                        <div className="ui-modal-actions px-4 py-3 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] shrink-0">
                             {footer}
                         </div>
                     )}
@@ -134,8 +134,8 @@ export default function Modal({
                 }}
                 title={dirtyWarningTitle}
                 message={dirtyWarningMessage}
-                confirmLabel="Abandonner les modifications"
-                cancelLabel="Poursuivre la saisie"
+                confirmLabel="Quitter sans enregistrer"
+                cancelLabel="Continuer la saisie"
                 variant="danger"
             />
         </>

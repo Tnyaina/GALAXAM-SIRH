@@ -23,7 +23,7 @@ export default function OwnRequestForm({ referentiels: referentielsInitiaux, ini
 
   useEffect(() => { load(); }, [load]);
 
-  if (error) return <div role="dialog" aria-modal="true" aria-labelledby="own-leave-error-title" className="fixed inset-0 z-50 grid place-items-center bg-black/20 p-4"><div className="max-w-lg bg-[var(--color-surface)] p-5"><h2 id="own-leave-error-title" className="sr-only">Chargement du formulaire impossible</h2><Alert type="error" message={error} /><button className="mt-3 underline" onClick={onClose}>Fermer</button></div></div>;
+  if (error) return <div role="dialog" aria-modal="true" aria-labelledby="own-leave-error-title" className="fixed inset-0 z-50 grid place-items-center bg-black/20 p-4"><div className="ui-dialog-viewport w-full max-w-lg overflow-y-auto bg-[var(--color-surface)] p-5"><h2 id="own-leave-error-title" className="sr-only">Chargement du formulaire impossible</h2><Alert type="error" message={error} /><button className="mt-3 underline" onClick={onClose}>Fermer</button></div></div>;
   if (!employeeId || !referentiels) return <div role="status" className="fixed inset-0 z-50 grid place-items-center bg-black/20" aria-live="polite">Chargement du formulaire de demande…</div>;
 
   return <DemandeCongeModal

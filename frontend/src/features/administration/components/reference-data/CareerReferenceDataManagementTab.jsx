@@ -168,7 +168,7 @@ export default function CareerReferenceDataManagementTab({ section = 'categories
                                         </Badge>
                                     </Td>
                                     <Td className="text-right">
-                                        <Button variant="ghost" className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                        <Button variant="ghost" className="ui-button-icon-xs inline-flex items-center justify-center"
                                             onClick={() => handleOpenEditCp(cp)}
                                             title="Modifier la catégorie"
                                             aria-label={`Modifier ${cp.libelle}`}

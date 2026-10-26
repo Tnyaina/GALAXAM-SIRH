@@ -223,9 +223,9 @@ export default function ParametresCongesTab() {
                             <div className="flex justify-end gap-1.5">
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="xs"
                                 iconOnly
-                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                className="ui-button-icon-xs inline-flex items-center justify-center"
                                 onClick={() => handleEditType(type)}
                                 icon={<Edit2 size={15} />}
                                 title={`Modifier ${type.libelle}`}
@@ -234,10 +234,10 @@ export default function ParametresCongesTab() {
                               {type.estActif !== false ? (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="xs"
                                   iconOnly
                                   onClick={() => handleToggleTypeStatus(type)}
-                                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
+                                  className="ui-button-icon-xs inline-flex items-center justify-center text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
                                   icon={<Power size={15} />}
                                   title={`Désactiver ${type.libelle}`}
                                   aria-label={`Désactiver le type de congé ${type.libelle}`}
@@ -245,10 +245,10 @@ export default function ParametresCongesTab() {
                               ) : (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="xs"
                                   iconOnly
                                   onClick={() => handleToggleTypeStatus(type)}
-                                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10"
+                                  className="ui-button-icon-xs inline-flex items-center justify-center text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10"
                                   icon={<Check size={15} />}
                                   title={`Réactiver ${type.libelle}`}
                                   aria-label={`Réactiver le type de congé ${type.libelle}`}
@@ -333,9 +333,9 @@ export default function ParametresCongesTab() {
                             <div className="flex justify-end gap-1.5">
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="xs"
                                 iconOnly
-                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                className="ui-button-icon-xs inline-flex items-center justify-center"
                                 onClick={() => handleEditMotif(motif)}
                                 icon={<Edit2 size={15} />}
                                 title={`Modifier ${motif.libelle}`}
@@ -344,10 +344,10 @@ export default function ParametresCongesTab() {
                               {motif.estActif !== false ? (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="xs"
                                   iconOnly
                                   onClick={() => handleToggleMotifStatus(motif)}
-                                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
+                                  className="ui-button-icon-xs inline-flex items-center justify-center text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
                                   icon={<Power size={15} />}
                                   title={`Désactiver ${motif.libelle}`}
                                   aria-label={`Désactiver le motif ${motif.libelle}`}
@@ -355,10 +355,10 @@ export default function ParametresCongesTab() {
                               ) : (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="xs"
                                   iconOnly
                                   onClick={() => handleToggleMotifStatus(motif)}
-                                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10"
+                                  className="ui-button-icon-xs inline-flex items-center justify-center text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10"
                                   icon={<Check size={15} />}
                                   title={`Réactiver ${motif.libelle}`}
                                   aria-label={`Réactiver le motif ${motif.libelle}`}

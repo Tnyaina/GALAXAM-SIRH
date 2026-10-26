@@ -71,7 +71,6 @@ export default function ValidationTable({
                 <Button
                   variant={aDecider ? 'primary' : 'outline'}
                   size="sm"
-                  className="min-h-[44px]"
                   iconLeft={<Eye size={14} />}
                   onClick={() => onOpenDetail(d)}
                   aria-label={`${aDecider ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}
@@ -175,8 +174,7 @@ export default function ValidationTable({
                           return (
                             <Button
                               variant={isAExaminer ? 'primary' : 'outline'}
-                              size="sm"
-                              className="min-h-[44px] sm:min-h-[34px] sm:h-[34px]"
+                              size="xs"
                               iconLeft={<Eye size={14} />}
                               onClick={() => onOpenDetail(d)}
                               title="Consulter la demande et ses actions disponibles"

@@ -928,8 +928,8 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             }}
             title="Formulaire collaborateur en cours"
             message="Des informations ont été saisies pour ce collaborateur. Si vous quittez maintenant, vos modifications seront perdues. Voulez-vous vraiment quitter ?"
-            confirmLabel="Abandonner les modifications"
-            cancelLabel="Poursuivre la saisie"
+            confirmLabel="Quitter sans enregistrer"
+            cancelLabel="Continuer la saisie"
             variant="danger"
         />
         </>

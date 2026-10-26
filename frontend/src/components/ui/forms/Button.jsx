@@ -14,6 +14,7 @@ const variants = {
 };
 
 const sizes = {
+  '2xs': 'ui-button-size-2xs',
   xs: 'ui-button-size-xs',
   sm: 'ui-button-size-sm',
   md: 'ui-button-size-md',
@@ -21,6 +22,7 @@ const sizes = {
 };
 
 const iconSizes = {
+  '2xs': 'ui-button-icon-2xs',
   xs: 'ui-button-icon-xs',
   sm: 'ui-button-icon-sm',
   md: 'ui-button-icon-md',

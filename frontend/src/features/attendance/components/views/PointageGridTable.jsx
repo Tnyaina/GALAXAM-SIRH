@@ -277,7 +277,7 @@ export default function PointageGridTable({
                                                         <Button
                                                             type="button"
                                                             variant="outline"
-                                                            size="xs"
+                                                            size="2xs"
                                                             onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
                                                             className={`font-sans normal-case tracking-normal shrink-0 rounded-none ${
                                                                 row.horaireContinu

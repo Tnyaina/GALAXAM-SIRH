@@ -49,7 +49,7 @@ export default function FonctionsList({
                                 <div className="flex justify-end items-center gap-1.5">
                                     <button
                                         onClick={() => onEdit(f)}
-                                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                        className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                         title="Modifier le poste"
                                         aria-label={`Modifier ${f.libelle}`}
                                     >
@@ -57,7 +57,7 @@ export default function FonctionsList({
                                     </button>
                                     <button
                                         onClick={() => onToggleStatus(f)}
-                                        className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
+                                        className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
                                             f.estActif
                                                 ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                 : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'

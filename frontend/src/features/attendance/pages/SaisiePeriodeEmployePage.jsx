@@ -459,7 +459,6 @@ export default function SaisiePeriodeEmployePage({
                         aria-label="Filtrer par site"
                         placeholder="Tous les sites"
                         size="sm"
-                        buttonClassName="!h-10 min-h-[40px]"
                         className="min-w-[190px] text-xs"
                     />
                 </div>

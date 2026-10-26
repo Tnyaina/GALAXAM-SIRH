@@ -82,7 +82,7 @@ function RolesList({ roles = [], selectedRole, showInactive = false, onToggleSho
                     </label>
                     <button
                         onClick={onOpenCreateRole}
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none text-[var(--color-brand-500)] cursor-pointer transition-colors"
+                        className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none text-[var(--color-brand-500)] cursor-pointer transition-colors"
                         title="Créer un rôle"
                         aria-label="Créer un rôle"
                     >
@@ -108,7 +108,7 @@ function RolesList({ roles = [], selectedRole, showInactive = false, onToggleSho
                         <div className="flex items-center gap-1 pl-2 shrink-0">
                             <button
                                 onClick={(event) => { event.stopPropagation(); onOpenEditRole(role, event); }}
-                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                 title="Modifier le rôle"
                                 aria-label={`Modifier ${role.libelle}`}
                             >
@@ -116,7 +116,7 @@ function RolesList({ roles = [], selectedRole, showInactive = false, onToggleSho
                             </button>
                             <button
                                 onClick={(event) => { event.stopPropagation(); onToggleRoleStatus(role, event); }}
-                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 cursor-pointer rounded-none transition-colors"
+                                className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 cursor-pointer rounded-none transition-colors"
                                 title={role.estActif ? 'Désactiver logiquement' : 'Activer'}
                                 aria-label={role.estActif ? `Désactiver ${role.libelle}` : `Activer ${role.libelle}`}
                             >

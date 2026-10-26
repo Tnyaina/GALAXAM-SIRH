@@ -18,7 +18,7 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 import HasPermission from '@/features/auth/components/HasPermission';
-import { resumeStatutsPeriode } from '@/features/payroll/utils/payrollPresentation';
+import { presentationParcoursCampagnePaie, resumeStatutsPeriode } from '@/features/payroll/utils/payrollPresentation';
 
 const PeriodePaiePage = lazy(() => import('@/features/payroll/pages/PeriodePaiePage'));
 const VariablesPaieTab = lazy(() => import('@/features/payroll/components/tabs/VariablesPaieTab'));
@@ -55,6 +55,7 @@ export default function GestionPaiePage() {
     // Données dérivées
     const activePeriod = context?.selectedPeriod || context?.currentPeriod || periodes[0] || null;
     const campaignSteps = context?.campaignSteps || [];
+    const { closed: payrollClosed, steps: displayedCampaignSteps } = presentationParcoursCampagnePaie(campaignSteps, activePeriod);
     const currentStepCode = context?.currentStep;
     const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
     const recalcRequired = context?.recalculationRequired === true;
@@ -411,11 +412,11 @@ export default function GestionPaiePage() {
                     <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
                         <div>
                             <h3 className="text-base font-bold text-[var(--color-fg)]">Parcours de la campagne</h3>
-                            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Étape en cours : {currentStepObj?.label || '—'}</p>
+                            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{payrollClosed ? 'Campagne clôturée · étapes consultables en lecture seule' : `Étape en cours : ${currentStepObj?.label || '—'}`}</p>
                         </div>
                         {nextLogicalAction && <Button variant="outline" size="xs" onClick={nextLogicalAction.onClick}>Ouvrir l’étape →</Button>}
                     </div>
-                    <PayrollPeriodStepper steps={campaignSteps} currentStep={currentStepCode} activeCode={null} loading={loading} />
+                    <PayrollPeriodStepper steps={displayedCampaignSteps} currentStep={currentStepCode} activeCode={null} loading={loading} />
                 </section>
             )}
 

@@ -54,6 +54,7 @@ export default function FormModal({
                 onClick={onClose}
                 variant="ghost"
                 size="sm"
+                wrapLabel
                 disabled={loading}
             >
                 {cancelLabel}
@@ -63,6 +64,7 @@ export default function FormModal({
                 form={computedFormId}
                 variant="primary"
                 size="sm"
+                wrapLabel
                 loading={loading}
                 disabled={loading || submitDisabled}
             >

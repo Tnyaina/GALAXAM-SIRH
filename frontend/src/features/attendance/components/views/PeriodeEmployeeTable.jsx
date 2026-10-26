@@ -270,7 +270,7 @@ export default function PeriodeEmployeeTable({
                                 )}
                                 {weekMissing > 0 && <span className="text-[var(--color-warning-700)]">{weekMissing} à saisir</span>}
                                 {canEditPeriod && (
-                                    <Button variant="outline" size="xs" className="!min-h-[40px]" onClick={() => requestWeekFill(summaryRows)}>
+                                    <Button variant="outline" size="xs" onClick={() => requestWeekFill(summaryRows)}>
                                         <ClockCheck size={13} /> Remplir semaine
                                     </Button>
                                 )}
@@ -351,7 +351,7 @@ export default function PeriodeEmployeeTable({
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
-                                                                size="xs"
+                                                                size="2xs"
                                                                 onClick={() => toggleDayContinu(row.datePointage)}
                                                                 className={`font-sans normal-case tracking-normal shrink-0 rounded-none ${
                                                                     row.horaireContinu

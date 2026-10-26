@@ -74,7 +74,7 @@ export default function ServicesList({
                                                     <div className="flex justify-end items-center gap-1.5">
                                                         <button
                                                             onClick={() => onOpenEditService(srv)}
-                                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                            className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                             title="Modifier le service"
                                                             aria-label={`Modifier le service ${srv.libelle}`}
                                                         >
@@ -82,7 +82,7 @@ export default function ServicesList({
                                                         </button>
                                                         <button
                                                             onClick={() => onToggleServiceStatus(srv)}
-                                                            className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                            className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
                                                                 srv.estActif
                                                                     ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'

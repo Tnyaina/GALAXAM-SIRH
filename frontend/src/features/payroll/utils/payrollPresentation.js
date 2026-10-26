@@ -10,8 +10,12 @@ export const PERIODICITES_INDEMNITE = [
 
 /** Libellés de présentation des rubriques dont le code métier est stable. */
 export function libelleRubriqueBulletin(ligne) {
-    if (ligne?.codeRubrique === 'IMPOT_IRSA_BRUT') return 'IRSA brut arrondi à la dizaine supérieure';
     return ligne?.libelleRubrique || '';
+}
+
+/** La ligne intermédiaire d'IRSA reste disponible pour le calcul, sans figurer sur le bulletin. */
+export function rubriquesPaieAffichables(lignes) {
+    return (Array.isArray(lignes) ? lignes : []).filter(ligne => ligne?.codeRubrique !== 'IMPOT_IRSA_BRUT');
 }
 
 /** La clôture signifie que le parcours de campagne est terminé, même si ses étapes deviennent inaccessibles. */
@@ -28,6 +32,18 @@ export function etapesAfficheesCampagnePaie(steps, closed = false) {
     const safeSteps = Array.isArray(steps) ? steps : [];
     if (!closed) return safeSteps;
     return safeSteps.map(step => step.state === 'LOCKED' ? { ...step, state: 'COMPLETED' } : step);
+}
+
+/** Source unique de la présentation du parcours, sur le centre et les pages d'étape. */
+export function presentationParcoursCampagnePaie(steps, period) {
+    const closed = period?.workflowStatuses?.paie?.code === 'CLOTUREE'
+        || period?.statutCode === 'CLOTUREE'
+        || period?.state === 'CLOTUREE';
+    return {
+        closed,
+        steps: etapesAfficheesCampagnePaie(steps, closed),
+        progress: progressionCampagnePaie(steps, closed),
+    };
 }
 
 /** Présente toujours séparément l'avancement du pointage et celui de la paie. */

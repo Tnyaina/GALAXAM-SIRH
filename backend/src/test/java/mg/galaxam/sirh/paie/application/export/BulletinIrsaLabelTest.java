@@ -15,10 +15,11 @@ import java.text.Normalizer;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class BulletinIrsaLabelTest {
     @Test
-    void exportsUseAccurateLabelForPreviouslyStoredIrsaLine() throws Exception {
+    void exportsHideIntermediateIrsaLineFromPreviouslyStoredBulletin() throws Exception {
         String expected = "IRSA brut arrondi à la dizaine supérieure";
         BulletinPaie bulletin = new BulletinPaie();
         bulletin.setIdBulletin(2);
@@ -56,7 +57,7 @@ class BulletinIrsaLabelTest {
 
         try (var workbook = WorkbookFactory.create(new ByteArrayInputStream(documents.excel(complet, context)))) {
             var sheet = workbook.getSheet("Bulletin de paie");
-            assertTrue(java.util.stream.StreamSupport.stream(sheet.spliterator(), false)
+            assertFalse(java.util.stream.StreamSupport.stream(sheet.spliterator(), false)
                     .anyMatch(row -> row.getCell(0) != null && expected.equals(row.getCell(0).getStringCellValue())));
             assertTrue(java.util.stream.StreamSupport.stream(sheet.spliterator(), false)
                     .anyMatch(row -> row.getCell(0) != null && "IRSA dû (net)".equals(row.getCell(0).getStringCellValue())));
@@ -64,7 +65,8 @@ class BulletinIrsaLabelTest {
         try (PDDocument pdf = Loader.loadPDF(documents.pdf(complet, context))) {
             String text = Normalizer.normalize(new PDFTextStripper().getText(pdf), Normalizer.Form.NFD)
                     .replaceAll("\\p{M}", "").replaceAll("\\s+", " ");
-            assertTrue(text.contains("IRSA brut arrondi a la dizaine superieure"));
+            assertFalse(text.contains("IRSA brut arrondi a la dizaine superieure"));
+            assertFalse(text.contains("IRSA Brut (Bareme Progressif 6 Tranches)"));
             assertTrue(text.contains("IRSA du (net)"), text);
         }
     }

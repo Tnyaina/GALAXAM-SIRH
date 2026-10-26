@@ -457,8 +457,8 @@ export function FamilleFormStep({
                                             type="button"
                                             onClick={() => removeEnfant(idx)}
                                             variant="ghost"
-                                            size="sm"
-                                            className="absolute top-2 right-2 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                            size="xs"
+                                            className="absolute top-2 right-2 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 ui-button-icon-xs inline-flex items-center justify-center"
                                             aria-label={`Supprimer l'enfant ${idx + 1}`}
                                             icon={<Trash2 size={16} />}
                                         />
@@ -602,8 +602,8 @@ export function UrgenceFormStep({
                                         type="button"
                                         onClick={() => removeContact(idx)}
                                         variant="ghost"
-                                        size="sm"
-                                        className="absolute top-2 right-2 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                        size="xs"
+                                        className="absolute top-2 right-2 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 ui-button-icon-xs inline-flex items-center justify-center"
                                         aria-label={`Supprimer le contact d'urgence ${idx + 1}`}
                                         icon={<Trash2 size={16} />}
                                     />

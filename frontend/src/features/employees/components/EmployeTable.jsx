@@ -87,8 +87,8 @@ export default function EmployeTable({
                     </button>
                     {emp.alerteContratTexte && emp.estActif && <Badge variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} size="xs" dot>{emp.alerteContratTexte}</Badge>}
                     {(canWrite || canValidate) && <div className="flex justify-end gap-1.5" onClick={e => e.stopPropagation()}>
-                        {canWrite && <Button type="button" variant="ghost" size="sm" className="min-h-[44px] inline-flex items-center justify-center" iconLeft={<Edit2 size={14} />} onClick={() => onOpenEdit(emp)} aria-label={`Modifier ${fullName}`}>Modifier</Button>}
-                        {canValidate && <Button type="button" variant={emp.estActif ? 'outline' : 'success'} size="sm" className="min-h-[44px] inline-flex items-center justify-center" iconLeft={emp.estActif ? <Power size={14} /> : <Check size={14} />} onClick={() => onToggleStatus(emp)} aria-label={emp.estActif ? `Désactiver ${fullName}` : `Réactiver ${fullName}`}>{emp.estActif ? 'Désactiver' : 'Réactiver'}</Button>}
+                        {canWrite && <Button type="button" variant="ghost" size="sm" iconLeft={<Edit2 size={14} />} onClick={() => onOpenEdit(emp)} aria-label={`Modifier ${fullName}`}>Modifier</Button>}
+                        {canValidate && <Button type="button" variant={emp.estActif ? 'outline' : 'success'} size="sm" iconLeft={emp.estActif ? <Power size={14} /> : <Check size={14} />} onClick={() => onToggleStatus(emp)} aria-label={emp.estActif ? `Désactiver ${fullName}` : `Réactiver ${fullName}`}>{emp.estActif ? 'Désactiver' : 'Réactiver'}</Button>}
                     </div>}
                 </article>;
             })}
@@ -266,9 +266,9 @@ export default function EmployeTable({
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            size="sm"
+                                            size="xs"
                                             iconOnly
-                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                            className="ui-button-icon-xs inline-flex items-center justify-center"
                                             icon={<Edit2 size={15} />}
                                             onClick={() => onOpenEdit(emp)}
                                             title="Modifier la fiche employé"
@@ -279,8 +279,8 @@ export default function EmployeTable({
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center ${emp.estActif ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-success-500)]'}`}
-                                            size="sm"
+                                            className={`ui-button-icon-xs inline-flex items-center justify-center ${emp.estActif ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-success-500)]'}`}
+                                            size="xs"
                                             iconOnly
                                             icon={emp.estActif ? <Power size={15} /> : <Check size={15} />}
                                             onClick={() => onToggleStatus(emp)}

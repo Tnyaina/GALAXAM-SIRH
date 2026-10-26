@@ -529,7 +529,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                               size="sm"
                               onClick={() => { setDetailDemande(d); setShowDetailModal(true); }}
                               iconLeft={<Eye size={13} />}
-                              className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] min-h-[44px] inline-flex items-center justify-center"
+                              className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
                               title="Consulter le détail complet de la demande"
                               aria-label={`Détails de la demande #${d.idDemandeConge} (${d.libelleTypeConge || d.codeTypeConge})`}
                             >

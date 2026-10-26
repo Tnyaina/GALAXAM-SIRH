@@ -22,6 +22,11 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, valo
   const sourceTaux = situationData?.tauxApplicable?.source ?? soldeData?.sourceTauxConge;
   const cycle = situationData?.periodeReference;
   const pool = consommationPool?.[0];
+  const tauxProjection = Number(cycle?.tauxProjection);
+  const tauxActuel = Number(taux);
+  const ecartTauxReprise = cycle?.modeReprise && cycle?.tauxProjection != null && taux != null
+    && Number.isFinite(tauxProjection) && Number.isFinite(tauxActuel) && tauxActuel > 0
+    && (tauxProjection >= tauxActuel * 2 || tauxProjection <= tauxActuel / 2);
 
   const soldeNumber = solde != null ? Number(solde) : null;
   const soldeSubtext = bonification != null && Number(bonification) > 0
@@ -87,11 +92,11 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, valo
         <div className="border-t border-[var(--color-border-subtle)] p-3 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
-              title="Droits acquis"
+              title="Acquisitions enregistrées"
               value={acquis == null ? '-' : `${formatJours(acquis)} j`}
               icon={<Clock size={18} />}
               color="neutral"
-              subtext={bonification != null && Number(bonification) > 0 ? `Bonification : ${formatJours(bonification)} j` : 'Droits cumulés'}
+              subtext={bonification != null && Number(bonification) > 0 ? `Bonification : ${formatJours(bonification)} j` : 'Mouvements crédités au solde'}
             />
             <StatCard
               title="Congés pris"
@@ -113,8 +118,8 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, valo
               {sourceTaux && <p>Taux actuel : <strong className="text-[var(--color-fg)]">{sourceTaux === 'REPRISE_CUTOVER' ? 'reprise historique' : sourceTaux === 'CALCUL_PERIODE_REFERENCE' ? 'cycle précédent' : sourceTaux}</strong></p>}
               {cycle && <p>Cycle : <strong className="text-[var(--color-fg)]">{cycle.statut || '-'}</strong>
                 {cycle.modeReprise ? ` · Reprise ${cycle.openingComplete ? 'complète' : 'partielle'}` : ''}</p>}
-              {cycle?.cumulDroitsTotal != null && <p>Droits acquis dans le cycle : <strong className="text-[var(--color-fg)]">{formatJours(cycle.cumulDroitsTotal)} j</strong></p>}
-              {cycle?.tauxProjection != null && <p>Taux estimé du prochain cycle : <strong className="text-[var(--color-fg)]">{formatMoneyAr(cycle.tauxProjection)} / jour</strong><span className="block">Valeur acquise ÷ jours acquis à ce jour ; non applicable avant clôture et activation.</span></p>}
+              {cycle?.cumulDroitsTotal != null && <p>Droits cumulés pour le taux du cycle : <strong className="text-[var(--color-fg)]">{formatJours(cycle.cumulDroitsTotal)} j</strong>{cycle.modeReprise && cycle.cumulDroitsOuverture != null && <span className="block">Dont {formatJours(cycle.cumulDroitsOuverture)} j repris à l’ouverture.</span>}</p>}
+              {cycle?.tauxProjection != null && <p>Taux estimé du prochain cycle : <strong className="text-[var(--color-fg)]">{formatMoneyAr(cycle.tauxProjection)} / jour</strong><span className="block">Valorisation cumulée ({formatMoneyAr(cycle.cumulValorisationTotal)}) ÷ droits cumulés ({formatJours(cycle.cumulDroitsTotal)} j). Applicable après clôture et activation.</span>{ecartTauxReprise && <span className="block text-[var(--color-danger-600)]">Écart important avec le taux actuel : vérifier les cumuls de l’arrêté de reprise avant la clôture.</span>}</p>}
             </div>
           )}
         </div>

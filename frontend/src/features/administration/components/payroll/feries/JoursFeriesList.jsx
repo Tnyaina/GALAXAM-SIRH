@@ -84,7 +84,7 @@ export default function JoursFeriesList({
                                         <div className="flex items-center justify-end gap-1">
                                             <SharedButton plain
                                                 onClick={() => onOpenEdit(f)}
-                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier"
                                                 aria-label={`Modifier ${f.libelle}`}
                                             >
@@ -94,7 +94,7 @@ export default function JoursFeriesList({
                                                 isActif ? (
                                                     <SharedButton plain
                                                         onClick={() => onToggleStatus(f)}
-                                                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                                        className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                         title="Désactiver ce jour férié"
                                                         aria-label={`Désactiver ${f.libelle}`}
                                                     >
@@ -103,7 +103,7 @@ export default function JoursFeriesList({
                                                 ) : (
                                                     <SharedButton plain
                                                         onClick={() => onToggleStatus(f)}
-                                                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer transition-colors"
+                                                        className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer transition-colors"
                                                         title="Réactiver ce jour férié"
                                                         aria-label={`Réactiver ${f.libelle}`}
                                                     >

@@ -122,7 +122,7 @@ export default function SlideOver({
 
                     {/* Footer */}
                     {footer && (
-                        <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-2.5 shrink-0">
+                        <div className="ui-modal-actions px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] justify-between shrink-0">
                             {footer}
                         </div>
                     )}
@@ -143,8 +143,8 @@ export default function SlideOver({
                 }}
                 title={dirtyWarningTitle}
                 message={dirtyWarningMessage}
-                confirmLabel="Abandonner les modifications"
-                cancelLabel="Poursuivre la saisie"
+                confirmLabel="Quitter sans enregistrer"
+                cancelLabel="Continuer la saisie"
                 variant="danger"
             />
         </>

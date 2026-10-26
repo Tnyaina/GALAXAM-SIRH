@@ -50,7 +50,7 @@ export default function ValidationFilters({
             {displayTotal} demande{displayTotal > 1 ? 's' : ''} dans la sélection · ouvrez une demande pour consulter le contexte et décider.
           </p>
         </div>
-        {onNewDemande && <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={onNewDemande}>
+        {onNewDemande && <Button variant="primary" size="xs" iconLeft={<Plus size={14} />} onClick={onNewDemande}>
           Nouvelle demande
         </Button>}
       </div>
@@ -86,7 +86,7 @@ export default function ValidationFilters({
             })}
           className="w-full"
         />
-        <Button variant="outline" size="sm" iconLeft={<RefreshCw size={13} />} loading={loading} onClick={onRefresh}>
+        <Button variant="outline" size="xs" iconLeft={<RefreshCw size={13} />} loading={loading} onClick={onRefresh}>
           Actualiser
         </Button>
       </div>

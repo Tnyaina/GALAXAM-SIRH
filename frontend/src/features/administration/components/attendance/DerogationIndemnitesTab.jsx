@@ -171,7 +171,7 @@ export default function DerogationIndemnitesTab() {
                                     <div className="flex justify-end gap-1.5">
                                         <button
                                             onClick={() => openModal(d)}
-                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier l'exclusion"
                                             aria-label={`Modifier exclusion ${d.nomPrenomEmploye}`}
                                         >
@@ -179,7 +179,7 @@ export default function DerogationIndemnitesTab() {
                                         </button>
                                         <button
                                             onClick={() => setConfirmDelete({ isOpen: true, derogation: d, loading: false })}
-                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                            className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                             title="Supprimer l'exclusion"
                                             aria-label={`Supprimer exclusion ${d.nomPrenomEmploye}`}
                                         >

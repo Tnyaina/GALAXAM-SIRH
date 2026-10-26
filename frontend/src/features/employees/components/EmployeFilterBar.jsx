@@ -42,11 +42,11 @@ export default function EmployeFilterBar({
     const selectedDept = departements.find(d => String(d.idDepartement || d.id_departement) === String(departementFilter));
     const selectedService = services.find(srv => String(srv.idService || srv.id_service) === String(serviceFilter));
 
-    // Options pour les composants SearchSelect avec code et libellé
+    // Options pour les composants SearchSelect
     const statusOptions = useMemo(() => [
         { value: 'ALL', label: 'Statut : Tous' },
-        { value: 'ACTIVE', label: 'ACTIF — Actifs uniquement' },
-        { value: 'INACTIVE', label: 'INACTIF — Inactifs uniquement' },
+        { value: 'ACTIVE', label: 'Actifs uniquement' },
+        { value: 'INACTIVE', label: 'Inactifs uniquement' },
     ], []);
 
     const siteOptions = useMemo(() => [

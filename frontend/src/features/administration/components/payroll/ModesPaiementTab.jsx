@@ -179,7 +179,7 @@ export default function ModesPaiementTab() {
                                         <div className="flex items-center justify-end gap-1">
                                             <SharedButton plain
                                                 onClick={() => handleEdit(m)}
-                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier le mode de paiement"
                                                 aria-label={`Modifier ${m.libelle}`}
                                             >
@@ -187,7 +187,7 @@ export default function ModesPaiementTab() {
                                             </SharedButton>
                                             <SharedButton plain
                                                 onClick={() => handleToggleActif(m)}
-                                                className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 ${isActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-600)] hover:bg-[var(--color-success-500)]/10'} rounded-none cursor-pointer transition-colors`}
+                                                className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 ${isActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-600)] hover:bg-[var(--color-success-500)]/10'} rounded-none cursor-pointer transition-colors`}
                                                 title={isActif ? "Désactiver ce mode" : "Activer ce mode"}
                                                 aria-label={isActif ? `Désactiver ${m.libelle}` : `Activer ${m.libelle}`}
                                             >

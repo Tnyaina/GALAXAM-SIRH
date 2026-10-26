@@ -51,7 +51,7 @@ export default function ConfirmDialog({
                 aria-modal="true"
                 aria-labelledby="confirm-dialog-title"
                 tabIndex={-1}
-                className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl max-w-md w-full overflow-hidden rounded-none flex flex-col animate-in fade-in zoom-in-95"
+                className="ui-dialog-viewport bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl max-w-lg w-full overflow-y-auto rounded-none flex flex-col animate-in fade-in zoom-in-95"
             >
                 <div className="p-4 sm:p-5 space-y-3">
                     <div className="flex items-start gap-3">
@@ -73,12 +73,14 @@ export default function ConfirmDialog({
                     {children && <div className="pt-1.5">{children}</div>}
                 </div>
 
-                <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-2 shrink-0">
+                <div className="ui-dialog-actions px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] shrink-0">
                     <Button
                         type="button"
                         onClick={onClose}
                         variant="ghost"
                         size="sm"
+                        wrapLabel
+                        className="min-w-0"
                         disabled={loading}
                     >
                         {cancelLabel}
@@ -88,6 +90,8 @@ export default function ConfirmDialog({
                         onClick={onConfirm}
                         variant={variant === 'danger' ? 'danger' : variant === 'warning' ? 'warning' : variant === 'success' ? 'success' : 'primary'}
                         size="sm"
+                        wrapLabel
+                        className="min-w-0"
                         loading={loading}
                     >
                         {confirmLabel}

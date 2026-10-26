@@ -4,7 +4,7 @@ import { EllipsisVertical } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 
 /** Menu d'actions compact, rendu hors des tableaux pour éviter leur découpe. */
-export default function ActionMenu({ label = 'Actions', triggerLabel, items = [], disabled = false }) {
+export default function ActionMenu({ label = 'Actions', triggerLabel, triggerClassName = '', items = [], disabled = false }) {
     const triggerRef = useRef(null);
     const menuRef = useRef(null);
     const [position, setPosition] = useState(null);
@@ -55,6 +55,7 @@ export default function ActionMenu({ label = 'Actions', triggerLabel, items = []
         <Button ref={triggerRef} type="button" variant="outline" size="xs"
             iconOnly={!triggerLabel} icon={triggerLabel ? undefined : <EllipsisVertical size={16} />}
             iconRight={triggerLabel ? <EllipsisVertical size={14} /> : undefined}
+            className={triggerClassName}
             aria-label={label} aria-haspopup="menu" aria-expanded={open}
             disabled={disabled} onClick={toggle}>{triggerLabel}</Button>
         {open && createPortal(<div ref={menuRef} role="menu" aria-label={label}

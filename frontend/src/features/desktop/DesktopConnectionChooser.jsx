@@ -57,7 +57,7 @@ export default function DesktopConnectionChooser({ onClose }) {
   };
 
   return <div className="fixed inset-0 z-[100] grid place-items-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-    <section role="dialog" aria-modal="true" aria-labelledby="desktop-connection-title" className="w-full max-w-xl space-y-5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl sm:p-7">
+    <section role="dialog" aria-modal="true" aria-labelledby="desktop-connection-title" className="ui-dialog-viewport w-full max-w-xl overflow-y-auto space-y-5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl sm:p-7">
       <div className="flex items-start justify-between gap-4"><div><h2 id="desktop-connection-title" className="text-xl font-semibold">Choisir une connexion</h2><p className="mt-1 text-sm text-[var(--color-fg-muted)]">Choisissez les données à utiliser avant de vous connecter.</p></div><button type="button" onClick={onClose} aria-label="Fermer" autoFocus className="rounded-none p-2 hover:bg-[var(--color-bg-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"><X size={18}/></button></div>
       {error && <p role="alert" className="border border-[var(--color-danger-500)] p-3 text-sm">{error}</p>}
       {!status ? <p aria-live="polite" className="text-sm">Chargement des connexions…</p> : <>

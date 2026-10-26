@@ -8,7 +8,7 @@ import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIss
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 import { fmtDate } from '@/utils/dateUtils';
-import { etapesAfficheesCampagnePaie, progressionCampagnePaie } from '@/features/payroll/utils/payrollPresentation';
+import { presentationParcoursCampagnePaie } from '@/features/payroll/utils/payrollPresentation';
 
 /**
  * PayrollCampaignShell — Shell visuel invariant pour les 7 étapes de campagne de paie.
@@ -43,9 +43,7 @@ export default function PayrollCampaignShell({
     const recalcReason = context?.recalculationReason;
     const activeStepObj = campaignSteps.find(s => s.code === activeStep);
     const population = context?.populationCount ?? context?.employeeCount ?? activePeriod?.employeeCount;
-    const payrollClosed = activePeriod?.workflowStatuses?.paie?.code === 'CLOTUREE';
-    const progress = progressionCampagnePaie(campaignSteps, payrollClosed);
-    const displayedCampaignSteps = etapesAfficheesCampagnePaie(campaignSteps, payrollClosed);
+    const { closed: payrollClosed, progress, steps: displayedCampaignSteps } = presentationParcoursCampagnePaie(campaignSteps, activePeriod);
 
     // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
 
