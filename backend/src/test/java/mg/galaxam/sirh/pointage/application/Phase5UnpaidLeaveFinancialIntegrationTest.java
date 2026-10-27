@@ -7,6 +7,7 @@ import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -32,6 +33,9 @@ class Phase5UnpaidLeaveFinancialIntegrationTest {
                               BigDecimal expectedNetPay, BigDecimal observedNetPay) {}
 
     @Test
+    @EnabledIfEnvironmentVariable(
+            named = "GALAXAM_PHASE5_FINANCE_DB_URL",
+            matches = "jdbc:postgresql://127\\.0\\.0\\.1:15452/galaxam_ecc_phase5_finance")
     void unpaidMultiDayAndHalfDayAbsencesProduceOracleMatchedPayrollResultsOnDisposablePostgres() throws Exception {
         String url = System.getenv("GALAXAM_PHASE5_FINANCE_DB_URL");
         String user = System.getenv("GALAXAM_PHASE5_FINANCE_DB_USER");
