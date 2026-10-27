@@ -1,0 +1,174 @@
+package mg.galaxam.sirh.cron;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.event.EventListener;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+/**
+ * Service centralisé assurant le rattrapage quotidien autonome des traitements de fond :
+ * 1. Basculement des mouvements RH échus (contrats, affectations, ruptures).
+ * 2. Génération des alertes et notifications RH.
+ * 3. Bonifications mensuelles de congés (acquisition à la clôture de paie).
+ * 4. Nettoyage des sessions et refresh tokens expirés.
+ *
+ * Fonctionne de manière 100% autonome :
+ * - Au démarrage initial de l'application (ApplicationReadyEvent).
+ * - Par battement de cœur régulier toutes les 15 minutes (fixedDelay) après sortie de veille du serveur.
+ * - En filet de sécurité paresseux lors de la première requête HTTP du jour.
+ */
+@Service
+public class RattrapageAutomatiqueService {
+
+    private static final Logger log = LoggerFactory.getLogger(RattrapageAutomatiqueService.class);
+
+    private final AtomicReference<LocalDate> dernierRattrapageJournalier = new AtomicReference<>(null);
+    private final AtomicBoolean enCoursExecution = new AtomicBoolean(false);
+
+    @Autowired
+    private SchedulerExecutionRegistry schedulerExecutionRegistry;
+
+    @Value("${app.rattrapage.enabled:true}")
+    private boolean enabled;
+
+    @Autowired
+    @Lazy
+    private MouvementRhScheduler mouvementRhScheduler;
+
+    @Autowired
+    @Lazy
+    private NotificationRhScheduler notificationRhScheduler;
+
+    @Autowired
+    @Lazy
+    private AcquisitionCongeScheduler acquisitionCongeScheduler;
+
+    @Autowired
+    @Lazy
+    private SessionSecurityScheduler sessionSecurityScheduler;
+
+    @Autowired
+    @Lazy
+    private AuditLogPurgeScheduler auditLogPurgeScheduler;
+
+    /**
+     * Exécution automatique au démarrage du serveur.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void auDemarrage() {
+        if (!enabled) return;
+        log.info("[RATTRAPAGE] Exécution du rattrapage initial au démarrage du serveur...");
+        verifierEtExecuterRattrapage(false);
+    }
+
+    /**
+     * Battement de cœur régulier (toutes les 15 minutes), côté SERVEUR uniquement.
+     * Indépendant de React/SPA : aucune requête HTTP client n'est nécessaire pour déclencher le rattrapage.
+     * Si le serveur ne redémarre pas mais que minuit est passé (ex: serveur en veille, weekend sans trafic),
+     * cette tâche détecte automatiquement le changement de date et lance le cycle de rattrapage du jour.
+     */
+    @Scheduled(fixedDelay = 900000, initialDelay = 30000)
+    public void battementCoeurPeriodique() {
+        if (!enabled) return;
+        verifierEtExecuterRattrapage(true);
+    }
+
+    /**
+     * Déclencheur asynchrone sécurisé pour les requêtes HTTP (Filtre JWT / Refresh Token).
+     * N'effectue aucun calcul bloquant si le rattrapage du jour a déjà eu lieu.
+     */
+    public void verifierEtExecuterRattrapageAsync() {
+        if (!enabled) return;
+        LocalDate aujourdhui = LocalDate.now(ZoneId.of("Indian/Antananarivo"));
+        if (!aujourdhui.equals(dernierRattrapageJournalier.get())) {
+            CompletableFuture.runAsync(() -> verifierEtExecuterRattrapage(false));
+        }
+    }
+
+    /**
+     * Exécute l'ensemble des rattrapages quotidiens de manière séquentielle et idempotente.
+     * @param forcer true pour forcer l'exécution même si elle a déjà eu lieu aujourd'hui.
+     */
+    public void verifierEtExecuterRattrapage(boolean forcer) {
+        if (!enabled) return;
+        LocalDate aujourdhui = LocalDate.now(ZoneId.of("Indian/Antananarivo"));
+
+        if (!forcer && aujourdhui.equals(dernierRattrapageJournalier.get())) {
+            return;
+        }
+
+        if (!enCoursExecution.compareAndSet(false, true)) {
+            log.info("[RATTRAPAGE] Un cycle de rattrapage est déjà en cours d'exécution. Ignoré.");
+            return;
+        }
+
+        try {
+            log.info("[RATTRAPAGE] Démarrage du cycle de rattrapage quotidien autonome pour le {}...", aujourdhui);
+            boolean succes = true;
+
+            // 1. Mouvements RH échus (contrats planifiés -> actifs, ruptures, etc.)
+            try {
+                succes &= mouvementRhScheduler.rattraperMouvements();
+            } catch (Exception e) {
+                succes = false;
+                log.error("[RATTRAPAGE] Erreur basculement mouvements RH : {}", e.getMessage());
+            }
+
+            // 2. Alertes et notifications RH (échéances d'essai, CDD, etc.)
+            try {
+                succes &= notificationRhScheduler.rattraperNotifications();
+            } catch (Exception e) {
+                succes = false;
+                log.error("[RATTRAPAGE] Erreur génération alertes RH : {}", e.getMessage());
+            }
+
+            // 3. Bonification mensuelle de congés
+            try {
+                succes &= acquisitionCongeScheduler.rattraperBonificationMensuelle();
+            } catch (Exception e) {
+                succes = false;
+                log.error("[RATTRAPAGE] Erreur bonification mensuelle congés : {}", e.getMessage());
+            }
+
+            // 4. Nettoyage de sécurité (sessions + tokens expirés)
+            try {
+                succes &= sessionSecurityScheduler.rattraperSecurite();
+            } catch (Exception e) {
+                succes = false;
+                log.error("[RATTRAPAGE] Erreur nettoyage sécurité : {}", e.getMessage());
+            }
+
+            // 5. Purge des logs d'audit (mensuelle, sans risque de doublon : idempotente par seuil date)
+            try {
+                succes &= auditLogPurgeScheduler.rattraperPurgeMensuelle();
+            } catch (Exception e) {
+                succes = false;
+                log.error("[RATTRAPAGE] Erreur purge logs audit : {}", e.getMessage());
+            }
+
+            if (succes) {
+                dernierRattrapageJournalier.set(aujourdhui);
+                log.info("[RATTRAPAGE] Cycle de rattrapage quotidien terminé avec succès pour le {}.", aujourdhui);
+            } else {
+                log.warn("[RATTRAPAGE] Cycle incomplet pour {} ; une nouvelle tentative sera faite au prochain battement.", aujourdhui);
+            }
+
+        } finally {
+            enCoursExecution.set(false);
+        }
+    }
+
+    public LocalDate getDernierRattrapageJournalier() {
+        return dernierRattrapageJournalier.get();
+    }
+}

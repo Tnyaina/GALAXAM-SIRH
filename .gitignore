@@ -12,3 +12,25 @@
 # Fichiers de logs ou temporaires globaux
 *.log
 .temp/
+# Répertoires de téléversement locaux
+uploads/
+/backend/uploads/
+
+# Documents de travail et exports locaux (les modèles applicatifs restent suivis)
+/*.pdf
+/*.xlsx
+/*.docx
+
+/docs
+.env
+
+.ecc
+.env.production
+.maintenance/
+releases/
+
+.env.production.test
+/local-prod-test-backups/
+
+.local-prod-test-credentials
+.local-prod-credentials

@@ -1,0 +1,239 @@
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import SEO from '@/components/system/SEO';
+import Badge from '@/components/ui/data-display/Badge';
+import Button from '@/components/ui/forms/Button';
+import PayrollPeriodStepper from '@/features/payroll/components/workflow/PayrollPeriodStepper';
+import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIssuePanel';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
+import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
+import { fmtDate } from '@/utils/dateUtils';
+import { presentationParcoursCampagnePaie } from '@/features/payroll/utils/payrollPresentation';
+
+/**
+ * PayrollCampaignShell — Shell visuel invariant pour les 7 étapes de campagne de paie.
+ *
+ * Structure cible V1 Full V3 :
+ * 1. Breadcrumb hiérarchique
+ * 2. Header campagne (Mois, dates, statut backend, population, version utile)
+ * 3. Stepper de campagne compact (7 étapes)
+ * 4. Titre de l'étape + description courte
+ * 5. Zone de contenu spécifique
+ * 6. Action Bar de bas de page (1 seule action principale contextuelle)
+ */
+export default function PayrollCampaignShell({
+    title,
+    subtitle,
+    activeStep,
+    context,
+    periodes = [],
+    loading = false,
+    prevStep,
+    nextStep,
+    primaryAction,
+    footerCenter,
+    children,
+}) {
+    const navigate = useNavigate();
+
+    const campaignSteps = context?.campaignSteps || [];
+    const activePeriod = context?.selectedPeriod || context?.currentPeriod;
+    const currentStepCode = context?.currentStep;
+    const recalcRequired = context?.recalculationRequired === true;
+    const recalcReason = context?.recalculationReason;
+    const activeStepObj = campaignSteps.find(s => s.code === activeStep);
+    const population = context?.populationCount ?? context?.employeeCount ?? activePeriod?.employeeCount;
+    const { closed: payrollClosed, progress, steps: displayedCampaignSteps } = presentationParcoursCampagnePaie(campaignSteps, activePeriod);
+
+    // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
+
+    const periodCode = activePeriod?.code || activePeriod?.label || 'Période';
+    const periodDates = activePeriod?.startDate && activePeriod?.endDate
+        ? `${fmtDate(activePeriod.startDate)} → ${fmtDate(activePeriod.endDate)}`
+        : null;
+
+    return (
+        <div className="flex-1 flex flex-col min-h-full max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-6">
+            <SEO
+                title={`${title || 'Campagne de Paie'} | GALAXAM GRH`}
+                description="Workflow de campagne de paie strict et guidé par le backend."
+            />
+
+            {/* 1. Breadcrumb épuré */}
+            <nav aria-label="Fil d'Ariane" className="flex items-center gap-2 text-xs text-[var(--color-fg-subtle)] mb-3">
+                <Link to="/paie" className="hover:text-[var(--color-brand-600)] transition-colors flex items-center gap-1">
+                    <ArrowLeft size={13} className="shrink-0" />
+                    <span>Centre de paie</span>
+                </Link>
+                <span>/</span>
+                <span className="text-[var(--color-fg-muted)]">Campagne {periodCode}</span>
+                {title && (
+                    <>
+                        <span>/</span>
+                        <span className="font-semibold text-[var(--color-fg)]">{title}</span>
+                    </>
+                )}
+            </nav>
+
+            {/* 2. Header Invariant de Campagne */}
+            <header className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-4 sm:p-5 mb-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-fg)] tracking-tight">
+                                {periodCode}
+                            </h1>
+                            <PayrollWorkflowStatusBadges statuses={activePeriod?.workflowStatuses} />
+                            {activeStepObj?.readOnly && (
+                                <Badge variant="secondary" size="sm">Lecture seule</Badge>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs text-[var(--color-fg-muted)] flex-wrap pt-0.5">
+                            {periodDates && (
+                                <span>{periodDates}</span>
+                            )}
+                            {population !== undefined && population !== null && (
+                                <span>· <strong className="text-[var(--color-fg)] font-data">{population}</strong> salariés</span>
+                            )}
+                            {context?.snapshotPointageVersion && (
+                                <span>· Snapshot Pointage : <code className="font-data text-[11px] text-[var(--color-brand-600)]">v{context.snapshotPointageVersion}</code></span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Sélecteur rapide de période si multiple */}
+                    {periodes.length > 0 && (
+                        <div className="shrink-0 flex items-center gap-2">
+                            <label htmlFor="select-periode-shell" className="text-xs text-[var(--color-fg-subtle)]">Période :</label>
+                            <SearchSelect
+                                id="select-periode-shell"
+                                placeholder="Rechercher une période…"
+                                value={activePeriod?.id || ''}
+                                onChange={(newId) => {
+                                    if (newId) {
+                                        const stepSegment = {
+                                            CALCULATION: 'calcul',
+                                            OUTPUTS: 'sorties',
+                                            CONTROL: 'controle',
+                                            PREPARATION: 'preparation',
+                                            POPULATION: 'population',
+                                            VARIABLES: 'variables',
+                                            VALIDATION: 'validation',
+                                        }[activeStep] || (activeStep ? activeStep.toLowerCase() : 'preparation');
+                                        navigate(`/paie/periodes/${newId}/${stepSegment}`);
+                                    }
+                                }}
+                                className="w-64 sm:w-72 min-w-[260px]"
+                                options={periodes.map(p => {
+                                    const pId = p.idPeriodePaie || p.id_periode_paie || p.id;
+                                    return {
+                                        value: String(pId),
+                                        label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(pId),
+                                        sublabel: p.workflowStatuses?.paie?.label || 'Statut de paie indisponible',
+                                    };
+                                })}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Bannière de Recalcul si STALE */}
+                {recalcRequired && !payrollClosed && (
+                    <div className="mt-3 p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex items-center justify-between gap-3 text-xs text-[var(--color-warning-800)] dark:text-[var(--color-warning-200)] flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold">⚠ Calcul obsolète :</span>
+                            <span>{recalcReason || 'Des sources de pointage ou variables ont été modifiées depuis le dernier calcul.'}</span>
+                        </div>
+                        {activePeriod?.id && activeStep !== 'CALCUL' && activeStep !== 'CALCULATION' && (
+                            <Button
+                                variant="secondary"
+                                size="xs"
+                                type="button"
+                                onClick={() => navigate(`/paie/periodes/${activePeriod.id}/calcul`)}
+                                className="shrink-0"
+                            >
+                                Aller au calcul
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+            </header>
+
+            {/* La progression est séparée des métadonnées pour rester lisible à chaque étape. */}
+            {campaignSteps.length > 0 && (
+                <section aria-label="Progression de la campagne" className="mb-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:p-4">
+                    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                        <div>
+                            <h2 className="text-xs font-bold text-[var(--color-fg)]">Étapes de la campagne</h2>
+                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Étape active : {activeStepObj?.label || 'indisponible'}</p>
+                        </div>
+                        <span className="text-[11px] tabular-nums text-[var(--color-fg-muted)]">
+                            {progress.completed} / {progress.total} terminées
+                        </span>
+                    </div>
+                    <PayrollPeriodStepper
+                        steps={displayedCampaignSteps}
+                        currentStep={currentStepCode}
+                        activeCode={activeStep}
+                        loading={loading}
+                    />
+                </section>
+            )}
+
+            {/* 4. En-tête de l'étape active */}
+            {(title || subtitle) && (
+                <div className="mb-4 px-1">
+                    <h2 className="text-lg font-bold text-[var(--color-fg)]">{title}</h2>
+                    {subtitle && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{subtitle}</p>}
+                </div>
+            )}
+
+            {/* Alerte lecture seule si applicable */}
+            {activeStepObj?.readOnly && (
+                <div className="mb-4">
+                    <PayrollIssuePanel
+                        severity="INFO"
+                        title="Consultation en lecture seule"
+                        message="Cette campagne est validée ou clôturée. Les données sont archivées et scellées, aucune modification financière n’est possible."
+                        code="PAYROLL_READ_ONLY"
+                    />
+                </div>
+            )}
+
+            {/* 5. Contenu Spécifique de l'étape */}
+            <main id="step-content" className="flex-none">
+                {children}
+            </main>
+
+            {/* 6. Navigation de l'étape. */}
+            {(prevStep || primaryAction || nextStep || footerCenter) && (
+            <nav aria-label="Navigation de la campagne" className="mt-5 border-t border-[var(--color-border-subtle)] pt-4 pb-1">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        {prevStep && (
+                            <Button variant="outline" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate(prevStep.destination)}>
+                                {prevStep.label ? `Retour : ${prevStep.label}` : 'Retour'}
+                            </Button>
+                        )}
+                    </div>
+                    {footerCenter && <div className="text-xs text-[var(--color-fg-muted)] text-center hidden md:block">{footerCenter}</div>}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        {primaryAction && (
+                            <Button variant={primaryAction.variant || 'primary'} size="sm" loading={primaryAction.loading} disabled={primaryAction.disabled} iconLeft={primaryAction.icon} onClick={primaryAction.onClick} title={primaryAction.disabledReason}>
+                                {primaryAction.label}
+                            </Button>
+                        )}
+                        {nextStep && (
+                            <Button variant={primaryAction ? 'secondary' : 'primary'} size="sm" iconRight={<ArrowRight size={14} />} disabled={nextStep.disabled} title={nextStep.disabledReason || nextStep.label} onClick={() => !nextStep.disabled && navigate(nextStep.destination)}>
+                                {nextStep.label ? `Continuer : ${nextStep.label}` : 'Suivant'}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </nav>
+            )}
+        </div>
+    );
+}

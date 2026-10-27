@@ -1,0 +1,263 @@
+package mg.galaxam.sirh.paieconfig.api;
+
+import java.sql.Connection;
+import java.util.List;
+import javax.sql.DataSource;
+import mg.galaxam.sirh.paieconfig.api.dto.CalendrierFerieRequest;
+import mg.galaxam.sirh.paieconfig.api.dto.SiteCalendrierFerieRequest;
+import mg.galaxam.sirh.paieconfig.persistence.RefCalendrierFerie;
+import mg.galaxam.sirh.paieconfig.persistence.SiteCalendrierFerie;
+import mg.galaxam.sirh.securite.AuditLog;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/referentiel/calendrier-ferie")
+public class CalendrierFerieController {
+
+    @Autowired
+    private DataSource dataSource;
+
+    @GetMapping
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getAllCalendrierFerie() {
+        try (Connection c = dataSource.getConnection()) {
+            List<RefCalendrierFerie> list = RefCalendrierFerie.listAll(c);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getCalendrierFerieById(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            RefCalendrierFerie cf = new RefCalendrierFerie();
+            RefCalendrierFerie found = (RefCalendrierFerie) cf.rechercherParId(id, c);
+            if (found == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Jour férié non trouvé.");
+            }
+            return ResponseEntity.ok(found);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> createCalendrierFerie(@RequestBody CalendrierFerieRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                cf.setDateFerie(request.getDateFerie());
+                cf.setLibelle(request.getLibelle());
+                cf.setEstChome(request.isEstChome());
+                cf.setEstNational(request.isEstNational());
+
+                cf.save(c);
+                AuditLog.audit(c, "CREATION", "ref_calendrier_ferie", String.valueOf(cf.getIdFerie()), null, cf);
+
+                c.commit();
+                return ResponseEntity.status(HttpStatus.CREATED).body(cf);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> updateCalendrierFerie(@PathVariable int id, @RequestBody CalendrierFerieRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                RefCalendrierFerie existing = (RefCalendrierFerie) cf.rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Jour férié non trouvé.");
+                }
+
+                existing.setDateFerie(request.getDateFerie());
+                existing.setLibelle(request.getLibelle());
+                existing.setEstChome(request.isEstChome());
+                existing.setEstNational(request.isEstNational());
+
+                existing.update(c);
+                AuditLog.audit(c, "MODIFICATION", "ref_calendrier_ferie", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deleteCalendrierFerie(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                RefCalendrierFerie existing = (RefCalendrierFerie) cf.rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Jour férié non trouvé.");
+                }
+
+                String sqlDelSite = "DELETE FROM site_calendrier_ferie WHERE id_ferie = ?";
+                try (java.sql.PreparedStatement ps = c.prepareStatement(sqlDelSite)) {
+                    ps.setInt(1, id);
+                    ps.executeUpdate();
+                }
+
+                existing.delete(c);
+                AuditLog.audit(c, "SUPPRESSION", "ref_calendrier_ferie", String.valueOf(id), existing, null);
+
+                c.commit();
+                return ResponseEntity.ok("Jour férié supprimé avec succès.");
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PutMapping("/{id}/desactiver")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deactivateCalendrierFerie(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                RefCalendrierFerie existing = (RefCalendrierFerie) cf.rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Jour férié non trouvé.");
+                }
+
+                existing.desactiver(c);
+                AuditLog.audit(c, "DESACTIVATION", "ref_calendrier_ferie", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PutMapping("/{id}/activer")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> activateCalendrierFerie(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                RefCalendrierFerie existing = (RefCalendrierFerie) cf.rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Jour férié non trouvé.");
+                }
+
+                existing.activer(c);
+                AuditLog.audit(c, "ACTIVATION", "ref_calendrier_ferie", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    // Config Fériés par Site
+    @GetMapping("/site-config")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getAllSiteFeries() {
+        try (Connection c = dataSource.getConnection()) {
+            List<SiteCalendrierFerie> list = SiteCalendrierFerie.listAll(c);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping("/site-config")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> createSiteFerie(@RequestBody SiteCalendrierFerieRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                SiteCalendrierFerie scf = new SiteCalendrierFerie();
+                scf.setIdSite(request.getIdSite());
+                scf.setIdFerie(request.getIdFerie());
+
+                scf.save(c);
+                AuditLog.audit(c, "CREATION", "site_calendrier_ferie", String.valueOf(scf.getIdSiteFerie()), null, scf);
+
+                c.commit();
+                return ResponseEntity.status(HttpStatus.CREATED).body(scf);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @DeleteMapping("/site-config/{id}")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deleteSiteFerie(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                SiteCalendrierFerie scf = new SiteCalendrierFerie();
+                SiteCalendrierFerie existing = (SiteCalendrierFerie) scf.rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Affectation de jour férié non trouvée.");
+                }
+
+                existing.delete(c);
+                AuditLog.audit(c, "SUPPRESSION", "site_calendrier_ferie", String.valueOf(id), existing, null);
+
+                c.commit();
+                return ResponseEntity.ok("Affectation supprimée.");
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+}

@@ -1,0 +1,167 @@
+import Badge from '@/components/ui/data-display/Badge';
+import { formatRoundedMoneyAr } from '@/utils/moneyUtils';
+import { getAttendanceStatus } from '@/features/attendance/utils/attendanceStatus';
+
+/**
+ * Formate un nombre d'heures décimales (ex: 8.5) en chaîne lisible "08h30" ou "8h30".
+ * Robuste contre les erreurs d'arrondi flottant (ex: évite 08h60).
+ * 
+ * @param {number|string} hoursDecimal Valeur décimale d'heures (ex: 8.5, 4.25)
+ * @param {boolean} padZero Si true, préfixe les heures à 2 chiffres ("08h30"), sinon "8h30"
+ * @returns {string} Heure formatée (ex: "08h30")
+ */
+export const formatHeuresMinutes = (hoursDecimal, padZero = true) => {
+    if (hoursDecimal === null || hoursDecimal === undefined || hoursDecimal === '' || isNaN(hoursDecimal)) {
+        return padZero ? '00h00' : '0h00';
+    }
+    const val = Number(hoursDecimal);
+    if (val <= 0) return padZero ? '00h00' : '0h00';
+
+    const totalMinutes = Math.round(val * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+
+    const hStr = padZero ? String(h).padStart(2, '0') : String(h);
+    const mStr = String(m).padStart(2, '0');
+
+    return `${hStr}h${mStr}`;
+};
+
+/**
+ * Formate un montant monétaire en Ariary (ex: 1 418 Ar).
+ */
+export const formatMonnaie = formatRoundedMoneyAr;
+
+/**
+ * Formate les minutes de retard.
+ */
+export const formatMinutesRetard = (mins) => {
+    const m = Number(mins) || 0;
+    if (m <= 0) return '0m';
+    return `+${m}m`;
+};
+
+/**
+ * Mappe un code de statut de pointage (issu de ref_statut_pointage_jour)
+ * vers son badge visuel correspondant du Design System.
+ * 
+ * @param {string} codeStatut Code du statut issu de la BDD
+ * @param {number} minutesRetard
+ * @returns {JSX.Element} Badge UI prêt à afficher
+ */
+export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
+    if (!codeStatut || codeStatut === 'NON_SAISI') return <Badge variant="neutral">Non saisi</Badge>;
+
+    const upper = codeStatut.toUpperCase();
+
+    // En BDD, le retard est qualifié par le statut PRESENT avec minutes_retard > 0
+    if ((upper === 'PRESENT' || upper === 'RETARD') && minutesRetard > 0) {
+        return <Badge variant="warning">Retard ({minutesRetard} min)</Badge>;
+    }
+
+    const status = getAttendanceStatus(upper);
+    const label = upper === 'ABSENCE_JUSTIFIEE' ? 'Absence justifiée (non payée)'
+        : upper === 'CONGE' ? 'Congé / Permission'
+            : upper === 'FERIE_TRAVAILLE' ? 'Férié Travaillé'
+                : upper === 'FERIE_CHOME' ? 'Férié Chômé'
+                    : status.label;
+    const variant = upper === 'DEMI_JOURNEE' ? 'sky' : status.variant;
+    return <Badge variant={variant}>{upper === 'NON_ECHU' ? '—' : label}</Badge>;
+};
+
+/** Classes de badge partagées par les vues d'arbitrage et de planning pointage. */
+export function getAttendanceBadgeClass(variant) {
+    switch (variant) {
+        case 'violet':
+        case 'purple':
+        case 'info': return 'bg-[var(--color-info-500)]/10 border-[var(--color-info-500)]/40 text-[var(--color-info-700)] dark:text-[var(--color-info-300)]';
+        case 'warning': return 'bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/40 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]';
+        default: return 'bg-[var(--color-bg-subtle)] border-[var(--color-border)] text-[var(--color-fg-muted)]';
+    }
+}
+
+/**
+ * Détermine si la ligne de pointage doit être visualement grisée (Repos / Férié chômé / Non échu).
+ * 
+ * @param {string} codeStatut 
+ * @returns {boolean}
+ */
+export const isPointageRowGrayed = (codeStatut) => {
+    if (!codeStatut) return false;
+    const upper = codeStatut.toUpperCase();
+    return upper === 'REPOS' || upper === 'FERIE_CHOME' || upper === 'NON_ECHU';
+};
+
+/**
+ * Formate une date ISO (YYYY-MM-DD) en format français lisible (JJ/MM/AAAA).
+ */
+export const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        return d.toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    } catch {
+        return String(dateStr);
+    }
+};
+
+/**
+ * Filtre les anomalies de pointage selon la catégorie d'incident (Incomplet, Retard, Absence).
+ * 
+ * @param {Array<object>} anomalies Liste brute des anomalies
+ * @param {string} typeFilter 'ALL' | 'INCOMPLET' | 'RETARD' | 'ABSENCE'
+ * @returns {Array<object>} Liste filtrée
+ */
+export const filtrerAnomaliesParType = (anomalies = [], typeFilter = 'ALL') => {
+    return anomalies.filter((anom) => {
+        if (typeFilter === 'ALL') return true;
+        if (typeFilter === 'INCOMPLET') {
+            return anom.typeAnomalie === 'INCOMPLET' || anom.statutCode === 'ANOMALIE_SAISIE';
+        }
+        if (typeFilter === 'RETARD') {
+            return anom.typeAnomalie === 'RETARD' || (
+                Number(anom.minutesRetard) > 0 &&
+                anom.statutCode !== 'ANOMALIE_SAISIE' &&
+                anom.statutCode !== 'ABSENCE_NON_JUSTIFIEE'
+            );
+        }
+        if (typeFilter === 'ABSENCE') {
+            return anom.typeAnomalie === 'ABSENCE' || anom.statutCode === 'ABSENCE_NON_JUSTIFIEE';
+        }
+        return true;
+    });
+};
+
+/**
+ * Formate un nombre d'heures décimales au plus proche avec 2 décimales (ex: 8.5 -> "8,50h" ou "8.50h").
+ */
+export const formatHeuresDecimal = (val, suffix = 'h') => {
+    if (val === null || val === undefined || val === '' || isNaN(val)) {
+        return `0.00${suffix}`;
+    }
+    const num = Number(val);
+    const rounded = Math.round(num * 100) / 100;
+    return `${rounded.toFixed(2)}${suffix}`;
+};
+
+/**
+ * Formate un nombre d'heures décimales en double affichage : Horaire + Décimal
+ * Exemple: 8.5 -> "08h30 (8.50h)"
+ */
+export const formatDualHours = (val, options = {}) => {
+    const { primary = 'decimal', padZero = true } = options;
+    if (val === null || val === undefined || val === '' || isNaN(val)) {
+        return primary === 'decimal' ? '0.00h (00h00)' : '00h00 (0.00h)';
+    }
+    const hhmm = formatHeuresMinutes(val, padZero);
+    const dec = formatHeuresDecimal(val);
+    if (primary === 'decimal') {
+        return `${dec} (${hhmm})`;
+    }
+    return `${hhmm} (${dec})`;
+};

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stop-local-services"
+description = "Enables the stop_local_services command without any pre-configured scope."
+commands.allow = ["stop_local_services"]
+
+[[permission]]
+identifier = "deny-stop-local-services"
+description = "Denies the stop_local_services command without any pre-configured scope."
+commands.deny = ["stop_local_services"]

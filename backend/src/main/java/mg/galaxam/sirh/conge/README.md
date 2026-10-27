@@ -1,0 +1,25 @@
+# Domaine Congé
+
+Ce dossier regroupe l'ensemble du cycle de vie des congés : demandes, validation, calcul des droits, gestion des soldes et des périodes de référence.
+
+- `api/` : contrôleurs REST (`DemandeCongeController`, `CongeSoldeController`, `CongePeriodeReferenceController`, `CongeRefController`)
+- `application/` : `CongeService` porte le workflow des demandes et ses intégrations pointage ; `CongeContinuiteService` vérifie le poste/site sur chaque segment d'affectation d'une demande ; `CongeTauxApplicableService` porte le cycle civil de référence, le TCONGE et le cutover ; `CongeDecompteCalendaireResolver` applique la politique datée par jour ; `CongeValorisationMensuelleService` porte les corrections mensuelles auditées ; `CongeLotValorisationService` porte les lots FIFO et leurs valorisations. Les services d'export restent séparés de ces écritures.
+- `domain/` : moteurs de calcul sans JDBC (`CongeCalculateurEngine`, `PurgeFifoEngine`, `CongeLotValorisationEngine`) et contrats de requête/réponse.
+- Exports Excel : `CongeAnnuelExcelExportService` et `CongeGrandRecapExcelExportService` ; génération seule, sans écriture de règles métier.
+- `persistence/` : entités et requêtes SQL (`DemandeConge`, `MouvementSoldeConge`, `RefTypeConge`, `VSoldeCongeEmploye`, `VDemandeCongeCpl`, etc.)
+
+Les routes HTTP du module sont sous `/conges/*` ; elles ne sont pas publiques au sens d'un accès anonyme. Spring Security exige une authentification et les contrôleurs appliquent ensuite les permissions globales ou l'accès au dossier personnel selon l'opération. Par exemple, la lecture d'un dossier personnel peut être autorisée au propriétaire, tandis que les opérations de validation et de paramétrage exigent leurs permissions dédiées. Les exports restent soumis à `CONGE_READ` ou `ROLE_ADMIN`, notamment `/conges/periodes-reference/employe/{idEmploye}/export-excel` (canevas `resources/templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`).
+
+La reprise historique exige la référence identifiable de l'arrêté DAF ; elle
+reste conservée dans les commentaires du taux de reprise et du mouvement de
+stock initial. Le grand récapitulatif lit filiale, site et poste depuis
+`EmploymentContextResolver` à la date de fin du rapport.
+
+Les tentatives scheduler utilisent un bail et un jeton de possession ; une
+tentative expirée peut être reprise, et l'ancien worker ne peut plus renouveler
+le bail ni finaliser le statut. Les bonifications annuelles sont rendues
+idempotentes par une unicité salarié/année, avec diagnostic bloquant en cas de
+données historiques dupliquées. Ces protections empêchent les doubles écritures
+de bonification, mais le bail ne peut pas annuler un traitement métier déjà
+exécuté par un ancien worker : chaque effet métier doit rester idempotent ou
+protégé dans sa propre transaction. Les scripts de migration SP historiques ne sont pas présents dans le dépôt ; l'index `idx_uniq_mouvement_bonification_annee` est décrit dans le schéma canonique `backend/conception/bdd/04_schema_conges.sql`. Ce schéma initialise une base vierge et ne documente pas une migration depuis une base existante.

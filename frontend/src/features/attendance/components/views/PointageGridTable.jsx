@@ -1,0 +1,681 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Moon, Clock, UserX, FastForward } from 'lucide-react';
+import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
+import { Avatar } from '@/components/ui/data-display/Avatar';
+import TimeInput from '@/components/ui/forms/TimeInput';
+import Button from '@/components/ui/forms/Button';
+import Modal from '@/components/ui/overlays/Modal';
+import Pagination from '@/components/ui/navigation/Pagination';
+import { formatHeuresMinutes, formatHeuresDecimal, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
+import StatusPickerPopover from '@/features/attendance/components/controls/StatusPickerPopover';
+import { countAttendanceStatuses } from '@/features/attendance/utils/attendanceStatus';
+
+export default function PointageGridTable({
+    grilleData = [],
+    _siteParams,
+    siteIndemnites = [],
+    selectedStatutFilter = 'ALL',
+    onStatutFilterChange,
+    onUpdateHours,
+    onUpdateStatut,
+    onUpdateDynamicIndemnite,
+    onBulkStandardHours,
+    onBulkStatut,
+    onBulkIndemnite,
+    onRegisterInputRef,
+    onKeyDown,
+    onFocusNext,
+    currentPage = 1,
+    pageSize = 25,
+    onPageChange,
+    onPageSizeChange,
+    isReadOnly = false,
+    onToggleHoraireContinu,
+    onOpenRegularisation
+}) {
+    // Données dérivées : pagination de la grille reçue du parent.
+    const startIndex = (currentPage - 1) * pageSize;
+    const paginatedData = grilleData.slice(startIndex, startIndex + pageSize);
+
+    // État local : sélection multiple et modale d'absence collective.
+    const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
+    const [showCollectiveAbsenceModal, setShowCollectiveAbsenceModal] = useState(false);
+    const [collectiveMotif, setCollectiveMotif] = useState('');
+
+    // Actions utilisateur de sélection et d'application collective.
+    const toggleSelectRow = (idEmploye) => {
+        setSelectedEmpIds(prev => {
+            const next = new Set(prev);
+            if (next.has(idEmploye)) next.delete(idEmploye);
+            else next.add(idEmploye);
+            return next;
+        });
+    };
+
+    const isAllSelected = paginatedData.length > 0 && paginatedData.every(r => selectedEmpIds.has(r.idEmploye));
+    const isSomeSelected = paginatedData.some(r => selectedEmpIds.has(r.idEmploye)) && !isAllSelected;
+
+    const toggleSelectAll = () => {
+        if (isAllSelected) {
+            setSelectedEmpIds(prev => {
+                const next = new Set(prev);
+                paginatedData.forEach(r => next.delete(r.idEmploye));
+                return next;
+            });
+        } else {
+            setSelectedEmpIds(prev => {
+                const next = new Set(prev);
+                paginatedData.forEach(r => next.add(r.idEmploye));
+                return next;
+            });
+        }
+    };
+
+    const handleClearSelection = () => {
+        setSelectedEmpIds(new Set());
+    };
+
+    const handleApplyBulkStandard = () => {
+        if (selectedEmpIds.size === 0) return;
+        onBulkStandardHours?.(selectedEmpIds);
+        handleClearSelection();
+    };
+
+    const handleOpenCollectiveAbsence = () => {
+        setCollectiveMotif('');
+        setShowCollectiveAbsenceModal(true);
+    };
+
+    const handleConfirmCollectiveAbsence = () => {
+        if (selectedEmpIds.size === 0) return;
+        onBulkStatut?.(selectedEmpIds, 'ABSENCE_JUSTIFIEE', collectiveMotif || 'Absence collective');
+        setShowCollectiveAbsenceModal(false);
+        handleClearSelection();
+    };
+
+    const handleApplyBulkAllowance = (allowance) => {
+        if (selectedEmpIds.size === 0) return;
+        onBulkIndemnite?.(selectedEmpIds, allowance.idIndemnite, Boolean(allowance.fractionnable));
+        handleClearSelection();
+    };
+
+    // Fonction de présentation locale.
+    const fmtMoney = (val) => formatMonnaie(val);
+
+    // Rendu
+    return (
+        <div className="overflow-hidden flex flex-col">
+            {/* Barre combinée : Filtres de statut à gauche + Info & Légende à droite */}
+            <div className="flex flex-wrap items-center justify-between px-3 py-1.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)] gap-2">
+                {/* 1. Filtres d'état (Pills au-dessus de la table) */}
+                <div className="flex items-center gap-1 overflow-x-auto">
+                    {Object.entries(countAttendanceStatuses(grilleData)).map(([id, count]) => {
+                        const tab = { id, count, label: ({ ALL: 'Tous', PRESENT: 'Présents', NON_SAISI: 'Non saisis', RETARD: 'Retards', CONGE: 'Congés' })[id] };
+                        const isActive = selectedStatutFilter === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => onStatutFilterChange?.(tab.id)}
+                                className={`
+                                    px-2.5 py-1 text-[11px] transition-all cursor-pointer border h-[26px] whitespace-nowrap flex items-center shrink-0
+                                    ${isActive
+                                        ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-600)] text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)] font-bold'
+                                        : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                    }
+                                `}
+                            >
+                                <span>{tab.label}</span>
+                                    <span className={`ml-1.5 font-sans tabular-nums text-xs ${isActive ? 'opacity-95 font-bold' : 'opacity-75'}`}>
+                                    {tab.count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* 2. Légende & Info */}
+                <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap">
+                    <span className="font-semibold text-[var(--color-fg)] text-[11px]">Légende :</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-success-500)] shrink-0 inline-block" /> Présent</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-warning-500)] shrink-0 inline-block" /> Retard</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-sky-500)] shrink-0 inline-block" /> Congé</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-info-500)] shrink-0 inline-block" /> Autonome</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-ink-500)] shrink-0 inline-block" /> Férié</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 border border-[var(--color-border)] bg-[var(--color-surface)] shrink-0 inline-block" /> Non saisi</span>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto">
+                <Table className="w-full text-left border-collapse text-[13px]" bordered={false}>
+                    <Thead className="sticky top-0 z-10">
+                        {/* Ligne 1 d'en-tête (Titres de Blocs) */}
+                        <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                            <Th className="w-10 px-3 py-2.5 text-center">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    ref={el => { if (el) el.indeterminate = isSomeSelected; }}
+                                    onChange={toggleSelectAll}
+                                    disabled={isReadOnly}
+                                    className="w-3.5 h-3.5 rounded-none accent-[var(--color-brand-600)] cursor-pointer align-middle"
+                                    title={isAllSelected ? "Tout désélectionner" : "Sélectionner tous les employés de la page"}
+                                />
+                            </Th>
+                            <Th className="px-4 py-2.5 w-[210px]">Employé</Th>
+                            <Th className="px-2 py-2.5 text-center border-l border-[var(--color-border-subtle)]" colSpan={2}>
+                                Matin
+                            </Th>
+                            <Th className="px-2 py-2.5 text-center border-l border-[var(--color-border-subtle)]" colSpan={2}>
+                                Après-midi
+                            </Th>
+                            <Th className="px-3 py-2.5 text-center border-l border-[var(--color-border-subtle)] min-w-[85px]">
+                                Total
+                            </Th>
+                            <Th className="px-3 py-2.5 text-center min-w-[85px]">
+                                Retard
+                            </Th>
+                            <Th className="px-3 py-2.5 text-center min-w-[110px]">
+                                Statut
+                            </Th>
+                            {siteIndemnites.map((ind) => (
+                                <Th key={ind.idIndemnite} className="px-3 py-2.5 border-l border-[var(--color-border-subtle)] text-center min-w-[130px]" title={ind.libelle}>
+                                    <div className="flex flex-col items-center">
+                                        <span>{ind.libelle || ind.code}</span>
+                                        <span className="text-xs font-normal text-[var(--color-fg-muted)] normal-case">
+                                            {ind.sousTitre || (ind.estProratise ? `Prorata ${fmtMoney(ind.montantJour)}/j` : `${fmtMoney(ind.montantJour)}/j`)}
+                                        </span>
+                                    </div>
+                                </Th>
+                            ))}
+                        </Tr>
+                        {/* Ligne 2 d'en-tête (Sous-colonnes Entrée / Sortie) */}
+                        <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[11px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider sticky top-[38px] z-10">
+                            <Th className="w-10 px-3 py-1.5 text-center"></Th>
+                            <Th className="px-4 py-1.5"></Th>
+                            <Th className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">Entrée</Th>
+                            <Th className="px-2 py-1.5 text-center">Sortie</Th>
+                            <Th className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">Retour</Th>
+                            <Th className="px-2 py-1.5 text-center">Sortie</Th>
+                            <Th className="border-l border-[var(--color-border-subtle)]" colSpan={3}></Th>
+                            {siteIndemnites.map((ind) => (
+                                <Th key={ind.idIndemnite} className="border-l border-[var(--color-border-subtle)]"></Th>
+                            ))}
+                        </Tr>
+                    </Thead>
+                    <Tbody>
+                        {paginatedData.length === 0 ? (
+                            <TableEmpty
+                                colSpan={9 + siteIndemnites.length}
+                                title="Aucun collaborateur trouvé"
+                                description="Aucun collaborateur ne correspond aux filtres ou à la recherche sur cette journée."
+                            />
+                        ) : (
+                            paginatedData.map((row) => {
+                                const isCongeApprouve = Boolean(row.congeApprouve || (row.conge && row.libelleConge && !row._isDraftConge));
+                                const isCongeFull = Boolean(row.congeFull ?? (row.typeCongeJour === 'FULL_DAY' || row.codeStatut === 'CONGE'));
+                                const isCongeMatin = Boolean(row.congeMatin ?? (row.typeCongeJour === 'MATIN'));
+                                const isCongeAm = Boolean(row.congeAm ?? (row.typeCongeJour === 'APRES_MIDI'));
+                                const _isFerieChome = Boolean(row.ferieChome);
+                                const isReadOnlyForUser = isReadOnly;
+
+                            const isNonSaisi = Boolean(row.nonSaisi);
+
+                            let rowBorderCue = 'border-l-2 border-l-transparent';
+                            if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-[var(--color-warning-500)]';
+                            else if (row.totalHeures > 0) rowBorderCue = 'border-l-2 border-l-[var(--color-success-500)]';
+
+
+                            return (
+                                <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue}`}>
+                                    {/* 0. Case à cocher de sélection */}
+                                    <Td className="w-10 px-3 py-2 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedEmpIds.has(row.idEmploye)}
+                                            onChange={() => toggleSelectRow(row.idEmploye)}
+                                            disabled={isReadOnlyForUser}
+                                            className="w-3.5 h-3.5 rounded-none accent-[var(--color-brand-600)] cursor-pointer align-middle"
+                                            aria-label={`Sélectionner ${row.nom}`}
+                                        />
+                                    </Td>
+
+                                    {/* 1. Identification Salarié */}
+                                    <Td className="px-3.5 py-2">
+                                        <div className="flex items-center gap-2.5 min-w-[230px]">
+                                            <Avatar
+                                                src={row.photoUrl}
+                                                name={`${row.prenom || ''} ${row.nom || ''}`}
+                                                size="sm"
+                                                shape="square"
+                                            />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-[var(--color-fg)] leading-tight truncate">
+                                                    <Link
+                                                        to={`/pointages?tab=saisie&mode=employe&employe=${row.idEmploye}`}
+                                                        className="hover:text-[var(--color-brand-600)] hover:underline"
+                                                        title={`Saisir la période de ${row.nom} ${row.prenom}`}
+                                                    >
+                                                        {row.nom} {row.prenom}
+                                                    </Link>
+                                                </p>
+                                                <div className="flex items-center gap-1.5 text-xs font-data text-[var(--color-fg-muted)] mt-0.5">
+                                                    <span>{row.matricule}</span>
+                                                    {row.badgeProfilLabel && (
+                                                        <span
+                                                            className={`text-[11px] font-semibold px-1.5 py-0.5 tracking-wide shrink-0 ${row.badgeProfilVariant === 'purple'
+                                                                    ? 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)]'
+                                                                    : 'bg-[var(--color-info-surface)] text-[var(--color-info-text)]'
+                                                                }`}
+                                                            title={row.badgeProfilTooltip || row.badgeProfilLabel}
+                                                        >
+                                                            {row.badgeProfilLabel}
+                                                        </span>
+                                                    )}
+                                                    {!isReadOnlyForUser && !isCongeFull && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="2xs"
+                                                            onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
+                                                            className={`font-sans normal-case tracking-normal shrink-0 rounded-none ${
+                                                                row.horaireContinu
+                                                                    ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/40 hover:bg-[var(--color-brand-500)]/20'
+                                                                    : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                                            }`}
+                                                            title={row.horaireContinu ? "Journée continue active (sans pause déjeuner). Cliquer pour rétablir la pause." : "Activer la journée continue (sans pause déjeuner 1h)"}
+                                                            iconLeft={row.horaireContinu ? <FastForward size={12} className="shrink-0" /> : undefined}
+                                                        >
+                                                            {row.horaireContinu ? 'Continu' : 'Pause'}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Td>
+
+                                    {/* 2. Entrée Matin */}
+                                    <Td className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
+                                        <TimeInput
+                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 0, el)}
+                                            value={row.heureEntreeMatin}
+                                            disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
+                                            onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeMatin', val)}
+                                            onKeyDown={(e) => onKeyDown(e, row.idEmploye, 0)}
+                                            onComplete={() => onFocusNext(row.idEmploye, 0)}
+                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                        />
+                                    </Td>
+
+                                    {/* 3 & 4. Sortie Matin + Retour Midi (ou Continu sans pause) */}
+                                    {row.horaireContinu ? (
+                                        <Td colSpan={2} className="px-2 py-1.5 text-center bg-[var(--color-brand-500)]/5 dark:bg-[var(--color-brand-500)]/10 border-l border-[var(--color-border-subtle)]">
+                                            <div className="flex items-center justify-center gap-1.5 py-0.5">
+                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] select-none">
+                                                    <FastForward size={11} className="shrink-0 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" /> Continu (sans pause)
+                                                </span>
+                                                {!isReadOnlyForUser && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
+                                                        className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-danger-600)] underline cursor-pointer ml-1"
+                                                        title="Rétablir la saisie de pause déjeuner"
+                                                    >
+                                                        Modifier
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </Td>
+                                    ) : (
+                                        <>
+                                            {/* 3. Sortie Matin */}
+                                            <Td className="px-2 py-1.5 text-center">
+                                                <div className="inline-flex items-center justify-center gap-1">
+                                                    <TimeInput
+                                                        inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
+                                                        value={row.heureSortieMatin}
+                                                        disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
+                                                        onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
+                                                        onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
+                                                        onComplete={() => onFocusNext(row.idEmploye, 1)}
+                                                        className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                                    />
+                                                </div>
+                                            </Td>
+
+                                            {/* 4. Retour Pause Midi */}
+                                            <Td className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
+                                                <TimeInput
+                                                    inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 2, el)}
+                                                    value={row.heureEntreeAm}
+                                                    disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
+                                                    onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeAm', val)}
+                                                    onKeyDown={(e) => onKeyDown(e, row.idEmploye, 2)}
+                                                    onComplete={() => onFocusNext(row.idEmploye, 2)}
+                                                    className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                                />
+                                            </Td>
+                                        </>
+                                    )}
+
+                                    {/* 5. Sortie Soir */}
+                                    <Td className="px-2 py-1.5 text-center">
+                                        <div className="inline-flex items-center justify-center gap-1">
+                                            <TimeInput
+                                                inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 3, el)}
+                                                value={row.heureSortieAm}
+                                                disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
+                                                onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieAm', val)}
+                                                onKeyDown={(e) => onKeyDown(e, row.idEmploye, 3)}
+                                                className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                            />
+                                        </div>
+                                    </Td>
+
+                                    {/* 6. Total Heures (Mise en avant horaire HHhMM plutôt que décimal) */}
+                                    <Td className="px-3 py-1.5 text-center font-sans tabular-nums font-semibold border-l border-[var(--color-border-subtle)]">
+                                        <div className="flex flex-col items-center justify-center">
+                                                <span className="text-sm font-bold text-[var(--color-fg)]">
+                                                {row._previewPending ? 'Calcul…' : row._previewError ? '—' : formatHeuresMinutes(row.totalHeures, true)}
+                                            </span>
+                                            {!row._previewPending && !row._previewError && (
+                                                <span className="text-xs text-[var(--color-fg-muted)] font-normal tabular-nums">
+                                                    ({formatHeuresDecimal(row.totalHeures)})
+                                                </span>
+                                            )}
+                                            {row._previewError && <span className="text-[11px] text-[var(--color-danger-600)]" title={row._previewError}>Prévisualisation indisponible</span>}
+                                            {row.heuresNuit > 0 && (
+                                                <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] bg-[var(--color-purple-500)]/10 px-1 mt-0.5">
+                                                    <Moon size={11} /> nuit
+                                                </span>
+                                            )}
+                                        </div>
+                                    </Td>
+
+                                    {/* 7. Retard */}
+                                    <Td className="px-3 py-1.5 text-center font-sans tabular-nums font-semibold">
+                                        {row.minutesRetard > 0 ? (
+                                            <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                +{row.minutesRetard} min
+                                            </span>
+                                        ) : (
+                                            <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                                00 min
+                                            </span>
+                                        )}
+                                    </Td>
+
+                                    {/* 8. Statut */}
+                                    <Td className="px-3 py-1.5 text-center">
+                                        <StatusPickerPopover
+                                            row={row}
+                                            currentStatus={row.codeStatut}
+                                            currentMotif={row.motifAjustement}
+                                            onStatusChange={(newStatut, motif) => onUpdateStatut?.(row.idEmploye, newStatut, motif)}
+                                            onOpenRegularisation={onOpenRegularisation}
+                                            disabled={isReadOnlyForUser || Boolean(row.ferieChome) || isCongeApprouve}
+                                        />
+                                        {row.validationMessages?.length > 0 && (
+                                            <div className="mt-1 text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] text-left" role="alert">
+                                                {row.validationMessages.map((message, index) => <div key={index}>{message}</div>)}
+                                            </div>
+                                        )}
+                                    </Td>
+
+                                    {/* 9. Colonnes Dynamiques d'Indemnités avec Cases à cocher */}
+                                    {siteIndemnites.map((ind) => {
+                                        const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
+                                        const isFractionnable = ind.estFractionnable !== undefined ? ind.estFractionnable : ind.fractionnable;
+
+                                        if (isFractionnable) {
+                                            const montantTrajet = ind.montantTrajet;
+                                            const matVal = Boolean(dynObj.matin);
+                                            const amVal = Boolean(dynObj.am);
+                                            const hasCongeException = isCongeFull && (matVal || amVal);
+
+                                            return (
+                                                <Td key={ind.idIndemnite} className="px-2 py-2 text-center border-l border-[var(--color-border-subtle)]">
+                                                    <div className="flex flex-col items-center justify-center gap-1.5">
+                                                        {dynObj.motifSuggestion && (
+                                                            <span className="text-[11px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
+                                                                Suggestion : {dynObj.motifSuggestion} · exception possible
+                                                            </span>
+                                                        )}
+                                                        {hasCongeException && (
+                                                            <span className="text-[11px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1 leading-tight">
+                                                                Exc. congé
+                                                            </span>
+                                                        )}
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <label className={`inline-flex items-center gap-1 text-xs font-semibold ${isReadOnlyForUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}${isCongeFull ? ' · Jour de congé (exception)' : ''}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={matVal}
+                                                                    disabled={isReadOnlyForUser}
+                                                                    onChange={(e) => {
+                                                                        onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'MATIN');
+                                                                    }}
+                                                                    className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
+                                                                />
+                                                                <span className={matVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Aller</span>
+                                                            </label>
+
+                                                            <label className={`inline-flex items-center gap-1 text-xs font-semibold ${isReadOnlyForUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} select-none`} title={`Trajet retour (soir) — ${fmtMoney(montantTrajet)}${isCongeFull ? ' · Jour de congé (exception)' : ''}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={amVal}
+                                                                    disabled={isReadOnlyForUser}
+                                                                    onChange={(e) => {
+                                                                        onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'APRES_MIDI');
+                                                                    }}
+                                                                    className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
+                                                                />
+                                                                <span className={amVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Retour</span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </Td>
+                                            );
+                                        }
+
+                                        // Indemnité journalière standard (Repas, etc.)
+                                        const useGlobalIfZero = !!ind.useGlobalIfZero;
+                                        const repasFourniSansVersement = ind.code === 'REPAS'
+                                            && Number(ind.montantReference) === 0;
+                                        const checked = Boolean(dynObj.accordee);
+                                        const montantEffectif = useGlobalIfZero && checked
+                                            ? (ind.montantGlobal || ind.montantJour || 0)
+                                            : (ind.montantJour || ind.montantReference || 0);
+                                        const isCongeException = isCongeFull && checked;
+
+                                        return (
+                                            <Td key={ind.idIndemnite} className="px-2 py-2 text-center border-l border-[var(--color-border-subtle)]">
+                                                <div className="flex flex-col items-center justify-center gap-1.5">
+                                                        {dynObj.motifSuggestion && (
+                                                            <span className="text-[11px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
+                                                                Suggestion : {dynObj.motifSuggestion} · exception possible
+                                                            </span>
+                                                        )}
+                                                        {isCongeException && (
+                                                            <span className="text-[11px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1 leading-tight">
+                                                                Exc. congé
+                                                            </span>
+                                                        )}
+                                                        <label
+                                                            className={`inline-flex items-center gap-1.5 text-xs font-medium ${isReadOnlyForUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} select-none`}
+                                                            title={repasFourniSansVersement
+                                                                ? 'Repas fourni sur site : 0 Ar versé et réduction du déplacement selon le paramètre de la période'
+                                                                : isCongeFull
+                                                                ? `Jour de congé — Décoché par défaut. Cocher pour accorder une exception : ${fmtMoney(montantEffectif)}`
+                                                                : useGlobalIfZero
+                                                                ? `Non inclus dans les indemnites du site — Si coche, applique le parametre global : ${fmtMoney(ind.montantGlobal || 0)}/j`
+                                                                : `Accordee — ${fmtMoney(montantEffectif)}`
+                                                            }
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                disabled={isReadOnlyForUser}
+                                                                onChange={(e) => {
+                                                                    onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked);
+                                                                }}
+                                                                className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
+                                                            />
+                                                            <span className={checked
+                                                                ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold'
+                                                                : useGlobalIfZero ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg-muted)]'
+                                                            }>
+                                                                {checked && repasFourniSansVersement
+                                                                    ? 'Fourni · 0 Ar'
+                                                                    : checked && montantEffectif > 0
+                                                                    ? fmtMoney(montantEffectif)
+                                                                    : useGlobalIfZero ? <span className="text-[10px] opacity-70">Manuel</span> : '0 Ar'
+                                                                }
+                                                            </span>
+                                                        </label>
+                                                        {useGlobalIfZero && !checked && (
+                                                            <span className="text-[11px] text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1 leading-tight">
+                                                                opt.
+                                                            </span>
+                                                        )}
+                                                </div>
+                                            </Td>
+                                        );
+                                    })}
+                                </Tr>
+                            );
+                        })
+                    )}
+                    </Tbody>
+                </Table>
+            </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalItems={grilleData.length}
+                pageSize={pageSize}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+            />
+
+            {/* Barre flottante d'actions groupées (Bulk actions) */}
+            {selectedEmpIds.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-[var(--color-surface)] border border-[var(--color-border)] shadow-2xl px-5 py-2.5 flex items-center gap-4 animate-in slide-in-from-bottom-3 duration-200">
+                    {/* 1. Compteur & Désélection */}
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
+                            {selectedEmpIds.size} sélectionné{selectedEmpIds.size > 1 ? 's' : ''}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={handleClearSelection}
+                            className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] underline underline-offset-2 ml-1 cursor-pointer"
+                        >
+                            Annuler
+                        </button>
+                    </div>
+
+                    {/* Séparateur vertical */}
+                    <div className="h-5 w-px bg-[var(--color-border-subtle)]" />
+
+                    {/* 2. Actions structurées avec espacement aéré */}
+                    <div className="flex items-center gap-2.5">
+                        <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={handleApplyBulkStandard}
+                            icon={<Clock size={13} className="text-[var(--color-success-500)]" />}
+                            title="Préremplir les plages matin et après-midi du site pour les lignes sélectionnées"
+                        >
+                            Horaires du site
+                        </Button>
+
+                        {siteIndemnites.map((allowance) => (
+                            <Button key={allowance.idIndemnite} size="xs" variant="outline"
+                                onClick={() => handleApplyBulkAllowance(allowance)}
+                                title={`Accorder ${allowance.libelle || allowance.code} à la sélection`}>
+                                {allowance.libelle || allowance.code}
+                            </Button>
+                        ))}
+
+                        <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={handleOpenCollectiveAbsence}
+                            icon={<UserX size={13} className="text-[var(--color-warning-500)]" />}
+                            title="Déclarer une absence collective pour toute la sélection"
+                        >
+                            Absence collective…
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modale de déclaration d'absence collective */}
+            <Modal
+                isOpen={showCollectiveAbsenceModal}
+                onClose={() => setShowCollectiveAbsenceModal(false)}
+                title="Absence collective"
+                size="md"
+                icon={<UserX size={18} className="text-[var(--color-warning-500)]" />}
+                footer={
+                    <div className="flex items-center justify-end gap-3 w-full">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowCollectiveAbsenceModal(false)}
+                        >
+                            Annuler
+                        </Button>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleConfirmCollectiveAbsence}
+                            className="bg-[var(--color-warning-600)] hover:bg-[var(--color-warning-700)] text-[var(--color-on-color)] border-none"
+                        >
+                            Appliquer l'absence
+                        </Button>
+                    </div>
+                }
+            >
+                <div className="space-y-4 py-2">
+                    <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                        Appliquer le statut <strong>Absence justifiée</strong> à{' '}
+                        <strong className="text-[var(--color-fg)]">{selectedEmpIds.size} collaborateur{selectedEmpIds.size > 1 ? 's' : ''}</strong> sélectionnés.
+                    </p>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1.5">
+                            Motif de l'absence
+                        </label>
+                        <input
+                            type="text"
+                            value={collectiveMotif}
+                            onChange={(e) => setCollectiveMotif(e.target.value)}
+                            placeholder="Ex: Intempéries, coupure générale, formation..."
+                            className="w-full px-3 py-2 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)]"
+                        />
+                    </div>
+
+                    <div>
+                        <span className="block text-[11px] text-[var(--color-fg-muted)] mb-1.5 font-medium">Suggestions rapides :</span>
+                        <div className="flex flex-wrap gap-1.5">
+                            {['Intempéries / Cyclone', 'Coupure réseau / électricité', 'Formation interne', "Événement d'entreprise", 'Mission terrain'].map((suggestion) => (
+                                <button
+                                    key={suggestion}
+                                    type="button"
+                                    onClick={() => setCollectiveMotif(suggestion)}
+                                    className="px-2 py-1 text-[11px] bg-[var(--color-bg-subtle)] hover:bg-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] border border-[var(--color-border-subtle)] transition-colors cursor-pointer"
+                                >
+                                    {suggestion}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+        </div>
+    );
+}

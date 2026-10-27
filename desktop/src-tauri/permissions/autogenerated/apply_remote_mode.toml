@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-apply-remote-mode"
+description = "Enables the apply_remote_mode command without any pre-configured scope."
+commands.allow = ["apply_remote_mode"]
+
+[[permission]]
+identifier = "deny-apply-remote-mode"
+description = "Denies the apply_remote_mode command without any pre-configured scope."
+commands.deny = ["apply_remote_mode"]

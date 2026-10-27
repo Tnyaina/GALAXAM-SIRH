@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-test-remote-api"
+description = "Enables the test_remote_api command without any pre-configured scope."
+commands.allow = ["test_remote_api"]
+
+[[permission]]
+identifier = "deny-test-remote-api"
+description = "Denies the test_remote_api command without any pre-configured scope."
+commands.deny = ["test_remote_api"]

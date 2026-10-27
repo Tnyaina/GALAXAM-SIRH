@@ -1,0 +1,6 @@
+/node_modules/
+/bundle/
+/src-tauri/target/
+/dist/
+__pycache__/
+*.py[cod]
