@@ -203,7 +203,8 @@ GALAXAM-SIRH/
 │   ├── scripts/                             # Scripts de staging PostgreSQL & JLink macOS
 │   └── README.md                            # Guide de build et packaging desktop
 ├── docker/                                  # Scripts d'initialisation et configurations proxies
-├── docker-compose.yml                       # Environnement de développement local
+├── docker-compose.yml                       # Point d'entrée par défaut : production web
+├── docker-compose.dev.yml                   # Développement local explicite
 ├── docker-compose.prod.yml                  # Déploiement optimisé de production
 ├── docker-compose.desktop.yml               # Relais local pour client desktop
 ├── .env.example                             # Gabarit des variables d'environnement
@@ -234,43 +235,40 @@ L'ensemble de la documentation fonctionnelle, réglementaire et technique approf
 
 ### Prérequis
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) avec Docker Compose activé ;
-- Port `8088` libre sur la machine hôte ;
-- Port `5433` libre sur la machine hôte (accès direct PostgreSQL optionnel pour pgAdmin / DBeaver).
+- Port `8088` libre sur la machine hôte.
 
-### 1. Initialisation des Variables d'Environnement
-Copiez le gabarit `.env.example` à la racine du dépôt :
+### Lancement par défaut : production web locale
 
-```bash
-cp .env.example .env
-```
-
-Éditez le fichier `.env` avec des valeurs adaptées au mode choisi :
-- `GALAXAM_DB_PASSWORD` : mot de passe fort pour l'administrateur de base de données ;
-- `GALAXAM_DEFAULT_ADMIN_PASSWORD` : mot de passe d'initialisation (min. 8 caractères avec majuscule, minuscule, chiffre).
-
-`GALAXAM_JWT_SECRET` est requis par le Compose de production et doit alors être une clé propre à cet environnement d'au moins **64 octets** (512 bits). Le Compose local ne transmet pas cette variable : le profil `local` utilise son secret de développement configuré dans `application-local.properties`. Ne réutilisez pas ce secret en production.
-
-### 2. Lancement en Mode Développement Local
-Démarrez les trois conteneurs (PostgreSQL 15, API Spring Boot et serveur de développement Vite avec rechargement à chaud) :
+Le point d'entrée `docker-compose.yml` inclut la pile web de production. Utilisez `./scripts/compose` pour charger les paramètres depuis `.env.production`. Au premier lancement, créez ce fichier à partir du gabarit :
 
 ```bash
-docker compose up --build
+cp .env.production.example .env.production
 ```
 
-> [!TIP]
-> Lors du premier démarrage avec un volume PostgreSQL vide, l'entrypoint exécute les six schémas SQL canoniques dans l'ordre défini par `docker/init-local.sql`. Les scripts de l'image ne rejouent pas ce bootstrap sur un volume déjà initialisé. Spring Boot télécharge ses dépendances Maven et peut créer le compte administrateur si `GALAXAM_BOOTSTRAP_ADMIN_ENABLED=true`.
+Renseignez `GALAXAM_DB_PASSWORD` et `GALAXAM_JWT_SECRET` avec des valeurs aléatoires fortes. Pour créer le premier compte, activez `GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true` et renseignez l'adresse et le mot de passe administrateur. Gardez ces paramètres dans le fichier local protégé : sur une base vide, le seeder recrée le compte ; sur une base ayant déjà un administrateur actif, il n'en change aucun.
 
-### 3. Accès aux Services
-- **Interface Web :** [`http://localhost:8088`](http://localhost:8088)
-- **API REST (proxifiée) :** `http://localhost:8088/api/`
-- **PostgreSQL (accès hôte) :** `127.0.0.1:5433` (Base : `sirh_galaxam`, Utilisateur : `galaxam_admin`)
+Puis démarrez la production :
 
-En développement local, Vite relaie `/api/` vers le backend sur le réseau Compose. Dans l'image de production, Nginx sert le bundle statique et relaie également `/api/` vers `backend:8080` selon `frontend/nginx.conf`.
-
-Pour stopper les services sans détruire les données :
 ```bash
-docker compose stop
+./scripts/compose up -d --build --wait
 ```
+
+L'application web sera disponible sur [`http://localhost:8088`](http://localhost:8088). PostgreSQL n'est pas publié sur un port de l'hôte. Le détail de l'installation Windows, des sauvegardes et des mises à jour figure dans le [guide de maintenance](scripts/windows-local/README.md).
+
+Pour arrêter les services sans supprimer les données :
+```bash
+./scripts/compose stop
+```
+
+### Développement explicite
+
+Le développement reste disponible séparément avec son fichier `.env` existant et ses volumes propres :
+
+```bash
+docker compose --project-directory . -f docker-compose.dev.yml --env-file .env up --build
+```
+
+Cette commande peut entrer en conflit sur le port `8088` si la production tourne déjà. Arrêtez d'abord la pile concernée avec le même fichier Compose (`stop`).
 
 > [!CAUTION]
 > N'exécutez **jamais** `docker compose down -v` sur une instance contenant des données de production ou de test métier. Cette commande détruit irréversiblement les volumes persistants déclarés.
@@ -280,20 +278,20 @@ docker compose stop
 ## 8. Développement & Déploiement
 
 ### Déploiement Docker en Mode Production
+
+Pour une installation **web locale sur un PC Windows 10/11** (sans client desktop), suivre le [guide d'installation et de sauvegarde Windows](scripts/windows-local/README.md). Pour essayer le même profil de production sur le Mac avec une base séparée, voir la [recette web de production sur macOS](scripts/mac-prod-test/README.md).
 Le profil production compile le frontend avec Node.js 22 puis sert le bundle statique par Nginx ; l'API est un JAR Spring Boot autonome sans DevTools. Le Compose de production transmet `GALAXAM_JWT_SECRET` à Spring sous le nom `JWT_SECRET`. Le profil `local`, utilisé par le Compose de développement, charge son secret de développement depuis `application-local.properties`.
 
 Le frontal de production est publié uniquement sur `127.0.0.1:8088` et doit être placé derrière un proxy TLS. Ce proxy doit écraser et transmettre `X-Forwarded-Proto: https` et `X-Forwarded-For` avec les valeurs fiables; le Nginx du conteneur relaie le protocole à l'API pour que le cookie de renouvellement soit marqué `Secure`. Ne publiez pas directement le port HTTP du conteneur sur Internet. Le limiteur de connexion est en mémoire et convient à l'instance unique définie par ce Compose; une mise à l'échelle horizontale nécessite une limite partagée au proxy ou un magasin partagé.
 
-Le bootstrap administrateur de production est désactivé par défaut. Pour le tout premier lancement uniquement, définir `GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true` et les variables d'identité/mot de passe administrateur; le remettre à `false` après création du compte.
+Le bootstrap administrateur est idempotent : activé, il crée l'administrateur configuré uniquement si aucun administrateur actif n'existe. Garder ses identifiants dans `.env.production` avec des permissions locales strictes permet de recréer le compte après une réinitialisation volontaire de la base. Sur l'installation Windows, l'installateur conserve ces paramètres dans le fichier protégé par ACL.
 
-Les migrations progressives SP01–SP84 ont été volontairement supprimées. Les six schémas canoniques de `backend/conception/bdd/` servent à initialiser une base neuve ; ils ne mettent pas à niveau une base existante. Aucun mécanisme progressif ou automatique de mise à niveau n'est établi. Une évolution de base existante nécessite donc une procédure dédiée, conçue et vérifiée pour cette évolution avant tout déploiement.
+Les anciennes migrations SP01–SP84 ont été supprimées. Les six schémas canoniques de `backend/conception/bdd/` initialisent une base neuve. La filière **web locale** utilise `docker-compose.yml` par défaut, qui inclut `docker-compose.web.yml`, lit `.env.production` et applique les migrations versionnées de `docker/migrations/`. Le fichier `docker-compose.dev.yml` est réservé au développement.
 
 ```bash
-# Vérification de la configuration
-docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
-
-# Lancement en tâche de fond
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Production par défaut : validation puis lancement
+./scripts/compose config --quiet
+./scripts/compose up -d --build --wait
 ```
 
 ### Exécution Hors Docker (Développement Natif)

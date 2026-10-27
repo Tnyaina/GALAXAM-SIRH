@@ -124,6 +124,8 @@ public class JwtService {
 
     public String generateRefreshToken(UserDetails userDetails) {
         return Jwts.builder()
+                // JWT dates have second precision: concurrent logins must still get distinct tokens.
+                .id(java.util.UUID.randomUUID().toString())
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + refreshTokenExpirationMs))

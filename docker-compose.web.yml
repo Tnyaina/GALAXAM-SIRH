@@ -1,0 +1,92 @@
+# Production web autonome. Ne pas combiner avec le Compose de développement.
+name: ${GALAXAM_PROJECT_NAME:-galaxam-sirh-prod}
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_DB: sirh_galaxam
+      POSTGRES_USER: galaxam_admin
+      POSTGRES_PASSWORD: ${GALAXAM_DB_PASSWORD:?Mot de passe PostgreSQL requis}
+      TZ: Indian/Antananarivo
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/init-local.sql:/docker-entrypoint-initdb.d/init-local.sql:ro
+      - ./backend/conception/bdd:/bdd-schemas:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U galaxam_admin -d sirh_galaxam']
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  migrate:
+    image: postgres:15-alpine
+    restart: 'no'
+    environment:
+      PGHOST: postgres
+      PGDATABASE: sirh_galaxam
+      PGUSER: galaxam_admin
+      PGPASSWORD: ${GALAXAM_DB_PASSWORD:?Mot de passe PostgreSQL requis}
+    volumes:
+      - ./docker/migrate.sh:/migrate.sh:ro
+      - ./docker/migrations:/migrations:ro
+      - ./docker/canonical.sha256:/canonical.sha256:ro
+      - ./docker/init-local.sql:/docker/init-local.sql:ro
+      - ./backend/conception/bdd:/bdd-schemas:ro
+    entrypoint: ['sh', '/migrate.sh']
+    depends_on:
+      postgres:
+        condition: service_healthy
+  backend:
+    build: ./backend
+    image: galaxam-sirh-backend:${GALAXAM_RELEASE:-prod}
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sirh_galaxam
+      DATABASE_USERNAME: galaxam_admin
+      DATABASE_PASSWORD: ${GALAXAM_DB_PASSWORD:?Mot de passe PostgreSQL requis}
+      JWT_SECRET: ${GALAXAM_JWT_SECRET:?Cle JWT requise}
+      CORS_ORIGIN: ${GALAXAM_CORS_ORIGIN:-http://localhost:8088,http://127.0.0.1:8088}
+      BOOTSTRAP_ADMIN_ENABLED: ${GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED:-false}
+      GALAXAM_DEFAULT_ADMIN_NAME: ${GALAXAM_DEFAULT_ADMIN_NAME:-Administrateur GALAXAM}
+      GALAXAM_DEFAULT_ADMIN_EMAIL: ${GALAXAM_DEFAULT_ADMIN_EMAIL:-}
+      GALAXAM_DEFAULT_ADMIN_PASSWORD: ${GALAXAM_DEFAULT_ADMIN_PASSWORD:-}
+      TZ: Indian/Antananarivo
+    volumes:
+      - business_files:/app/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', '--silent', 'http://127.0.0.1:8080/api/auth/ping']
+      interval: 5s
+      timeout: 4s
+      retries: 36
+      start_period: 30s
+  frontend:
+    build: ./frontend
+    image: galaxam-sirh-frontend:${GALAXAM_RELEASE:-prod}
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - '127.0.0.1:${GALAXAM_WEB_PORT:-8088}:80'
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1/api/auth/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+volumes:
+  pg_data:
+    name: ${GALAXAM_PG_VOLUME:-galaxam_prod_pg_data}
+  business_files:
+    name: ${GALAXAM_FILES_VOLUME:-galaxam_prod_business_files}

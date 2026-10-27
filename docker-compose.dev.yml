@@ -1,0 +1,92 @@
+name: galaxam-sirh-local
+
+# Installation locale neuve. Les volumes ci-dessous sont distincts du volume
+# PostgreSQL historique galaxam_pg_data, qui n'est ni monté ni supprimé.
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sirh_galaxam
+      POSTGRES_USER: galaxam_admin
+      POSTGRES_PASSWORD: ${GALAXAM_DB_PASSWORD:?Définir GALAXAM_DB_PASSWORD dans .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U galaxam_admin -d sirh_galaxam"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - galaxam_local_pg_data:/var/lib/postgresql/data
+      - ./docker/init-local.sql:/docker-entrypoint-initdb.d/init-local.sql:ro
+      - ./backend/conception/bdd:/bdd-schemas:ro
+    networks:
+      - galaxam_local_network
+
+  backend:
+    image: maven:3.9.9-eclipse-temurin-17
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sirh_galaxam
+      DATABASE_USERNAME: galaxam_admin
+      DATABASE_PASSWORD: ${GALAXAM_DB_PASSWORD:?Définir GALAXAM_DB_PASSWORD dans .env}
+      CORS_ORIGIN: http://localhost:8088,http://127.0.0.1:18888
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      BOOTSTRAP_ADMIN_ENABLED: ${GALAXAM_BOOTSTRAP_ADMIN_ENABLED:-true}
+      GALAXAM_DEFAULT_ADMIN_NAME: ${GALAXAM_DEFAULT_ADMIN_NAME:?Définir GALAXAM_DEFAULT_ADMIN_NAME dans .env}
+      GALAXAM_DEFAULT_ADMIN_EMAIL: ${GALAXAM_DEFAULT_ADMIN_EMAIL:?Définir GALAXAM_DEFAULT_ADMIN_EMAIL dans .env}
+      GALAXAM_DEFAULT_ADMIN_PASSWORD: ${GALAXAM_DEFAULT_ADMIN_PASSWORD:?Définir GALAXAM_DEFAULT_ADMIN_PASSWORD dans .env}
+    volumes:
+      - ./backend:/app
+      - galaxam_local_maven_repo:/root/.m2
+      - galaxam_local_business_files:/app/uploads
+    working_dir: /app
+    command: ["mvn", "-DskipTests", "spring-boot:run"]
+    healthcheck:
+      # Évite de démarrer Nginx pendant le premier téléchargement/compilation Maven.
+      test: ["CMD-SHELL", "grep -q ':1F90 .* 0A' /proc/net/tcp /proc/net/tcp6"]
+      interval: 5s
+      timeout: 2s
+      retries: 60
+      start_period: 120s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - galaxam_local_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    image: galaxam-sirh-frontend:dev
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:5173"
+    environment:
+      VITE_API_BASE_URL: /api/
+    volumes:
+      - ./frontend:/app
+      - galaxam_local_frontend_node_modules:/app/node_modules
+    working_dir: /app
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - galaxam_local_network
+
+volumes:
+  galaxam_local_pg_data:
+    name: galaxam_local_pg_data
+  galaxam_local_business_files:
+    name: galaxam_local_business_files
+  galaxam_local_maven_repo:
+    name: galaxam_local_maven_repo
+  galaxam_local_frontend_node_modules:
+    name: galaxam_local_frontend_node_modules
+
+networks:
+  galaxam_local_network:
+    driver: bridge

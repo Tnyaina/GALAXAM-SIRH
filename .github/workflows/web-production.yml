@@ -1,0 +1,61 @@
+name: Web production maintenance
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'docker-compose.web.yml'
+      - 'docker/**'
+      - 'scripts/windows-local/**'
+      - 'scripts/maintenance-tests/**'
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/web-production.yml'
+permissions:
+  contents: read
+jobs:
+  windows-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows PowerShell 5.1 scripts
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem scripts/windows-local/*.ps1 | ForEach-Object {
+            $tokens = $null; $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors) { $errors | Write-Output; $failed = $true }
+          }
+          if ($failed) { throw 'PowerShell parsing failed' }
+  production-roundtrip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Refresh token regression
+        run: mvn -B -f backend/pom.xml -Dtest=RefreshTokenUniquenessTest test
+      - name: Prepare disposable environment
+        shell: python
+        run: |
+          import pathlib, secrets
+          pathlib.Path('/tmp/galaxam-web-audit.env').write_text(
+            'GALAXAM_DB_PASSWORD=' + secrets.token_hex(32) + '\n' +
+            'GALAXAM_JWT_SECRET=' + secrets.token_hex(64) + '\n' +
+            'GALAXAM_WEB_PORT=18089\nGALAXAM_CORS_ORIGIN=http://localhost:18089,http://127.0.0.1:18089\n' +
+            'GALAXAM_PROJECT_NAME=galaxam-web-audit\nGALAXAM_PG_VOLUME=galaxam_web_audit_pg\n' +
+            'GALAXAM_FILES_VOLUME=galaxam_web_audit_files\nGALAXAM_RELEASE=audit\n' +
+            'GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true\nGALAXAM_DEFAULT_ADMIN_EMAIL=audit@example.test\n' +
+            'GALAXAM_DEFAULT_ADMIN_PASSWORD=AuditOnly-7832!\n')
+      - name: Build and start actual production images
+        run: docker compose --env-file /tmp/galaxam-web-audit.env -f docker-compose.web.yml up -d --build --wait --wait-timeout 240
+      - name: HTTP, migration and database restore checks
+        run: python3 scripts/maintenance-tests/web-production.py /tmp/galaxam-web-audit.env
+      - name: Dispose isolated CI data
+        if: always()
+        run: docker compose --env-file /tmp/galaxam-web-audit.env -f docker-compose.web.yml down -v

@@ -25,3 +25,12 @@ uploads/
 .env
 
 .ecc
+.env.production
+.maintenance/
+releases/
+
+.env.production.test
+/local-prod-test-backups/
+
+.local-prod-test-credentials
+.local-prod-credentials
