@@ -247,6 +247,15 @@ apiClient.interceptors.response.use(
             return apiClient(originalRequest);
         }
 
+        // Les téléchargements reçoivent aussi les erreurs JSON sous forme de Blob.
+        // Restaurer le corps métier avant de choisir un message de secours HTTP.
+        if (error.response?.data instanceof Blob &&
+            error.response.data.type.includes('json')) {
+            try {
+                error.response.data = JSON.parse(await error.response.data.text());
+            } catch { /* Le message HTTP de secours reste disponible. */ }
+        }
+
         // Normalisation d'un message convivial et non technique pour l'utilisateur
         let userMessage = "Une erreur inattendue est survenue.";
         if (error.response) {

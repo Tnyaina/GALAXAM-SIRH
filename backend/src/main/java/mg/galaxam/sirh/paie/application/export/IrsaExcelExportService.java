@@ -20,6 +20,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** État IRSA mensuel construit à partir du modèle Excel fourni, pour revue par la DAF. */
 @Service
@@ -35,7 +38,7 @@ public class IrsaExcelExportService {
     }
 
     public record Result(byte[] bytes, String periodCode, int employeeCount) {}
-    private record Header(String code, LocalDate end, String company, String nif, String address) {}
+    record Header(String code, LocalDate end) {}
 
     public Result export(Integer periodId, Connection connection) throws Exception {
         Header header = loadHeader(periodId, connection);
@@ -46,11 +49,50 @@ public class IrsaExcelExportService {
         List<SafiRowDto> data = safiExportService.genererDonneesSafi(periodId, connection);
         if (data.isEmpty()) throw new IllegalStateException("Aucun salarié concerné par l'IRSA pour cette période.");
         if (FIRST_DATA_ROW + data.size() >= 65535) throw new IllegalStateException("Trop de lignes pour le format XLS.");
+        Map<Integer, PayrollExportContextResolver.Company> companyByBulletin =
+                PayrollExportContextResolver.companiesByBulletin(periodId, connection);
+        Map<PayrollExportContextResolver.Company, List<BulletinPaie>> byCompany = new LinkedHashMap<>();
+        for (BulletinPaie bulletin : bulletins) {
+            var company = companyByBulletin.get(bulletin.getIdBulletin());
+            if (company == null) throw new IllegalStateException("Filiale employeur introuvable pour le bulletin "
+                    + bulletin.getReferenceBulletin() + ".");
+            if (company.name() == null || company.name().isBlank()
+                    || company.nif() == null || company.nif().isBlank())
+                throw new IllegalStateException("Export impossible : renseignez la raison sociale et le NIF de la filiale.");
+            byCompany.computeIfAbsent(company, ignored -> new ArrayList<>()).add(bulletin);
+        }
 
         try (InputStream source = getClass().getResourceAsStream(TEMPLATE)) {
             if (source == null) throw new IllegalStateException("Modèle IRSA introuvable.");
             try (HSSFWorkbook workbook = new HSSFWorkbook(source); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-                Sheet sheet = workbook.getSheetAt(0);
+                Sheet model = workbook.getSheetAt(0);
+                workbook.setSheetName(0, "Toutes les filiales");
+                // Cloner le modèle vierge avant de remplir la feuille consolidée.
+                List<Sheet> companySheets = new ArrayList<>();
+                for (var company : byCompany.keySet()) {
+                    Sheet companySheet = workbook.cloneSheet(0);
+                    workbook.setSheetName(workbook.getSheetIndex(companySheet),
+                            PayrollSheetNames.unique(workbook, company.name()));
+                    companySheets.add(companySheet);
+                }
+                writeSheet(model, header, new PayrollExportContextResolver.Company(
+                        "Toutes les filiales", "", ""), data);
+                int index = 0;
+                for (var entry : byCompany.entrySet()) {
+                    List<SafiRowDto> rows = safiExportService.genererDonneesSafi(periodId, connection, entry.getValue());
+                    if (FIRST_DATA_ROW + rows.size() >= 65535)
+                        throw new IllegalStateException("Trop de lignes pour le format XLS.");
+                    writeSheet(companySheets.get(index++), header, entry.getKey(), rows);
+                }
+                evaluateAndMarkForRecalculation(workbook);
+                workbook.write(out);
+                return new Result(PayrollWorkbookAnalysis.monthly(out.toByteArray(), PayrollWorkbookAnalysis.Kind.IRSA, periodId, connection), header.code(), data.size());
+            }
+        }
+    }
+
+    static void writeSheet(Sheet sheet, Header header,
+            PayrollExportContextResolver.Company company, List<SafiRowDto> data) {
                 CellStyle[] sampleStyles = new CellStyle[29];
                 Row sample = sheet.getRow(FIRST_DATA_ROW);
                 for (int col = 0; col < sampleStyles.length; col++) {
@@ -62,12 +104,12 @@ public class IrsaExcelExportService {
                 if (extra > 0) sheet.shiftRows(TEMPLATE_TOTAL_ROW, sheet.getLastRowNum(), extra, true, false);
                 int totalRowIndex = TEMPLATE_TOTAL_ROW + extra;
 
-                text(sheet, 8, 5, header.company());
-                text(sheet, 8, 9, header.company());
-                text(sheet, 9, 5, header.nif());
-                text(sheet, 9, 9, header.nif());
-                text(sheet, 10, 5, header.address());
-                text(sheet, 10, 9, header.address());
+                text(sheet, 8, 5, company.name());
+                text(sheet, 8, 9, company.name());
+                text(sheet, 9, 5, company.nif());
+                text(sheet, 9, 9, company.nif());
+                text(sheet, 10, 5, company.address());
+                text(sheet, 10, 9, company.address());
                 text(sheet, 9, 27, header.end().format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRENCH)).toUpperCase(Locale.FRENCH));
 
                 for (int i = FIRST_DATA_ROW; i < totalRowIndex; i++) {
@@ -99,11 +141,6 @@ public class IrsaExcelExportService {
                     if (sheet.getMergedRegion(i).getLastRow() > totalRowIndex) sheet.removeMergedRegion(i);
                 }
                 sheet.createFreezePane(9, FIRST_DATA_ROW);
-                evaluateAndMarkForRecalculation(workbook);
-                workbook.write(out);
-                return new Result(out.toByteArray(), header.code(), data.size());
-            }
-        }
     }
 
     static void evaluateAndMarkForRecalculation(HSSFWorkbook workbook) {
@@ -154,9 +191,7 @@ public class IrsaExcelExportService {
             ps.setInt(1, periodId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Aucun bulletin pour cette période.");
-                var company = PayrollExportContextResolver.forPeriod(periodId, c);
-                return new Header(rs.getString("code"), rs.getDate("date_fin").toLocalDate(),
-                        company.name(), company.nif(), company.address());
+                return new Header(rs.getString("code"), rs.getDate("date_fin").toLocalDate());
             }
         }
     }

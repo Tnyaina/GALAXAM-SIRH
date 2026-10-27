@@ -1,6 +1,8 @@
 package mg.galaxam.sirh.paie.application.export;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.ActionCapability;
@@ -34,10 +36,31 @@ public class PayrollDocumentCatalogService {
                         "GENERATE_OUTPUT", ActionCapability.denied("PAYROLL_OUTPUT_UNAVAILABLE"));
         boolean ready = capability.allowed();
         String label = ready ? "Disponible" : reason(capability.reasonCodes());
+        boolean irsaReady = ready;
+        String irsaLabel = label;
+        List<String> irsaReasons = capability.reasonCodes();
+        if (ready) {
+            try (Connection connection = dataSource.getConnection()) {
+                String sql = "SELECT EXISTS (SELECT 1 FROM bulletin_paie WHERE id_periode_paie = ? "
+                        + "AND UPPER(regime_intervenant) NOT IN ('CONSULTANT','TEMPORAIRE','ISI_5') "
+                        + "AND COALESCE(retenue_isi_5, 0) <= 0)";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setInt(1, periodId);
+                    try (ResultSet result = statement.executeQuery()) {
+                        result.next();
+                        irsaReady = result.getBoolean(1);
+                    }
+                }
+            }
+            if (!irsaReady) {
+                irsaLabel = "Aucun salarié concerné par l'IRSA";
+                irsaReasons = List.of("NO_IRSA_EMPLOYEE");
+            }
+        }
         List<Document> documents = List.of(
                 document("bulletins", "Bulletins individuels", "Un bulletin par salarié, depuis la campagne.", "PDF · Excel", ready, label, capability.reasonCodes()),
                 document("grand-livre", "Grand livre de paie", "État nominatif et détail des rubriques.", "Excel (.xlsx)", ready, label, capability.reasonCodes()),
-                document("irsa", "État IRSA", "Contrôle fiscal nominatif à vérifier par la DAF.", "Excel (.xls)", ready, label, capability.reasonCodes()),
+                document("irsa", "État IRSA", "Contrôle fiscal nominatif à vérifier par la DAF.", "Excel (.xls)", irsaReady, irsaLabel, irsaReasons),
                 document("social", "État social mensuel", "Cotisations par organisme et salarié.", "Excel (.xlsx)", ready, label, capability.reasonCodes()));
         return new Catalog("mensuel", ready ? 1 : 0, 1, documents);
     }

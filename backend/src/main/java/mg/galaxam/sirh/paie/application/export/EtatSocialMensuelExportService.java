@@ -162,8 +162,22 @@ public class EtatSocialMensuelExportService {
             detail.createFreezePane(4, detailHeaderRow + 1);
             if (!rows.isEmpty()) detail.setAutoFilter(new CellRangeAddress(detailHeaderRow, dr - 1, 0, DETAIL.length - 1));
 
-            for (Sheet sheet : List.of(summary, detail)) {
-                sheet.getPrintSetup().setLandscape(sheet == detail);
+            Map<String, List<DetailRow>> byCompany = new LinkedHashMap<>();
+            for (BulletinPaie bulletin : bulletins) {
+                String name = filiales.getOrDefault(bulletin.getIdBulletin(), "Filiale");
+                byCompany.computeIfAbsent(name == null || name.isBlank() ? "Filiale" : name,
+                        ignored -> new java.util.ArrayList<>());
+            }
+            for (DetailRow row : rows)
+                byCompany.computeIfAbsent(row.key.filiale().isBlank() ? "Filiale" : row.key.filiale(),
+                        ignored -> new java.util.ArrayList<>()).add(row);
+            for (var entry : byCompany.entrySet()) {
+                Sheet companySheet = workbook.createSheet(PayrollSheetNames.unique(workbook, entry.getKey()));
+                writeCompanySheet(companySheet, periodCode, entry.getKey(), entry.getValue(), styles);
+            }
+
+            for (Sheet sheet : workbook) {
+                sheet.getPrintSetup().setLandscape(sheet != summary);
                 sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
                 sheet.setFitToPage(true);
                 sheet.getPrintSetup().setFitWidth((short) 1);
@@ -173,11 +187,41 @@ public class EtatSocialMensuelExportService {
             workbook.write(out);
             Set<Integer> uniqueEmployees = new TreeSet<>();
             people.values().forEach(uniqueEmployees::addAll);
-            return new Result(out.toByteArray(), periodCode, uniqueEmployees.size(), rows.size());
+            return new Result(PayrollWorkbookAnalysis.monthly(out.toByteArray(), PayrollWorkbookAnalysis.Kind.SOCIAL, periodId, connection), periodCode, uniqueEmployees.size(), rows.size());
         }
     }
 
-    private static boolean isSocial(BulletinPaieLigne line) {
+    private static void writeCompanySheet(Sheet sheet, String periodCode, String company,
+            List<DetailRow> rows, Styles styles) {
+        banner(sheet, "ÉTAT SOCIAL · " + company, DETAIL.length - 1, styles.title);
+        heading(sheet, 1, "Période " + periodCode, styles.muted);
+        header(sheet, 3, DETAIL, styles.header);
+        for (int col = 0; col < DETAIL.length; col++)
+            sheet.setColumnWidth(col, col == 0 || col == 3 ? 10500 : col >= 6 ? 5700 : 5200);
+        int row = 4;
+        for (DetailRow entry : rows) {
+            BulletinPaie bulletin = entry.bulletin;
+            String[] fields = {company, entry.key.site(), bulletin.getMatricule(), bulletin.getNomPrenom(),
+                    bulletin.getNumeroCnaps(), entry.key.organisme()};
+            for (int col = 0; col < fields.length; col++)
+                cell(sheet, row, col, styles.text).setCellValue(n(fields[col]));
+            cell(sheet, row, 6, styles.money).setCellValue(entry.employee.doubleValue());
+            cell(sheet, row, 7, styles.money).setCellValue(entry.employer.doubleValue());
+            cell(sheet, row, 8, styles.money).setCellValue(entry.employee.add(entry.employer).doubleValue());
+            row++;
+        }
+        cell(sheet, row, 3, styles.totalText).setCellValue("TOTAL FILIALE");
+        for (int col = 6; col <= 8; col++) {
+            String letter = org.apache.poi.ss.util.CellReference.convertNumToColString(col);
+            Cell total = cell(sheet, row, col, styles.totalMoney);
+            if (rows.isEmpty()) total.setCellValue(0);
+            else total.setCellFormula("SUM(" + letter + "5:" + letter + row + ")");
+        }
+        sheet.createFreezePane(4, 4);
+        sheet.setAutoFilter(new CellRangeAddress(3, row - 1, 0, DETAIL.length - 1));
+    }
+
+    static boolean isSocial(BulletinPaieLigne line) {
         String code = n(line.getCodeRubrique()).toUpperCase(Locale.ROOT);
         String category = n(line.getCategorie()).toUpperCase(Locale.ROOT);
         return code.startsWith("COTISATION_") || category.startsWith("COTISATION_");
@@ -199,7 +243,7 @@ public class EtatSocialMensuelExportService {
         return UNCONFIGURED_ORGANISME;
     }
 
-    private static Map<String, String> loadOrganismes(Connection c) throws Exception {
+    static Map<String, String> loadOrganismes(Connection c) throws Exception {
         Map<String, String> map = new LinkedHashMap<>();
         String sql = "SELECT code, libelle FROM ref_organisme_social";
         try (PreparedStatement ps = c.prepareStatement(sql);

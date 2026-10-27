@@ -64,7 +64,7 @@ public class AnnualPayrollExportService {
             for (BulletinPaie bulletin : bulletinsParPeriode.get(period.id())) {
                 List<BulletinPaieLigne> lines = lignesParBulletin.getOrDefault(bulletin.getIdBulletin(), List.of());
                 auditedLines.addAll(lines);
-                String key = period.code() + ":" + bulletin.getIdEmploye();
+                String key = period.code() + ":" + bulletin.getIdEmploye() + ":" + filiales.get(bulletin.getIdBulletin());
                 String[] identity = GrandLivrePaieExportService.summaryIdentity(bulletin, filiales.get(bulletin.getIdBulletin()));
                 BigDecimal[] values = annualValues(bulletin, lines);
                 PayRow previous = monthly.get(key);
@@ -73,7 +73,8 @@ public class AnnualPayrollExportService {
             }
         }
         if (monthly.isEmpty()) throw new IllegalStateException("Aucun bulletin validé pour " + year + ".");
-        return render(year, periods.stream().map(Period::code).toList(), new ArrayList<>(monthly.values()), auditedLines);
+        var result = render(year, periods.stream().map(Period::code).toList(), new ArrayList<>(monthly.values()), auditedLines);
+        return new Result(PayrollWorkbookAnalysis.annual(result.bytes(), year, connection), result.coveredMonths(), result.employees());
     }
 
     private Source source(int year, Connection connection) throws Exception {
@@ -124,10 +125,11 @@ public class AnnualPayrollExportService {
     Result render(int year, List<String> periodCodes, List<PayRow> monthlyRows, List<BulletinPaieLigne> auditedLines) throws Exception {
         if (monthlyRows.isEmpty()) throw new IllegalStateException("Aucun bulletin à récapituler.");
         monthlyRows.sort(Comparator.comparing(PayRow::period).thenComparing(r -> text(r.identity()[0])));
-        Map<Integer, PayRow> annual = new LinkedHashMap<>();
+        Map<String, PayRow> annual = new LinkedHashMap<>();
         for (PayRow row : monthlyRows) {
-            PayRow previous = annual.get(row.employeeId());
-            annual.put(row.employeeId(), previous == null ? new PayRow(row.employeeId(), row.period(), row.identity(), normalized(row.values()), row.reference(), row.statut())
+            String key = row.employeeId() + ":" + text(row.identity()[2]);
+            PayRow previous = annual.get(key);
+            annual.put(key, previous == null ? new PayRow(row.employeeId(), row.period(), row.identity(), normalized(row.values()), row.reference(), row.statut())
                     : new PayRow(row.employeeId(), row.period(), row.identity(), add(previous.values(), row.values()), row.reference(), row.statut()));
         }
         List<PayRow> annualRows = annual.values().stream().sorted(Comparator.comparing(r -> text(r.identity()[0]))).toList();
@@ -194,7 +196,7 @@ public class AnnualPayrollExportService {
                         "A4:X" + (4 + annualRows.size()), SpreadsheetVersion.EXCEL2007));
                 ((XSSFSheet) detail).getTables().get(0).setArea(new AreaReference(
                         "A4:AB" + (4 + monthlyRows.size()), SpreadsheetVersion.EXCEL2007));
-                writeMonthlyOverview(book, year, periodCodes, monthlyRows, annualRows.size(),
+                writeMonthlyOverview(book, year, periodCodes, monthlyRows, (int) annualRows.stream().map(PayRow::employeeId).distinct().count(),
                         titleStyle, subtitleStyle, headerStyle, summaryStyle, alternateStyle, totalStyle);
                 writeRubricControl(book, auditedLines);
                 for (Sheet sheet : List.of(summary, detail)) {
@@ -206,7 +208,7 @@ public class AnnualPayrollExportService {
                 }
                 book.getCreationHelper().createFormulaEvaluator().evaluateAll();
                 book.write(output);
-                return new Result(output.toByteArray(), periodCodes.size(), annualRows.size());
+                return new Result(output.toByteArray(), periodCodes.size(), (int) annualRows.stream().map(PayRow::employeeId).distinct().count());
             }
         }
     }

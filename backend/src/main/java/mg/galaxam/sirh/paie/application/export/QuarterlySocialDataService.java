@@ -193,7 +193,7 @@ public class QuarterlySocialDataService {
             throw new IllegalStateException("La période " + month + " est absente. Qualifier ce mois avant l'export trimestriel.");
         }
         Map<String, String> registeredOrganismes = loadOrganismes(connection);
-        Map<Integer, Person> people = new LinkedHashMap<>();
+        Map<String, Person> people = new LinkedHashMap<>();
         Map<Integer, Employer> employerById = new LinkedHashMap<>(); // id_filiale → Employer
         for (int index = 0; index < 3; index++) {
             Period period = periods.get(months[index]);
@@ -210,8 +210,9 @@ public class QuarterlySocialDataService {
                     throw new IllegalStateException("Filiale non renseignée pour le salarié " + b.getMatricule() + ".");
                 }
                 employerById.put(metadata.employer().id(), metadata.employer());
-                Person person = people.computeIfAbsent(b.getIdEmploye(), Person::new);
-                person.employer = metadata.employer(); // filiale la plus récente du salarié
+                String personKey = b.getIdEmploye() + ":" + metadata.employer().id();
+                Person person = people.computeIfAbsent(personKey, ignored -> new Person(b.getIdEmploye()));
+                person.employer = metadata.employer(); // conserver les montants dans leur filiale historique
                 person.matricule = b.getMatricule(); person.cnaps = b.getNumeroCnaps(); person.cin = b.getCinNumero();
                 person.name = metadata.name(); person.firstNames = metadata.firstNames(); person.sex = metadata.sex();
                 person.birth = metadata.birth(); person.phone = metadata.phone(); person.email = metadata.email();
@@ -612,9 +613,9 @@ public class QuarterlySocialDataService {
             // Onglets par filiale (si multi-filiale)
             if (byFiliale.size() > 1) {
                 for (java.util.Map.Entry<Employer, Data> entry : byFiliale.entrySet()) {
-                    String sheetName = truncateSheetName(n(entry.getKey().name()));
+                    String sheetName = PayrollSheetNames.unique(book, n(entry.getKey().name()));
                     Sheet fSum = book.createSheet(sheetName);
-                    Sheet fDet = book.createSheet(truncateSheetName(sheetName + " - Détail"));
+                    Sheet fDet = book.createSheet(PayrollSheetNames.unique(book, sheetName + " - Détail"));
                     fSum.setDisplayGridlines(false); fDet.setDisplayGridlines(false);
                     renderSummarySheet(fSum, entry.getValue(), styles);
                     renderDetailSheet(fDet, entry.getValue(), styles);
@@ -667,7 +668,7 @@ public class QuarterlySocialDataService {
                 }
             }
             cell(summary, curRow, 0, s.text()).setCellValue(org);
-            cell(summary, curRow, 1, s.text()).setCellValue(orgPeople.size());
+            cell(summary, curRow, 1, s.text()).setCellValue(orgPeople.stream().map(p -> p.id).distinct().count());
             cell(summary, curRow, 2, s.money()).setCellValue(employee.doubleValue());
             cell(summary, curRow, 3, s.money()).setCellValue(employer.doubleValue());
             cell(summary, curRow, 4, s.money()).setCellValue(employee.add(employer).doubleValue());

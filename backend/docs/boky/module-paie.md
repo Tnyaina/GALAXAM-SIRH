@@ -162,7 +162,7 @@ Le résultat du moteur et des consultations de bulletins (`PayrollService.obteni
 3. **Contrôle et composition du brut (`CompositionBrutDTO`)** :
    - `lignes` : sous-ensemble des lignes entrant dans l'assiette brute (`GAIN` à l'étape `BRUT` ou retenues sur salaire de base) ;
    - `totalLignes` : somme algébrique exacte des lignes brutes ;
-   - `gainsExoneresIrsa` : montants bruts exonérés d'IRSA (notamment les majorations d'heures supplémentaires selon le CGI LF 2026) ;
+   - `gainsExoneresIrsa` : montants bruts effectivement exonérés d'IRSA selon la configuration datée ; les heures supplémentaires n'y contribuent que si leur exonération est activée ;
    - `ecartAvecTotalEnregistre` : contrôle d'intégrité entre la somme des lignes et `bulletin.totalGainsBruts` ;
    - `ecartArrondiNet` : traçabilité de l'arrondi monétaire (écart entre `netAPayer` et `netAvantArrondi`).
 4. **Explication transparente du calcul (`ExplicationPaieDTO`)** :
@@ -264,8 +264,8 @@ Le Pointage qualifie les tranches horaires du snapshot ; `OvertimePayCalculator`
 
 La même distinction s'applique à une demi-journée. Lorsqu'une régularisation d'une journée depuis Pointage n'est couverte qu'en partie par le solde, la demande créée porte la fraction couverte et le reliquat reste une absence ; la paie valorise seulement la fraction de congé rémunérée et retient les minutes d'absence transmises par le snapshot. Une couverture nulle ne crée pas de prise de congé. Pour une période de plusieurs jours, la régularisation partielle est refusée si le solde est insuffisant. Les tests unitaires `CongePayrollRemunerationTest` et `PointageLeaveStatusTest` couvrent des règles de calcul ciblées ; ils ne constituent pas une vérification PostgreSQL de bout en bout du bulletin.
 
-#### RG-PAIE-04 : Exonération fiscale des heures supplémentaires (CGI LF 2026)
-Conformément aux dispositions de la Loi de Finances 2026, la rémunération brute des heures supplémentaires et de leurs majorations est exonérée de l'Impôt sur les Revenus Salariaux et Assimilés (IRSA) dans la limite du plafond mensuel configuré (`paie_config_legale.plafond_mensuel_hs_exonerees`). Cette fraction exonérée est déduite du net imposable pour constituer l'assiette IRSA effective.
+#### RG-PAIE-04 : Traitement fiscal configuré des heures supplémentaires
+Le moteur applique une exonération IRSA aux heures supplémentaires et à leurs majorations seulement si `paie_config_legale.exoneration_hs_irsa_active` est activé pour la date de calcul et si `plafond_mensuel_hs_exonerees` est positif. Le plafond est exprimé en heures mensuelles et imputé aux heures à 30 %, puis à 50 % ; seule leur rémunération correspondante est retirée de l'assiette IRSA. Sinon, leur rémunération reste imposable. Les lignes informatives `HS_EXONEREE_IRSA` et `HS_IMPOSABLE_IRSA` rendent ce partage visible. Les configurations de référence livrées pour 2026 désactivent l'exonération ; un plafond de 20 heures renseigné seul ne l'active pas.
 
 #### RG-PAIE-05 : Assiettes et cotisations sociales obligatoires
 `SocialContributionContextResolver` résout les paramètres sociaux datés (CNaPS, FMFP et organisme de santé) ainsi que l'organisme déclaratif applicable (`RefOrganismeSocial`) pour la période et le site donnés (priorisant toute surcharge définie sur `site_cotisation.id_organisme_social`).
@@ -284,7 +284,7 @@ Conformément aux dispositions de la Loi de Finances 2026, la rémunération bru
 Lors de l'émission des lignes dans `PayrollExecutionEngine`, les métadonnées de l'organisme résolu (`id_organisme_social`, `code_organisme_social`, `nom_organisme_social`) sont scellées directement dans `bulletin_paie_ligne`.
 
 #### RG-PAIE-06 : Barème progressif de l'IRSA (CGI LF 2026)
-L'impôt est calculé par `PayrollTaxCalculations` sur l'assiette imposable nette de cotisations sociales salariales et hors heures supplémentaires exonérées :
+L'impôt est calculé par `PayrollTaxCalculations` sur l'assiette imposable nette de cotisations sociales salariales, diminuée des heures supplémentaires effectivement exonérées lorsque cette option est active :
 - Tranche de $0$ à $350\,000\text{ MGA}$ : $0\%$
 - Tranche de $350\,001$ à $400\,000\text{ MGA}$ : $5\%$
 - Tranche de $400\,001$ à $500\,000\text{ MGA}$ : $10\%$
@@ -608,7 +608,11 @@ La table ne possède pas de contrainte ou de trigger garantissant une immutabili
 | Trimestrielle | Consolidation sociale | Synthèse trimestrielle interne dynamique par organisme pour les 3 mois du trimestre avec détection automatique des organismes et avertissements d’incohérence |
 | Annuelle | Récapitulatif annuel de paie Excel | Utilise les campagnes validées via `AnnualPayrollExportService` ; peut être partiel |
 
-Le catalogue de l'interface présente les états Excel utiles au contrôle interne. Les anciens endpoints SAFI, DNTS et modèles par organisme restent dans le backend, mais ne sont plus proposés sur cet écran ; leur conformité et leur acceptation par un portail ne sont pas établies. L'ordre de virement CSV n'est pas un état de paie interne. Les exports trimestriels attendent trois mois validés dans le trimestre. L’export annuel indique les mois disponibles et ne complète pas les mois absents par des données estimées.
+Le catalogue de l'interface présente les états Excel utiles au contrôle interne. Les anciens endpoints SAFI, DNTS et modèles par organisme restent dans le backend, mais ne sont plus proposés sur cet écran ; leur conformité et leur acceptation par un portail ne sont pas établies. L'ordre de virement CSV n'est pas un état de paie interne. La consolidation trimestrielle attend trois mois validés dans le trimestre. L’export annuel indique les mois disponibles et ne complète pas les mois absents par des données estimées.
+
+Les états Excel mensuels (grand livre, IRSA, social), la consolidation sociale trimestrielle et le récapitulatif annuel ouvrent sur une « Vue de pilotage ». Elle présente les montants constatés, la couverture, les contrôles, la répartition par filiale, la série mensuelle et une feuille de traçabilité contenant les références des bulletins et une empreinte des agrégats. Une comparaison globale apparaît seulement si toutes les périodes des deux fenêtres sont validées et si les filiales employeurs sont identiques. Dans un historique partiel, la série compare uniquement les mois qui disposent chacun d'un équivalent validé au même périmètre ; les autres montants et écarts restent vides. Les comparaisons montrent des écarts constatés et ne prétendent pas expliquer automatiquement leurs causes. Les feuilles Excel ne figent pas de volets.
+
+Les trois états mensuels regroupent toutes les filiales employeurs sans sélection préalable et ajoutent une feuille propre à chacune : le grand livre conserve ses feuilles communes « Grand livre », « Détail rubriques » et « Contrôle » ; l'état social conserve « Synthèse sociale » et « Détail nominatif » ; l'IRSA conserve « Toutes les filiales » issue du modèle, puis une copie par filiale. La consolidation sociale trimestrielle comprend une synthèse et un détail communs, puis ces deux feuilles pour chaque filiale. Les feuilles de pilotage et de traçabilité complètent ces états ; elles ne remplacent pas les justificatifs détaillés. Le fichier exporté peut servir au contrôle, à l'analyse et à l'archivage de cette extraction, sous réserve de rapprocher les alertes et les bulletins sources.
 
 Le téléchargement direct `GET /bulletin/{id}/document/{format}` suit une autre condition : il exige `PAIE_READ` ou `ROLE_ADMIN`, accepte `pdf` et `xlsx` et peut produire le document d'un bulletin encore `CALCULE`. Le tiroir de consultation du bulletin utilise cette route. Cette disponibilité directe ne rend pas les sorties finales du catalogue disponibles avant validation. Le code n'ajoute pas de mention « PROVISOIRE » propre à ce téléchargement.
 

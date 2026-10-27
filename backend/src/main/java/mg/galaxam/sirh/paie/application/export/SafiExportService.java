@@ -38,7 +38,10 @@ public class SafiExportService {
      * Génère la liste des 25 colonnes SAFI pour tous les salariés d'une période donnée.
      */
     public List<SafiRowDto> genererDonneesSafi(Integer idPeriode, Connection c) throws Exception {
-        List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
+        return genererDonneesSafi(idPeriode, c, BulletinPaie.listerParPeriode(idPeriode, c));
+    }
+
+    List<SafiRowDto> genererDonneesSafi(Integer idPeriode, Connection c, List<BulletinPaie> bulletins) throws Exception {
         List<SafiRowDto> rows = new ArrayList<>();
 
         Date dateDebutPeriode = null;
@@ -57,12 +60,7 @@ public class SafiExportService {
         // Regroupement par employé pour garantir 1 ligne unique par salarié (Obligation État 301 SAFI DGI)
         Map<Integer, List<BulletinPaie>> bulletinsParEmploye = new LinkedHashMap<>();
         for (BulletinPaie bp : bulletins) {
-            if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) 
-                    || "TEMPORAIRE".equalsIgnoreCase(bp.getRegimeIntervenant())
-                    || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())
-                    || (bp.getRetenueIsi5() != null && bp.getRetenueIsi5().compareTo(BigDecimal.ZERO) > 0)) {
-                continue;
-            }
+            if (!isIrsaEmployee(bp)) continue;
             bulletinsParEmploye.computeIfAbsent(bp.getIdEmploye(), k -> new ArrayList<>()).add(bp);
         }
         if (dateDebutPeriode == null || dateFinPeriode == null)
@@ -248,6 +246,13 @@ public class SafiExportService {
         }
 
         return rows;
+    }
+
+    static boolean isIrsaEmployee(BulletinPaie bp) {
+        return !"CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant())
+                && !"TEMPORAIRE".equalsIgnoreCase(bp.getRegimeIntervenant())
+                && !"ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())
+                && (bp.getRetenueIsi5() == null || bp.getRetenueIsi5().signum() <= 0);
     }
 
     /**

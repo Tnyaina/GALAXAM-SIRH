@@ -29,7 +29,7 @@ final class PayrollExportContextResolver {
         return result;
     }
 
-    private static Map<Integer, Company> companiesByBulletin(int periodId, Connection connection) throws Exception {
+    static Map<Integer, Company> companiesByBulletin(int periodId, Connection connection) throws Exception {
         return companiesByBulletin(List.of(periodId), connection);
     }
 

@@ -17,6 +17,7 @@ import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -88,6 +89,17 @@ public class GrandLivrePaieExportService {
             summary.setAutoFilter(new CellRangeAddress(7, summaryRow - 1, 0, SUMMARY_COLUMNS.length - 1));
             detail.setAutoFilter(new CellRangeAddress(2, Math.max(3, detailRow - 1), 0, DETAIL_COLUMNS.length - 1));
             writeChecks(checks, period, bulletins.size(), detailRow - 3, totalRow, styles);
+            Map<String, List<BulletinPaie>> byCompany = new LinkedHashMap<>();
+            for (BulletinPaie bulletin : bulletins) {
+                String name = filialByBulletin.get(bulletin.getIdBulletin());
+                byCompany.computeIfAbsent(name == null ? "Filiale" : name,
+                        ignored -> new java.util.ArrayList<>()).add(bulletin);
+            }
+            for (var entry : byCompany.entrySet()) {
+                Sheet companySheet = workbook.createSheet(PayrollSheetNames.unique(workbook, entry.getKey()));
+                writeCompanySheet(companySheet, period, entry.getKey(), entry.getValue(),
+                        lignesParBulletin, styles);
+            }
             for (Sheet sheet : List.of(summary, detail, checks)) {
                 sheet.getPrintSetup().setLandscape(sheet != checks);
                 sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
@@ -98,8 +110,38 @@ public class GrandLivrePaieExportService {
             workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
             workbook.setForceFormulaRecalculation(true);
             workbook.write(output);
-            return new Result(output.toByteArray(), period.code(), bulletins.size(), detailRow - 3);
+            return new Result(PayrollWorkbookAnalysis.monthly(output.toByteArray(), PayrollWorkbookAnalysis.Kind.PAIE, periodId, connection), period.code(), bulletins.size(), detailRow - 3);
         }
+    }
+
+    private static void writeCompanySheet(Sheet sheet, Period period, String company,
+            List<BulletinPaie> bulletins, Map<Integer, List<BulletinPaieLigne>> linesByBulletin,
+            Styles styles) {
+        banner(sheet, "GRAND LIVRE DE PAIE · " + company, 5, styles.title);
+        title(sheet, 1, "Période " + period.code(), styles.subtitle);
+        header(sheet, 3, SUMMARY_COLUMNS, styles.header);
+        for (int col = 0; col < SUMMARY_COLUMNS.length; col++)
+            sheet.setColumnWidth(col, col == 1 ? 9500 : col < 6 ? 4800 : 5100);
+        int row = 4;
+        for (BulletinPaie bulletin : bulletins)
+            writeSummary(sheet, row++, bulletin,
+                    linesByBulletin.getOrDefault(bulletin.getIdBulletin(), List.of()), company, styles);
+        cell(sheet, row, 1, styles.totalLabel).setCellValue("TOTAL FILIALE");
+        for (int col = 6; col < SUMMARY_COLUMNS.length; col++) {
+            String letter = org.apache.poi.ss.util.CellReference.convertNumToColString(col);
+            cell(sheet, row, col, styles.totalMoney).setCellFormula(
+                    "SUM(" + letter + "5:" + letter + row + ")");
+        }
+        int detailHeader = row + 3;
+        header(sheet, detailHeader, DETAIL_COLUMNS, styles.header);
+        row = detailHeader + 1;
+        for (BulletinPaie bulletin : bulletins)
+            for (BulletinPaieLigne line : linesByBulletin.getOrDefault(bulletin.getIdBulletin(), List.of()))
+                writeDetail(sheet, row++, bulletin, line, styles);
+        sheet.createFreezePane(6, 4);
+        sheet.getPrintSetup().setLandscape(true);
+        sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
+        sheet.setFitToPage(true);
     }
 
     private static Period loadPeriod(Integer id, Connection connection) throws Exception {
