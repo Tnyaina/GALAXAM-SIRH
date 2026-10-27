@@ -154,8 +154,11 @@ public class PaieConfigLegale extends ClassMere {
     /**
      * Annule un exercice PROGRAMMÉ (date_debut > aujourd'hui) :
      * 1. Vérifie que l'exercice n'est pas encore en vigueur.
-     * 2. Supprime l'exercice.
-     * 3. Réouvre le date_fin de l'exercice précédent (le remet à NULL).
+     * 2. Supprime d'abord l'exercice programmé (et ses tables filles en CASCADE).
+     * 3. Réouvre ensuite le date_fin de l'exercice précédent (le remet à NULL).
+     *    L'ordre est important : il faut supprimer la ligne qui chevauche AVANT
+     *    de rouvrir le prédécesseur, pour éviter la violation de la contrainte
+     *    d'exclusion temporelle (uk_config_legale_temporal_overlap).
      * La transaction est gérée par l'appelant.
      */
     public static void annulerProgramme(int idConfigLegale, Connection c) throws Exception {
@@ -170,25 +173,27 @@ public class PaieConfigLegale extends ClassMere {
                 "Seul un exercice PROGRAMMÉ (date_debut dans le futur) peut être annulé. "
                 + "L'exercice '" + cible.getCodeVersion() + "' est déjà en vigueur ou archivé.");
         }
-        // Réouvrir le date_fin de l'exercice précédent (celui qui avait été clôturé lors de la revalorisation)
-        String reopenSql = "UPDATE paie_config_legale SET date_fin = NULL "
-                + "WHERE id_config_legale != ? AND date_fin = ?";
-        try (PreparedStatement ps = c.prepareStatement(reopenSql)) {
-            // date_fin du précédent = dateDebut de la cible - 1 jour
-            ps.setInt(1, idConfigLegale);
-            ps.setDate(2, java.sql.Date.valueOf(cible.getDateDebut().toLocalDate().minusDays(1)));
-            ps.executeUpdate();
-        }
-        // Réouvrir également les tranches IRSA clôturées à la même veille
-        String reopenIrsaSql = "UPDATE bareme_irsa SET date_fin = NULL WHERE date_fin = ?";
-        try (PreparedStatement ps = c.prepareStatement(reopenIrsaSql)) {
-            ps.setDate(1, java.sql.Date.valueOf(cible.getDateDebut().toLocalDate().minusDays(1)));
-            ps.executeUpdate();
-        }
-        // Supprimer l'exercice programmé (et ses tables filles en CASCADE)
+        // Mémoriser la veille de la date de début (= date_fin du prédécesseur à restaurer)
+        java.sql.Date veilleDebut = java.sql.Date.valueOf(cible.getDateDebut().toLocalDate().minusDays(1));
+
+        // 1. Supprimer EN PREMIER l'exercice programmé (et ses tables filles en CASCADE)
+        //    afin de lever le chevauchement avant de rouvrir le prédécesseur.
         String deleteSql = "DELETE FROM paie_config_legale WHERE id_config_legale = ?";
         try (PreparedStatement ps = c.prepareStatement(deleteSql)) {
             ps.setInt(1, idConfigLegale);
+            ps.executeUpdate();
+        }
+        // 2. Réouvrir le date_fin du prédécesseur (celui clôturé lors de la revalorisation)
+        String reopenSql = "UPDATE paie_config_legale SET date_fin = NULL "
+                + "WHERE date_fin = ?";
+        try (PreparedStatement ps = c.prepareStatement(reopenSql)) {
+            ps.setDate(1, veilleDebut);
+            ps.executeUpdate();
+        }
+        // 3. Réouvrir également les tranches IRSA clôturées à la même veille
+        String reopenIrsaSql = "UPDATE bareme_irsa SET date_fin = NULL WHERE date_fin = ?";
+        try (PreparedStatement ps = c.prepareStatement(reopenIrsaSql)) {
+            ps.setDate(1, veilleDebut);
             ps.executeUpdate();
         }
     }

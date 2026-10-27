@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit2, ShieldAlert, Eye, UserCheck, Power, Check } from 'lucide-react';
+import { Search, UserPlus, Edit2, ShieldAlert, Eye, EyeOff, UserCheck, Power, Check } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import referentielService from '@/features/administration/api/referentielService';
 import Card from '@/components/ui/data-display/Card';
@@ -287,41 +287,41 @@ export default function UserManagementTab() {
             {/* Tableau des utilisateurs */}
             <Table bordered={false}>
                 <Thead>
-                    <Th>Nom d'affichage</Th>
-                    <Th>E-mail</Th>
-                    <Th>Rôle</Th>
-                    <Th>Statut</Th>
-                    <Th className="text-right">Actions</Th>
+                    <Th className="text-xs py-3">Nom d'affichage</Th>
+                    <Th className="text-xs py-3">E-mail</Th>
+                    <Th className="text-xs py-3">Rôle</Th>
+                    <Th className="text-xs py-3">Statut</Th>
+                    <Th className="text-xs py-3 text-right">Actions</Th>
                 </Thead>
                 <Tbody>
                     {filteredUsers.length > 0 ? (
                         filteredUsers.map((user) => (
                             <Tr key={user.idUtilisateur}>
-                                <Td className="font-bold text-[var(--color-fg)]">{user.identifiant}</Td>
-                                <Td>{user.email}</Td>
-                                <Td>
-                                    <Badge variant="primary" size="sm">
+                                <Td className="font-bold text-[var(--color-fg)] text-sm py-3.5">{user.identifiant}</Td>
+                                <Td className="text-sm py-3.5">{user.email}</Td>
+                                <Td className="py-3.5">
+                                    <Badge variant="primary" size="md">
                                         {user.roleLibelle}
                                     </Badge>
                                 </Td>
-                                <Td>
-                                    <Badge variant={user.estActif ? 'success' : 'default'} size="sm" dot>
+                                <Td className="py-3.5">
+                                    <Badge variant={user.estActif ? 'success' : 'default'} size="md" dot>
                                         {user.estActif ? 'Actif' : 'Désactivé'}
                                     </Badge>
                                 </Td>
-                                <Td className="text-right">
+                                <Td className="text-right py-3.5">
                                     <div className="flex justify-end items-center gap-2">
                                         <button
                                             onClick={() => handleOpenEditModal(user)}
-                                            className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="ui-button-icon-sm inline-flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier l'utilisateur"
                                             aria-label={`Modifier ${user.identifiant}`}
                                         >
-                                            <Edit2 size={15} />
+                                            <Edit2 size={16} />
                                         </button>
                                         <button
                                             onClick={() => user.estActif ? handleOpenDeactivateModal(user) : requestActivate(user)}
-                                            className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
+                                            className={`ui-button-icon-sm inline-flex items-center justify-center rounded-none cursor-pointer transition-colors ${
                                                 user.estActif
                                                     ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
@@ -329,7 +329,7 @@ export default function UserManagementTab() {
                                             title={user.estActif ? "Désactiver l'utilisateur" : "Réactiver l'utilisateur"}
                                             aria-label={user.estActif ? `Désactiver ${user.identifiant}` : `Activer ${user.identifiant}`}
                                         >
-                                            {user.estActif ? <Power size={15} /> : <Check size={15} />}
+                                            {user.estActif ? <Power size={16} /> : <Check size={16} />}
                                         </button>
                                     </div>
                                 </Td>
@@ -414,9 +414,11 @@ export default function UserManagementTab() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="text-xs font-bold text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] cursor-pointer"
+                                    className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer inline-flex items-center justify-center transition-colors"
+                                    title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                                    aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                                 >
-                                    {showPassword ? "Masquer" : "Afficher"}
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             }
                         />
@@ -442,8 +444,7 @@ export default function UserManagementTab() {
                         error={fieldErrors.idRole}
                         options={roles.map((role) => ({
                             value: String(role.idRole),
-                            label: role.libelle,
-                            sublabel: role.codeRole
+                            label: role.libelle
                         }))}
                         onChange={(val) => {
                             setFormData({ ...formData, idRole: val });

@@ -101,26 +101,30 @@ function RolesList({ roles = [], selectedRole, showInactive = false, onToggleSho
                                 : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm truncate font-bold">{role.libelle}</p>
+                        <div className="min-w-0 flex-1 pr-3">
+                            <p className="text-sm truncate font-bold text-[var(--color-fg)]">{role.libelle}</p>
                             <p className="text-xs font-mono text-[var(--color-fg-muted)] truncate">{role.codeRole}</p>
                         </div>
-                        <div className="flex items-center gap-1 pl-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                             <button
+                                type="button"
                                 onClick={(event) => { event.stopPropagation(); onOpenEditRole(role, event); }}
-                                className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                className="ui-button-icon-sm inline-flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                 title="Modifier le rôle"
                                 aria-label={`Modifier ${role.libelle}`}
                             >
-                                <Edit2 size={15} />
+                                <Edit2 size={16} />
                             </button>
                             <button
+                                type="button"
                                 onClick={(event) => { event.stopPropagation(); onToggleRoleStatus(role, event); }}
-                                className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 cursor-pointer rounded-none transition-colors"
+                                className="inline-flex items-center cursor-pointer hover:opacity-80 transition-opacity"
                                 title={role.estActif ? 'Désactiver logiquement' : 'Activer'}
                                 aria-label={role.estActif ? `Désactiver ${role.libelle}` : `Activer ${role.libelle}`}
                             >
-                                <Badge variant={role.estActif ? 'success' : 'default'} size="sm">{role.estActif ? 'Actif' : 'Inactif'}</Badge>
+                                <Badge variant={role.estActif ? 'success' : 'default'} size="sm" dot>
+                                    {role.estActif ? 'Actif' : 'Inactif'}
+                                </Badge>
                             </button>
                         </div>
                     </div>
@@ -132,7 +136,7 @@ function RolesList({ roles = [], selectedRole, showInactive = false, onToggleSho
 
 function RolePermissionsMatrix({ selectedRole, modules = [], getPermissionForModule, handleTogglePermission, handleToggleAllModulePermissions, handleToggleGlobalAllPermissions, handleSavePermissions }) {
     const allChecked = modules.length > 0 && modules.every((module) => { const permission = getPermissionForModule(module.idModule); return permission.droitLecture && permission.droitEcriture && permission.droitValidation; });
-    return <div className="space-y-4"><div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-[var(--color-border-subtle)]"><div><h4 className="font-bold text-[var(--color-fg)] text-base">Matrice des Permissions pour <span className="text-[var(--color-brand-500)]">{selectedRole.libelle}</span></h4><p className="text-xs text-[var(--color-fg-muted)]">Cochez les droits d'accès (Lecture, Écriture, Validation) pour chaque module fonctionnel.</p></div><div className="flex items-center gap-3"><label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer"><input type="checkbox" checked={allChecked} onChange={handleToggleGlobalAllPermissions} className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]" />Tout autoriser</label><Button onClick={handleSavePermissions} variant="primary" size="sm" iconLeft={<ShieldCheck size={16} />}>Enregistrer</Button></div></div><Table><Thead><Th>Module</Th><Th className="text-center">Lecture (Consulter)</Th><Th className="text-center">Écriture (Saisir / Éditer)</Th><Th className="text-center">Validation (Approuver)</Th><Th className="text-center">Tout le module</Th></Thead><Tbody>{modules.map((module) => { const permission = getPermissionForModule(module.idModule); const checked = permission.droitLecture && permission.droitEcriture && permission.droitValidation; return <Tr key={module.idModule}><Td className="font-medium text-[var(--color-fg)]">{module.libelle}<span className="block text-xs font-mono text-[var(--color-fg-muted)] font-normal">{module.codeModule}</span></Td>{['droitLecture', 'droitEcriture', 'droitValidation'].map((field) => <Td key={field} className="text-center"><input type="checkbox" checked={permission[field]} onChange={() => handleTogglePermission(module.idModule, field)} className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]" /></Td>)}<Td className="text-center"><input type="checkbox" checked={checked} onChange={() => handleToggleAllModulePermissions(module.idModule)} className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]" /></Td></Tr>; })}</Tbody></Table></div>;
+    return <div className="space-y-4"><div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-[var(--color-border-subtle)]"><div><h4 className="font-bold text-[var(--color-fg)] text-base">Matrice des Permissions pour <span className="text-[var(--color-brand-500)]">{selectedRole.libelle}</span></h4><p className="text-xs text-[var(--color-fg-muted)]">Cochez les droits d'accès (Lecture, Écriture, Validation) pour chaque module fonctionnel.</p></div><div className="flex items-center gap-3"><label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer"><input type="checkbox" checked={allChecked} onChange={handleToggleGlobalAllPermissions} className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]" />Tout autoriser</label><Button onClick={handleSavePermissions} variant="primary" size="sm" iconLeft={<ShieldCheck size={16} />}>Enregistrer</Button></div></div><Table><Thead><Th>Module</Th><Th className="text-center">Lecture (Consulter)</Th><Th className="text-center">Écriture (Saisir / Éditer)</Th><Th className="text-center">Validation (Approuver)</Th><Th className="text-center">Tout le module</Th></Thead><Tbody>{modules.map((module) => { const permission = getPermissionForModule(module.idModule); const checked = permission.droitLecture && permission.droitEcriture && permission.droitValidation; return <Tr key={module.idModule}><Td className="font-medium text-[var(--color-fg)]">{module.libelle}</Td>{['droitLecture', 'droitEcriture', 'droitValidation'].map((field) => <Td key={field} className="text-center"><input type="checkbox" checked={permission[field]} onChange={() => handleTogglePermission(module.idModule, field)} className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]" /></Td>)}<Td className="text-center"><input type="checkbox" checked={checked} onChange={() => handleToggleAllModulePermissions(module.idModule)} className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]" /></Td></Tr>; })}</Tbody></Table></div>;
 }
 
 export default function RolesAndPermissionsTab() {

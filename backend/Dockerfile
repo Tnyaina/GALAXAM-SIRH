@@ -2,9 +2,14 @@ FROM maven:3.9.9-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-COPY . .
+# 1. Copier uniquement le pom.xml et télécharger les dépendances.
+#    Cette couche est mise en cache tant que pom.xml ne change pas.
+COPY pom.xml .
+RUN mvn dependency:go-offline -q
 
-RUN mvn clean package -DskipTests
+# 2. Copier les sources et compiler. Le cache Maven local est déjà chaud.
+COPY src ./src
+RUN mvn package -DskipTests -o
 
 
 FROM eclipse-temurin:17-jre
