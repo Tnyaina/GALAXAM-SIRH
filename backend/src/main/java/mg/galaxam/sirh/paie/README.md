@@ -385,15 +385,10 @@ mais ne sont plus proposés comme états internes. Les générateurs restent
 propriétaires de leurs formats ; la génération ne prouve pas l'acceptation par un
 organisme.
 
-Les cinq états Excel internes ouvrent sur une « Vue de pilotage », suivie de
-l'analyse par filiale, de l'évolution et de la couverture, des feuilles de détail
-et d'une traçabilité des bulletins. Les trois états mensuels réunissent toutes
-les filiales dans les feuilles communes et ajoutent une feuille par filiale ; la
-consolidation trimestrielle ajoute une synthèse et un détail par filiale. Les
-comparaisons globales exigent deux fenêtres complètes et le même périmètre de
-filiales ; les mois sans précédent comparable restent sans écart. Les volets des
-feuilles Excel ne sont pas figés. Voir `backend/docs/boky/module-paie.md` pour
-les conditions de disponibilité et la lecture des états.
+Les trois états Excel mensuels regroupent les filiales dans leurs feuilles
+communes et ajoutent une feuille par filiale. La consolidation trimestrielle
+contient une synthèse et un détail communs, puis ces deux feuilles par filiale.
+Le récapitulatif annuel contient une synthèse, un détail et une synthèse par mois.
 
 Le catalogue final conserve ses conditions de disponibilité. En parallèle,
 `GET /bulletin/{id}/document/{format}` permet à un titulaire de `PAIE_READ`

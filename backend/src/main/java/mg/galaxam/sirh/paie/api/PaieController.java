@@ -357,8 +357,7 @@ public class PaieController {
             if ("consolidation".equals(type)) {
                 // Toutes filiales consolidées + un onglet par filiale si multi-filiale
                 QuarterlySocialDataService.Data all = quarterlySocialDataService.load(annee, trimestre, connection);
-                byte[] bytes = mg.galaxam.sirh.paie.application.export.PayrollWorkbookAnalysis.quarterly(
-                        quarterlySocialDataService.renderConsolidation(all, byFiliale), annee, trimestre, connection);
+                byte[] bytes = quarterlySocialDataService.renderConsolidation(all, byFiliale);
                 String filename = "Consolidation_Sociale_T" + trimestre + "_" + annee + ".xlsx";
                 return ResponseEntity.ok()
                         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")

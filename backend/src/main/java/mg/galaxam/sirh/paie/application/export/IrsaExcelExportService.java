@@ -86,7 +86,7 @@ public class IrsaExcelExportService {
                 }
                 evaluateAndMarkForRecalculation(workbook);
                 workbook.write(out);
-                return new Result(PayrollWorkbookAnalysis.monthly(out.toByteArray(), PayrollWorkbookAnalysis.Kind.IRSA, periodId, connection), header.code(), data.size());
+                return new Result(out.toByteArray(), header.code(), data.size());
             }
         }
     }
@@ -140,7 +140,6 @@ public class IrsaExcelExportService {
                 for (int i = sheet.getNumMergedRegions() - 1; i >= 0; i--) {
                     if (sheet.getMergedRegion(i).getLastRow() > totalRowIndex) sheet.removeMergedRegion(i);
                 }
-                sheet.createFreezePane(9, FIRST_DATA_ROW);
     }
 
     static void evaluateAndMarkForRecalculation(HSSFWorkbook workbook) {

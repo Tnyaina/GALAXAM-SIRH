@@ -759,7 +759,6 @@ public class QuarterlySocialDataService {
             }
         }
 
-        detail.createFreezePane(5, detailHeaderRow + 1);
         for (int col = 0; col < detailHeadList.size(); col++) {
             int width = switch (col) {
                 case 0 -> 3800; case 1 -> 3500; case 2, 3 -> 7500;

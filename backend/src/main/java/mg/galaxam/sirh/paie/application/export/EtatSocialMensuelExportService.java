@@ -125,7 +125,6 @@ public class EtatSocialMensuelExportService {
             if (hasUnassociated) {
                 cell(summary, sr + 4, 0, styles.warning).setCellValue("Lignes non associées détectées : vérifier la configuration des types et sites de cotisation.");
             }
-            summary.createFreezePane(0, startRow + 1);
 
             banner(detail, "COTISATIONS PAR SALARIÉ", DETAIL.length - 1, styles.title);
             heading(detail, 1, "Période " + periodCode + " · une ligne par salarié et par organisme", styles.muted);
@@ -159,7 +158,6 @@ public class EtatSocialMensuelExportService {
                     total.setCellFormula("SUM(" + letter + (detailHeaderRow + 2) + ":" + letter + dr + ")");
                 }
             }
-            detail.createFreezePane(4, detailHeaderRow + 1);
             if (!rows.isEmpty()) detail.setAutoFilter(new CellRangeAddress(detailHeaderRow, dr - 1, 0, DETAIL.length - 1));
 
             Map<String, List<DetailRow>> byCompany = new LinkedHashMap<>();
@@ -187,7 +185,7 @@ public class EtatSocialMensuelExportService {
             workbook.write(out);
             Set<Integer> uniqueEmployees = new TreeSet<>();
             people.values().forEach(uniqueEmployees::addAll);
-            return new Result(PayrollWorkbookAnalysis.monthly(out.toByteArray(), PayrollWorkbookAnalysis.Kind.SOCIAL, periodId, connection), periodCode, uniqueEmployees.size(), rows.size());
+            return new Result(out.toByteArray(), periodCode, uniqueEmployees.size(), rows.size());
         }
     }
 
@@ -217,7 +215,6 @@ public class EtatSocialMensuelExportService {
             if (rows.isEmpty()) total.setCellValue(0);
             else total.setCellFormula("SUM(" + letter + "5:" + letter + row + ")");
         }
-        sheet.createFreezePane(4, 4);
         sheet.setAutoFilter(new CellRangeAddress(3, row - 1, 0, DETAIL.length - 1));
     }
 

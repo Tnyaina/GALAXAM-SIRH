@@ -54,14 +54,12 @@ public class GrandLivrePaieExportService {
             Styles styles = new Styles(workbook);
             Sheet summary = workbook.createSheet("Grand livre");
             Sheet detail = workbook.createSheet("Détail rubriques");
-            Sheet checks = workbook.createSheet("Contrôle");
-            for (Sheet sheet : List.of(summary, detail, checks)) sheet.setDisplayGridlines(false);
+            for (Sheet sheet : List.of(summary, detail)) sheet.setDisplayGridlines(false);
             banner(summary, "GRAND LIVRE DE PAIE", 5, styles.title);
             title(summary, 1, "État mensuel nominatif · période " + period.code(), styles.subtitle);
             title(summary, 3, "Du " + period.start().format(DATE) + " au " + period.end().format(DATE)
                     + "   |   " + bulletins.size() + " bulletins validés ou clôturés", styles.subtitle);
             header(summary, 7, SUMMARY_COLUMNS, styles.header);
-            summary.createFreezePane(6, 8);
             for (int col = 0; col < SUMMARY_COLUMNS.length; col++) summary.setColumnWidth(col, col == 1 ? 9500 : col < 6 ? 4800 : 5100);
             summary.setColumnWidth(0, 3600);
             summary.setRepeatingRows(new CellRangeAddress(7, 7, 0, SUMMARY_COLUMNS.length - 1));
@@ -69,7 +67,6 @@ public class GrandLivrePaieExportService {
             banner(detail, "DÉTAIL DES RUBRIQUES DE PAIE", 5, styles.title);
             title(detail, 1, "Toutes les lignes enregistrées des bulletins de la période " + period.code(), styles.subtitle);
             header(detail, 2, DETAIL_COLUMNS, styles.header);
-            detail.createFreezePane(3, 3);
             for (int col = 0; col < DETAIL_COLUMNS.length; col++) detail.setColumnWidth(col, col == 4 ? 11500 : col == 2 ? 9500 : 5000);
             detail.setRepeatingRows(new CellRangeAddress(2, 2, 0, DETAIL_COLUMNS.length - 1));
             int detailRow = 3;
@@ -88,7 +85,6 @@ public class GrandLivrePaieExportService {
             }
             summary.setAutoFilter(new CellRangeAddress(7, summaryRow - 1, 0, SUMMARY_COLUMNS.length - 1));
             detail.setAutoFilter(new CellRangeAddress(2, Math.max(3, detailRow - 1), 0, DETAIL_COLUMNS.length - 1));
-            writeChecks(checks, period, bulletins.size(), detailRow - 3, totalRow, styles);
             Map<String, List<BulletinPaie>> byCompany = new LinkedHashMap<>();
             for (BulletinPaie bulletin : bulletins) {
                 String name = filialByBulletin.get(bulletin.getIdBulletin());
@@ -100,8 +96,8 @@ public class GrandLivrePaieExportService {
                 writeCompanySheet(companySheet, period, entry.getKey(), entry.getValue(),
                         lignesParBulletin, styles);
             }
-            for (Sheet sheet : List.of(summary, detail, checks)) {
-                sheet.getPrintSetup().setLandscape(sheet != checks);
+            for (Sheet sheet : List.of(summary, detail)) {
+                sheet.getPrintSetup().setLandscape(true);
                 sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
                 sheet.setFitToPage(true);
                 sheet.getPrintSetup().setFitWidth((short) 1);
@@ -110,7 +106,7 @@ public class GrandLivrePaieExportService {
             workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
             workbook.setForceFormulaRecalculation(true);
             workbook.write(output);
-            return new Result(PayrollWorkbookAnalysis.monthly(output.toByteArray(), PayrollWorkbookAnalysis.Kind.PAIE, periodId, connection), period.code(), bulletins.size(), detailRow - 3);
+            return new Result(output.toByteArray(), period.code(), bulletins.size(), detailRow - 3);
         }
     }
 
@@ -138,7 +134,6 @@ public class GrandLivrePaieExportService {
         for (BulletinPaie bulletin : bulletins)
             for (BulletinPaieLigne line : linesByBulletin.getOrDefault(bulletin.getIdBulletin(), List.of()))
                 writeDetail(sheet, row++, bulletin, line, styles);
-        sheet.createFreezePane(6, 4);
         sheet.getPrintSetup().setLandscape(true);
         sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
         sheet.setFitToPage(true);

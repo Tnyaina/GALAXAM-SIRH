@@ -1435,11 +1435,15 @@ export default function PayrollEngineMap() {
                         <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => creationStep === 0 ? setEditor(null) : setCreationStep(step => step - 1)}>
                             {creationStep === 0 ? 'Annuler' : 'Précédent'}
                         </Button>
-                        {creationStep < 2 ? (
-                            <Button type="button" variant="primary" size="sm" onClick={advanceCreationStep}>Continuer</Button>
-                        ) : (
-                            <Button type="submit" form="payroll-configuration-form" variant="primary" size="sm" loading={saving}>Enregistrer</Button>
-                        )}
+                        <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            loading={saving && creationStep === 2}
+                            onClick={creationStep < 2 ? advanceCreationStep : handleSubmit}
+                        >
+                            {creationStep < 2 ? 'Continuer' : 'Enregistrer'}
+                        </Button>
                     </div>
                 ) : undefined}
             >

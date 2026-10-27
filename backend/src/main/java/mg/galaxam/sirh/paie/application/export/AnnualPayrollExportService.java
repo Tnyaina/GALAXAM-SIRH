@@ -74,7 +74,7 @@ public class AnnualPayrollExportService {
         }
         if (monthly.isEmpty()) throw new IllegalStateException("Aucun bulletin validé pour " + year + ".");
         var result = render(year, periods.stream().map(Period::code).toList(), new ArrayList<>(monthly.values()), auditedLines);
-        return new Result(PayrollWorkbookAnalysis.annual(result.bytes(), year, connection), result.coveredMonths(), result.employees());
+        return result;
     }
 
     private Source source(int year, Connection connection) throws Exception {
@@ -183,7 +183,6 @@ public class AnnualPayrollExportService {
                     row.getCell(26).setCellValue(text(item.reference()));
                     row.getCell(27).setCellValue(text(item.statut()));
                 }
-                summary.createFreezePane(2, 4); detail.createFreezePane(4, 4);
                 int[] summaryTextWidths = {14, 32, 25, 28, 24, 17};
                 for (int col = 0; col < summaryTextWidths.length; col++) summary.setColumnWidth(col, summaryTextWidths[col] * 256);
                 int[] detailTextWidths = {11, 16, 14, 32, 25, 28, 24, 17};
@@ -198,7 +197,6 @@ public class AnnualPayrollExportService {
                         "A4:AB" + (4 + monthlyRows.size()), SpreadsheetVersion.EXCEL2007));
                 writeMonthlyOverview(book, year, periodCodes, monthlyRows, (int) annualRows.stream().map(PayRow::employeeId).distinct().count(),
                         titleStyle, subtitleStyle, headerStyle, summaryStyle, alternateStyle, totalStyle);
-                writeRubricControl(book, auditedLines);
                 for (Sheet sheet : List.of(summary, detail)) {
                     sheet.setDisplayGridlines(false); sheet.setFitToPage(true);
                     sheet.getPrintSetup().setLandscape(true);
@@ -253,7 +251,6 @@ public class AnnualPayrollExportService {
         }
         int[] widths = {22, 38, 11, 22, 29, 15, 12, 21, 21};
         for (int col = 0; col < widths.length; col++) sheet.setColumnWidth(col, widths[col] * 256);
-        sheet.createFreezePane(2, 4);
         if (rowIndex > 4) sheet.setAutoFilter(new CellRangeAddress(3, rowIndex - 1, 0, 8));
         sheet.setRepeatingRows(new CellRangeAddress(3, 3, 0, 8));
         sheet.setFitToPage(true);
@@ -407,7 +404,6 @@ public class AnnualPayrollExportService {
             total.getCell(col).setCellStyle(totalStyle[13]);
             total.getCell(col).setCellFormula("SUM(" + letter + "5:" + letter + "16)");
         }
-        sheet.createFreezePane(1, 4);
         sheet.setFitToPage(true);
         sheet.getPrintSetup().setLandscape(true);
         sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
