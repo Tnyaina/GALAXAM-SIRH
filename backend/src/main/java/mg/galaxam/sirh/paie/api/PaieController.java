@@ -38,6 +38,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Contrôleur REST pour l'exécution, l'orchestration et les exports déclaratifs de la Paie.
@@ -349,17 +351,53 @@ public class PaieController {
             return ResponseEntity.badRequest().build();
         }
         try (Connection connection = dataSource.getConnection()) {
-            var data = quarterlySocialDataService.load(annee, trimestre, connection);
-            byte[] bytes = quarterlySocialDataService.render(data, type);
+            java.util.LinkedHashMap<QuarterlySocialDataService.Employer, QuarterlySocialDataService.Data> byFiliale =
+                    quarterlySocialDataService.loadAll(annee, trimestre, connection);
+
+            if ("consolidation".equals(type)) {
+                // Toutes filiales consolidées + un onglet par filiale si multi-filiale
+                QuarterlySocialDataService.Data all = quarterlySocialDataService.load(annee, trimestre, connection);
+                byte[] bytes = quarterlySocialDataService.renderConsolidation(all, byFiliale);
+                String filename = "Consolidation_Sociale_T" + trimestre + "_" + annee + ".xlsx";
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        .body(bytes);
+            }
+
+            // Exports réglementaires (cnaps, fmfp, ostie, omsi)
             String extension = "fmfp".equals(type) ? "xls" : "xlsx";
-            String filename = ("consolidation".equals(type) ? "Consolidation_Sociale" : "Modele_" + type.toUpperCase(java.util.Locale.ROOT))
-                    + "_T" + trimestre + "_" + annee + "." + extension;
+            if (byFiliale.size() == 1) {
+                // Mono-filiale : comportement original
+                QuarterlySocialDataService.Data data = byFiliale.values().iterator().next();
+                byte[] bytes = quarterlySocialDataService.render(data, type);
+                String filename = "Modele_" + type.toUpperCase(java.util.Locale.ROOT) + "_T" + trimestre + "_" + annee + "." + extension;
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                        .contentType(MediaType.parseMediaType("xls".equals(extension) ? "application/vnd.ms-excel"
+                                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        .body(bytes);
+            }
+
+            // Multi-filiale : ZIP contenant un fichier par filiale
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (ZipOutputStream zip = new ZipOutputStream(baos)) {
+                for (java.util.Map.Entry<QuarterlySocialDataService.Employer, QuarterlySocialDataService.Data> entry : byFiliale.entrySet()) {
+                    byte[] bytes = quarterlySocialDataService.render(entry.getValue(), type);
+                    String safeName = entry.getKey().name() == null ? "Filiale"
+                            : entry.getKey().name().replaceAll("[^a-zA-Z0-9_\\-]", "_");
+                    String entryName = "Modele_" + type.toUpperCase(java.util.Locale.ROOT) + "_" + safeName + "_T" + trimestre + "_" + annee + "." + extension;
+                    zip.putNextEntry(new ZipEntry(entryName));
+                    zip.write(bytes);
+                    zip.closeEntry();
+                }
+            }
+            String zipFilename = "Modele_" + type.toUpperCase(java.util.Locale.ROOT) + "_T" + trimestre + "_" + annee + ".zip";
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                    .contentType(MediaType.parseMediaType("xls".equals(extension)
-                            ? "application/vnd.ms-excel"
-                            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                    .body(bytes);
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + zipFilename + "\"")
+                    .contentType(MediaType.parseMediaType("application/zip"))
+                    .body(baos.toByteArray());
+
         } catch (IllegalStateException error) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.CONFLICT, error.getMessage(), error);

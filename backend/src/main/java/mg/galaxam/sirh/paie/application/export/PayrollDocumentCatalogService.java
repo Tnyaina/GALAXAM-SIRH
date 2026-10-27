@@ -43,21 +43,21 @@ public class PayrollDocumentCatalogService {
     }
 
     public Catalog quarterly(int year, int quarter) throws Exception {
-        Integer count = null;
+        int count = 0;
         String failure = null;
         try (Connection connection = dataSource.getConnection()) {
-            var data = quarterly.load(year, quarter, connection);
-            count = data.people().size();
+            var byFiliale = quarterly.loadAll(year, quarter, connection);
+            count = byFiliale.values().stream().mapToInt(d -> d.people().size()).sum();
         } catch (IllegalStateException error) {
             failure = error.getMessage();
         }
-        boolean available = count != null && count > 0;
+        boolean available = count > 0 && failure == null;
         String label = failure != null ? failure : available ? "Disponible" : "Aucune donnée sociale";
         Document document = document("consolidation", "Synthèse sociale trimestrielle",
                 "Synthèse et détail des trois mois pour contrôle interne.", "Excel (.xlsx)", available, label,
                 failure != null ? List.of("PAYROLL_QUARTER_NOT_READY")
                         : available ? List.of() : List.of("NO_SOCIAL_DATA"));
-        return new Catalog("trimestriel", count == null ? 0 : 3, 3, List.of(document));
+        return new Catalog("trimestriel", count == 0 ? 0 : 3, 3, List.of(document));
     }
 
     public Catalog annual(int year) throws Exception {
