@@ -152,7 +152,7 @@ public class CongeSoldeController {
     }
 
     @GetMapping("/solde/employe/{idEmploye}")
-    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getSoldeEmploye(@PathVariable Integer idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
@@ -244,7 +244,7 @@ public class CongeSoldeController {
     }
 
     @GetMapping("/solde/employe/{idEmploye}/situation")
-    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getSituationEmploye(
             @PathVariable Integer idEmploye,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateReference) {

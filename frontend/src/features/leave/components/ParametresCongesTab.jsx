@@ -147,11 +147,6 @@ export default function ParametresCongesTab() {
                       <Eye size={13} />
                       <span>Afficher masqués</span>
                     </label>
-                    {types.filter(t => showInactive || t.estActif !== false).length > 0 && (
-                      <Button variant="primary" size="sm" onClick={() => { setSelectedItem(null); setShowTypeModal(true); }}>
-                        Nouveau Type
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -163,9 +158,7 @@ export default function ParametresCongesTab() {
                         <EmptyState
                             icon={Settings}
                             title="Aucun type de congé configuré"
-                            description="Veuillez ajouter un type de congé pour commencer."
-                            actionLabel="Nouveau Type"
-                            onAction={() => { setSelectedItem(null); setShowTypeModal(true); }}
+                            description="Aucun type de congé actif trouvé."
                             bordered={false}
                         />
                     </div>
@@ -289,11 +282,6 @@ export default function ParametresCongesTab() {
                       <Eye size={13} />
                       <span>Afficher masqués</span>
                     </label>
-                    {motifs.filter(m => showInactive || m.estActif !== false).length > 0 && (
-                      <Button variant="primary" size="sm" onClick={() => { setSelectedItem(null); setShowMotifModal(true); }}>
-                        Ajouter
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -305,9 +293,7 @@ export default function ParametresCongesTab() {
                         <EmptyState
                             icon={ShieldAlert}
                             title="Aucun événement configuré"
-                            description="Veuillez ajouter un événement familial pour commencer."
-                            actionLabel="Ajouter"
-                            onAction={() => { setSelectedItem(null); setShowMotifModal(true); }}
+                            description="Aucun événement familial actif trouvé."
                             bordered={false}
                         />
                     </div>

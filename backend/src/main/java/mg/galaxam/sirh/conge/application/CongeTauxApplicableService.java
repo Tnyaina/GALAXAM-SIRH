@@ -1172,9 +1172,9 @@ public class CongeTauxApplicableService {
 
         // A. Solde consommable
         String sqlSolde = "SELECT COALESCE(SUM(nb_jours),0) AS solde, "
-                + "COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement='ACQUISITION'),0) AS total_acquis, "
+                + "COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement IN ('ACQUISITION', 'BONIFICATION') OR (type_mouvement='AJUSTEMENT' AND nb_jours > 0)),0) AS total_acquis, "
                 + "COALESCE(-SUM(nb_jours) FILTER (WHERE type_mouvement='PRISE'),0) AS total_pris, "
-                + "MAX(date_mouvement) FILTER (WHERE type_mouvement='ACQUISITION') AS derniere_acq "
+                + "MAX(date_mouvement) FILTER (WHERE type_mouvement IN ('ACQUISITION', 'AJUSTEMENT')) AS derniere_acq "
                 + "FROM mouvement_solde_conge WHERE id_employe=? AND date_mouvement<=?";
         try (PreparedStatement psSolde = c.prepareStatement(sqlSolde)) {
             psSolde.setInt(1, idEmploye);

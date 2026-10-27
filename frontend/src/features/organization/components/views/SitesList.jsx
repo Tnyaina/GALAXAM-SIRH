@@ -96,7 +96,7 @@ export default function SitesList({
                                     <div className="flex justify-end items-center gap-1.5">
                                         <button
                                             onClick={() => onTogglePlancher && onTogglePlancher(s)}
-                                            className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
+                                            className={`ui-button-icon-sm inline-flex items-center justify-center rounded-none cursor-pointer transition-colors ${
                                                 s.plancherArriveeActif
                                                     ? 'text-[var(--color-brand-500)] hover:text-[var(--color-warning-600)] hover:bg-[var(--color-warning-500)]/10'
                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10'
@@ -108,7 +108,7 @@ export default function SitesList({
                                         </button>
                                         <button
                                             onClick={() => onOpenEdit(s)}
-                                            className="ui-button-icon-xs inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="ui-button-icon-sm inline-flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier le site"
                                             aria-label={`Modifier le site ${s.libelle}`}
                                         >
@@ -116,7 +116,7 @@ export default function SitesList({
                                         </button>
                                         <button
                                             onClick={() => onToggleStatus(s)}
-                                            className={`ui-button-icon-xs inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${s.estActif
+                                            className={`ui-button-icon-sm inline-flex items-center justify-center rounded-none cursor-pointer transition-colors ${s.estActif
                                                     ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
                                                 }`}

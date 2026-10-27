@@ -175,10 +175,21 @@ export default function AnomalieRegularisationModal({
         return () => { cancelled = true; };
     }, [isOpen, anomalie?.idEmploye, anomalie?.datePointage]);
 
-    // Source unique : le même endpoint de situation que l'onglet Congés.
-    const soldeRestant = leaveSituation?.soldeJours;
-    const soldeAcquis = leaveSituation?.totalAcquis;
-    const soldePris = leaveSituation?.totalPris;
+    // Source situation conges (avec repli immediat sur les compteurs attaches a l'anomalie)
+    const formatJours = (val) => {
+        if (val == null || val === '') return null;
+        const num = Number(val);
+        if (Number.isNaN(num)) return null;
+        return Number.isInteger(num) ? String(num) : num.toFixed(2);
+    };
+
+    const rawSoldeRestant = leaveSituation?.soldeJours ?? anomalie?.soldeCongesRestant;
+    const rawSoldeAcquis = leaveSituation?.totalAcquis ?? anomalie?.soldeCongesAcquis;
+    const rawSoldePris = leaveSituation?.totalPris ?? anomalie?.soldeCongesPris;
+
+    const soldeRestant = formatJours(rawSoldeRestant);
+    const soldeAcquis = formatJours(rawSoldeAcquis);
+    const soldePris = formatJours(rawSoldePris);
 
     const dernierJourConge = shiftIsoDate(dateReprise, -1);
     const nbJoursAImputer = congeDuree === '0.5' ? 0.5 :
@@ -800,13 +811,21 @@ export default function AnomalieRegularisationModal({
                                     <span>Solde de Congés Payés du collaborateur</span>
                                 </div>
                                 <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                    {leaveSituationLoading ? 'Chargement de la situation…' :
+                                    {leaveSituationLoading && soldeAcquis == null ? 'Chargement de la situation…' :
                                         `Acquis : ${soldeAcquis ?? '—'} j. | Consommé : ${soldePris ?? '—'} j.`}
                                 </div>
                             </div>
                             <div className="text-right">
                                 <div className="text-[11px] text-[var(--color-fg-muted)]">Disponible net</div>
-                                <div className={`font-data text-base font-bold ${Number(soldeRestant) > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
+                                <div className={`font-data text-base font-bold ${
+                                    soldeRestant == null
+                                        ? 'text-[var(--color-fg-muted)]'
+                                        : Number(soldeRestant) > 0
+                                            ? 'text-[var(--color-success)]'
+                                            : Number(soldeRestant) < 0
+                                                ? 'text-[var(--color-error)]'
+                                                : 'text-[var(--color-fg)]'
+                                }`}>
                                     {soldeRestant ?? '—'} j.
                                 </div>
                             </div>

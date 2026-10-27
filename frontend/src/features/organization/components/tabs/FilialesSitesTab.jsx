@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Building2, MapPin, Eye } from 'lucide-react';
+import { Search, Plus, Building2, MapPin, Eye, LayoutGrid, Table2, ShieldCheck } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
@@ -15,6 +15,8 @@ import { useToast } from '@/components/ui/feedback/Toast';
 
 import FilialesList from '../views/FilialesList';
 import SitesList from '../views/SitesList';
+import FilialesCardsView from '../views/FilialesCardsView';
+import SitesCardsView from '../views/SitesCardsView';
 import FilialeFormModal from '../modals/FilialeFormModal';
 import SiteFormModal from '../modals/SiteFormModal';
 
@@ -43,6 +45,7 @@ export default function FilialesSitesTab() {
     const [showInactive, setShowInactive] = useState(false);
     const [filterFilialeId, setFilterFilialeId] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [viewMode, setViewMode] = useState('cards');
 
     // État de confirmation
     const [confirmState, setConfirmState] = useState({
@@ -380,8 +383,8 @@ export default function FilialesSitesTab() {
     );
 
     const subTabs = [
-        { id: 'filiales', label: `Filiales (${safeFiliales.length})`, icon: Building2 },
-        { id: 'sites', label: `Sites d'Exploitation (${safeSites.length})`, icon: MapPin }
+        { id: 'filiales', label: 'Filiales & Structures', count: safeFiliales.length, icon: Building2 },
+        { id: 'sites', label: "Sites d'Exploitation", count: safeSites.length, icon: MapPin }
     ];
 
     if (loading && filiales.length === 0 && sites.length === 0) {
@@ -393,98 +396,163 @@ export default function FilialesSitesTab() {
     }
 
     return (
-        <SideTabs tabs={subTabs} activeTab={activeSubTab} onChange={setActiveSubTab} className="space-y-4">
-            {((activeSubTab === 'filiales' && safeFiliales.length > 0) || (activeSubTab === 'sites' && safeSites.length > 0)) && (
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        {activeSubTab === 'filiales' ? (
-                            <Button
-                                onClick={handleOpenCreateFiliale}
-                                variant="primary"
-                                size="sm"
-                                iconLeft={<Plus size={16} />}
-                            >
-                                Nouvelle Filiale
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={handleOpenCreateSite}
-                                variant="primary"
-                                size="sm"
-                                iconLeft={<Plus size={16} />}
-                            >
-                                Nouveau Site
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            )}
-
+        <SideTabs
+            tabs={subTabs}
+            activeTab={activeSubTab}
+            onChange={setActiveSubTab}
+            title="Rubriques"
+            className="space-y-4"
+        >
             {error && <Alert type="error" message={error} />}
 
-            <Card className="overflow-hidden p-0" shadow="none">
-                <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5 border-b border-[var(--color-border-subtle)]">
-                    <div className="flex items-center gap-3 flex-1 flex-wrap">
-                        <div className="flex-1 min-w-[200px] max-w-sm">
-                            <Input
-                                placeholder={activeSubTab === 'filiales' ? "Rechercher par code, raison sociale..." : "Rechercher un site par code, nom..."}
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                iconLeft={<Search size={15} />}
+            {/* En-tête principal concis avec bouton d'action */}
+            <div className="flex items-center justify-between gap-3 p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm">
+                <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-[var(--color-fg)] text-sm tracking-tight uppercase">
+                        {activeSubTab === 'filiales' ? 'Filiales' : "Sites d'Exploitation"}
+                    </h3>
+                    <span className="text-xs font-semibold text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] px-2 py-0.5 border border-[var(--color-border-subtle)] rounded-none">
+                        {activeSubTab === 'filiales' ? safeFiliales.length : safeSites.length}
+                    </span>
+                </div>
+                <div>
+                    {activeSubTab === 'filiales' ? (
+                        <Button
+                            onClick={handleOpenCreateFiliale}
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<Plus size={15} />}
+                        >
+                            Nouvelle Filiale
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={handleOpenCreateSite}
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<Plus size={15} />}
+                        >
+                            Nouveau Site
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Barre d'outils unifiée (Recherche, Filtres, Inactifs & Switch Cartes/Tableau) */}
+            <div className="flex flex-col lg:flex-row gap-3 justify-between items-stretch lg:items-center p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm">
+                <div className="flex items-center gap-3 flex-1 flex-wrap">
+                    <div className="flex-1 min-w-[220px] max-w-sm">
+                        <Input
+                            placeholder={activeSubTab === 'filiales' ? "Rechercher une filiale..." : "Rechercher un site (nom, code)..."}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            iconLeft={<Search size={15} />}
+                        />
+                    </div>
+
+                    {activeSubTab === 'sites' && (
+                        <div className="min-w-[200px]">
+                            <Select
+                                value={filterFilialeId}
+                                onChange={(val) => setFilterFilialeId(val)}
+                                placeholder="Toutes les filiales"
+                                options={safeFiliales
+                                    .filter(f => f.estActif !== false && f.actif !== false)
+                                    .map(f => ({
+                                        value: f.idFiliale,
+                                        label: `${f.codeFiliale} - ${f.raisonSociale}`
+                                    }))
+                                }
                             />
                         </div>
-
-                        {activeSubTab === 'sites' && (
-                            <div className="min-w-[220px]">
-                                <Select
-                                    value={filterFilialeId}
-                                    onChange={(val) => setFilterFilialeId(val)}
-                                    placeholder="Toutes les filiales"
-                                    options={safeFiliales
-                                        .filter(f => f.estActif !== false && f.actif !== false)
-                                        .map(f => ({
-                                            value: f.idFiliale,
-                                            label: `${f.codeFiliale} - ${f.raisonSociale}`
-                                        }))
-                                    }
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
-                            <input
-                                type="checkbox"
-                                checked={showInactive}
-                                onChange={(e) => setShowInactive(e.target.checked)}
-                                className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
-                            />
-                            <Eye size={14} />
-                            <span>Afficher inactifs</span>
-                        </label>
-                    </div>
+                    )}
                 </div>
 
-                {activeSubTab === 'filiales' && (
-                    <FilialesList
+                <div className="flex items-center gap-3 justify-between lg:justify-end">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
+                        <input
+                            type="checkbox"
+                            checked={showInactive}
+                            onChange={(e) => setShowInactive(e.target.checked)}
+                            className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                        />
+                        <Eye size={14} />
+                        <span>Afficher inactifs</span>
+                    </label>
+
+                    <div className="inline-flex border border-[var(--color-border-subtle)] p-0.5 bg-[var(--color-bg-subtle)] rounded-none">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('cards')}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs cursor-pointer transition-colors ${
+                                viewMode === 'cards'
+                                    ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] shadow-xs font-bold'
+                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] font-medium'
+                            }`}
+                            title="Affichage en cartes"
+                        >
+                            <LayoutGrid size={14} />
+                            <span>Cartes</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('table')}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs cursor-pointer transition-colors ${
+                                viewMode === 'table'
+                                    ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] shadow-xs font-bold'
+                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] font-medium'
+                            }`}
+                            title="Affichage en tableau"
+                        >
+                            <Table2 size={14} />
+                            <span>Tableau</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Corps de contenu (Cartes ou Tableau) */}
+            {activeSubTab === 'filiales' && (
+                viewMode === 'cards' ? (
+                    <FilialesCardsView
                         filiales={filteredFiliales}
+                        sites={safeSites}
                         onOpenEdit={handleOpenEditFiliale}
                         onToggleStatus={requestToggleFilialeStatus}
                         onOpenCreate={handleOpenCreateFiliale}
                     />
-                )}
+                ) : (
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm overflow-hidden">
+                        <FilialesList
+                            filiales={filteredFiliales}
+                            onOpenEdit={handleOpenEditFiliale}
+                            onToggleStatus={requestToggleFilialeStatus}
+                            onOpenCreate={handleOpenCreateFiliale}
+                        />
+                    </div>
+                )
+            )}
 
-                {activeSubTab === 'sites' && (
-                    <SitesList
+            {activeSubTab === 'sites' && (
+                viewMode === 'cards' ? (
+                    <SitesCardsView
                         sites={filteredSites}
                         onOpenEdit={handleOpenEditSite}
                         onToggleStatus={requestToggleSiteStatus}
-                        onTogglePlancher={requestTogglePlancher}
                         onOpenCreate={handleOpenCreateSite}
                     />
-                )}
-            </Card>
+                ) : (
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm overflow-hidden">
+                        <SitesList
+                            sites={filteredSites}
+                            onOpenEdit={handleOpenEditSite}
+                            onToggleStatus={requestToggleSiteStatus}
+                            onTogglePlancher={requestTogglePlancher}
+                            onOpenCreate={handleOpenCreateSite}
+                        />
+                    </div>
+                )
+            )}
 
             <FilialeFormModal
                 isOpen={showFilialeModal}
