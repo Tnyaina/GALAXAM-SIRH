@@ -203,11 +203,11 @@ GALAXAM-SIRH/
 │   ├── scripts/                             # Scripts de staging PostgreSQL & JLink macOS
 │   └── README.md                            # Guide de build et packaging desktop
 ├── docker/                                  # Scripts d'initialisation et configurations proxies
-├── docker-compose.yml                       # Point d'entrée par défaut : production web
-├── docker-compose.dev.yml                   # Développement local explicite
-├── docker-compose.prod.yml                  # Déploiement optimisé de production
+├── docker-compose.web.yml                   # Production web
+├── docker-compose.dev.yml                   # Développement web
 ├── docker-compose.desktop.yml               # Relais local pour client desktop
-├── .env.example                             # Gabarit des variables d'environnement
+├── scripts/compose                          # Lancement macOS/Linux
+├── scripts/windows-local/compose.ps1        # Lancement Windows
 └── README.md                                # Documentation générale du projet
 ```
 
@@ -233,42 +233,35 @@ L'ensemble de la documentation fonctionnelle, réglementaire et technique approf
 
 ## 7. Démarrage Rapide avec Docker
 
-### Prérequis
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) avec Docker Compose activé ;
-- Port `8088` libre sur la machine hôte.
+### Prérequis et variables
 
-### Lancement par défaut : production web locale
+Docker Desktop avec conteneurs Linux et les ports locaux choisis disponibles. Les deux modes utilisent les mêmes noms de variables sur macOS et Windows, avec des **valeurs propres à chaque machine et à chaque mode** :
 
-Le point d'entrée `docker-compose.yml` inclut la pile web de production. Utilisez `./scripts/compose` pour charger les paramètres depuis `.env.production`. Au premier lancement, créez ce fichier à partir du gabarit :
+| Mode | Variables utilisateur requises |
+|---|---|
+| PROD | `SIRH_PROD_DB_PASSWORD`, `SIRH_PROD_JWT_SECRET` (64 octets minimum), `SIRH_PROD_DEFAULT_ADMIN_PASSWORD`, `SIRH_PROD_ADMIN_EMAIL`, `SIRH_PROD_WEB_PORT`, `SIRH_PROD_CORS_ORIGIN`, `SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED` |
+| DEV | `SIRH_DEV_DB_PASSWORD`, `SIRH_DEV_JWT_SECRET` (64 octets minimum), `SIRH_DEV_DEFAULT_ADMIN_PASSWORD`, `SIRH_DEV_ADMIN_EMAIL`, `SIRH_DEV_WEB_PORT`, `SIRH_DEV_BOOTSTRAP_ADMIN_ENABLED` |
 
-```bash
-cp .env.production.example .env.production
+Sur Windows, ces variables sont enregistrées pour le compte utilisateur ; les scripts PowerShell les rechargent directement. Sur macOS, configurez les mêmes noms dans `~/.zprofile` (profil utilisateur du terminal), protégez ce fichier avec `chmod 600 ~/.zprofile`, puis ouvrez un nouveau terminal. Chaque valeur doit être définie avec `export NOM='valeur'`. Les variables de production et de développement doivent rester distinctes. Pour un volume PostgreSQL déjà créé sur le Mac, reprenez **son mot de passe existant** avant de retirer l'ancienne configuration ; un nouveau mot de passe ne changerait pas celui de la base. Le Mac et le PC Windows n'échangent pas automatiquement ces valeurs ni leurs bases.
+
+### Lancer PROD ou DEV
+
+```sh
+# macOS / Linux
+./scripts/compose prod
+./scripts/compose dev
+./scripts/compose prod ps
+./scripts/compose dev stop
 ```
 
-Renseignez `GALAXAM_DB_PASSWORD` et `GALAXAM_JWT_SECRET` avec des valeurs aléatoires fortes. Pour créer le premier compte, activez `GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true` et renseignez l'adresse et le mot de passe administrateur. Gardez ces paramètres dans le fichier local protégé : sur une base vide, le seeder recrée le compte ; sur une base ayant déjà un administrateur actif, il n'en change aucun.
-
-Puis démarrez la production :
-
-```bash
-./scripts/compose up -d --build --wait
+```powershell
+# Windows
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\compose.ps1 -Mode prod
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\compose.ps1 -Mode dev
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\compose.ps1 -Mode prod -Action ps
 ```
 
-L'application web sera disponible sur [`http://localhost:8088`](http://localhost:8088). PostgreSQL n'est pas publié sur un port de l'hôte. Le détail de l'installation Windows, des sauvegardes et des mises à jour figure dans le [guide de maintenance](scripts/windows-local/README.md).
-
-Pour arrêter les services sans supprimer les données :
-```bash
-./scripts/compose stop
-```
-
-### Développement explicite
-
-Le développement reste disponible séparément avec son fichier `.env` existant et ses volumes propres :
-
-```bash
-docker compose --project-directory . -f docker-compose.dev.yml --env-file .env up --build
-```
-
-Cette commande peut entrer en conflit sur le port `8088` si la production tourne déjà. Arrêtez d'abord la pile concernée avec le même fichier Compose (`stop`).
+Le PC configuré utilise PROD sur `http://localhost:8088` et DEV sur `http://localhost:18088`. Les bases et documents ont des volumes distincts. Le port web et CORS sont fournis par les variables de chaque mode. PostgreSQL PROD n'est pas publié sur l'hôte. Les sauvegardes et mises à jour Windows figurent dans le [guide de maintenance](scripts/windows-local/README.md).
 
 > [!CAUTION]
 > N'exécutez **jamais** `docker compose down -v` sur une instance contenant des données de production ou de test métier. Cette commande détruit irréversiblement les volumes persistants déclarés.
@@ -280,18 +273,18 @@ Cette commande peut entrer en conflit sur le port `8088` si la production tourne
 ### Déploiement Docker en Mode Production
 
 Pour une installation **web locale sur un PC Windows 10/11** (sans client desktop), suivre le [guide d'installation et de sauvegarde Windows](scripts/windows-local/README.md). Pour essayer le même profil de production sur le Mac avec une base séparée, voir la [recette web de production sur macOS](scripts/mac-prod-test/README.md).
-Le profil production compile le frontend avec Node.js 22 puis sert le bundle statique par Nginx ; l'API est un JAR Spring Boot autonome sans DevTools. Le Compose de production transmet `GALAXAM_JWT_SECRET` à Spring sous le nom `JWT_SECRET`. Le profil `local`, utilisé par le Compose de développement, charge son secret de développement depuis `application-local.properties`.
+Le profil production compile le frontend avec Node.js 22 puis sert le bundle statique par Nginx ; l'API est un JAR Spring Boot autonome sans DevTools. Le Compose de production transmet `SIRH_PROD_JWT_SECRET` à Spring sous le nom `JWT_SECRET`. Le Compose de développement utilise `SIRH_DEV_JWT_SECRET`.
 
 Le frontal de production est publié uniquement sur `127.0.0.1:8088` et doit être placé derrière un proxy TLS. Ce proxy doit écraser et transmettre `X-Forwarded-Proto: https` et `X-Forwarded-For` avec les valeurs fiables; le Nginx du conteneur relaie le protocole à l'API pour que le cookie de renouvellement soit marqué `Secure`. Ne publiez pas directement le port HTTP du conteneur sur Internet. Le limiteur de connexion est en mémoire et convient à l'instance unique définie par ce Compose; une mise à l'échelle horizontale nécessite une limite partagée au proxy ou un magasin partagé.
 
-Le bootstrap administrateur est idempotent : activé, il crée l'administrateur configuré uniquement si aucun administrateur actif n'existe. Garder ses identifiants dans `.env.production` avec des permissions locales strictes permet de recréer le compte après une réinitialisation volontaire de la base. Sur l'installation Windows, l'installateur conserve ces paramètres dans le fichier protégé par ACL.
+Le bootstrap administrateur est idempotent : activé, il crée l'administrateur configuré uniquement si aucun administrateur actif n'existe. Les identifiants sont fournis par les variables utilisateur du mode concerné.
 
-Les anciennes migrations SP01–SP84 ont été supprimées. Les six schémas canoniques de `backend/conception/bdd/` initialisent une base neuve. La filière **web locale** utilise `docker-compose.yml` par défaut, qui inclut `docker-compose.web.yml`, lit `.env.production` et applique les migrations versionnées de `docker/migrations/`. Le fichier `docker-compose.dev.yml` est réservé au développement.
+Les six schémas canoniques de `backend/conception/bdd/` initialisent une base neuve. La production utilise `docker-compose.web.yml` et applique les migrations versionnées de `docker/migrations/`. Le développement utilise `docker-compose.dev.yml` et ses propres volumes.
 
 ```bash
-# Production par défaut : validation puis lancement
-./scripts/compose config --quiet
-./scripts/compose up -d --build --wait
+# Production : validation puis lancement
+./scripts/compose prod config
+./scripts/compose prod
 ```
 
 ### Exécution Hors Docker (Développement Natif)

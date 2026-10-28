@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: sirh_galaxam
       POSTGRES_USER: galaxam_admin
-      POSTGRES_PASSWORD: ${GALAXAM_DB_PASSWORD:?Définir GALAXAM_DB_PASSWORD dans .env}
+      POSTGRES_PASSWORD: ${SIRH_DEV_DB_PASSWORD:?SIRH_DEV_DB_PASSWORD requise}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U galaxam_admin -d sirh_galaxam"]
       interval: 3s
@@ -31,13 +31,14 @@ services:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sirh_galaxam
       DATABASE_USERNAME: galaxam_admin
-      DATABASE_PASSWORD: ${GALAXAM_DB_PASSWORD:?Définir GALAXAM_DB_PASSWORD dans .env}
-      CORS_ORIGIN: http://localhost:8088,http://127.0.0.1:18888
+      DATABASE_PASSWORD: ${SIRH_DEV_DB_PASSWORD:?SIRH_DEV_DB_PASSWORD requise}
+      JWT_SECRET: ${SIRH_DEV_JWT_SECRET:?SIRH_DEV_JWT_SECRET requise}
+      CORS_ORIGIN: http://localhost:${SIRH_DEV_WEB_PORT:?SIRH_DEV_WEB_PORT requise},http://127.0.0.1:${SIRH_DEV_WEB_PORT:?SIRH_DEV_WEB_PORT requise},http://127.0.0.1:18888
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
-      BOOTSTRAP_ADMIN_ENABLED: ${GALAXAM_BOOTSTRAP_ADMIN_ENABLED:-true}
-      GALAXAM_DEFAULT_ADMIN_NAME: ${GALAXAM_DEFAULT_ADMIN_NAME:?Définir GALAXAM_DEFAULT_ADMIN_NAME dans .env}
-      GALAXAM_DEFAULT_ADMIN_EMAIL: ${GALAXAM_DEFAULT_ADMIN_EMAIL:?Définir GALAXAM_DEFAULT_ADMIN_EMAIL dans .env}
-      GALAXAM_DEFAULT_ADMIN_PASSWORD: ${GALAXAM_DEFAULT_ADMIN_PASSWORD:?Définir GALAXAM_DEFAULT_ADMIN_PASSWORD dans .env}
+      BOOTSTRAP_ADMIN_ENABLED: ${SIRH_DEV_BOOTSTRAP_ADMIN_ENABLED:?SIRH_DEV_BOOTSTRAP_ADMIN_ENABLED requise}
+      GALAXAM_DEFAULT_ADMIN_NAME: Administrateur DEV
+      GALAXAM_DEFAULT_ADMIN_EMAIL: ${SIRH_DEV_ADMIN_EMAIL:?SIRH_DEV_ADMIN_EMAIL requise}
+      GALAXAM_DEFAULT_ADMIN_PASSWORD: ${SIRH_DEV_DEFAULT_ADMIN_PASSWORD:?SIRH_DEV_DEFAULT_ADMIN_PASSWORD requise}
     volumes:
       - ./backend:/app
       - galaxam_local_maven_repo:/root/.m2
@@ -64,9 +65,10 @@ services:
     image: galaxam-sirh-frontend:dev
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8088:5173"
+      - "127.0.0.1:${SIRH_DEV_WEB_PORT:?SIRH_DEV_WEB_PORT requise}:5173"
     environment:
       VITE_API_BASE_URL: /api/
+      VITE_HMR_CLIENT_PORT: ${SIRH_DEV_WEB_PORT:?SIRH_DEV_WEB_PORT requise}
     volumes:
       - ./frontend:/app
       - galaxam_local_frontend_node_modules:/app/node_modules

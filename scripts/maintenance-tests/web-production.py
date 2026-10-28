@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """Recette destructive UNIQUEMENT sur le projet jetable galaxam-web-audit.
-Usage: python3 scripts/maintenance-tests/web-production.py /tmp/galaxam-web-audit.env
-La stack doit etre demarree au prealable avec ce fichier d'environnement.
+Usage: python3 scripts/maintenance-tests/web-production.py
+La stack doit etre demarree avec les variables de la recette dans l'environnement.
 """
 import http.client
 import json
 import pathlib
 import shutil
 import subprocess
-import sys
 import tempfile
 
 root = pathlib.Path(__file__).resolve().parents[2]
-env = pathlib.Path(sys.argv[1]).resolve()
-compose = ['docker', 'compose', '--env-file', str(env), '-f', str(root / 'docker-compose.web.yml')]
+compose = ['docker', 'compose', '-f', str(root / 'docker-compose.web.yml')]
 def run(args, ok=True):
     p = subprocess.run(args, text=True, capture_output=True)
     if ok and p.returncode:

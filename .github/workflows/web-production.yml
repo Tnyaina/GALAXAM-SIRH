@@ -43,20 +43,21 @@ jobs:
       - name: Prepare disposable environment
         shell: python
         run: |
-          import pathlib, secrets
+          import os, secrets
           admin_pass = 'Audit-' + secrets.token_urlsafe(16) + '1a!'
-          pathlib.Path('/tmp/galaxam-web-audit.env').write_text(
-            'GALAXAM_DB_PASSWORD=' + secrets.token_hex(32) + '\n' +
-            'GALAXAM_JWT_SECRET=' + secrets.token_hex(64) + '\n' +
-            'GALAXAM_WEB_PORT=18089\nGALAXAM_CORS_ORIGIN=http://localhost:18089,http://127.0.0.1:18089\n' +
-            'GALAXAM_PROJECT_NAME=galaxam-web-audit\nGALAXAM_PG_VOLUME=galaxam_web_audit_pg\n' +
-            'GALAXAM_FILES_VOLUME=galaxam_web_audit_files\nGALAXAM_RELEASE=audit\n' +
-            'GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true\nGALAXAM_DEFAULT_ADMIN_EMAIL=audit@example.test\n' +
-            'GALAXAM_DEFAULT_ADMIN_PASSWORD=' + admin_pass + '\n')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+            env.write(
+              'SIRH_PROD_DB_PASSWORD=' + secrets.token_hex(32) + '\n' +
+              'SIRH_PROD_JWT_SECRET=' + secrets.token_hex(64) + '\n' +
+              'SIRH_PROD_WEB_PORT=18089\nSIRH_PROD_CORS_ORIGIN=http://localhost:18089,http://127.0.0.1:18089\n' +
+              'GALAXAM_PROJECT_NAME=galaxam-web-audit\nGALAXAM_PG_VOLUME=galaxam_web_audit_pg\n' +
+              'GALAXAM_FILES_VOLUME=galaxam_web_audit_files\nGALAXAM_RELEASE=audit\n' +
+              'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED=true\nSIRH_PROD_ADMIN_EMAIL=audit@example.test\n' +
+              'SIRH_PROD_DEFAULT_ADMIN_PASSWORD=' + admin_pass + '\n')
       - name: Build and start actual production images
-        run: docker compose --env-file /tmp/galaxam-web-audit.env -f docker-compose.web.yml up -d --build --wait --wait-timeout 240
+        run: docker compose -f docker-compose.web.yml up -d --build --wait --wait-timeout 240
       - name: HTTP, migration and database restore checks
-        run: python3 scripts/maintenance-tests/web-production.py /tmp/galaxam-web-audit.env
+        run: python3 scripts/maintenance-tests/web-production.py
       - name: Dispose isolated CI data
         if: always()
-        run: docker compose --env-file /tmp/galaxam-web-audit.env -f docker-compose.web.yml down -v
+        run: docker compose -f docker-compose.web.yml down -v

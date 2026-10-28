@@ -2,9 +2,22 @@
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root"
-env_file="$root/.env.production.test"
-[ -f "$env_file" ] || { echo 'Configuration .env.production.test absente.' >&2; exit 1; }
-compose() { docker compose --env-file "$env_file" -f "$root/docker-compose.web.yml" "$@"; }
+: "${SIRH_MAC_TEST_DB_PASSWORD:?Definir SIRH_MAC_TEST_DB_PASSWORD sur le Mac}"
+: "${SIRH_MAC_TEST_JWT_SECRET:?Definir SIRH_MAC_TEST_JWT_SECRET sur le Mac}"
+: "${SIRH_MAC_TEST_ADMIN_PASSWORD:?Definir SIRH_MAC_TEST_ADMIN_PASSWORD sur le Mac}"
+: "${SIRH_MAC_TEST_ADMIN_EMAIL:?Definir SIRH_MAC_TEST_ADMIN_EMAIL sur le Mac}"
+export SIRH_PROD_DB_PASSWORD="$SIRH_MAC_TEST_DB_PASSWORD"
+export SIRH_PROD_JWT_SECRET="$SIRH_MAC_TEST_JWT_SECRET"
+export SIRH_PROD_DEFAULT_ADMIN_PASSWORD="$SIRH_MAC_TEST_ADMIN_PASSWORD"
+export SIRH_PROD_ADMIN_EMAIL="$SIRH_MAC_TEST_ADMIN_EMAIL"
+export SIRH_PROD_WEB_PORT=18089
+export SIRH_PROD_CORS_ORIGIN=http://localhost:18089,http://127.0.0.1:18089
+export SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED=true
+export GALAXAM_PROJECT_NAME=galaxam-sirh-mac-prodtest
+export GALAXAM_PG_VOLUME=galaxam_mac_prodtest_pg_data
+export GALAXAM_FILES_VOLUME=galaxam_mac_prodtest_business_files
+export GALAXAM_RELEASE=mac-prodtest
+compose() { docker compose -f "$root/docker-compose.web.yml" "$@"; }
 assert_test_stack() {
   compose config --format json | python3 -c 'import json,sys; c=json.load(sys.stdin); assert c["name"]=="galaxam-sirh-mac-prodtest"; assert c["volumes"]["pg_data"]["name"]=="galaxam_mac_prodtest_pg_data"; assert c["volumes"]["business_files"]["name"]=="galaxam_mac_prodtest_business_files"; assert str(c["services"]["frontend"]["ports"][0]["published"])=="18089"' || { echo 'Identité de la recette incorrecte ; opération annulée.' >&2; exit 1; }
 }
