@@ -6,6 +6,8 @@ Enter-Operation
 try {
     Assert-NoMaintenance
     if (-not [Environment]::GetEnvironmentVariable('SIRH_PROD_DB_PASSWORD', 'User')) {
+        $name = Read-Host 'Nom du premier administrateur [Tatamo Michele]'
+        if ([string]::IsNullOrWhiteSpace($name)) { $name = 'Tatamo Michele' }
         $email = Read-Host 'Adresse e-mail du premier administrateur [daf@galaxam.com]'
         if ([string]::IsNullOrWhiteSpace($email)) { $email = 'daf@galaxam.com' }
         if ($email -notmatch '^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') { throw 'Adresse e-mail invalide.' }
@@ -22,8 +24,8 @@ try {
             $rng.GetBytes($bytes)
             $db = [BitConverter]::ToString($bytes).Replace('-','').ToLowerInvariant()
         } finally { $rng.Dispose() }
-        foreach ($pair in @(@('SIRH_PROD_DB_PASSWORD', $db), @('SIRH_PROD_JWT_SECRET', $jwt), @('SIRH_PROD_DEFAULT_ADMIN_PASSWORD', $password),
-            @('SIRH_PROD_ADMIN_EMAIL', $email), @('SIRH_PROD_WEB_PORT', '8088'),
+        foreach ($pair in @(@('SIRH_PROD_DB_PASSWORD', $db), @('SIRH_PROD_JWT_SECRET', $jwt), @('SIRH_ADMIN_NAME', $name),
+            @('SIRH_ADMIN_PASSWORD', $password), @('SIRH_ADMIN_EMAIL', $email), @('SIRH_PROD_WEB_PORT', '8088'),
             @('SIRH_PROD_CORS_ORIGIN', 'http://localhost:8088,http://127.0.0.1:8088'), @('SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED', 'true'))) {
             [Environment]::SetEnvironmentVariable($pair[0], $pair[1], 'User')
             [Environment]::SetEnvironmentVariable($pair[0], $pair[1], 'Process')

@@ -1,9 +1,9 @@
 # GALAXAM SIRH Desktop
 
-Le client desktop Tauri 2 partage le frontend React et Spring Boot avec le Web. Le build macOS ARM64 prépare Java 17 et PostgreSQL 15.19 et produit un `.app`/`.dmg`. Le code Windows x64 comprend également un installateur, un service local et des parcours de sauvegarde/restauration ; les validations automatisées documentées portent sur Windows Server 2022, pas encore sur les installations interactives Windows 10/11.
+Le client desktop Tauri 2 partage le frontend React et Spring Boot avec le Web. Le build macOS ARM64 prépare Java 17 et PostgreSQL 15.19 et produit un `.app`/`.dmg`. Le code Windows x64 comprend également un installateur, un service local et des parcours de sauvegarde/restauration. Les validations Windows Server mentionnées dans l'historique sont antérieures ; leur workflow GitHub Actions a été retiré au profit de tests manuels sur Windows et macOS. Elles ne qualifient pas les installations interactives actuelles.
 
 Le travail nécessaire pour Windows 10/11 est suivi dans [WINDOWS_TODO.md](WINDOWS_TODO.md).
-Le découpage en trois sprints et ses critères de validation figurent dans [WINDOWS_SPRINTS.md](WINDOWS_SPRINTS.md). Le build Windows utilise `scripts/build-windows.ps1` sur un hôte Windows x64 avec un JDK Temurin 17, Maven, Node/npm et Rust MSVC ; il demande le chemin et l'empreinte SHA-256 de l'archive PostgreSQL Windows. Le parcours automatisé local a réussi sur le runner Windows Server 2022 ; les essais interactifs sur Windows 10/11 restent nécessaires avant diffusion.
+Le découpage en trois sprints et leurs résultats historiques figurent dans [WINDOWS_SPRINTS.md](WINDOWS_SPRINTS.md). Le build Windows utilise `scripts/build-windows.ps1` sur un hôte Windows x64 avec un JDK Temurin 17, Maven, Node/npm et Rust MSVC ; il demande le chemin et l'empreinte SHA-256 de l'archive PostgreSQL Windows. Le workflow CI Windows Server a été supprimé ; les builds et essais desktop doivent maintenant être exécutés manuellement sur les systèmes réellement visés.
 
 ## Organisation du code et préparation de Windows
 
