@@ -399,18 +399,6 @@ UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_REPAS' WHERE code = 'RE
 UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_TRANSPORT' WHERE code IN ('DPLCT', 'DEPLACEMENT');
 SELECT setval('ref_indemnite_id_indemnite_seq', (SELECT GREATEST(MAX(id_indemnite), 2) FROM ref_indemnite));
 
--- Les employés listés ci-dessous sont exclus de l'indemnité de déplacement.
--- Les autres en bénéficient selon la configuration de leur site.
-INSERT INTO employe_indemnite_derogation
-    (id_employe, id_indemnite, beneficie, motif, date_debut, date_fin)
-SELECT e.id_employe, i.id_indemnite, FALSE,
-       'Exclusion de l’indemnité déplacement',
-       DATE '2026-07-26', NULL
-FROM employe e
-CROSS JOIN ref_indemnite i
-WHERE e.id_employe IN (1, 2)
-  AND i.code = 'DPLCT';
-
 -- Configurations d'Indemnités par Site
 INSERT INTO site_indemnite_config (id_site_indemnite, id_site, id_indemnite, periodicite, montant_reference, date_debut) VALUES
 (1, 1, 1, 'MENSUEL', 31200.00, '2001-07-01'),

@@ -419,29 +419,3 @@ INSERT INTO ref_statut_demande_conge (id_statut_demande_conge, code, libelle) VA
 (4, 'REFUSE',     'Refusée'),
 (5, 'ANNULE',     'Annulée');
 SELECT setval('ref_statut_demande_conge_id_statut_demande_conge_seq', (SELECT GREATEST(MAX(id_statut_demande_conge), 5) FROM ref_statut_demande_conge));
-
--- =====================================================================
--- REPRISE INITIALE / CUTOVER DE CONGÉS FICTIF (AU 25/07/2026)
--- Le cycle de paie d'août est du 26/07 au 25/08 ; la référence TCONGE reste civile.
--- =====================================================================
-
--- 1. Cycles de référence annuels 2026 ouverts avec report des droits acquis
-INSERT INTO conge_periode_reference (id_periode_reference, id_employe, date_debut, date_fin, statut, mode_reprise, date_cutover, cumul_droits_ouverture, cumul_valorisation_ouverture) VALUES
-(1, 1, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2026-07-25', 15.0000, 2500000.00),
-(2, 2, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2026-07-25', 12.5000, 1458333.38);
-
-SELECT setval('conge_periode_reference_id_periode_reference_seq', (SELECT GREATEST(MAX(id_periode_reference), 2) FROM conge_periode_reference));
-
--- 2. Taux journaliers initiaux applicables TCONGE (base salaire / 30)
-INSERT INTO conge_taux_applicable (id_taux_applicable, id_employe, taux_journalier, date_effet, date_fin, source_provenance, id_periode_reference, commentaire) VALUES
-(1, 1, 166666.67, '2026-07-25', NULL, 'REPRISE_CUTOVER', 1, 'Reprise cutover initial - Solde fictif arrêté au 25/07/2026'),
-(2, 2, 116666.67, '2026-07-25', NULL, 'REPRISE_CUTOVER', 2, 'Reprise cutover initial - Solde fictif arrêté au 25/07/2026');
-
-SELECT setval('conge_taux_applicable_id_taux_applicable_seq', (SELECT GREATEST(MAX(id_taux_applicable), 2) FROM conge_taux_applicable));
-
--- 3. Mouvements de reprise de solde consommable (format canonique [SOLDE_INITIAL])
-INSERT INTO mouvement_solde_conge (id_mouvement, id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, valeur_source) VALUES
-(1, 1, 'AJUSTEMENT', 15.00, '2026-07-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2026-07-25 (paie 2026-08 à partir du 26/07)', 2500000.00),
-(2, 2, 'AJUSTEMENT', 12.50, '2026-07-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2026-07-25 (paie 2026-08 à partir du 26/07)', 1458333.38);
-
-SELECT setval('mouvement_solde_conge_id_mouvement_seq', (SELECT GREATEST(MAX(id_mouvement), 2) FROM mouvement_solde_conge));
