@@ -273,6 +273,8 @@ Le PC configuré utilise PROD sur `http://localhost:8088` et DEV sur `http://loc
 
 ## 8. Développement & Déploiement
 
+Le nouveau parcours web Windows sans Docker est décrit dans [scripts/windows-native/README.md](scripts/windows-native/README.md). Son paquet de build existe, mais l'installation et l'exploitation locale restent à terminer.
+
 ### Déploiement Docker en Mode Production
 
 Pour une installation **web locale sur un PC Windows 10/11** (sans client desktop), suivre le [guide d'installation et de sauvegarde Windows](scripts/windows-local/README.md). Pour essayer le même profil de production sur le Mac avec une base séparée, voir la [recette web de production sur macOS](scripts/mac-prod-test/README.md).
