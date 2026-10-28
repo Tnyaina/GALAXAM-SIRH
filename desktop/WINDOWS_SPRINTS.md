@@ -1,5 +1,7 @@
 # Portage Windows — trois sprints avec validation
 
+Les résultats ci-dessous sont historiques. Le workflow GitHub Actions Windows Server qui exécutait ces validations a été retiré ; les prochains essais desktop sont manuels sur Windows et macOS. Ces résultats ne certifient pas les versions actuellement déployées sur les postes.
+
 Règle de passage : le sprint suivant ne commence qu'après réussite de tous les contrôles de sortie du sprint courant sur un environnement Windows x64. Une compilation macOS seule ne valide pas Windows.
 
 ## Sprint 1 — Chaîne de build et installateur de base
