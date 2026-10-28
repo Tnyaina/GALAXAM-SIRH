@@ -1,11 +1,11 @@
-param([Parameter(Mandatory)][string] $BackupDirectory)
+param([string] $BackupDirectory = [Environment]::GetEnvironmentVariable('SIRH_BACKUP_DIRECTORY', 'User'))
 . (Join-Path $PSScriptRoot 'common.ps1')
 Assert-Docker
 if ($env:OS -ne 'Windows_NT') { throw 'Installateur reserve a Windows. Voir le guide pour les commandes Docker.' }
 Enter-Operation
 try {
     Assert-NoMaintenance
-    if (-not (Test-Path $EnvFile)) {
+    if (-not [Environment]::GetEnvironmentVariable('SIRH_PROD_DB_PASSWORD', 'User')) {
         $email = Read-Host 'Adresse e-mail du premier administrateur [daf@galaxam.com]'
         if ([string]::IsNullOrWhiteSpace($email)) { $email = 'daf@galaxam.com' }
         if ($email -notmatch '^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') { throw 'Adresse e-mail invalide.' }
@@ -22,17 +22,16 @@ try {
             $rng.GetBytes($bytes)
             $db = [BitConverter]::ToString($bytes).Replace('-','').ToLowerInvariant()
         } finally { $rng.Dispose() }
-        $lines = @("GALAXAM_DB_PASSWORD=$db", "GALAXAM_JWT_SECRET=$jwt", 'GALAXAM_WEB_PORT=8088',
-            'GALAXAM_CORS_ORIGIN=http://localhost:8088,http://127.0.0.1:8088',
-            'GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED=true', 'GALAXAM_DEFAULT_ADMIN_NAME=Administrateur GALAXAM',
-            "GALAXAM_DEFAULT_ADMIN_EMAIL=$email", "GALAXAM_DEFAULT_ADMIN_PASSWORD='$password'", 'GALAXAM_RELEASE=prod')
-        [IO.File]::WriteAllLines($EnvFile, $lines, (New-Object Text.UTF8Encoding($false)))
-        $password=$null; $lines=$null
-        $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-        & icacls $EnvFile /inheritance:r /grant:r "${identity}:(F)" '*S-1-5-18:(F)' | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'Protection du fichier .env.production impossible.' }
+        foreach ($pair in @(@('SIRH_PROD_DB_PASSWORD', $db), @('SIRH_PROD_JWT_SECRET', $jwt), @('SIRH_PROD_DEFAULT_ADMIN_PASSWORD', $password),
+            @('SIRH_PROD_ADMIN_EMAIL', $email), @('SIRH_PROD_WEB_PORT', '8088'),
+            @('SIRH_PROD_CORS_ORIGIN', 'http://localhost:8088,http://127.0.0.1:8088'), @('SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED', 'true'))) {
+            [Environment]::SetEnvironmentVariable($pair[0], $pair[1], 'User')
+            [Environment]::SetEnvironmentVariable($pair[0], $pair[1], 'Process')
+        }
+        $password=$null
     }
     $config = Assert-Config
+    if ([string]::IsNullOrWhiteSpace($BackupDirectory)) { throw 'Definir SIRH_BACKUP_DIRECTORY ou fournir -BackupDirectory.' }
     if (-not (Test-Path $BackupDirectory -PathType Container)) { throw 'Creer le dossier sur le support de sauvegarde, puis relancer.' }
     $backupPath = (Resolve-Path $BackupDirectory).Path
     $probe = Join-Path $backupPath ('.write-' + [guid]::NewGuid().ToString('N'))
@@ -60,7 +59,7 @@ try {
     $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 5) -ExecutionTimeLimit (New-TimeSpan -Hours 4)
     $backupScript = Join-Path $PSScriptRoot 'backup.ps1'
-    $action = New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$backupScript`" -BackupDirectory `"$backupPath`""
+    $action = New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$backupScript`""
     Register-ScheduledTask -TaskName 'GALAXAM SIRH - sauvegarde quotidienne' -Action $action -Trigger (New-ScheduledTaskTrigger -Daily -At '19:00') -Principal $principal -Settings $settings -Force | Out-Null
     $startupScript = Join-Path $PSScriptRoot 'start.ps1'
     $action = New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$startupScript`""

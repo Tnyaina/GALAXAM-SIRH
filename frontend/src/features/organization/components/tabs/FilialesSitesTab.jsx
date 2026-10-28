@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Building2, MapPin, Eye, LayoutGrid, Table2, ShieldCheck } from 'lucide-react';
+import { Search, Plus, Building2, MapPin, Eye, LayoutGrid, Table2 } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
-import Card from '@/components/ui/data-display/Card';
 import SideTabs from '@/components/ui/navigation/SideTabs';
 import Alert from '@/components/ui/feedback/Alert';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';

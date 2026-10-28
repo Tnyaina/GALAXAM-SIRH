@@ -6,13 +6,12 @@ Ce guide concerne GALAXAM SIRH dans un navigateur. Docker Desktop héberge Postg
 
 | Usage | Configuration | Données |
 |---|---|---|
-| Application web par défaut | `docker-compose.yml` inclut `docker-compose.web.yml`, `.env.production` (chargé par `scripts/compose`), profil Spring `prod` | `galaxam_prod_pg_data`, `galaxam_prod_business_files` |
-| Développement explicite | `docker-compose.dev.yml`, `.env`, profil Spring `local` | volumes `galaxam_local_*` |
-| Ancien assemblage production | `docker-compose.yml` + `docker-compose.prod.yml` | obsolète ; ne pas utiliser |
+| Production web | `docker-compose.web.yml`, profil Spring `prod` | `galaxam_prod_pg_data`, `galaxam_prod_business_files` |
+| Développement | `docker-compose.dev.yml`, profil Spring `local` | volumes `galaxam_local_*` |
 
 Les nouveaux scripts utilisent **uniquement** le Compose web autonome. Il n'y a pas de serveur Vite, de rechargement Maven ni de sources Java montées dans l'application de production. Les images backend et frontend sont compilées ; PostgreSQL reste dans son volume.
 
-`./scripts/compose up` utilise la production par défaut et charge explicitement `.env.production`. Les scripts ci-dessous prennent aussi en charge l'installation initiale et les mises à jour. Celles-ci ne copient jamais la base de développement vers la production.
+`scripts/windows-local/compose.ps1 -Mode prod` ou `-Mode dev` démarre le mode demandé avec les variables utilisateur Windows. Les scripts ci-dessous prennent aussi en charge l'installation initiale et les mises à jour. Celles-ci ne copient jamais la base de développement vers la production.
 
 ## 2. Informations à préparer
 
@@ -24,7 +23,7 @@ Avant de remettre le PC, renseigner cette fiche et la conserver avec les documen
 | Dossier stable du dépôt | `C:\GALAXAM\SIRH` |
 | URL des utilisateurs sur ce PC | `http://localhost:8088` |
 | Premier administrateur de l'application | `daf@galaxam.com` ; lors de l'installation, saisir le mot de passe retenu pour ce compte |
-| Support externe de sauvegarde | par exemple `E:\Sauvegardes-GALAXAM`, ou partage UNC accessible |
+| Support de sauvegarde | chemin de `SIRH_BACKUP_DIRECTORY` ; idéalement support externe ou partage UNC accessible |
 | Heure Windows des sauvegardes | 19 h ; régler le fuseau Windows sur Madagascar pour obtenir 19 h locale |
 | Responsable maintenance | nom et contact à transmettre aux utilisateurs |
 | Dépôt Git distant | URL réelle et accès en lecture du compte de maintenance |
@@ -67,46 +66,42 @@ Set-Location C:\GALAXAM\SIRH
 git switch --detach v1.0.0
 ```
 
-Ne pas envoyer le `.env` du développeur, ses documents téléversés ou sa base. La configuration `.env.production` doit rester sur le PC installé. Elle est ignorée par Git, comme `.maintenance/`.
+Ne pas envoyer les variables utilisateur du développeur, ses documents téléversés ou sa base. Les variables de production doivent être configurées sur chaque PC installé. `.maintenance/` reste ignoré par Git.
 
 Les scripts modifient des conteneurs et des données ; lancer uniquement une livraison de confiance. Ne pas déplacer le dépôt après installation : les tâches planifiées et montages Docker utilisent ses chemins.
 
-## 5. Valeurs de `.env.production`
+## 5. Variables utilisateur Windows
 
-L'installateur crée le fichier s'il est absent et le conserve s'il existe. `.env.production.example` sert de référence pour la configuration manuelle.
+L'installateur crée les variables `SIRH_PROD_*` à la première installation et les conserve ensuite. Elles sont propres au compte Windows utilisé pour Docker.
 
 | Variable | Défaut / règle | Quand la changer |
 |---|---|---|
-| `GALAXAM_DB_PASSWORD` | obligatoire, généré aléatoirement ; validation au moins 16 caractères | installation initiale ; ensuite rotation SQL coordonnée, jamais simple édition |
-| `GALAXAM_JWT_SECRET` | obligatoire, généré avec 64 octets aléatoires encodés en hexadécimal | conserver ; rotation volontaire invalide des jetons existants |
-| `GALAXAM_WEB_PORT` | `8088` | seulement si occupé ; adapter CORS et raccourci |
-| `GALAXAM_CORS_ORIGIN` | `http://localhost:8088,http://127.0.0.1:8088` | ajouter exactement l'origine HTTPS utilisée, si nécessaire |
-| `GALAXAM_RELEASE` | `prod`, tag d'image local | garder pour le parcours de compilation sur le PC ; le tag Git identifie la livraison |
-| `GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED` | `true` ; le seeder crée le compte si aucun administrateur actif n'existe | conserver actif ; n'altère pas les comptes existants |
-| `GALAXAM_DEFAULT_ADMIN_NAME` | `Administrateur GALAXAM` | nom du premier administrateur, avant création |
-| `GALAXAM_DEFAULT_ADMIN_EMAIL` | `daf@galaxam.com` proposé par l'installateur ; modifiable à l'invite | adresse du premier administrateur |
-| `GALAXAM_DEFAULT_ADMIN_PASSWORD` | saisi à l'installation et conservé dans `.env.production` protégé par ACL | requis pour recréer le compte après une réinitialisation complète des volumes ; changer ensuite le mot de passe depuis l'application puis mettre à jour ce fichier si l'on veut qu'une réinstallation recrée le même accès |
-| `GALAXAM_PROJECT_NAME` | `galaxam-sirh-prod` | ne pas changer sur une installation existante |
-| `GALAXAM_PG_VOLUME` | `galaxam_prod_pg_data` | ne pas changer : un nouveau nom affiche une base vide différente |
-| `GALAXAM_FILES_VOLUME` | `galaxam_prod_business_files` | ne pas changer : un nouveau nom masque les documents existants |
+| `SIRH_PROD_DB_PASSWORD` (variable Windows utilisateur) | obligatoire, généré aléatoirement ; validation au moins 16 caractères | installation initiale ; ensuite rotation SQL coordonnée, jamais simple édition |
+| `SIRH_PROD_JWT_SECRET` (variable Windows utilisateur) | obligatoire, généré avec 64 octets aléatoires encodés en hexadécimal | conserver ; rotation volontaire invalide des jetons existants |
+| `SIRH_PROD_WEB_PORT` | `8088` | seulement si occupé ; adapter CORS et raccourci |
+| `SIRH_PROD_CORS_ORIGIN` | `http://localhost:8088,http://127.0.0.1:8088` | ajouter exactement l'origine HTTPS utilisée, si nécessaire |
+| `SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED` | `true` ; le seeder crée le compte si aucun administrateur actif n'existe | conserver actif ; n'altère pas les comptes existants |
+| `SIRH_PROD_ADMIN_EMAIL` | `daf@galaxam.com` proposé par l'installateur ; modifiable à l'invite | adresse du premier administrateur |
+| `SIRH_PROD_DEFAULT_ADMIN_PASSWORD` (variable Windows utilisateur) | saisi à l'installation | requis pour recréer le compte après une réinitialisation complète des volumes ; changer ensuite le mot de passe depuis l'application puis mettre à jour cette variable si l'on veut qu'une réinstallation recrée le même accès |
+| Identité Compose et volumes | `galaxam-sirh-prod`, `galaxam_prod_pg_data`, `galaxam_prod_business_files` | conserver ces noms sur une installation existante |
 
-L'installateur demande un mot de passe administrateur d'au moins 12 caractères, avec majuscule, minuscule et chiffre ; les signes `! _ + . - #` sont acceptés. Si tu veux utiliser les identifiants du Mac, indique `daf@galaxam.com` (valeur proposée par défaut) et saisis le même mot de passe à l'invite sécurisée. Le script l'écrit entre quotes simples dans `.env.production` et protège le fichier par ACL ; le mot de passe reste disponible pour recréer le compte après un effacement volontaire des volumes. En configuration manuelle, utiliser les règles `.env` Docker puis vérifier avec `config --quiet`, sans afficher les secrets dans un journal.
+L'installateur demande un mot de passe administrateur d'au moins 12 caractères, avec majuscule, minuscule et chiffre ; les signes `! _ + . - #` sont acceptés. Si tu veux utiliser les identifiants du Mac, indique `daf@galaxam.com` (valeur proposée par défaut) et saisis le même mot de passe à l'invite sécurisée. Il conserve les trois secrets dans les variables utilisateur Windows du compte qui exécute Docker. Ouvrir une nouvelle fenêtre PowerShell après leur création pour les commandes Compose manuelles. Vérifier avec `config --quiet`, sans afficher les secrets dans un journal.
 
-Après installation, `.maintenance/installation.json` mémorise les noms du projet et des volumes ; les scripts refusent un changement accidentel de cette identité. Conserver ce fichier avec la configuration.
+Après installation, `.maintenance/installation.json` mémorise les noms du projet et des volumes ; les scripts refusent un changement accidentel de cette identité. Conserver ce fichier avec les variables utilisateur.
 
-Les variables `GALAXAM_*` de la session peuvent prendre priorité sur le fichier selon Docker ; les scripts les refusent pour éviter de cibler une autre installation involontairement. Voir [priorités des variables Compose](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/).
+Les variables `SIRH_PROD_*` sont lues depuis le compte Windows par les scripts PowerShell. Les noms du projet et des volumes sont contrôlés par `.maintenance/installation.json`.
 
-Le `.env.production` contient des secrets. L'installateur restreint son accès au compte Windows courant et à SYSTEM. Conserver aussi une copie protégée dans le coffre de l'entreprise, séparée des archives métier. Ne pas l'envoyer par messagerie ni le committer. Les archives métier ne l'incluent pas.
+Les variables utilisateur Windows contenant les secrets sont lisibles par ce compte et conservées dans son profil ; elles ne constituent pas un coffre chiffré. Conserver une copie protégée dans le coffre de l'entreprise, séparée des archives métier. Ne pas exporter ces valeurs dans un journal ni les committer.
 
 ## 6. Installer
 
 Depuis `C:\GALAXAM\SIRH`, avec le compte Windows retenu :
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\install.ps1 -BackupDirectory 'E:\Sauvegardes-GALAXAM'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\install.ps1
 ```
 
-Le script vérifie Docker, génère les secrets, demande le premier administrateur, valide la configuration, compile les images, initialise une base vierge et applique les migrations. Il vérifie qu'un administrateur est actif, puis conserve le bootstrap idempotent actif et le secret dans `.env.production` protégé par ACL. Ainsi, après une réinitialisation des volumes, le premier administrateur pourra être recréé. Sur une base déjà remplie, le seeder ne change aucun compte. Le script sauvegarde base et documents, puis redémarre le web. Il crée un raccourci et deux tâches Windows sous le compte courant : démarrage à l'ouverture de session et sauvegarde à 19 h.
+Le script vérifie Docker, génère les secrets dans les variables utilisateur Windows, demande le premier administrateur, valide la configuration, compile les images, initialise une base vierge et applique les migrations. Il vérifie qu'un administrateur est actif, puis conserve le bootstrap idempotent actif. Ainsi, après une réinitialisation des volumes, le premier administrateur pourra être recréé. Sur une base déjà remplie, le seeder ne change aucun compte. Le script sauvegarde base et documents, puis redémarre le web. Il crée un raccourci et deux tâches Windows sous le compte courant : démarrage à l'ouverture de session et sauvegarde à 19 h.
 
 Les six schémas actuels incluent déjà des référentiels GALAXAM et deux dossiers salariés historiques avec données associées. Il ne s’agit pas d’une base métier vide : faire valider ces données par le responsable avant usage réel. Ne pas les supprimer automatiquement et ne pas importer une autre base par-dessus sans procédure de reprise.
 
@@ -116,14 +111,14 @@ Les tâches utilisent une session interactive. Elles ne promettent pas un serveu
 
 ### Réinitialisation complète volontaire
 
-Cette opération supprime **la base de production et tous les documents téléversés**. La configuration `.env.production` reste sur le disque : le prochain démarrage recréera la base et le compte administrateur configuré dedans. Ne pas faire cela pour une mise à jour. Dans PowerShell, depuis `C:\GALAXAM\SIRH` :
+Cette opération supprime **la base de production et tous les documents téléversés**. Les variables utilisateur Windows restent configurées : le prochain démarrage recréera la base et le compte administrateur. Ne pas faire cela pour une mise à jour. Dans PowerShell, depuis le dépôt :
 
 ```powershell
-docker compose --project-directory $PWD --env-file .env.production -f .\docker-compose.web.yml down -v
-docker compose --project-directory $PWD --env-file .env.production -f .\docker-compose.web.yml up -d --build --wait
+docker compose --project-directory $PWD -f .\docker-compose.web.yml down -v
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\compose.ps1 -Mode prod
 ```
 
-Après le démarrage, le compte `daf@galaxam.com` sera recréé si c'est l'adresse configurée pendant l'installation. Le mot de passe est celui conservé dans `.env.production`. La sauvegarde préalable est indispensable si des données doivent être gardées.
+Après le démarrage, le compte `daf@galaxam.com` sera recréé si c'est l'adresse configurée pendant l'installation. Le mot de passe est celui de `SIRH_PROD_DEFAULT_ADMIN_PASSWORD`. La sauvegarde préalable est indispensable si des données doivent être gardées.
 
 Si l'installation échoue après création de `.maintenance/maintenance.json`, lire ce fichier et le journal. Ne pas effacer ce marqueur simplement pour contourner l'erreur : il protège une opération potentiellement inachevée.
 
@@ -141,7 +136,7 @@ Une réponse `UP` à `/api/auth/ping` vérifie également l'accès à la base. U
 
 Cette installation prépare le cas local sur un seul PC. Pour un réseau, prévoir une adresse stable, un nom DNS et un proxy HTTPS avec certificat reconnu par tous les postes. Ne pas remplacer simplement `127.0.0.1` par `0.0.0.0` pour exposer les données RH en HTTP.
 
-Le proxy HTTPS, exécuté sur l'hôte, doit transmettre vers `http://127.0.0.1:8088` et **écraser** `X-Forwarded-Proto` avec `https`, ainsi que `X-Forwarded-For` avec une adresse fiable. Ajouter l'origine exacte, par exemple `https://sirh.entreprise.example`, à `GALAXAM_CORS_ORIGIN`, en conservant les origines locales nécessaires au diagnostic. Aucune étoile, aucun `/api`, aucun chemin, aucune barre oblique finale dans CORS.
+Le proxy HTTPS, exécuté sur l'hôte, doit transmettre vers `http://127.0.0.1:8088` et **écraser** `X-Forwarded-Proto` avec `https`, ainsi que `X-Forwarded-For` avec une adresse fiable. Ajouter l'origine exacte, par exemple `https://sirh.entreprise.example`, à `SIRH_PROD_CORS_ORIGIN`, en conservant les origines locales nécessaires au diagnostic. Aucune étoile, aucun `/api`, aucun chemin, aucune barre oblique finale dans CORS.
 
 Nginx relaie le protocole à Spring ; Spring marque alors le cookie `Secure`. Un proxy qui oublie cet en-tête ou un certificat non reconnu peut bloquer la session. Ne jamais accepter un avertissement certificat comme solution permanente. Le certificat, le DNS, le pare-feu et le renouvellement du certificat doivent être vérifiés dans l'environnement réseau réel ; ce guide ne fournit pas un domaine ni une autorité de certification de l'entreprise.
 
@@ -161,7 +156,7 @@ Ne pas mélanger une page HTTPS et une API HTTP : garder `/api/` via le même pr
 ## 9. Sauvegarder
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\backup.ps1 -BackupDirectory 'E:\Sauvegardes-GALAXAM'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\backup.ps1
 ```
 
 Le script prend un verrou pour empêcher deux maintenances simultanées. Il arrête le web, exporte PostgreSQL au format `pg_dump -Fc`, archive tous les documents (y compris fichiers cachés) et calcule leurs empreintes SHA-256. L'arrêt protège la cohérence entre les références de base et les fichiers. Prévenir les utilisateurs : l'application est indisponible pendant cette opération.
@@ -194,10 +189,10 @@ Sur le PC de production, dans une plage de maintenance :
 
 ```powershell
 Set-Location C:\GALAXAM\SIRH
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\update.ps1 -Ref v1.0.1 -BackupDirectory 'E:\Sauvegardes-GALAXAM'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\update.ps1 -Ref v1.0.1
 ```
 
-Le script refuse un dépôt modifié ou une maintenance déjà ouverte. Il récupère les tags, identifie la révision cible, arrête le web, sauvegarde l'état actuel et écrit `last-update.json` avec les références et le chemin de l'archive. Il sélectionne le tag, compile les images, applique les migrations, recrée les services web et vérifie l'API. **Il ne supprime aucun volume et ne remplace pas `.env.production`.**
+Le script refuse un dépôt modifié ou une maintenance déjà ouverte. Il récupère les tags, identifie la révision cible, arrête le web, sauvegarde l'état actuel et écrit `last-update.json` avec les références et le chemin de l'archive. Il sélectionne le tag, compile les images, applique les migrations, recrée les services web et vérifie l'API. **Il ne supprime aucun volume et ne modifie pas les variables utilisateur.**
 
 Le téléchargement/compilation a lieu pendant l'arrêt : prévoir une durée adaptée à la connexion du PC. Ce parcours nécessite Git et Internet sur le PC cible. Une livraison d'images précompilées hors ligne serait une extension distincte ; ne pas supposer que le script la gère déjà.
 
@@ -222,11 +217,11 @@ Après échec de mise à jour : lire `.maintenance/last-update.json`, garder les
 ```powershell
 $update = Get-Content .\.maintenance\last-update.json -Raw | ConvertFrom-Json
 git switch --detach $update.previous
-docker compose --env-file .env.production -f docker-compose.web.yml build backend frontend
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\compose.ps1 -Mode prod -Action build
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\restore.ps1 -Archive $update.backup
 ```
 
-Ne pas démarrer l'ancien backend sur une base migrée sans avoir vérifié sa compatibilité. Les images locales utilisent le tag `prod` : le retour arrière reconstruit donc le code précédent. Une restauration ne remplace pas le `.env.production` et suppose les secrets du serveur courant.
+Ne pas démarrer l'ancien backend sur une base migrée sans avoir vérifié sa compatibilité. Les images locales utilisent le tag `prod` : le retour arrière reconstruit donc le code précédent. Une restauration suppose les variables et secrets du serveur courant.
 
 En cas d'échec de compilation avant toute migration, le technicien peut corriger la cause, relancer compilation et migrations, puis reprendre via les fonctions du fichier `common.ps1`. Il doit vérifier le journal avant de supprimer un marqueur. Ne pas effacer le marqueur et lancer `start.ps1` comme méthode de réparation générale.
 
@@ -234,7 +229,7 @@ En cas d'échec de compilation avant toute migration, le technicien peut corrige
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\diagnose.ps1
-docker compose --env-file .env.production -f docker-compose.web.yml logs --tail 150 backend frontend migrate postgres
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\compose.ps1 -Mode prod -Action logs
 ```
 
 Ne pas publier des journaux contenant des données RH sans les relire. Ne pas partager la sortie complète de `docker compose config` : elle contient les secrets résolus ; utiliser `config --quiet` pour la validation.
@@ -242,7 +237,7 @@ Ne pas publier des journaux contenant des données RH sans les relire. Ne pas pa
 | Symptôme | Vérifications / correction |
 |---|---|
 | Docker introuvable / moteur arrêté | nouvelle fenêtre PowerShell, Docker lancé, WSL fonctionnel, conteneurs Linux |
-| Port 8088 occupé | arrêter l'autre application ou changer `GALAXAM_WEB_PORT`, CORS et raccourci ; ne pas tuer un processus inconnu |
+| Port 8088 occupé | arrêter l'autre application ou changer `SIRH_PROD_WEB_PORT`, `SIRH_PROD_CORS_ORIGIN` et raccourci ; ne pas tuer un processus inconnu |
 | Application semble vide après changement de config | noms des volumes/projet ; ne pas recréer les données ni supprimer l'ancien volume |
 | PostgreSQL refuse le mot de passe | utiliser le secret de création du volume ; `POSTGRES_PASSWORD` ne change pas le mot de passe d'une base existante |
 | CORS 403 | origine exacte, schéma, port, absence de slash final et de joker ; appliquer le fichier avec recréation du backend |

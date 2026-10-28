@@ -1,7 +1,26 @@
 #!/bin/sh
+# Usage: ./scripts/compose prod|dev [up|stop|ps|logs|config|build]
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-if [ "${1:-}" = "-f" ] || [ "${1:-}" = "--file" ]; then
-  exec docker compose --project-directory "$root" "$@"
-fi
-exec docker compose --project-directory "$root" --env-file "$root/.env.production" -f "$root/docker-compose.yml" "$@"
+mode=${1:?Indiquer prod ou dev}
+action=${2:-up}
+case "$mode" in
+  prod)
+    file="$root/docker-compose.web.yml"
+    required='SIRH_PROD_DB_PASSWORD SIRH_PROD_JWT_SECRET SIRH_PROD_DEFAULT_ADMIN_PASSWORD SIRH_PROD_ADMIN_EMAIL SIRH_PROD_WEB_PORT SIRH_PROD_CORS_ORIGIN SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED'
+    ;;
+  dev)
+    file="$root/docker-compose.dev.yml"
+    required='SIRH_DEV_DB_PASSWORD SIRH_DEV_JWT_SECRET SIRH_DEV_DEFAULT_ADMIN_PASSWORD SIRH_DEV_ADMIN_EMAIL SIRH_DEV_WEB_PORT SIRH_DEV_BOOTSTRAP_ADMIN_ENABLED'
+    ;;
+  *) echo 'Mode attendu : prod ou dev' >&2; exit 2 ;;
+esac
+for name in $required; do
+  printenv "$name" >/dev/null || { echo "Variable utilisateur absente : $name" >&2; exit 1; }
+done
+case "$action" in
+  up) exec docker compose --project-directory "$root" -f "$file" up -d --build --wait ;;
+  stop|ps|logs|build) exec docker compose --project-directory "$root" -f "$file" "$action" ;;
+  config) exec docker compose --project-directory "$root" -f "$file" config --quiet ;;
+  *) echo 'Action attendue : up, stop, ps, logs, config ou build' >&2; exit 2 ;;
+esac

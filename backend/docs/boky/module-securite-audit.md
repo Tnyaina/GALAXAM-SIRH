@@ -202,7 +202,7 @@ le compte est connu. Une tentative avec email inconnu n'a pas de `id_utilisateur
 
 La route de connexion limite dix échecs par email normalisé sur quinze minutes.
 Le compteur en mémoire est borné et se réinitialise après connexion réussie ;
-il convient à l'instance unique de `docker-compose.prod.yml`. Une architecture
+il convient à l'instance unique de `docker-compose.web.yml`. Une architecture
 multi-instance doit ajouter une limite partagée. `/auth/ping` exécute `SELECT 1`
 et renvoie `503` si la base est inaccessible, afin de servir de contrôle de
 disponibilité.

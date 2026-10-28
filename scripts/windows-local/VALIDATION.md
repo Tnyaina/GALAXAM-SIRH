@@ -1,5 +1,7 @@
 # Validation du parcours web — 27 octobre 2026
 
+> Mise à jour Windows du 28 octobre 2026 : le lancement courant utilise les variables utilisateur `SIRH_PROD_*` et `SIRH_DEV_*`, sans fichiers `.env`. Les deux piles ont démarré et répondu sur 8088 et 18088 ; connexion administrateur validée dans chaque mode. Les tâches Windows de démarrage et de sauvegarde ont fini avec `LastTaskResult = 0`. La sauvegarde a été extraite et ses empreintes vérifiées. Les notes ci-dessous décrivent les essais historiques du parcours précédent ; leurs références à `.env.production` ne décrivent plus la configuration courante.
+
 ## Exécuté dans l'environnement de développement
 
 - Construction effective des images de production Java 17 / Nginx / frontend : réussie.

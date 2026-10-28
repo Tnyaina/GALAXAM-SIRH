@@ -1,11 +1,11 @@
-param([Parameter(Mandatory)][string] $BackupDirectory)
+param([string] $BackupDirectory = [Environment]::GetEnvironmentVariable('SIRH_BACKUP_DIRECTORY', 'User'))
 . (Join-Path $PSScriptRoot 'common.ps1')
 Assert-Docker
 Assert-Config | Out-Null
 Enter-Operation
 try {
     Assert-NoMaintenance
-    if (-not (Test-Path $BackupDirectory -PathType Container)) { throw 'Support de sauvegarde indisponible.' }
+    if ([string]::IsNullOrWhiteSpace($BackupDirectory) -or -not (Test-Path $BackupDirectory -PathType Container)) { throw 'Support de sauvegarde indisponible : verifier SIRH_BACKUP_DIRECTORY.' }
     Stop-Web 'Sauvegarde'
     try { $archive = New-Backup $BackupDirectory }
     finally { Resume-Web }

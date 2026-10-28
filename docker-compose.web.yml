@@ -13,7 +13,7 @@ services:
     environment:
       POSTGRES_DB: sirh_galaxam
       POSTGRES_USER: galaxam_admin
-      POSTGRES_PASSWORD: ${GALAXAM_DB_PASSWORD:?Mot de passe PostgreSQL requis}
+      POSTGRES_PASSWORD: ${SIRH_PROD_DB_PASSWORD:?SIRH_PROD_DB_PASSWORD requise}
       TZ: Indian/Antananarivo
     volumes:
       - pg_data:/var/lib/postgresql/data
@@ -31,7 +31,7 @@ services:
       PGHOST: postgres
       PGDATABASE: sirh_galaxam
       PGUSER: galaxam_admin
-      PGPASSWORD: ${GALAXAM_DB_PASSWORD:?Mot de passe PostgreSQL requis}
+      PGPASSWORD: ${SIRH_PROD_DB_PASSWORD:?SIRH_PROD_DB_PASSWORD requise}
     volumes:
       - ./docker/migrate.sh:/migrate.sh:ro
       - ./docker/migrations:/migrations:ro
@@ -51,13 +51,13 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sirh_galaxam
       DATABASE_USERNAME: galaxam_admin
-      DATABASE_PASSWORD: ${GALAXAM_DB_PASSWORD:?Mot de passe PostgreSQL requis}
-      JWT_SECRET: ${GALAXAM_JWT_SECRET:?Cle JWT requise}
-      CORS_ORIGIN: ${GALAXAM_CORS_ORIGIN:-http://localhost:8088,http://127.0.0.1:8088}
-      BOOTSTRAP_ADMIN_ENABLED: ${GALAXAM_PROD_BOOTSTRAP_ADMIN_ENABLED:-false}
+      DATABASE_PASSWORD: ${SIRH_PROD_DB_PASSWORD:?SIRH_PROD_DB_PASSWORD requise}
+      JWT_SECRET: ${SIRH_PROD_JWT_SECRET:?SIRH_PROD_JWT_SECRET requise}
+      CORS_ORIGIN: ${SIRH_PROD_CORS_ORIGIN:?SIRH_PROD_CORS_ORIGIN requise}
+      BOOTSTRAP_ADMIN_ENABLED: ${SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED:?SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED requise}
       GALAXAM_DEFAULT_ADMIN_NAME: ${GALAXAM_DEFAULT_ADMIN_NAME:-Administrateur GALAXAM}
-      GALAXAM_DEFAULT_ADMIN_EMAIL: ${GALAXAM_DEFAULT_ADMIN_EMAIL:-}
-      GALAXAM_DEFAULT_ADMIN_PASSWORD: ${GALAXAM_DEFAULT_ADMIN_PASSWORD:-}
+      GALAXAM_DEFAULT_ADMIN_EMAIL: ${SIRH_PROD_ADMIN_EMAIL:?SIRH_PROD_ADMIN_EMAIL requise}
+      GALAXAM_DEFAULT_ADMIN_PASSWORD: ${SIRH_PROD_DEFAULT_ADMIN_PASSWORD:?SIRH_PROD_DEFAULT_ADMIN_PASSWORD requise}
       TZ: Indian/Antananarivo
     volumes:
       - business_files:/app/uploads
@@ -76,7 +76,7 @@ services:
     restart: unless-stopped
     logging: *logging
     ports:
-      - '127.0.0.1:${GALAXAM_WEB_PORT:-8088}:80'
+      - '127.0.0.1:${SIRH_PROD_WEB_PORT:?SIRH_PROD_WEB_PORT requise}:80'
     depends_on:
       backend:
         condition: service_healthy

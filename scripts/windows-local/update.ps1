@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string] $Ref, [Parameter(Mandatory)][string] $BackupDirectory)
+param([Parameter(Mandatory)][string] $Ref, [string] $BackupDirectory = [Environment]::GetEnvironmentVariable('SIRH_BACKUP_DIRECTORY', 'User'))
 . (Join-Path $PSScriptRoot 'common.ps1')
 Assert-Docker
 Assert-Config | Out-Null
@@ -16,7 +16,7 @@ try {
     $previous = & git -C $ProjectRoot rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw 'Revision actuelle inconnue.' }
     if ($previous -eq $target) { Write-Host 'Cette revision est deja installee.'; return }
-    if (-not (Test-Path $BackupDirectory -PathType Container)) { throw 'Support de sauvegarde indisponible.' }
+    if ([string]::IsNullOrWhiteSpace($BackupDirectory) -or -not (Test-Path $BackupDirectory -PathType Container)) { throw 'Support de sauvegarde indisponible : verifier SIRH_BACKUP_DIRECTORY.' }
     Stop-Web "Mise a jour vers $Ref"
     $archive = New-Backup $BackupDirectory
     Write-Json @{ previous=$previous; target=$target; tag=$Ref; backup=$archive; startedAt=(Get-Date).ToString('o') } (Join-Path $StateDirectory 'last-update.json')

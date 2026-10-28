@@ -1,9 +1,14 @@
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$EnvFile = Join-Path $ProjectRoot '.env.production'
 $StateDirectory = Join-Path $ProjectRoot '.maintenance'
 $Marker = Join-Path $StateDirectory 'maintenance.json'
-$ComposeFiles = @('--project-directory', $ProjectRoot, '--env-file', $EnvFile, '-f', (Join-Path $ProjectRoot 'docker-compose.web.yml'))
+$ComposeFiles = @('--project-directory', $ProjectRoot, '-f', (Join-Path $ProjectRoot 'docker-compose.web.yml'))
+
+# Les taches planifiees recuperent explicitement la configuration du compte Windows.
+foreach ($name in @('SIRH_PROD_DB_PASSWORD', 'SIRH_PROD_JWT_SECRET', 'SIRH_PROD_DEFAULT_ADMIN_PASSWORD', 'SIRH_PROD_ADMIN_EMAIL', 'SIRH_PROD_WEB_PORT', 'SIRH_PROD_CORS_ORIGIN', 'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED')) {
+    $value = [Environment]::GetEnvironmentVariable($name, 'User')
+    if (-not [string]::IsNullOrEmpty($value)) { [Environment]::SetEnvironmentVariable($name, $value, 'Process') }
+}
 
 function Invoke-Docker([string[]] $Arguments) {
     & docker @Arguments
@@ -25,8 +30,6 @@ function Assert-Docker {
     if (-not (Get-Command tar -ErrorAction SilentlyContinue)) { throw 'tar.exe requis (inclus dans Windows 10/11 recent).' }
 }
 function Assert-Config {
-    # Les variables de la session ont priorite sur --env-file : refuser ce piege.
-    if (@(Get-ChildItem Env: | Where-Object { $_.Name -like 'GALAXAM_*' }).Count) { throw 'Supprimer les variables GALAXAM_* de cette session PowerShell : utiliser .env.production.' }
     $c = Get-Config
     $identityFile = Join-Path $StateDirectory 'installation.json'
     if (Test-Path $identityFile) {
@@ -35,7 +38,7 @@ function Assert-Config {
     }
     $e = $c.services.backend.environment
     try { $jwtBytes = [Convert]::FromBase64String([string]$e.JWT_SECRET) } catch { $jwtBytes = [Text.Encoding]::UTF8.GetBytes([string]$e.JWT_SECRET) }
-    if ($jwtBytes.Length -lt 64) { throw 'GALAXAM_JWT_SECRET doit contenir au moins 64 octets.' }
+    if ($jwtBytes.Length -lt 64) { throw 'SIRH_PROD_JWT_SECRET doit contenir au moins 64 octets.' }
     if ([string]$e.DATABASE_PASSWORD -eq '' -or ([string]$e.DATABASE_PASSWORD).Length -lt 16) { throw 'Mot de passe PostgreSQL : au moins 16 caracteres.' }
     $port = [string]$c.services.frontend.ports[0].published
     if ($port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { throw 'Port web : nombre entre 1024 et 65535.' }

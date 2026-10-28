@@ -44,7 +44,7 @@ Le DMG ARM64 produit pendant la dernière vérification pèse 107,14 Mio. Le pla
 La Web Docker reste disponible sur `http://localhost:8088`. Le backend n'est pas publié directement sur le réseau. Pour que le desktop utilise la même API, démarrer le relais local dédié :
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.desktop.yml --profile desktop up -d --no-deps desktop-api
+docker compose -f docker-compose.dev.yml -f docker-compose.desktop.yml --profile desktop up -d --no-deps desktop-api
 ```
 
 Dans le choix de connexion desktop, utiliser `http://127.0.0.1:18080`. L'API est appelée sous `/api/`. L'adresse `http://127.0.0.1:8088` fonctionne aussi tant que le Nginx Web Docker est actif. Les deux adresses ne doivent pas être remplacées par une URL de site ou une page d'accueil.
