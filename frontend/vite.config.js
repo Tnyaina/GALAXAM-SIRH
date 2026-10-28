@@ -6,19 +6,20 @@ import process from 'node:process';
 import tailwindcss from '@tailwindcss/vite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const devPort = Number(process.env.VITE_DEV_SERVER_PORT || process.env.SIRH_DEV_WEB_PORT || 5173);
 
 // https://vite.dev/config/
 export default defineConfig({
   server: {
-    host: '0.0.0.0',
-    port: 5173,
+    host: process.env.VITE_DEV_SERVER_HOST || '127.0.0.1',
+    port: devPort,
     strictPort: true,
     // Docker Desktop ne transmet pas toujours les événements fs du bind mount.
-    watch: { usePolling: true, interval: 500 },
-    hmr: { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) || 8088 },
+    watch: { usePolling: process.env.VITE_USE_POLLING === 'true', interval: 500 },
+    hmr: { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) || devPort },
     proxy: {
       '/api': {
-        target: process.env.VITE_ECC_BACKEND || 'http://backend:8080',
+        target: process.env.VITE_ECC_BACKEND || 'http://127.0.0.1:8080',
         changeOrigin: true,
       },
     },

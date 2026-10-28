@@ -23,3 +23,5 @@ Règles de livraison :
 - Une sauvegarde précède chaque mise à jour. Un retour arrière après migration demande généralement le code précédent **et** la sauvegarde correspondante ; ne pas inventer une migration inverse destructive.
 
 Les migrations de version majeure PostgreSQL (15 vers 16, etc.) sont une opération distincte. Ne jamais simplement changer l'image tout en conservant le même répertoire de données.
+
+Le parcours Windows natif utilise aussi ces fichiers via `scripts/windows-native/migrate-grh.ps1` et la même table `public.galaxam_schema_history`. Son script de mise à jour effectue la sauvegarde, arrête GRH, applique les migrations absentes, puis déploie le nouveau backend et le frontend. Tester la migration sur une copie de la base avant cette étape.

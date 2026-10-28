@@ -68,6 +68,10 @@ services:
       - "127.0.0.1:${SIRH_DEV_WEB_PORT:?SIRH_DEV_WEB_PORT requise}:5173"
     environment:
       VITE_API_BASE_URL: /api/
+      VITE_DEV_SERVER_HOST: 0.0.0.0
+      VITE_DEV_SERVER_PORT: 5173
+      VITE_USE_POLLING: 'true'
+      VITE_ECC_BACKEND: http://backend:8080
       VITE_HMR_CLIENT_PORT: ${SIRH_DEV_WEB_PORT:?SIRH_DEV_WEB_PORT requise}
     volumes:
       - ./frontend:/app

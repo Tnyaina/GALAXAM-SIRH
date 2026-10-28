@@ -294,6 +294,8 @@ Les six schémas canoniques de `backend/conception/bdd/` initialisent une base n
 
 ### Exécution Hors Docker (Développement Natif)
 
+Sur Windows, les mêmes variables utilisateur `SIRH_DEV_*` et `SIRH_ADMIN_*` que pour Docker sont lues directement par Spring et Vite. La base native DEV reste distincte des volumes Docker ; voir le [parcours Windows sans Docker](scripts/windows-native/README.md) pour sa configuration.
+
 #### Backend (Java 17 / Maven)
 ```bash
 # Compilation du projet
