@@ -72,7 +72,7 @@ Les scripts modifient des conteneurs et des données ; lancer uniquement une liv
 
 ## 5. Variables utilisateur Windows
 
-L'installateur crée les variables `SIRH_PROD_*` à la première installation et les conserve ensuite. Elles sont propres au compte Windows utilisé pour Docker.
+L'installateur crée les variables `SIRH_PROD_*` et `SIRH_ADMIN_*` à la première installation et les conserve ensuite dans le compte Windows utilisé pour Docker. Les trois variables `SIRH_ADMIN_*` sont communes à DEV et PROD ; les secrets de base de données et JWT restent distincts.
 
 | Variable | Défaut / règle | Quand la changer |
 |---|---|---|
@@ -81,15 +81,16 @@ L'installateur crée les variables `SIRH_PROD_*` à la première installation et
 | `SIRH_PROD_WEB_PORT` | `8088` | seulement si occupé ; adapter CORS et raccourci |
 | `SIRH_PROD_CORS_ORIGIN` | `http://localhost:8088,http://127.0.0.1:8088` | ajouter exactement l'origine HTTPS utilisée, si nécessaire |
 | `SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED` | `true` ; le seeder crée le compte si aucun administrateur actif n'existe | conserver actif ; n'altère pas les comptes existants |
-| `SIRH_PROD_ADMIN_EMAIL` | `daf@galaxam.com` proposé par l'installateur ; modifiable à l'invite | adresse du premier administrateur |
-| `SIRH_PROD_DEFAULT_ADMIN_PASSWORD` (variable Windows utilisateur) | saisi à l'installation | requis pour recréer le compte après une réinitialisation complète des volumes ; changer ensuite le mot de passe depuis l'application puis mettre à jour cette variable si l'on veut qu'une réinstallation recrée le même accès |
+| `SIRH_ADMIN_NAME` | `Tatamo Michele` proposé par l'installateur | nom du premier administrateur, commun aux deux bases |
+| `SIRH_ADMIN_EMAIL` | `daf@galaxam.com` proposé par l'installateur ; modifiable à l'invite | adresse commune du premier administrateur |
+| `SIRH_ADMIN_PASSWORD` (variable Windows utilisateur) | saisi à l'installation | requis pour recréer le compte après une réinitialisation complète des volumes ; changer ensuite le mot de passe depuis l'application puis mettre à jour cette variable si l'on veut qu'une réinstallation recrée le même accès |
 | Identité Compose et volumes | `galaxam-sirh-prod`, `galaxam_prod_pg_data`, `galaxam_prod_business_files` | conserver ces noms sur une installation existante |
 
 L'installateur demande un mot de passe administrateur d'au moins 12 caractères, avec majuscule, minuscule et chiffre ; les signes `! _ + . - #` sont acceptés. Si tu veux utiliser les identifiants du Mac, indique `daf@galaxam.com` (valeur proposée par défaut) et saisis le même mot de passe à l'invite sécurisée. Il conserve les trois secrets dans les variables utilisateur Windows du compte qui exécute Docker. Ouvrir une nouvelle fenêtre PowerShell après leur création pour les commandes Compose manuelles. Vérifier avec `config --quiet`, sans afficher les secrets dans un journal.
 
 Après installation, `.maintenance/installation.json` mémorise les noms du projet et des volumes ; les scripts refusent un changement accidentel de cette identité. Conserver ce fichier avec les variables utilisateur.
 
-Les variables `SIRH_PROD_*` sont lues depuis le compte Windows par les scripts PowerShell. Les noms du projet et des volumes sont contrôlés par `.maintenance/installation.json`.
+Les variables `SIRH_PROD_*` et `SIRH_ADMIN_*` sont lues depuis le compte Windows par les scripts PowerShell. Les noms du projet et des volumes sont contrôlés par `.maintenance/installation.json`.
 
 Les variables utilisateur Windows contenant les secrets sont lisibles par ce compte et conservées dans son profil ; elles ne constituent pas un coffre chiffré. Conserver une copie protégée dans le coffre de l'entreprise, séparée des archives métier. Ne pas exporter ces valeurs dans un journal ni les committer.
 
@@ -118,7 +119,7 @@ docker compose --project-directory $PWD -f .\docker-compose.web.yml down -v
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local\compose.ps1 -Mode prod
 ```
 
-Après le démarrage, le compte `daf@galaxam.com` sera recréé si c'est l'adresse configurée pendant l'installation. Le mot de passe est celui de `SIRH_PROD_DEFAULT_ADMIN_PASSWORD`. La sauvegarde préalable est indispensable si des données doivent être gardées.
+Après le démarrage, le compte administrateur commun sera créé uniquement si la base ne contient aucun administrateur actif. Son identité vient de `SIRH_ADMIN_NAME`, `SIRH_ADMIN_EMAIL` et `SIRH_ADMIN_PASSWORD`. Une modification de ces variables ne change pas un compte déjà présent en base. La sauvegarde préalable est indispensable si des données doivent être gardées.
 
 Si l'installation échoue après création de `.maintenance/maintenance.json`, lire ce fichier et le journal. Ne pas effacer ce marqueur simplement pour contourner l'erreur : il protège une opération potentiellement inachevée.
 

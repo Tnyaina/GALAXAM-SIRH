@@ -6,12 +6,12 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 if ($Mode -eq 'prod') {
     $file = Join-Path $root 'docker-compose.web.yml'
-    $required = @('SIRH_PROD_DB_PASSWORD', 'SIRH_PROD_JWT_SECRET', 'SIRH_PROD_DEFAULT_ADMIN_PASSWORD',
-        'SIRH_PROD_ADMIN_EMAIL', 'SIRH_PROD_WEB_PORT', 'SIRH_PROD_CORS_ORIGIN', 'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED')
+    $required = @('SIRH_PROD_DB_PASSWORD', 'SIRH_PROD_JWT_SECRET', 'SIRH_ADMIN_NAME',
+        'SIRH_ADMIN_EMAIL', 'SIRH_ADMIN_PASSWORD', 'SIRH_PROD_WEB_PORT', 'SIRH_PROD_CORS_ORIGIN', 'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED')
 } else {
     $file = Join-Path $root 'docker-compose.dev.yml'
-    $required = @('SIRH_DEV_DB_PASSWORD', 'SIRH_DEV_JWT_SECRET', 'SIRH_DEV_DEFAULT_ADMIN_PASSWORD',
-        'SIRH_DEV_ADMIN_EMAIL', 'SIRH_DEV_WEB_PORT', 'SIRH_DEV_BOOTSTRAP_ADMIN_ENABLED')
+    $required = @('SIRH_DEV_DB_PASSWORD', 'SIRH_DEV_JWT_SECRET', 'SIRH_ADMIN_NAME',
+        'SIRH_ADMIN_EMAIL', 'SIRH_ADMIN_PASSWORD', 'SIRH_DEV_WEB_PORT', 'SIRH_DEV_BOOTSTRAP_ADMIN_ENABLED')
 }
 foreach ($name in $required) {
     $value = [Environment]::GetEnvironmentVariable($name, 'User')

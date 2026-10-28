@@ -2,7 +2,7 @@
 
 L'instance utilise exactement le Compose de production, le profil Spring `prod`, Nginx et PostgreSQL 15. Son URL est `http://localhost:18089`. Elle a sa propre base `galaxam_mac_prodtest_pg_data` et son propre volume de documents `galaxam_mac_prodtest_business_files`. Le développement reste sur `http://localhost:8088` avec ses propres volumes.
 
-Cette recette isolée utilise quatre variables propres au Mac : `SIRH_MAC_TEST_DB_PASSWORD`, `SIRH_MAC_TEST_JWT_SECRET`, `SIRH_MAC_TEST_ADMIN_EMAIL` et `SIRH_MAC_TEST_ADMIN_PASSWORD`. Définissez-les dans l'environnement utilisateur macOS avant de lancer les scripts. Reprenez le mot de passe PostgreSQL de la recette existante si son volume contient déjà des données ; ne le régénérez pas. Pour afficher les identifiants de la recette dans le terminal :
+Cette recette isolée utilise quatre variables propres au Mac : `SIRH_MAC_TEST_DB_PASSWORD`, `SIRH_MAC_TEST_JWT_SECRET`, `SIRH_MAC_TEST_ADMIN_EMAIL` et `SIRH_MAC_TEST_ADMIN_PASSWORD`. Le nom affiché par défaut est `Tatamo Michele` ; `SIRH_MAC_TEST_ADMIN_NAME` peut le remplacer. Définissez-les dans l'environnement utilisateur macOS avant de lancer les scripts. Reprenez le mot de passe PostgreSQL de la recette existante si son volume contient déjà des données ; ne le régénérez pas. Pour afficher les identifiants de la recette dans le terminal :
 
 ```sh
 ./scripts/mac-prod-test/show-login.sh

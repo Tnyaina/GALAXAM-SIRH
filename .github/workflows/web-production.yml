@@ -52,8 +52,8 @@ jobs:
               'SIRH_PROD_WEB_PORT=18089\nSIRH_PROD_CORS_ORIGIN=http://localhost:18089,http://127.0.0.1:18089\n' +
               'GALAXAM_PROJECT_NAME=galaxam-web-audit\nGALAXAM_PG_VOLUME=galaxam_web_audit_pg\n' +
               'GALAXAM_FILES_VOLUME=galaxam_web_audit_files\nGALAXAM_RELEASE=audit\n' +
-              'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED=true\nSIRH_PROD_ADMIN_EMAIL=audit@example.test\n' +
-              'SIRH_PROD_DEFAULT_ADMIN_PASSWORD=' + admin_pass + '\n')
+              'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED=true\nSIRH_ADMIN_NAME=Audit Administrator\n' +
+              'SIRH_ADMIN_EMAIL=audit@example.test\nSIRH_ADMIN_PASSWORD=' + admin_pass + '\n')
       - name: Build and start actual production images
         run: docker compose -f docker-compose.web.yml up -d --build --wait --wait-timeout 240
       - name: HTTP, migration and database restore checks

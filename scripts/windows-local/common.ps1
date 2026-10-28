@@ -5,7 +5,7 @@ $Marker = Join-Path $StateDirectory 'maintenance.json'
 $ComposeFiles = @('--project-directory', $ProjectRoot, '-f', (Join-Path $ProjectRoot 'docker-compose.web.yml'))
 
 # Les taches planifiees recuperent explicitement la configuration du compte Windows.
-foreach ($name in @('SIRH_PROD_DB_PASSWORD', 'SIRH_PROD_JWT_SECRET', 'SIRH_PROD_DEFAULT_ADMIN_PASSWORD', 'SIRH_PROD_ADMIN_EMAIL', 'SIRH_PROD_WEB_PORT', 'SIRH_PROD_CORS_ORIGIN', 'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED')) {
+foreach ($name in @('SIRH_PROD_DB_PASSWORD', 'SIRH_PROD_JWT_SECRET', 'SIRH_ADMIN_NAME', 'SIRH_ADMIN_EMAIL', 'SIRH_ADMIN_PASSWORD', 'SIRH_PROD_WEB_PORT', 'SIRH_PROD_CORS_ORIGIN', 'SIRH_PROD_BOOTSTRAP_ADMIN_ENABLED')) {
     $value = [Environment]::GetEnvironmentVariable($name, 'User')
     if (-not [string]::IsNullOrEmpty($value)) { [Environment]::SetEnvironmentVariable($name, $value, 'Process') }
 }
