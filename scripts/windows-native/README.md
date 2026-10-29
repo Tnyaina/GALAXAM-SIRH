@@ -44,6 +44,8 @@ Exécuter **une seule** de ces commandes selon la base voulue. Le script demande
 
 Le script PROD crée auparavant une sauvegarde `pg_dump` dans `scripts/windows-native/backups/`. Les journaux du backend sont dans `scripts/windows-native/logs/`. Ces deux dossiers sont ignorés par Git. La sauvegarde couvre PostgreSQL ; les éventuels fichiers joints stockés hors de la base demandent une sauvegarde séparée. Cette commande efface toutes les données métier de la base ciblée. Docker conserve sa propre base `sirh_galaxam` dans un volume séparé.
 
+Pour une remise à zéro PROD explicitement demandée sans sauvegarde (irréversible), l'administrateur peut lancer `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\windows-native\reset-database.ps1 -Mode prod -NoBackup`. Le script conserve la confirmation exacte du nom de base et recharge les six DDL dans une transaction.
+
 ## Lancement en un clic pour l'utilisateur
 
 Sur le PC actuellement configuré, le paquet installé est dans `D:\GALAXAM-GRH`. Les deux raccourcis Bureau pointent vers ce dossier ; ils n'ont plus besoin du dépôt `D:\GALAXAM-SIRH` pour lancer l'application. Le paquet de distribution est préparé par `package-grh.ps1` dans `scripts/windows-native/dist/GRH-package/` et `GRH-package.zip`. L'administrateur lance `Installer-GRH.bat` depuis le paquet extrait. Les scripts techniques restent dans `D:\GALAXAM-GRH\scripts`, sans raccourci Bureau.

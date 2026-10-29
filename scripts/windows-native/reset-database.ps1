@@ -1,4 +1,7 @@
-param([Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Mode)
+param(
+    [Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Mode,
+    [switch]$NoBackup
+)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $db = if ($Mode -eq 'dev') { 'sirh_galaxam_dev' } else { 'sirh_galaxam' }
@@ -29,19 +32,21 @@ try {
     $exists = & $psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$db'"
     if ($LASTEXITCODE -ne 0) { throw 'Connexion PostgreSQL impossible.' }
     if ($exists -ne '1') { throw "La base $db n'existe pas. Creez-la d'abord dans pgAdmin." }
-    if ($Mode -eq 'prod') {
+    if ($Mode -eq 'prod' -and -not $NoBackup) {
         $backupDir = Join-Path $PSScriptRoot 'backups'
         New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
         $backup = Join-Path $backupDir ("$db-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.dump')
         & $dump -Fc -U postgres -d $db -f $backup
         if ($LASTEXITCODE -ne 0) { Remove-Item -LiteralPath $backup -ErrorAction SilentlyContinue; throw 'Sauvegarde PROD echouee. Aucune suppression effectuee.' }
         Write-Host "Sauvegarde PROD : $backup"
+    } elseif ($Mode -eq 'prod') {
+        Write-Host 'Option -NoBackup : aucune sauvegarde ne sera creee, conformement a la demande.' -ForegroundColor Yellow
     }
     $listeners = @(Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue)
     foreach ($listener in $listeners) {
         $ownerPid = $listener.OwningProcess
         $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid"
-        if ($proc.CommandLine -notmatch 'mg\.galaxam\.sirh|backend[\\/]target|sirh.*\.jar') {
+        if ($proc.CommandLine -notmatch 'mg\.galaxam\.sirh|backend[\\/]target|sirh.*\.jar|[\\/]app[\\/]backend\.jar') {
             throw "Le port 8080 est utilise par un autre programme (PID $ownerPid). Arretez-le manuellement."
         }
         Stop-Process -Id $ownerPid -Force
@@ -59,8 +64,18 @@ try {
         & $psql @args
         if ($LASTEXITCODE -ne 0) { throw 'Un DDL a echoue. La transaction a annule la remise a zero.' }
     } finally { Remove-Item -LiteralPath $resetSql -ErrorAction SilentlyContinue }
-    $runner = Join-Path $PSScriptRoot 'run-backend.ps1'
-    $child = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $runner + '"'), '-Mode', $Mode) -WindowStyle Hidden -PassThru
+    if ($Mode -eq 'prod') {
+        $migrator = Join-Path $PSScriptRoot 'migrate-grh.ps1'
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $migrator -Database $db
+        if ($LASTEXITCODE -ne 0) { throw 'Six DDL charges, mais migrations initiales echouees.' }
+    }
+    if ($Mode -eq 'prod' -and (Test-Path 'D:\GALAXAM-GRH\scripts\start-app.ps1')) {
+        $runner = 'D:\GALAXAM-GRH\scripts\start-app.ps1'
+        $child = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $runner + '"'), '-NoBrowser') -WindowStyle Hidden -PassThru
+    } else {
+        $runner = Join-Path $PSScriptRoot 'run-backend.ps1'
+        $child = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $runner + '"'), '-Mode', $Mode) -WindowStyle Hidden -PassThru
+    }
     Write-Host "Six DDL recharges dans $db. Backend $Mode demarre (PID $($child.Id))."
     $ready = $false
     for ($i = 0; $i -lt 60; $i++) {
