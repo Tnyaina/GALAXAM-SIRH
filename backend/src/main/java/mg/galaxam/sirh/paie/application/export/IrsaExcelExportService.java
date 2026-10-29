@@ -56,9 +56,15 @@ public class IrsaExcelExportService {
             var company = companyByBulletin.get(bulletin.getIdBulletin());
             if (company == null) throw new IllegalStateException("Filiale employeur introuvable pour le bulletin "
                     + bulletin.getReferenceBulletin() + ".");
-            if (company.name() == null || company.name().isBlank()
-                    || company.nif() == null || company.nif().isBlank())
-                throw new IllegalStateException("Export impossible : renseignez la raison sociale et le NIF de la filiale.");
+            List<String> missingCompanyFields = new ArrayList<>();
+            if (company.name() == null || company.name().isBlank()) missingCompanyFields.add("raison sociale");
+            if (company.nif() == null || company.nif().isBlank()) missingCompanyFields.add("NIF");
+            if (!missingCompanyFields.isEmpty()) {
+                String companyLabel = company.name() == null || company.name().isBlank()
+                        ? "(raison sociale non renseignée)" : "« " + company.name().trim() + " »";
+                throw new IllegalStateException("Export impossible pour la filiale " + companyLabel
+                        + " : renseignez " + String.join(" et ", missingCompanyFields) + ".");
+            }
             byCompany.computeIfAbsent(company, ignored -> new ArrayList<>()).add(bulletin);
         }
 
@@ -196,3 +202,4 @@ public class IrsaExcelExportService {
     }
 
 }
+

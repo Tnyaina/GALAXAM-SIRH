@@ -53,7 +53,7 @@ export default function PayrollCampaignShell({
         : null;
 
     return (
-        <div className="flex-1 flex flex-col min-h-full max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-6">
+        <div className="flex-1 flex flex-col min-h-full max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8">
             <SEO
                 title={`${title || 'Campagne de Paie'} | GALAXAM GRH`}
                 description="Workflow de campagne de paie strict et guidé par le backend."
@@ -209,7 +209,7 @@ export default function PayrollCampaignShell({
 
             {/* 6. Navigation de l'étape. */}
             {(prevStep || primaryAction || nextStep || footerCenter) && (
-            <nav aria-label="Navigation de la campagne" className="mt-5 border-t border-[var(--color-border-subtle)] pt-4 pb-1">
+            <nav aria-label="Navigation de la campagne" className="mt-auto border-t border-[var(--color-border-subtle)] pt-4 pb-1">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2">
                         {prevStep && (
@@ -237,3 +237,4 @@ export default function PayrollCampaignShell({
         </div>
     );
 }
+
