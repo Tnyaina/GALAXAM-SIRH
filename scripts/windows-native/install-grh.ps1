@@ -15,10 +15,14 @@ $password = [Environment]::GetEnvironmentVariable('SIRH_PROD_DB_PASSWORD', 'User
 if ([string]::IsNullOrWhiteSpace($password)) { throw 'Configuration PROD absente.' }
 $env:PGPASSWORD = $password
 $tableCount = $null
+$databaseReady = $false
 try {
-    $tableCount = & 'C:\Program Files\GALAXAM\Toolchain\postgresql-15.19\bin\psql.exe' -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -U galaxam_prod_admin -d sirh_galaxam -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public'"
+    try {
+        $tableCount = & 'C:\Program Files\GALAXAM\Toolchain\postgresql-15.19\bin\psql.exe' -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -U galaxam_prod_admin -d sirh_galaxam -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public'" 2>$null
+        $databaseReady = ($LASTEXITCODE -eq 0 -and [int]$tableCount -gt 0)
+    } catch { $databaseReady = $false }
 } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-if ($LASTEXITCODE -ne 0 -or [int]$tableCount -eq 0) {
+if (-not $databaseReady) {
     foreach ($name in @('SIRH_ADMIN_NAME', 'SIRH_ADMIN_EMAIL', 'SIRH_ADMIN_PASSWORD')) {
         if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, 'User'))) { throw "Variable requise pour le premier compte : $name" }
     }
