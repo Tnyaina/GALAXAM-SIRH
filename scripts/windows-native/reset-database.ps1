@@ -23,6 +23,8 @@ try { $env:PGPASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
 finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 $env:PGHOST = '127.0.0.1'
 $env:PGPORT = '5432'
+$previousClientEncoding = $env:PGCLIENTENCODING
+$env:PGCLIENTENCODING = 'UTF8'
 try {
     $exists = & $psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$db'"
     if ($LASTEXITCODE -ne 0) { throw 'Connexion PostgreSQL impossible.' }
@@ -68,4 +70,8 @@ try {
     }
     if (-not $ready) { throw "Backend pas encore pret. Voir $PSScriptRoot\logs\backend-$Mode.log" }
     Write-Host 'Backend pret : http://127.0.0.1:8080/api/auth/ping'
-} finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+} finally {
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    if ($null -eq $previousClientEncoding) { Remove-Item Env:PGCLIENTENCODING -ErrorAction SilentlyContinue }
+    else { $env:PGCLIENTENCODING = $previousClientEncoding }
+}

@@ -66,11 +66,15 @@ $sql.Add('COMMIT;')
 $temp = Join-Path $env:TEMP ("galaxam-migrate-$PID-" + [guid]::NewGuid().ToString('N') + '.sql')
 $sql | Set-Content -LiteralPath $temp -Encoding Ascii
 $env:PGPASSWORD = $password
+$previousClientEncoding = $env:PGCLIENTENCODING
+$env:PGCLIENTENCODING = 'UTF8'
 try {
     & $psql -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -U $Username -d $Database -f $temp
     if ($LASTEXITCODE -ne 0) { throw "Migrations annulees pour $Database. La transaction a ete annulee." }
     Write-Host "Migrations verifiees et appliquees pour $Database."
 } finally {
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    if ($null -eq $previousClientEncoding) { Remove-Item Env:PGCLIENTENCODING -ErrorAction SilentlyContinue }
+    else { $env:PGCLIENTENCODING = $previousClientEncoding }
     Remove-Item -LiteralPath $temp -ErrorAction SilentlyContinue
 }

@@ -16,6 +16,8 @@ if ([string]::IsNullOrWhiteSpace($superPassword)) {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
 $env:PGPASSWORD = $superPassword
+$previousClientEncoding = $env:PGCLIENTENCODING
+$env:PGCLIENTENCODING = 'UTF8'
 try {
     $exists = & $psql -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='$Database'"
     if ($LASTEXITCODE -ne 0) { throw 'Connexion PostgreSQL superutilisateur impossible.' }
@@ -43,4 +45,8 @@ try {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'migrate-grh.ps1') -Database $Database
     if ($LASTEXITCODE -ne 0) { throw 'Six DDL charges, mais migrations initiales echouees.' }
     Write-Host "Base $Database initialisee avec six DDL et migrations versionnees."
-} finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+} finally {
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    if ($null -eq $previousClientEncoding) { Remove-Item Env:PGCLIENTENCODING -ErrorAction SilentlyContinue }
+    else { $env:PGCLIENTENCODING = $previousClientEncoding }
+}
