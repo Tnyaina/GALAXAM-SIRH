@@ -13,6 +13,12 @@ export default function AffectationFieldsSection({
     categoriesPro = [],
     modesPaie = [],
 }) {
+    const selectedMode = modesPaie.find((mode) =>
+        String(mode.idModeCalculPaie ?? mode.idModeCalcul) === String(formData.idModeCalculPaie)
+    )?.code;
+    const salaryLabel = selectedMode === 'HORAIRE' ? 'Taux horaire (Ar/heure)'
+        : selectedMode === 'JOURNALIER' ? 'Taux journalier (Ar/jour)'
+        : 'Salaire mensuel de base (Ar)';
     return (
         <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] pb-1 border-b border-[var(--color-border-subtle)]">
@@ -128,12 +134,13 @@ export default function AffectationFieldsSection({
                 </Select>
 
                 <MoneyInput
-                    label="Salaire de base (Ar)"
+                    label={salaryLabel}
                     min="0"
                     required
                     value={formData.salaireBase}
                     onValueChange={(value) => setField('salaireBase', value)}
-                    placeholder="Ex: 1500000"
+                    placeholder={selectedMode === 'HORAIRE' ? 'Ex : 1000'
+                        : selectedMode === 'JOURNALIER' ? 'Ex : 20000' : 'Ex : 1500000'}
                 />
             </div>
         </div>

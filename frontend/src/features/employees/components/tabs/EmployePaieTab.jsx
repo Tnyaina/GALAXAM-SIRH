@@ -228,7 +228,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                         {synthese.dernierStatut && <Badge variant={synthese.dernierBadgeVariant || (synthese.isDernierValide ? 'success' : synthese.isDernierCalcule ? 'info' : 'default')} size="xs">{synthese.dernierStatut}</Badge>}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
-                        <StatCard title="Salaire de base" value={formatMoneyAr(synthese.salaireBaseContractuel)} subtext="Montant contractuel de l'affectation" icon={<Banknote size={16} />} color="brand" bordered={false} />
+                        <StatCard title={synthese.modeCalculPaie === 'JOURNALIER' ? 'Taux par jour' : synthese.modeCalculPaie === 'HORAIRE' ? 'Taux par heure' : 'Salaire de base'} value={formatMoneyAr(synthese.salaireBaseContractuel)} subtext="Montant contractuel de l'affectation" icon={<Banknote size={16} />} color="brand" bordered={false} />
                         <StatCard title="Net du dernier bulletin" value={synthese.dernierBulletinId ? formatMoneyAr(synthese.dernierNet) : 'Aucun bulletin'} subtext={synthese.dernierBulletinId ? `Brut : ${formatMoneyAr(synthese.dernierBrut)}` : 'Aucun bulletin calculé'} icon={<FileText size={16} />} color="success" bordered={false} />
                         <StatCard title="Acomptes à imputer" value={formatMoneyAr(synthese.acomptesRestants)} subtext={`${acompteCount} mouvement(s) · solde approuvé`} icon={<Receipt size={16} />} color="neutral" bordered={false} onClick={() => focusMovements('ACOMPTE')} />
                         <StatCard title="Avances en cours" value={formatMoneyAr(synthese.avancesRestantes)} subtext={`${avanceCount} mouvement(s) · solde restant`} icon={<Receipt size={16} />} color="neutral" bordered={false} onClick={() => focusMovements('AVANCE')} />
@@ -237,7 +237,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                 </Card>
                 <AccordionSection id="paie-parametres" icon={<Calculator size={15} />} title="Paramètres de calcul" defaultOpen={false}>
                     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 text-xs">
-                        <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux horaire</dt><dd className="font-semibold text-right">{formatMoneyAr(synthese.tauxHoraire)} / h{synthese.diviseurHeures ? ` · base ${synthese.diviseurHeures} h` : ''}</dd></div>
+                        <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux horaire</dt><dd className="font-semibold text-right">{synthese.tauxHoraire == null ? 'Selon les heures normales du jour' : `${formatMoneyAr(synthese.tauxHoraire)} / h`}{synthese.diviseurHeures ? ` · base ${synthese.diviseurHeures} h` : ''}</dd></div>
                         <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux congé journalier</dt><dd className="font-semibold text-right" title={synthese.tauxJournalierCongeErreur || undefined}>{synthese.tauxJournalierConge == null ? 'À régulariser' : formatMoneyAr(synthese.tauxJournalierConge)}</dd></div>
                     </dl>
                 </AccordionSection>

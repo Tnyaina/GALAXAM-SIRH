@@ -115,7 +115,7 @@ export default function PayrollPeriodStepper({
             <p className="border-b border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-fg-muted)] sm:hidden">
                 Faites défiler les étapes horizontalement pour parcourir la campagne.
             </p>
-            <ol className="relative z-10 flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain sm:grid sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7" aria-label="Étapes de la campagne">
+            <ol className="relative z-10 grid w-full max-w-full grid-flow-col auto-cols-[minmax(10rem,1fr)] snap-x snap-mandatory overflow-x-auto overscroll-x-contain" aria-label="Étapes de la campagne">
                 {steps.map((step, index) => {
                     const conf = stateConfig[step.state] || stateConfig.BLOCKED;
                     const isActive = step.code === activeCode;
@@ -127,7 +127,7 @@ export default function PayrollPeriodStepper({
                         <li
                             key={step.code}
                             className={`
-                                min-w-[14rem] max-w-[16rem] shrink-0 snap-start flex items-stretch group border-b border-r border-[var(--color-border-subtle)] sm:min-w-0 sm:max-w-none sm:shrink
+                                min-w-0 snap-start flex items-stretch group border-r border-[var(--color-border-subtle)]
                                 ${isActive ? 'bg-[var(--color-brand-500)]/5' : ''}
                             `}
                         >

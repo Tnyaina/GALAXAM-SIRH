@@ -18,6 +18,12 @@ public final class PointageAllowancePolicy {
         return recordedDecision != null ? recordedDecision : defaultDecision;
     }
 
+    /** Une indemnité explicitement accordée reste due pendant un congé payé. */
+    public static boolean eligibleForAllowance(boolean workedOrPresent, boolean paidLeave,
+            Boolean recordedDecision) {
+        return workedOrPresent || (paidLeave && Boolean.TRUE.equals(recordedDecision));
+    }
+
     /** Même tarif journalier pour la grille, les propositions datées et la persistance. */
     public static BigDecimal dailyAmount(String periodicity, BigDecimal reference, int workingDays,
             CalendrierOuvrableEngine calendar) {

@@ -86,7 +86,7 @@ public class PayrollEmployeeReadService {
 
         // 1. Situation contractuelle et rémunération de base
         String sqlContrat = "SELECT e.matricule, e.nom, e.prenom, " +
-                "eac.salaire_base, ct.id_contrat, ct.numero_contrat, rsc.code AS code_statut_contrat, " +
+                "eac.salaire_base, rmp.code AS mode_calcul_paie, ct.id_contrat, ct.numero_contrat, rsc.code AS code_statut_contrat, " +
                 "ct.date_debut AS date_debut_contrat, ct.date_fin AS date_fin_contrat, " +
                 "f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom " +
                 "FROM employe e " +
@@ -104,6 +104,7 @@ public class PayrollEmployeeReadService {
                 "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
                 "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
                 "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
+                "LEFT JOIN ref_mode_calcul_paie rmp ON eac.id_mode_calcul_paie = rmp.id_mode_calcul_paie " +
                 "WHERE e.id_employe = ? " +
                 "LIMIT 1";
 
@@ -113,6 +114,7 @@ public class PayrollEmployeeReadService {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     salaireBase = rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO;
+                    synthese.put("modeCalculPaie", rs.getString("mode_calcul_paie"));
                     synthese.put("matricule", rs.getString("matricule"));
                     synthese.put("nomComplet", (rs.getString("nom") + " " + (rs.getString("prenom") != null ? rs.getString("prenom") : "")).trim());
                     synthese.put("fonction", rs.getString("fonction_nom"));
@@ -153,16 +155,19 @@ public class PayrollEmployeeReadService {
                 diviseur = conf.getDiviseurMensuelHeures();
             }
         } catch (Exception ignored) {}
-        BigDecimal tauxHoraire = salaireBase.compareTo(BigDecimal.ZERO) > 0
-                ? salaireBase.divide(diviseur, 4, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        String modeCalculPaie = (String) synthese.get("modeCalculPaie");
+        BigDecimal tauxHoraire = salaireBase.compareTo(BigDecimal.ZERO) <= 0 ? BigDecimal.ZERO
+                : "HORAIRE".equalsIgnoreCase(modeCalculPaie) ? salaireBase
+                : "JOURNALIER".equalsIgnoreCase(modeCalculPaie) ? null
+                : salaireBase.divide(diviseur, 4, RoundingMode.HALF_UP);
         synthese.put("tauxHoraire", tauxHoraire);
-        synthese.put("diviseurHeures", diviseur);
+        synthese.put("diviseurHeures", "MENSUEL".equalsIgnoreCase(modeCalculPaie) ? diviseur : null);
 
         // 3. TCONGE journalier applicable résolu par le moteur canonique
         BigDecimal tauxConge = null;
         try {
-            if (congeTauxApplicableService != null && salaireBase.compareTo(BigDecimal.ZERO) > 0) {
+            if ("MENSUEL".equalsIgnoreCase(modeCalculPaie)
+                    && congeTauxApplicableService != null && salaireBase.compareTo(BigDecimal.ZERO) > 0) {
                 var res = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today(), salaireBase, c);
                 if (res != null && res.getTauxJournalier() != null) {
                     tauxConge = res.getTauxJournalier();

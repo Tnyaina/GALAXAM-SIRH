@@ -46,10 +46,12 @@ public class ManualVariableAmountService {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "Cette version est désactivée pour la nouvelle saisie.");
         }
-        BigDecimal salary = "POURCENTAGE_SALAIRE_BASE".equals(rule.getMethodeCalcul())
-                ? payrollService.preparerInput(request.getIdEmploye(), request.getIdPeriodePaie(), true, connection)
-                        .getSalaireBaseCampagne()
-                : null;
+        BigDecimal salary = null;
+        if ("POURCENTAGE_SALAIRE_BASE".equals(rule.getMethodeCalcul())) {
+            var input = payrollService.preparerInput(request.getIdEmploye(), request.getIdPeriodePaie(), true, connection);
+            salary = "MENSUEL".equalsIgnoreCase(input.getModeCalculPaie())
+                    ? input.getSalaireBaseCampagne() : input.getSalaireBaseNonMensuel();
+        }
         try {
             return ManualPayrollRules.calculateAmount(rule.getMethodeCalcul(), rule.getPolitiqueArrondi(),
                     request.getMontant(), request.getQuantiteSaisie(), request.getTauxSaisi(), salary);

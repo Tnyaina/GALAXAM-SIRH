@@ -37,6 +37,8 @@ public class PayrollCalculationInput {
     private String regimeIntervenant = "PERMANENT"; // PERMANENT, CONSULTANT, TEMPORAIRE, STAGIAIRE
     private String categorieProfessionnelle = "AGENT"; // CADRE, AGENT, NON_CADRE
     private String modeCalculPaie = "MENSUEL"; // MENSUEL, HORAIRE, JOURNALIER
+    private BigDecimal heuresNormalesParJour = new BigDecimal("8");
+    private BigDecimal joursPayablesJournaliers;
     private Date dateEmbauche;
     private Date dateDepart;
     private int ancienneteMois;
@@ -338,6 +340,9 @@ public class PayrollCalculationInput {
             return tauxHoraire;
         }
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
+            if ("HORAIRE".equalsIgnoreCase(modeCalculPaie)) return salaireBaseContractuel;
+            if ("JOURNALIER".equalsIgnoreCase(modeCalculPaie))
+                return salaireBaseContractuel.divide(getHeuresNormalesParJour(), java.math.MathContext.DECIMAL128);
             BigDecimal diviseur = getDiviseurMensuelHeuresEffectif();
             return salaireBaseContractuel.divide(diviseur, java.math.MathContext.DECIMAL128);
         }
@@ -352,6 +357,9 @@ public class PayrollCalculationInput {
             return tauxHoraire;
         }
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
+            if ("HORAIRE".equalsIgnoreCase(modeCalculPaie)) return salaireBaseContractuel;
+            if ("JOURNALIER".equalsIgnoreCase(modeCalculPaie))
+                return salaireBaseContractuel.divide(getHeuresNormalesParJour(), 8, RoundingMode.HALF_UP);
             BigDecimal diviseur = getDiviseurMensuelHeuresEffectif();
             return salaireBaseContractuel.divide(diviseur, 8, RoundingMode.HALF_UP);
         }
@@ -360,6 +368,43 @@ public class PayrollCalculationInput {
 
     public BigDecimal getSalaireBasePlein() {
         return salaireBaseContractuel != null ? salaireBaseContractuel : BigDecimal.ZERO;
+    }
+
+    /** Montant payé sur le pointage gelé pour les modes à l'heure ou à la journée. */
+    public BigDecimal getSalaireBaseNonMensuel() {
+        if (attendanceInput == null)
+            throw new IllegalStateException("PAYROLL_ATTENDANCE_MISSING: pointage gelé requis pour une paie horaire ou journalière");
+        if (salaireParJour.values().stream().distinct().count() > 1)
+            throw new IllegalStateException("PAYROLL_RATE_CHANGE_UNRESOLVED: taux horaire ou journalier variable pendant la période");
+        BigDecimal taux = getSalaireBasePlein();
+        if ("HORAIRE".equalsIgnoreCase(modeCalculPaie))
+            return mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(taux.multiply(getHeuresNormalesPayables()));
+        if ("JOURNALIER".equalsIgnoreCase(modeCalculPaie))
+            return mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(taux.multiply(getJoursPayablesJournaliers()));
+        throw new IllegalStateException("PAYROLL_MODE_UNSUPPORTED: " + modeCalculPaie);
+    }
+
+    public BigDecimal getHeuresNormalesPayables() {
+        if (attendanceInput != null) {
+            long regularMinutes = attendanceInput.workedMinutes()
+                    - attendanceInput.overtime30Minutes() - attendanceInput.overtime50Minutes();
+            if (regularMinutes < 0)
+                throw new IllegalStateException("PAYROLL_WORKED_HOURS_INVALID: heures supplémentaires supérieures aux heures travaillées");
+            return BigDecimal.valueOf(regularMinutes).divide(BigDecimal.valueOf(60), 12, RoundingMode.HALF_UP);
+        }
+        BigDecimal heures = totalHeuresTravaillees.subtract(heuresHs30).subtract(heuresHs50);
+        if (heures.signum() < 0)
+            throw new IllegalStateException("PAYROLL_WORKED_HOURS_INVALID: heures supplémentaires supérieures aux heures travaillées");
+        return heures;
+    }
+
+    public BigDecimal getJoursPayablesJournaliers() {
+        if (joursPayablesJournaliers == null)
+            throw new IllegalStateException("PAYROLL_DAILY_SNAPSHOT_MISSING: journées gelées requises pour la paie journalière");
+        return joursPayablesJournaliers;
+    }
+    public void setJoursPayablesJournaliers(BigDecimal joursPayablesJournaliers) {
+        this.joursPayablesJournaliers = joursPayablesJournaliers;
     }
 
     public Map<LocalDate, BigDecimal> getSalaireParJour() { return salaireParJour; }
@@ -390,6 +435,9 @@ public class PayrollCalculationInput {
         BigDecimal salaire = salaireParJour.get(date);
         if (salaire == null) throw new IllegalStateException(
                 "MISSING_CONFIGURATION: SALAIRE employé=" + idEmploye + " au " + date);
+        if ("HORAIRE".equalsIgnoreCase(modeCalculPaie)) return salaire;
+        if ("JOURNALIER".equalsIgnoreCase(modeCalculPaie))
+            return salaire.divide(getHeuresNormalesParJour(), java.math.MathContext.DECIMAL128);
         return salaire.divide(getDiviseurMensuelHeuresEffectif(), java.math.MathContext.DECIMAL128);
     }
 
@@ -398,6 +446,9 @@ public class PayrollCalculationInput {
      */
     public BigDecimal getTauxJournalierTrentieme() {
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
+            if ("HORAIRE".equalsIgnoreCase(modeCalculPaie))
+                return salaireBaseContractuel.multiply(getHeuresNormalesParJour());
+            if ("JOURNALIER".equalsIgnoreCase(modeCalculPaie)) return salaireBaseContractuel;
             return salaireBaseContractuel.divide(new BigDecimal("30.0"), 8, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
@@ -498,6 +549,12 @@ public class PayrollCalculationInput {
 
     public String getModeCalculPaie() { return modeCalculPaie; }
     public void setModeCalculPaie(String modeCalculPaie) { this.modeCalculPaie = modeCalculPaie; }
+    public BigDecimal getHeuresNormalesParJour() {
+        if (heuresNormalesParJour == null || heuresNormalesParJour.signum() <= 0)
+            throw new IllegalStateException("PAYROLL_DAILY_HOURS_MISSING: seuil quotidien invalide");
+        return heuresNormalesParJour;
+    }
+    public void setHeuresNormalesParJour(BigDecimal heuresNormalesParJour) { this.heuresNormalesParJour = heuresNormalesParJour; }
 
     public Date getDateEmbauche() { return dateEmbauche; }
     public void setDateEmbauche(Date dateEmbauche) { this.dateEmbauche = dateEmbauche; }

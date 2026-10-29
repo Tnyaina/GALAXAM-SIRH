@@ -279,6 +279,20 @@ sélecteur Pointage peut conserver la réponse légère sans cet enrichissement.
 
 ## Configuration contrôlée des rubriques (sp44 à sp47)
 
+### Base horaire et journalière
+
+`salaire_base` dans l'affectation est un montant mensuel en mode `MENSUEL`, un
+taux par heure en mode `HORAIRE` et un taux par jour en mode `JOURNALIER`.
+La base horaire paie les heures travaillées du snapshot gelé hors heures
+supplémentaires, valorisées séparément. La base journalière additionne, pour
+chaque journée gelée, les minutes normales / le seuil quotidien applicable,
+plafonnées à une journée. Elle utilise le paramètre `SEUIL_HEURES_JOUR` daté.
+Les absences sont déjà exclues de ces quantités et ne sont pas retenues une
+seconde fois. Les congés payés sont ajoutés selon la valeur historique des
+lots TCONGE, sans nouvelle déduction de la base déjà limitée au travail effectué.
+Une variation de taux, des heures DAF non attribuées à une journée ou un
+snapshot incomplet bloquent toujours le calcul non mensuel.
+
 Le moteur conserve un ordre de calcul explicite : rémunération brute, cotisations,
 revenu et impôt, gains ajoutés au net, retenues personnelles, arrondi de règlement.
 Une rubrique manuelle choisit son intervention parmi `BRUT`, `GAIN_NET`,

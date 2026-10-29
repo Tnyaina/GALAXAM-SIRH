@@ -106,7 +106,9 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
 
     // Chiffres repères financiers de l'employé fournis par le backend
     const salaireBase = effectiveSynthese?.salaireBaseContractuel || 0;
-    const plafondAcompte = salaireBase > 0 ? Math.round(salaireBase * 0.5) : 0;
+    const modeCalculPaie = effectiveSynthese?.modeCalculPaie;
+    const salaireMensuel = modeCalculPaie === 'MENSUEL';
+    const plafondAcompte = salaireMensuel && salaireBase > 0 ? Math.round(salaireBase * 0.5) : 0;
     const encoursAcomptes = (effectiveSynthese?.acomptesRestants || 0) + (effectiveSynthese?.avancesRestantes || 0);
 
     // Chargement dynamique des types de mouvements autorisés pour la période sélectionnée
@@ -197,7 +199,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
 
     // Raccourcis de calcul ergonomiques (purement indicatifs, aucune règle bloquante)
     const quickAmounts = useMemo(() => {
-        if (!salaireBase || salaireBase <= 0) {
+        if (!salaireMensuel || !salaireBase || salaireBase <= 0) {
             return [50000, 100000, 200000].map(value => ({
                 label: formatMoneyAr(value),
                 value,
@@ -212,7 +214,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
             { label: '75 %', value: p75, sub: formatMoneyAr(p75) },
             { label: '100 000 Ar', value: 100000, sub: 'Forfait' },
         ];
-    }, [salaireBase]);
+    }, [salaireBase, salaireMensuel]);
 
     const submit = async event => {
         event.preventDefault();
@@ -308,7 +310,9 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                                 <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                    Salaire contractuel de base
+                                    {modeCalculPaie === 'JOURNALIER' ? 'Taux contractuel par jour'
+                                        : modeCalculPaie === 'HORAIRE' ? 'Taux contractuel par heure'
+                                            : 'Salaire contractuel de base'}
                                 </span>
                                 <span className="text-xs font-bold text-[var(--color-fg)] font-mono mt-0.5 block">
                                     {loadingEmpSynthese ? 'Chargement…' : salaireBase > 0 ? formatMoneyAr(salaireBase) : 'Non renseigné'}
@@ -316,10 +320,10 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                             </div>
                             <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                                 <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                    Repère quinzaine (50%)
+                                    {salaireMensuel ? 'Repère quinzaine (50%)' : 'Repère quinzaine'}
                                 </span>
                                 <span className="text-xs font-bold text-[var(--color-brand-700)] font-mono mt-0.5 block">
-                                    {loadingEmpSynthese ? '…' : plafondAcompte > 0 ? formatMoneyAr(plafondAcompte) : '—'}
+                                    {loadingEmpSynthese ? '…' : plafondAcompte > 0 ? formatMoneyAr(plafondAcompte) : 'Selon paie acquise'}
                                 </span>
                             </div>
                             <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
@@ -430,7 +434,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                         <label className="block text-xs font-semibold text-[var(--color-fg)]">
                             Montant de la demande <span className="text-[var(--color-danger-500)]">*</span>
                         </label>
-                        {salaireBase > 0 && (
+                        {salaireMensuel && salaireBase > 0 && (
                             <span className="text-[11px] text-[var(--color-fg-muted)]">
                                 Suggestions rapides (base : {formatMoneyAr(salaireBase)}) :
                             </span>
@@ -462,7 +466,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                     />
 
                     {/* Retours indicatifs d'aide visuelle (non bloquants) */}
-                    {isMontantValide && salaireBase > 0 && (
+                    {isMontantValide && salaireMensuel && salaireBase > 0 && (
                         <div className="pt-1">
                             {numMontant <= plafondAcompte ? (
                                 <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">

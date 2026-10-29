@@ -715,7 +715,9 @@ public class PointageSyntheseService {
                             ? defaultsAutonomesParDate.getOrDefault(dPointage, Map.of()) : Map.of();
                     defaultsAutonomes.forEach((code, amount) -> indemnitesAutonomesSansPointage.merge(code, amount, BigDecimal::add));
                     boolean repasParDefaut = estPresentAutonome && defaultsAutonomes.containsKey("REPAS");
-                    boolean aPrisRepasCeJour = estTravailleOuPresent
+                    boolean aPrisRepasCeJour = PointageAllowancePolicy.eligibleForAllowance(
+                                    estTravailleOuPresent, "CONGE".equals(stCode),
+                                    dynRepasObj == null ? null : repasEffectif)
                             && PointageAllowancePolicy.resolve(dynRepasObj == null ? null : repasEffectif, repasParDefaut);
                     BigDecimal mealAmount = BigDecimal.ZERO;
                     if (aPrisRepasCeJour) {
@@ -732,11 +734,14 @@ public class PointageSyntheseService {
                     boolean deplacementParDefaut = estPresentAutonome && defaultTravelAmount(defaultsAutonomes).signum() > 0;
                     boolean deplacementAccorde = PointageAllowancePolicy.resolve(
                             dynDepQteObj == null ? null : rsPtg.getBoolean("dyn_dep_accorde"), deplacementParDefaut);
+                    boolean deplacementEligible = PointageAllowancePolicy.eligibleForAllowance(
+                            estTravailleOuPresent, "CONGE".equals(stCode),
+                            dynDepQteObj == null ? null : rsPtg.getBoolean("dyn_dep_accorde"));
                     if (dynDepQteObj != null) {
-                        if (estTravailleOuPresent && deplacementAccorde) {
+                        if (deplacementEligible && deplacementAccorde) {
                             fractionJour = nullToZero(rsPtg.getBigDecimal("dyn_dep_quantite"));
                         }
-                    } else if (estTravailleOuPresent && deplacementAccorde) {
+                    } else if (deplacementEligible && deplacementAccorde) {
                         BigDecimal defaultTravelAmount = defaultTravelAmount(defaultsAutonomes);
                         if (defaultTravelAmount.signum() > 0) fractionJour = BigDecimal.ONE;
                     }
@@ -1059,6 +1064,9 @@ public class PointageSyntheseService {
                 loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c, fixedAmounts));
         if (!useFrozenSnapshot) {
             indemnitesAutonomesSansPointage.forEach((code, amount) -> totalAllowances.merge(code, amount, BigDecimal::add));
+            // Le cumul corrige l'arrondi des journées d'un forfait intégral. La
+            // ventilation figée pour la paie doit reprendre exactement ce cumul.
+            reconcileTravelAllowance(totalAllowances, fixedAmounts, dto.getMontantDeplacement());
         } else {
             // Le snapshot ne sépare pas l'indemnité journalière du fixe mensuel.
             // Masquer cette ventilation évite de présenter des jours autonomes comme du fixe.
@@ -1118,6 +1126,22 @@ public class PointageSyntheseService {
             }
         }
         return dto;
+    }
+
+    static void reconcileTravelAllowance(Map<String, BigDecimal> amounts,
+            Map<String, BigDecimal> fixedAmounts, BigDecimal dailyAmount) {
+        for (String code : List.of("DPLCT", "DEPLACEMENT", "TRANSPORT")) {
+            if (amounts.containsKey(code)) {
+                BigDecimal desired = dailyAmount.add(fixedAmounts.getOrDefault(code, BigDecimal.ZERO));
+                if (desired.signum() < 0) throw new IllegalStateException("Indemnité de déplacement négative après ajustement.");
+                if (desired.signum() == 0) amounts.remove(code);
+                else amounts.put(code, desired);
+                return;
+            }
+        }
+        if (dailyAmount.signum() > 0) {
+            throw new IllegalStateException("Indemnité de déplacement absente lors de l'ajustement du forfait.");
+        }
     }
 
     /** Lecture générique : journal avant gel, valeurs figées après gel. */

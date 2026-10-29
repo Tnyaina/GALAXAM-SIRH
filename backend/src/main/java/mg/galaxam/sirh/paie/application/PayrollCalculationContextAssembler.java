@@ -24,8 +24,10 @@ import mg.galaxam.sirh.contrat.domain.AncienneteEngine;
 import mg.galaxam.sirh.contrat.persistence.EmployeEnfant;
 import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.DailyPayProration;
 import mg.galaxam.sirh.paie.domain.engine.PayrollOvertimeSettlement;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
+import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.DaySpecialType;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
@@ -64,6 +66,7 @@ final class PayrollCalculationContextAssembler {
         chargerPointage(in, idEmploye, idPeriodePaie, simulation, c);
         chargerConges(in, idEmploye, c);
         chargerReglesLegales(in, c);
+        chargerJoursPayables(in, c);
         chargerMouvements(in, idEmploye, idPeriodePaie, simulation, c);
         verifierContexteAssemble(in);
         return in;
@@ -328,6 +331,52 @@ final class PayrollCalculationContextAssembler {
         payrollLegalContextResolver.resolve(in, c);
     }
 
+    private void chargerJoursPayables(PayrollCalculationInput in, Connection c) throws Exception {
+        if (!"JOURNALIER".equalsIgnoreCase(in.getModeCalculPaie())) return;
+        PayrollAttendanceInput attendance = in.getAttendanceInput();
+        if (attendance.dafOvertime30Minutes() > 0 || attendance.dafOvertime50Minutes() > 0)
+            throw new IllegalStateException("PAYROLL_DAILY_DAF_OVERTIME_UNRESOLVED: heures DAF sans journée attribuée");
+        String sql = "SELECT j.date_pointage, SUM(j.minutes_travaillees) AS minutes_travaillees, "
+                + "COALESCE(SUM(hs.minutes_hs), 0) AS minutes_hs "
+                + "FROM pointage_snapshot_jour j LEFT JOIN ("
+                + "SELECT id_cumul, id_pointage, SUM(minutes) AS minutes_hs FROM pointage_snapshot_bucket "
+                + "WHERE overtime_tier IN ('OVERTIME_30', 'OVERTIME_50') GROUP BY id_cumul, id_pointage"
+                + ") hs ON hs.id_cumul=j.id_cumul AND hs.id_pointage=j.id_pointage "
+                + "WHERE j.id_cumul=? GROUP BY j.date_pointage ORDER BY j.date_pointage";
+        List<DailyPayProration.Day> days = new ArrayList<>();
+        long workedMinutes = 0;
+        long overtimeMinutes = 0;
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, attendance.snapshotId());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    LocalDate date = rs.getDate("date_pointage").toLocalDate();
+                    var hours = ParametreGlobal.resolve(
+                            ParametreGlobal.loadEtatMapAtDate(Date.valueOf(date), c), "SEUIL_HEURES_JOUR");
+                    if (!hours.isActive())
+                        throw new IllegalStateException("PAYROLL_DAILY_HOURS_MISSING: seuil quotidien absent au " + date);
+                    BigDecimal dailyHours;
+                    try { dailyHours = new BigDecimal(hours.valeur().trim()); }
+                    catch (RuntimeException error) {
+                        throw new IllegalStateException("PAYROLL_DAILY_HOURS_INVALID: seuil quotidien invalide au " + date, error);
+                    }
+                    if (dailyHours.signum() <= 0 || dailyHours.compareTo(in.getHeuresNormalesParJour()) != 0)
+                        throw new IllegalStateException("PAYROLL_DAILY_HOURS_CHANGE_UNRESOLVED: seuil quotidien incohérent au " + date);
+                    long expectedMinutes = dailyHours.multiply(BigDecimal.valueOf(60)).longValueExact();
+                    long dayWorked = rs.getLong("minutes_travaillees");
+                    long dayOvertime = rs.getLong("minutes_hs");
+                    workedMinutes += dayWorked;
+                    overtimeMinutes += dayOvertime;
+                    days.add(new DailyPayProration.Day(dayWorked, dayOvertime, expectedMinutes));
+                }
+            }
+        }
+        long finalOvertime = attendance.overtime30Minutes() + attendance.overtime50Minutes();
+        if (days.isEmpty() || workedMinutes != attendance.workedMinutes() || overtimeMinutes != finalOvertime)
+            throw new IllegalStateException("PAYROLL_DAILY_SNAPSHOT_INCOMPLETE: journées ou heures supplémentaires non rapprochées");
+        in.setJoursPayablesJournaliers(DailyPayProration.payableDays(days));
+    }
+
     private void chargerMouvements(PayrollCalculationInput in, Integer idEmploye, Integer idPeriodePaie, boolean simulation, Connection c) throws Exception {
         // 7. Variables de paie, Primes, Extras et Retenues (paie_avance_acompte & ref_type_mouvement_paie)
         String sqlMouvements = "SELECT paa.*, " +
@@ -388,7 +437,9 @@ final class PayrollCalculationContextAssembler {
                         try {
                             var calculation=mg.galaxam.sirh.paie.domain.engine.ManualPayrollRules.calculateAmount(
                                     rs.getString("methode_calcul"),rs.getString("politique_arrondi"),rs.getBigDecimal("montant_initial"),
-                                    rs.getBigDecimal("quantite_saisie"),rs.getBigDecimal("taux_saisi"),in.getSalaireBaseCampagne());
+                                    rs.getBigDecimal("quantite_saisie"),rs.getBigDecimal("taux_saisi"),
+                                    "MENSUEL".equalsIgnoreCase(in.getModeCalculPaie())
+                                            ? in.getSalaireBaseCampagne() : in.getSalaireBaseNonMensuel());
                             amountCalculation=calculation;
                             montant=calculation.montant().subtract(rs.getBigDecimal("montant_impute")).max(BigDecimal.ZERO);
                             explanation="Version "+rs.getString("rubrique_code")+" ; condition "+rs.getString("condition_application")+" ; "+calculation.explication();

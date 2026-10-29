@@ -179,7 +179,8 @@ public class PayrollExecutionEngine {
         bp.setBanqueNom(input.getBanqueNom());
         bp.setBanqueRib(input.getBanqueRib());
 
-        bp.setHeuresNormales(zeroIfNull(input.getHeuresNormales()));
+        bp.setHeuresNormales("MENSUEL".equalsIgnoreCase(input.getModeCalculPaie())
+                ? zeroIfNull(input.getHeuresNormales()) : input.getHeuresNormalesPayables());
         bp.setHeuresHs30(zeroIfNull(input.getHeuresHs30()));
         bp.setHeuresHs50(zeroIfNull(input.getHeuresHs50()));
         bp.setHeuresNuit(zeroIfNull(input.getHeuresNuit()));
@@ -207,7 +208,9 @@ public class PayrollExecutionEngine {
         BigDecimal retenueAbsence = calculerRetenueAbsence(input, base, tauxHoraire, bp, lignes);
         BigDecimal congesNet = calculerConges(input, bp, lignes);
         BigDecimal hsEtMaj = calculerMajorationsEtHeuresSup(input, tauxHoraire, bp, lignes);
-        BigDecimal primes = calculerPrimes(input, input.getSalaireBaseCampagne(), bp, lignes);
+        BigDecimal primes = calculerPrimes(input,
+                "MENSUEL".equalsIgnoreCase(input.getModeCalculPaie()) ? input.getSalaireBaseCampagne() : base,
+                bp, lignes);
 
         BigDecimal totalGainsBruts = base.subtract(retenueAbsence).add(congesNet).add(hsEtMaj).add(primes);
         totalGainsBruts = MoneyRoundingPolicy.amount(totalGainsBruts.max(BigDecimal.ZERO));
@@ -218,7 +221,10 @@ public class PayrollExecutionEngine {
     public BigDecimal calculerSalaireBase(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
         BigDecimal salaireBaseLigne = salaireBaseContractuel;
-        if (!input.getSalaireParJour().isEmpty()) {
+        String mode = input.getModeCalculPaie();
+        if ("HORAIRE".equalsIgnoreCase(mode) || "JOURNALIER".equalsIgnoreCase(mode)) {
+            salaireBaseLigne = input.getSalaireBaseNonMensuel();
+        } else if (!input.getSalaireParJour().isEmpty()) {
             salaireBaseLigne = input.getSalaireBaseCampagne();
         } else if (input.isEntreeSortieEnCoursDeMois()) {
             if (input.getJoursSousContrat() == null || input.getJoursSousContrat().compareTo(BigDecimal.ZERO) <= 0) {
@@ -231,13 +237,19 @@ public class PayrollExecutionEngine {
             );
         }
 
+        BigDecimal quantite = "HORAIRE".equalsIgnoreCase(mode)
+                ? input.getHeuresNormalesPayables()
+                : "JOURNALIER".equalsIgnoreCase(mode) ? input.getJoursPayablesJournaliers() : null;
         lignes.add(creerLigne(bp, "SALAIRE_BASE", "Salaire de Base", "GAIN", "SALAIRE_BASE",
-                salaireBaseContractuel, null, salaireBaseLigne, null, 10));
+                salaireBaseContractuel, null, quantite, salaireBaseLigne, null, 10));
         return salaireBaseLigne;
     }
 
     public BigDecimal calculerRetenueAbsence(PayrollCalculationInput input, BigDecimal salaireBaseLigne, BigDecimal tauxHoraire,
                                               BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        // Les modes à l'heure et à la journée ne paient déjà que les quantités présentes.
+        if ("HORAIRE".equalsIgnoreCase(input.getModeCalculPaie())
+                || "JOURNALIER".equalsIgnoreCase(input.getModeCalculPaie())) return BigDecimal.ZERO;
         BigDecimal nbHeuresAbsence = zeroIfNull(input.getNbHeuresAbsence());
         BigDecimal montantAbsence = BigDecimal.ZERO;
 
@@ -282,6 +294,19 @@ public class PayrollExecutionEngine {
         BigDecimal nbJoursConges = zeroIfNull(input.getNbJoursConges());
         if (nbJoursConges.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
+        }
+        if ("HORAIRE".equalsIgnoreCase(input.getModeCalculPaie())
+                || "JOURNALIER".equalsIgnoreCase(input.getModeCalculPaie())) {
+            // La base de ces modes ne paie que le travail constaté. Les lots FIFO
+            // portent la valeur historique du congé, identique au parcours mensuel.
+            if (input.getIndemniteCongeLots() == null || input.getIndemniteCongeLots().signum() < 0)
+                throw new IllegalStateException("PAYROLL_NON_MONTHLY_TCONGE_MISSING: valorisation historique du congé requise");
+            BigDecimal indemnite = MoneyRoundingPolicy.amount(input.getIndemniteCongeLots());
+            BigDecimal taux = indemnite.divide(nbJoursConges, 8, RoundingMode.HALF_UP);
+            lignes.add(creerLigne(bp, "INDEMNITE_CONGE_PAYE", "Indemnité de Congés Payés (TCONGE)", "GAIN", "SALAIRE_BASE",
+                    taux, null, nbJoursConges, indemnite, null,
+                    "Indemnité congés : " + nbJoursConges + " j valorisés selon les lots FIFO historiques", 26));
+            return indemnite;
         }
 
         BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());

@@ -169,6 +169,14 @@ public class PayrollLegalContextResolver {
 
     static void applyDynamicParameters(PayrollCalculationInput input,
             Map<String, ParametreGlobal.ParametreEtat> parameters) {
+        if ("HORAIRE".equalsIgnoreCase(input.getModeCalculPaie())
+                || "JOURNALIER".equalsIgnoreCase(input.getModeCalculPaie())) {
+            var dailyHours = ParametreGlobal.resolve(parameters, "SEUIL_HEURES_JOUR");
+            if (!dailyHours.isActive()) throw missingParameter("SEUIL_HEURES_JOUR");
+            BigDecimal value = nonNegativeDecimal(dailyHours, "SEUIL_HEURES_JOUR");
+            if (value.signum() <= 0) throw invalidParameter("SEUIL_HEURES_JOUR");
+            input.setHeuresNormalesParJour(value);
+        }
         var assiduite = ParametreGlobal.resolve(parameters, "SEUIL_RETARD_ASSIDUITE_MIN");
         input.setReglePrimeAssiduiteActive(assiduite.isActive());
         if (assiduite.isActive()) input.setSeuilRetardAssiduiteMinutes(nonNegativeInt(assiduite, "SEUIL_RETARD_ASSIDUITE_MIN"));
