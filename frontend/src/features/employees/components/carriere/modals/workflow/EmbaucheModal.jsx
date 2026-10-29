@@ -11,6 +11,7 @@ import contratService from '@/features/employees/api/contratService';
 import { useContractReferentiels } from '@/features/employees/hooks/useContractReferentiels';
 import { fmtDateInput, fmtDateFr } from '@/utils/dateUtils';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { pairContractAndIntervenant } from '@/features/employees/utils/contractTypePairing';
 
 import ContratFieldsSection, { PeriodeEssaiFieldsSection } from '@/features/employees/components/carriere/form/ContratFieldsSection';
 import AffectationFieldsSection from '@/features/employees/components/carriere/form/AffectationFieldsSection';
@@ -123,11 +124,11 @@ export default function EmbaucheModal({
         setIsDirty(true);
         setFormData(prev => {
 
-            const updated = { ...prev, [field]: value };
+            const updated = pairContractAndIntervenant(prev, field, value, typesContrat, typesIntervenant);
             if (field === 'idDepartement' && String(value) !== String(prev.idDepartement)) {
                 updated.idService = '';
             }
-            if (field === 'idTypeContrat' && String(value) !== String(prev.idTypeContrat)) {
+            if (String(updated.idTypeContrat) !== String(prev.idTypeContrat)) {
                 updated.dateFin = '';
                 updated.motifCddCode = '';
             }

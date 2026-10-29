@@ -208,7 +208,7 @@ SELECT setval('ref_departement_id_departement_seq', (SELECT GREATEST(MAX(id_depa
 
 -- Services
 INSERT INTO ref_service (id_service, code_service, libelle, id_departement) VALUES
-(1, 'ADM', 'Administration & RH', 1),
+(1, 'ADM', 'Administration & Comptabilité', 1),
 (2, 'OPE', 'Opérations & Transit', 1);
 SELECT setval('ref_service_id_service_seq', (SELECT GREATEST(MAX(id_service), 2) FROM ref_service));
 

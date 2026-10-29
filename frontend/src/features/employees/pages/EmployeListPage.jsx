@@ -324,7 +324,7 @@ export default function EmployeListPage() {
                                 Prestataires indépendants
                             </Button>
                         )}
-                        {canWrite && displayTotal > 0 && (
+                        {canWrite && (
                             <Button
                                 onClick={handleOpenCreate}
                                 variant="primary"
@@ -402,7 +402,7 @@ export default function EmployeListPage() {
                     loading={loading}
                     canWrite={canWrite}
                     canValidate={canValidate}
-                    hasActiveFilters={hasActiveFilters}
+                    hasActiveFilters={hasActiveFilters && displayTotal > 0}
                     onOpenCreate={handleOpenCreate}
                     onOpenDetail={handleOpenDetail}
                     onOpenEdit={handleOpenEdit}

@@ -8,6 +8,7 @@ import {
     getRelevantEventTypes 
 } from '@/features/employees/utils/carriereTransitionMatrix';
 import { getErrorMessage } from '@/api/apiClient';
+import { pairContractAndIntervenant } from '@/features/employees/utils/contractTypePairing';
 
 export function useTransitionForm({
     isOpen,
@@ -259,11 +260,16 @@ export function useTransitionForm({
         setIsDirty(true);
         setFormData(prev => {
 
-            let updated = { ...prev, [field]: val };
+            let updated = pairContractAndIntervenant(prev, field, val, typesContrat, typesIntervenant, {
+                lockTypeContrat: EVENT_TARGET_CONFIG[prev.codeTypeEvenement]?.lockTypeContrat,
+                lockTypeIntervenant: EVENT_TARGET_CONFIG[prev.codeTypeEvenement]?.lockTypeIntervenant,
+                allowedTypesContrat: EVENT_TARGET_CONFIG[prev.codeTypeEvenement]?.allowedTypesContrat,
+                allowedTypesIntervenant: EVENT_TARGET_CONFIG[prev.codeTypeEvenement]?.allowedTypesIntervenant,
+            });
             if (field === 'idDepartement') {
                 updated.idService = '';
             }
-            if (field === 'idTypeContrat' && String(val) !== String(prev.idTypeContrat)) {
+            if (String(updated.idTypeContrat) !== String(prev.idTypeContrat)) {
                 updated.motifCddCode = '';
             }
             if (field === 'codeTypeEvenement') {
