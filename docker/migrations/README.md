@@ -4,6 +4,8 @@ Les six fichiers `backend/conception/bdd/01...06` et `docker/init-local.sql` dev
 
 Le service `migrate` attend PostgreSQL, prend un verrou SQL, vérifie les empreintes et applique les migrations absentes dans une seule transaction. Il refuse une migration modifiée, un historique absent de la livraison ou une migration ajoutée hors ordre. Une erreur annule la transaction et empêche le démarrage normal du backend. L'historique est dans `public.galaxam_schema_history` et fait partie de la sauvegarde.
 
+Le Compose DEV utilise maintenant ce même service et sa propre base. Après ajout d'un fichier SQL, `./scripts/compose dev` applique les migrations avant de relancer le web DEV. Une seconde exécution vérifie les empreintes et n'applique rien de plus. La promotion vers la PROD Mac passe par `./scripts/update-mac-prod.sh`, avec sauvegarde préalable.
+
 `0001` vérifie le point de départ canonique, sans prétendre convertir une ancienne base inconnue. Une base historique d'une autre version doit être comparée et adaptée par une migration dédiée avant adoption. Les noms des tables vérifiés ne constituent pas une certification complète du schéma.
 
 Exemple de prochaine migration, à adapter au besoin réel :

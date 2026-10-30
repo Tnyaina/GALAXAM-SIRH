@@ -19,7 +19,14 @@ for name in $required; do
   printenv "$name" >/dev/null || { echo "Variable utilisateur absente : $name" >&2; exit 1; }
 done
 case "$action" in
-  up) exec docker compose --project-directory "$root" -f "$file" up -d --build --wait ;;
+  up)
+    if [ "$mode" = dev ]; then
+      docker compose --project-directory "$root" -f "$file" stop frontend backend
+      docker compose --project-directory "$root" -f "$file" up -d --wait postgres
+      docker compose --project-directory "$root" -f "$file" run --rm --no-deps migrate
+    fi
+    exec docker compose --project-directory "$root" -f "$file" up -d --build --wait
+    ;;
   stop|ps|logs|build) exec docker compose --project-directory "$root" -f "$file" "$action" ;;
   config) exec docker compose --project-directory "$root" -f "$file" config --quiet ;;
   *) echo 'Action attendue : up, stop, ps, logs, config ou build' >&2; exit 2 ;;

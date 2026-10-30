@@ -20,7 +20,17 @@ foreach ($name in $required) {
 }
 $compose = @('compose', '--project-directory', $root, '-f', $file)
 switch ($Action) {
-    up { & docker @compose up -d --build --wait }
+    up {
+        if ($Mode -eq 'dev') {
+            & docker @compose stop frontend backend
+            if ($LASTEXITCODE -ne 0) { throw 'Arret du web DEV en echec.' }
+            & docker @compose up -d --wait postgres
+            if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL DEV indisponible.' }
+            & docker @compose run --rm --no-deps migrate
+            if ($LASTEXITCODE -ne 0) { throw 'Migration DEV en echec.' }
+        }
+        & docker @compose up -d --build --wait
+    }
     stop { & docker @compose stop }
     ps { & docker @compose ps }
     logs { & docker @compose logs --tail 100 }

@@ -31,6 +31,7 @@ releases/
 
 .env.production.test
 /local-prod-test-backups/
+/local-prod-backups/
 
 .local-prod-test-credentials
 .local-prod-credentials

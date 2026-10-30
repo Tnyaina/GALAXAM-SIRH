@@ -2,6 +2,19 @@
 # Une transaction unique : verrou, verification d'historique et migrations.
 set -eu
 sha256sum -c /canonical.sha256
+expected=1
+for file in /migrations/*.sql; do
+    [ -f "$file" ] || continue
+    name=$(basename "$file")
+    case "$name" in
+        [0-9][0-9][0-9][0-9]_*.sql) ;;
+        *) echo "Nom de migration invalide : $name" >&2; exit 1 ;;
+    esac
+    version=${name%%_*}
+    required=$(printf '%04d' "$expected")
+    [ "$version" = "$required" ] || { echo "Migration attendue : $required, trouvee : $name" >&2; exit 1; }
+    expected=$((expected + 1))
+done
 sql=$(mktemp)
 trap 'rm -f "$sql"' EXIT
 cat > "$sql" <<'SQL'

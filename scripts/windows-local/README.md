@@ -175,7 +175,7 @@ Sur le PC développeur :
 1. Développer avec le profil local et sa base locale.
 2. Pour un changement de base, ajouter une migration SQL versionnée dans `docker/migrations/`. Lire le guide de ce dossier. Ne pas éditer une migration déjà livrée ni réinitialiser les six schémas sur la production.
 3. Tester les fonctions touchées et la compilation de production. Tester les migrations sur une **copie** restaurée des données de production, avec les droits nécessaires et dans un environnement protégé.
-4. Vérifier la conservation de données représentatives et de documents, puis une deuxième exécution des migrations. Le workflow `Web production maintenance` réalise une recette jetable sur les PR concernées et les tags `v*` ; exiger un résultat vert avant la livraison. Il ne se connecte pas au PC client et ne déploie pas automatiquement.
+4. Vérifier localement la conservation de données représentatives et de documents, puis une deuxième exécution des migrations sur la copie de test. Ce parcours Docker Windows historique utilise des tags Git ; le parcours de production Windows natif est documenté séparément et se met à jour depuis le code local.
 5. Committer les modifications, créer un tag de livraison et pousser vers le dépôt distant. Par exemple, après les tests et le commit :
 
 ```bash

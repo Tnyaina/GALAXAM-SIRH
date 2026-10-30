@@ -273,7 +273,7 @@ Le PC configuré utilise PROD sur `http://localhost:8088` et DEV sur `http://loc
 
 ## 8. Développement & Déploiement
 
-Le nouveau parcours web Windows sans Docker est décrit dans [scripts/windows-native/README.md](scripts/windows-native/README.md). Son paquet de build existe, mais l'installation et l'exploitation locale restent à terminer.
+Le parcours de production Windows sans Docker est décrit dans [scripts/windows-native/README.md](scripts/windows-native/README.md). Il utilise le même code applicatif et les mêmes migrations SQL que la production Docker.
 
 ### Déploiement Docker en Mode Production
 
@@ -284,7 +284,15 @@ Le frontal de production est publié uniquement sur `127.0.0.1:8088` et doit êt
 
 Le bootstrap administrateur est idempotent : activé, il crée l'administrateur configuré uniquement si aucun administrateur actif n'existe. Les identifiants sont fournis par les variables utilisateur du mode concerné.
 
-Les six schémas canoniques de `backend/conception/bdd/` initialisent une base neuve. La production utilise `docker-compose.web.yml` et applique les migrations versionnées de `docker/migrations/`. Le développement utilise `docker-compose.dev.yml` et ses propres volumes.
+Les six schémas canoniques de `backend/conception/bdd/` initialisent une base neuve. La production utilise `docker-compose.web.yml` et applique les migrations versionnées de `docker/migrations/`. Le développement utilise `docker-compose.dev.yml`, les mêmes migrations versionnées et ses propres volumes.
+
+Pour faire évoluer la base, ajouter le prochain fichier numéroté dans `docker/migrations/` (par exemple `0005_description.sql`), puis lancer `./scripts/compose dev`. Cette commande arrête le web DEV, démarre PostgreSQL DEV, applique les migrations absentes avec le même runner que PROD, puis relance le backend et le frontend. Une erreur SQL bloque le redémarrage DEV ; corriger la nouvelle migration avant de la livrer. Les six DDL initiaux et les migrations déjà livrées restent figés. Après validation locale des fonctions concernées en DEV, lancer `./scripts/update-mac-prod.sh` pour promouvoir le même code et les mêmes migrations dans la base PROD du Mac, après sauvegarde. Aucun service GitHub n'intervient dans ce déploiement.
+
+Sur le Mac, la production tourne uniquement dans Docker. Pour mettre à jour l'instance PROD existante depuis le code du dépôt, lancer `./scripts/update-mac-prod.sh` avec les variables `SIRH_PROD_*` et `SIRH_ADMIN_*` chargées dans le terminal. Le script compile les images, arrête le web, sauvegarde la base et les documents dans `local-prod-backups/`, applique les migrations, puis redémarre et attend les contrôles de santé. Le parcours Windows natif utilise les mêmes DDL et migrations SQL, avec ses propres scripts PowerShell et sa propre base PostgreSQL. Les données des deux machines ne se synchronisent pas automatiquement.
+
+Pour repartir de zéro **uniquement sur la base PROD Docker du Mac**, lancer `./scripts/reset-mac-prod.sh`. Il demande de saisir exactement `sirh_galaxam`, sauvegarde la base et les documents, recharge les six DDL dans une transaction, applique les migrations versionnées et redémarre le web. Les données métier de cette base seront effacées ; les documents du volume Docker sont conservés et archivés dans la sauvegarde. Ne pas utiliser ce script pour une mise à jour ordinaire.
+
+Pour repartir de zéro **uniquement sur la base DEV Docker du Mac**, lancer `./scripts/reset-mac-dev.sh`. Il demande `DEV-sirh_galaxam`, sauvegarde DEV, recharge les six DDL et les migrations, puis redémarre DEV. La PROD reste séparée et intacte.
 
 ```bash
 # Production : validation puis lancement

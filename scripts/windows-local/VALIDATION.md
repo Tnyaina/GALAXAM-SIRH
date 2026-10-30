@@ -26,13 +26,13 @@
 ## Vérifications encore nécessaires sur le PC cible
 
 - Windows 10/11 exact, WSL, Docker Desktop, droits et montage des fichiers depuis Windows.
-- Exécution PowerShell 5.1 native, création/ACL de `.env.production`, raccourci et tâches Windows. La syntaxe native est prévue dans le workflow GitHub, qui n'a pas été exécuté à distance dans cette session.
+- Exécution PowerShell 5.1 native, création/ACL de `.env.production`, raccourci et tâches Windows. Ces notes décrivent une ancienne recette Docker Windows ; la production Windows actuelle utilise le parcours natif.
 - Disponibilité du support de sauvegarde, droits du partage éventuel, espace disque et reprise après redémarrage Windows.
 - Mise à jour complète par un tag Git distant réellement publié. Le script a été préparé ; aucun commit/tag n'a été publié et aucun dépôt de production n'a été changé pendant ce travail.
 - Recette métier sur les données réellement prévues à la livraison.
 - HTTPS réel si l'accès réseau est demandé : certificat reconnu, DNS, proxy et renouvellement.
 
-Le workflow `.github/workflows/web-production.yml` ajoute les contrôles de production sur les PR concernées et les tags `v*`. Attendre son résultat avant d'utiliser un tag en production. Il ne déploie pas automatiquement sur le PC client.
+Le workflow GitHub évoqué dans cette recette historique a été retiré. Les validations et déploiements actuels sont locaux.
 
 ## Recette web de production sur le Mac — 27 octobre 2026
 

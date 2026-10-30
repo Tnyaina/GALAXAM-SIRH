@@ -34,6 +34,7 @@ services:
       PGPASSWORD: ${SIRH_PROD_DB_PASSWORD:?SIRH_PROD_DB_PASSWORD requise}
     volumes:
       - ./docker/migrate.sh:/migrate.sh:ro
+      - ./docker/reset-prod.sql:/reset-prod.sql:ro
       - ./docker/migrations:/migrations:ro
       - ./docker/canonical.sha256:/canonical.sha256:ro
       - ./docker/init-local.sql:/docker/init-local.sql:ro
