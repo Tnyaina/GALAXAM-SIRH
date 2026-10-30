@@ -73,7 +73,8 @@ public class PayrollLeaveJournalService {
         List<BulletinPaie> bulletinsSoumisConge = bulletins.stream()
                 .filter(bp -> !"STC".equalsIgnoreCase(bp.getTypeBulletin()))
                 .filter(bp -> !"CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant())
-                        && !"ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant()))
+                        && !"ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())
+                        && !"STAGIAIRE".equalsIgnoreCase(bp.getRegimeIntervenant()))
                 .toList();
         Map<Integer, Boolean> cutoverParEmploye = new java.util.HashMap<>();
         List<BulletinPaie> bulletinsAvecAcquisition = new java.util.ArrayList<>();

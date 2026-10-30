@@ -489,7 +489,10 @@ public class CongeTauxApplicableService {
             }
         }
         boolean historique = false;
-        String historySql = "SELECT EXISTS (SELECT 1 FROM contrat_travail WHERE id_employe=? AND date_debut < ?) " +
+        String historySql = "SELECT EXISTS (SELECT 1 FROM contrat_travail ct " +
+                "JOIN ref_type_intervenant ti ON ti.id_type_intervenant=ct.id_type_intervenant " +
+                "WHERE ct.id_employe=? AND ct.date_debut < ? " +
+                "AND ti.code IN ('PERMANENT','TEMPORAIRE','CONSULTANT_SALARIE')) " +
                 "OR EXISTS (SELECT 1 FROM conge_periode_reference WHERE id_employe=?) " +
                 "OR EXISTS (SELECT 1 FROM mouvement_solde_conge WHERE id_employe=?) " +
                 "OR EXISTS (SELECT 1 FROM conge_taux_applicable WHERE id_employe=?)";

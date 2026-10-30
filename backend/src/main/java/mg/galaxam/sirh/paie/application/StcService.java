@@ -182,6 +182,7 @@ public class StcService {
             throw PayrollConfigurationGuard.missing("CATEGORIE_PROFESSIONNELLE", idEmploye,
                     dateDepartEffective.toString());
         prep.setCategorieProfessionnelle(catPro);
+        exigerRegimeSalariePourStc(emploi.regimeCode());
         if ("PRESTATION".equalsIgnoreCase(emploi.typeContratCode())
                 || "CONSULTANT".equalsIgnoreCase(emploi.regimeCode()) || emploi.soumisIsi5()) {
             throw new IllegalArgumentException("Le STC est réservé aux salariés. Une prestation indépendante se règle sur facture.");
@@ -191,6 +192,9 @@ public class StcService {
         if (salaireBase == null || salaireBase.signum() <= 0)
             throw PayrollConfigurationGuard.missing("SALAIRE", idEmploye, dateDepartEffective.toString());
         prep.setSalaireBase(salaireBase);
+        if (emploi.modeCalculPaieCode() == null || emploi.modeCalculPaieCode().isBlank())
+            throw PayrollConfigurationGuard.missing("MODE_CALCUL_PAIE", idEmploye, dateDepartEffective.toString());
+        prep.setModeCalculPaie(emploi.modeCalculPaieCode());
         Date dateEmbauche = emploi.dateEmbaucheInitiale() == null ? null
                 : Date.valueOf(emploi.dateEmbaucheInitiale());
         if (dateEmbauche == null)
@@ -428,6 +432,17 @@ public class StcService {
             prep.setControlesApplication(List.of("Aucune période de paie ne couvre le départ : créer ou choisir la période de régularisation."));
         }
 
+        if ("HORAIRE".equalsIgnoreCase(prep.getModeCalculPaie())
+                || "JOURNALIER".equalsIgnoreCase(prep.getModeCalculPaie())) {
+            // Un taux contractuel ne peut pas être présenté comme un salaire mensuel proratisé.
+            prep.setSalaireProrataEstime(BigDecimal.ZERO);
+            if (!"VALIDE".equals(prep.getStatutBulletinMensuel())
+                    && !"CLOTURE".equals(prep.getStatutBulletinMensuel())) {
+                var controles = new java.util.ArrayList<>(prep.getControlesApplication());
+                controles.add("Calculer et valider le bulletin final à partir du pointage avant de simuler le STC.");
+                prep.setControlesApplication(controles);
+            }
+        }
         return prep;
     }
 
@@ -462,6 +477,7 @@ public class StcService {
 
         boolean bulletinMensuelValide = "VALIDE".equals(prep.getStatutBulletinMensuel())
                 || "CLOTURE".equals(prep.getStatutBulletinMensuel());
+        exigerBulletinFinalPourModeNonMensuel(prep.getModeCalculPaie(), bulletinMensuelValide);
         if (prep.getIdBulletinMensuel() != null && !bulletinMensuelValide) {
             throw new IllegalStateException("Le bulletin mensuel final doit être validé avant son rapprochement avec le STC.");
         }
@@ -812,6 +828,20 @@ public class StcService {
         res.setCommentaire(req.getCommentaire());
 
         return res;
+    }
+
+    static void exigerBulletinFinalPourModeNonMensuel(String modeCalculPaie, boolean bulletinFinalValide) {
+        if (("HORAIRE".equalsIgnoreCase(modeCalculPaie) || "JOURNALIER".equalsIgnoreCase(modeCalculPaie))
+                && !bulletinFinalValide) {
+            throw new IllegalStateException("STC_NON_MONTHLY_FINAL_PAYSLIP_REQUIRED: calculer et valider le bulletin "
+                    + "final à partir du pointage avant le solde de tout compte.");
+        }
+    }
+
+    static void exigerRegimeSalariePourStc(String regimeIntervenant) {
+        if ("STAGIAIRE".equalsIgnoreCase(regimeIntervenant)) {
+            throw new IllegalArgumentException("Une convention de stage ne relève pas du solde de tout compte salarié.");
+        }
     }
 
     // =========================================================================

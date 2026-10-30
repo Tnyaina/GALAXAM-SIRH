@@ -199,8 +199,11 @@ class CongePointageLockPostgresIntegrationTest {
         int contract;
         String contractSql = "INSERT INTO contrat_travail (id_employe,id_filiale,id_type_contrat,id_type_intervenant,"
                 + "id_statut_rh,id_type_evenement_initial,numero_contrat,date_signature,date_debut,duree_essai_mois,comptabilise_effectif) "
-                + "SELECT ?,id_filiale,id_type_contrat,id_type_intervenant,id_statut_rh,id_type_evenement_initial,?,?,?,0,TRUE "
-                + "FROM contrat_travail ORDER BY id_contrat LIMIT 1 RETURNING id_contrat";
+                + "SELECT ?,f.id_filiale,tc.id_type_contrat,ti.id_type_intervenant,s.id_statut_rh,e.id_type_evenement_rh,?,?,?,0,TRUE "
+                + "FROM ref_filiale f CROSS JOIN ref_type_contrat tc CROSS JOIN ref_type_intervenant ti "
+                + "CROSS JOIN ref_statut_rh s CROSS JOIN ref_type_evenement_rh e "
+                + "WHERE f.code_filiale='GLX' AND tc.code='CDI' AND ti.code='PERMANENT' AND s.code='ACTIF' "
+                + "AND e.code='EMBAUCHE_INITIALE' RETURNING id_contrat";
         try (PreparedStatement ps = c.prepareStatement(contractSql)) {
             String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
             ps.setInt(1, employee); ps.setString(2, "IT-LK-CON-" + suffix);
@@ -210,9 +213,14 @@ class CongePointageLockPostgresIntegrationTest {
         String assignmentSql = "INSERT INTO employe_affectation_carriere (id_employe,id_contrat,id_statut_rh,"
                 + "id_motif_mouvement,id_site,id_departement,id_service,id_fonction,id_categorie_professionnelle,"
                 + "id_mode_calcul_paie,salaire_base,date_debut) "
-                + "SELECT ?,?,id_statut_rh,id_motif_mouvement,id_site,id_departement,id_service,id_fonction,"
-                + "id_categorie_professionnelle,id_mode_calcul_paie,300000,? "
-                + "FROM employe_affectation_carriere ORDER BY id_affectation LIMIT 1";
+                + "SELECT ?,?,s.id_statut_rh,m.id_motif_mouvement,site.id_site,d.id_departement,svc.id_service,"
+                + "fn.id_fonction,cat.id_categorie_professionnelle,mode.id_mode_calcul_paie,300000,? "
+                + "FROM ref_statut_rh s CROSS JOIN ref_motif_mouvement m CROSS JOIN ref_site site "
+                + "CROSS JOIN ref_departement d CROSS JOIN ref_service svc CROSS JOIN ref_fonction fn "
+                + "CROSS JOIN ref_categorie_professionnelle cat CROSS JOIN ref_mode_calcul_paie mode "
+                + "WHERE s.code='ACTIF' AND m.code='EMBAUCHE' AND site.code_site='TNR' "
+                + "AND d.code_departement='LOG' AND svc.code_service='ADM' AND fn.code_fonction='AIDE_COMPTABLE' "
+                + "AND cat.code='A' AND mode.code='MENSUEL'";
         try (PreparedStatement ps = c.prepareStatement(assignmentSql)) {
             ps.setInt(1, employee); ps.setInt(2, contract); ps.setObject(3, LocalDate.parse(startDate));
             assertEquals(1, ps.executeUpdate());

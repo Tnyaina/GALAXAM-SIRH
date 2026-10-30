@@ -10,6 +10,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.ArrayList;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import org.junit.jupiter.api.Test;
 
 /** PostgreSQL integration checks. Point only at an isolated disposable database. */
@@ -153,6 +158,55 @@ class CongePostgresIntegrationTest {
                 }
             } finally { c.rollback(); }
         }
+    }
+
+    @Test
+    void priseSurSoldeReprisEtDroitNouveauAlimenteLesTroisModesDePaie() throws Exception {
+        assumeDatabaseConfigured();
+        try (Connection c = connection()) {
+            c.setAutoCommit(false);
+            try {
+                int employee = insertEmployee(c);
+                var request = opening(employee, LocalDate.of(2026, 1, 1),
+                        "4", "50000", "12500", "4", "50000");
+                new CongeTauxApplicableService().enregistrerCutoverSnapshot(request, null, c);
+                insertMovement(c, employee, "ACQUISITION", "2", "2026-01-31", "20000", null, "Droit nouveau");
+                int demand = insertValidatedDemand(c, employee, "2026-02-01", "2026-02-05", "5");
+                insertMovement(c, employee, "PRISE", "-5", "2026-02-01", null, demand, "Prise après reprise");
+
+                CongeLotValorisationService lots = new CongeLotValorisationService();
+                BigDecimal indemnity = lots.valorisationPrisesSurPeriode(employee,
+                        LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 5), c);
+                decimal("60000", indemnity);
+                var remaining = lots.situation(employee, LocalDate.of(2026, 2, 5), c);
+                decimal("1", remaining.soldeJours());
+                decimal("10000", remaining.soldeValorisation());
+
+                for (String mode : new String[] {"MENSUEL", "JOURNALIER", "HORAIRE"}) {
+                    var input = new PayrollCalculationInput();
+                    input.setModeCalculPaie(mode);
+                    input.setSalaireBaseContractuel(d("300000"));
+                    input.setNbJoursConges(d("5"));
+                    input.setIndemniteCongeLots(indemnity);
+                    var lines = new ArrayList<BulletinPaieLigne>();
+                    BigDecimal netLeave = new PayrollExecutionEngine()
+                            .calculerConges(input, new BulletinPaie(), lines);
+                    decimal("60000", lineAmount(lines, "INDEMNITE_CONGE_PAYE"));
+                    if ("MENSUEL".equals(mode)) {
+                        decimal("50000", lineAmount(lines, "DEDUCTION_CONGE_BASE"));
+                        decimal("10000", netLeave);
+                    } else {
+                        assertNull(lineAmount(lines, "DEDUCTION_CONGE_BASE"));
+                        decimal("60000", netLeave);
+                    }
+                }
+            } finally { c.rollback(); }
+        }
+    }
+
+    private static BigDecimal lineAmount(java.util.List<BulletinPaieLigne> lines, String code) {
+        return lines.stream().filter(line -> code.equals(line.getCodeRubrique()))
+                .map(BulletinPaieLigne::getMontantSalarial).findFirst().orElse(null);
     }
 
     @Test

@@ -34,6 +34,7 @@ public class StcPreparationDTO {
     private int ancienneteMois;
 
     private BigDecimal salaireBase = BigDecimal.ZERO;
+    private String modeCalculPaie;
     private BigDecimal tauxHoraire = BigDecimal.ZERO;
 
     // Prorata dernier mois
@@ -112,6 +113,9 @@ public class StcPreparationDTO {
 
     public BigDecimal getSalaireBase() { return salaireBase; }
     public void setSalaireBase(BigDecimal salaireBase) { this.salaireBase = salaireBase; }
+
+    public String getModeCalculPaie() { return modeCalculPaie; }
+    public void setModeCalculPaie(String modeCalculPaie) { this.modeCalculPaie = modeCalculPaie; }
 
     public BigDecimal getTauxHoraire() { return tauxHoraire; }
     public void setTauxHoraire(BigDecimal tauxHoraire) { this.tauxHoraire = tauxHoraire; }

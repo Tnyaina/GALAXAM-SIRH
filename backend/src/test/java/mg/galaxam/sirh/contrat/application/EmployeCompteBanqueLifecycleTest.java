@@ -6,6 +6,8 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.UUID;
 import mg.galaxam.sirh.contrat.api.dto.EmployeRequest;
 import mg.galaxam.sirh.contrat.domain.EmployeValidationEngine;
@@ -20,6 +22,8 @@ import org.junit.jupiter.api.Test;
 class EmployeCompteBanqueLifecycleTest {
     private final EmployeService service = new EmployeService(null, null, null);
     private Connection connection;
+    private int employeeId;
+    private int otherEmployeeId;
 
     @BeforeEach
     void ouvrirTransaction() throws Exception {
@@ -29,7 +33,9 @@ class EmployeCompteBanqueLifecycleTest {
                 System.getenv("GALAXAM_BANQUE_TEST_DB_USER"),
                 System.getenv("GALAXAM_BANQUE_TEST_DB_PASSWORD"));
         connection.setAutoCommit(false);
-        EmployeCompteBanque.deleteByEmployeId(1, connection);
+        employeeId = insertEmployee("PRINCIPAL");
+        otherEmployeeId = insertEmployee("AUTRE");
+        service.appliquerCompteBanque(otherEmployeeId, demande(null, "RIB-AUTRE"), connection);
     }
 
     @AfterEach
@@ -66,7 +72,7 @@ class EmployeCompteBanqueLifecycleTest {
         fiche.setSexe("M");
         fiche.setDateNaissance(Date.valueOf("1985-01-01"));
         fiche.setLieuNaissance("Antananarivo");
-        fiche.setCinNumero("123456789013");
+        fiche.setCinNumero(UUID.randomUUID().toString().replaceAll("\\D", "").substring(0, 12));
         fiche.setCinDateDelivrance(Date.valueOf("2005-01-01"));
         fiche.setCinLieuDelivrance("Antananarivo");
         fiche.setAdresse("Test");
@@ -92,53 +98,67 @@ class EmployeCompteBanqueLifecycleTest {
 
     @Test
     void absenceCreationModificationEtConservationDeLIdentifiant() throws Exception {
-        assertNull(EmployeCompteBanque.findByEmployeId(1, connection));
-        service.appliquerCompteBanque(1, demande(null, "RIB-1"), connection);
-        EmployeCompteBanque initial = EmployeCompteBanque.findByEmployeId(1, connection);
+        assertNull(EmployeCompteBanque.findByEmployeId(employeeId, connection));
+        service.appliquerCompteBanque(employeeId, demande(null, "RIB-1"), connection);
+        EmployeCompteBanque initial = EmployeCompteBanque.findByEmployeId(employeeId, connection);
         assertNotNull(initial);
         int id = initial.getIdCompteBanque();
-        service.appliquerCompteBanque(1, demande(id, "RIB-2"), connection);
-        EmployeCompteBanque modifie = EmployeCompteBanque.findByEmployeId(1, connection);
+        service.appliquerCompteBanque(employeeId, demande(id, "RIB-2"), connection);
+        EmployeCompteBanque modifie = EmployeCompteBanque.findByEmployeId(employeeId, connection);
         assertEquals(id, modifie.getIdCompteBanque());
         assertEquals(initial.getCreatedAt(), modifie.getCreatedAt());
         assertEquals("RIB-2", modifie.getNumCompteRib());
-        service.appliquerCompteBanque(1, new EmployeRequest(), connection);
+        service.appliquerCompteBanque(employeeId, new EmployeRequest(), connection);
         EmployeRequest nul = new EmployeRequest();
         nul.setCompteBanquePrincipal(null);
-        service.appliquerCompteBanque(1, nul, connection);
-        assertEquals(id, EmployeCompteBanque.findByEmployeId(1, connection).getIdCompteBanque());
-        assertEquals(1, EmployeCompteBanque.listByEmployeId(1, connection).size());
+        service.appliquerCompteBanque(employeeId, nul, connection);
+        assertEquals(id, EmployeCompteBanque.findByEmployeId(employeeId, connection).getIdCompteBanque());
+        assertEquals(1, EmployeCompteBanque.listByEmployeId(employeeId, connection).size());
     }
 
     @Test
     void suppressionEstExpliciteEtContradictionRefusee() throws Exception {
-        service.appliquerCompteBanque(1, demande(null, "RIB-1"), connection);
+        service.appliquerCompteBanque(employeeId, demande(null, "RIB-1"), connection);
         EmployeRequest contradiction = demande(null, "RIB-2");
         contradiction.setSupprimerCompteBanque(true);
         assertThrows(IllegalArgumentException.class,
-                () -> service.appliquerCompteBanque(1, contradiction, connection));
-        assertNotNull(EmployeCompteBanque.findByEmployeId(1, connection));
+                () -> service.appliquerCompteBanque(employeeId, contradiction, connection));
+        assertNotNull(EmployeCompteBanque.findByEmployeId(employeeId, connection));
         EmployeRequest suppression = new EmployeRequest();
         suppression.setSupprimerCompteBanque(true);
-        service.appliquerCompteBanque(1, suppression, connection);
-        assertNull(EmployeCompteBanque.findByEmployeId(1, connection));
+        service.appliquerCompteBanque(employeeId, suppression, connection);
+        assertNull(EmployeCompteBanque.findByEmployeId(employeeId, connection));
     }
 
     @Test
     void identifiantEtrangerEstRefuse() throws Exception {
-        int autreId = EmployeCompteBanque.findByEmployeId(2, connection).getIdCompteBanque();
+        int autreId = EmployeCompteBanque.findByEmployeId(otherEmployeeId, connection).getIdCompteBanque();
         assertThrows(IllegalArgumentException.class,
-                () -> service.appliquerCompteBanque(1, demande(autreId, "RIB-2"), connection));
+                () -> service.appliquerCompteBanque(employeeId, demande(autreId, "RIB-2"), connection));
     }
 
     @Test
     void contrainteSqlRefuseUnSecondCompte() throws Exception {
-        service.appliquerCompteBanque(1, demande(null, "RIB-1"), connection);
+        service.appliquerCompteBanque(employeeId, demande(null, "RIB-1"), connection);
         EmployeCompteBanque second = new EmployeCompteBanque();
-        second.setIdEmploye(1);
+        second.setIdEmploye(employeeId);
         second.setIdBanque(2);
         second.setNumCompteRib("RIB-2");
         SQLException erreur = assertThrows(SQLException.class, () -> second.save(connection));
         assertEquals("23505", erreur.getSQLState());
+    }
+
+    private int insertEmployee(String suffix) throws Exception {
+        String unique = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        String sql = "INSERT INTO employe (matricule,nom,prenom,sexe,date_naissance,lieu_naissance,cin_numero,"
+                + "cin_date_delivrance,cin_lieu_delivrance,adresse,telephone) "
+                + "VALUES (?, 'TEST', ?, 'M', DATE '1990-01-01', 'Antananarivo', ?, DATE '2010-01-01', "
+                + "'Antananarivo', 'Adresse test', '000000') RETURNING id_employe";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, "ITB-" + suffix.substring(0, 3) + "-" + unique);
+            ps.setString(2, suffix);
+            ps.setString(3, "ITCB" + unique);
+            try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); return rs.getInt(1); }
+        }
     }
 }

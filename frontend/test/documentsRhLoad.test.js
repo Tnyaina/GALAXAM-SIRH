@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 
 let vite;
 let DocumentsRhTab;
 before(async () => {
   vite = await createServer({
-    configFile: new URL('../vite.config.js', import.meta.url).pathname,
+    configFile: fileURLToPath(new URL('../vite.config.js', import.meta.url)),
     appType: 'custom', logLevel: 'error', server: { middlewareMode: true },
   });
   ({ default: DocumentsRhTab } = await vite.ssrLoadModule('/src/features/employees/components/tabs/DocumentsRhTab.jsx'));

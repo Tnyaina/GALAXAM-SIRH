@@ -343,10 +343,6 @@ public class CongeService {
     public BigDecimal calculerFormuleAcquisition(int idEmploye, LocalDate debut, LocalDate fin,
             BigDecimal absencesInjustifiees, BigDecimal joursTravailEffectif, Connection c) throws SQLException {
         BigDecimal joursService = calculerJoursServiceEquivalent(idEmploye, debut, fin, c);
-        if (joursService.signum() > 0 && joursTravailEffectif != null
-                && joursTravailEffectif.compareTo(new BigDecimal("24")) >= 0) {
-            joursService = new BigDecimal("30");
-        }
         BigDecimal abs = absencesInjustifiees != null ? absencesInjustifiees.max(BigDecimal.ZERO) : BigDecimal.ZERO;
         return joursService.subtract(abs).max(BigDecimal.ZERO).min(new BigDecimal("30"));
     }
@@ -354,8 +350,10 @@ public class CongeService {
     private BigDecimal calculerJoursServiceEquivalent(int idEmploye, LocalDate debut, LocalDate fin,
             Connection c) throws SQLException {
         java.util.Set<LocalDate> joursSousContrat = new java.util.HashSet<>();
-        String sql = "SELECT date_debut, date_fin FROM contrat_travail " +
-                "WHERE id_employe = ? AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?)";
+        String sql = "SELECT ct.date_debut, ct.date_fin FROM contrat_travail ct " +
+                "JOIN ref_type_intervenant ti ON ti.id_type_intervenant=ct.id_type_intervenant " +
+                "WHERE ct.id_employe = ? AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) " +
+                "AND ti.code IN ('PERMANENT','TEMPORAIRE','CONSULTANT_SALARIE')";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             ps.setDate(2, Date.valueOf(fin));
@@ -380,8 +378,10 @@ public class CongeService {
 
     private LocalDate calculerDateEffetAcquisition(int idEmploye, LocalDate debut, LocalDate fin,
             Connection c) throws SQLException {
-        String sql = "SELECT MAX(LEAST(COALESCE(date_fin, ?), ?)) FROM contrat_travail " +
-                "WHERE id_employe = ? AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?)";
+        String sql = "SELECT MAX(LEAST(COALESCE(ct.date_fin, ?), ?)) FROM contrat_travail ct " +
+                "JOIN ref_type_intervenant ti ON ti.id_type_intervenant=ct.id_type_intervenant " +
+                "WHERE ct.id_employe = ? AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) " +
+                "AND ti.code IN ('PERMANENT','TEMPORAIRE','CONSULTANT_SALARIE')";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(fin));
             ps.setDate(2, Date.valueOf(fin));

@@ -72,7 +72,8 @@ class EmployeSatelliteLifecycleTest {
         creation.setSexe("M");
         creation.setDateNaissance(Date.valueOf("1985-01-01"));
         creation.setLieuNaissance("Antananarivo");
-        creation.setCinNumero("123456789012");
+        creation.setCinNumero(Long.toString(java.util.concurrent.ThreadLocalRandom.current()
+                .nextLong(100_000_000_000L, 1_000_000_000_000L)));
         creation.setCinDateDelivrance(Date.valueOf("2005-01-01"));
         creation.setCinLieuDelivrance("Antananarivo");
         creation.setAdresse("Test");
