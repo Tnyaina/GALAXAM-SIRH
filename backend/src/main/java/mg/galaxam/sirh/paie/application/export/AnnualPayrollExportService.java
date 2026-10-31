@@ -350,21 +350,22 @@ public class AnnualPayrollExportService {
         book.setSheetOrder(sheet.getSheetName(), 1);
         sheet.setDisplayGridlines(false);
         Row title = sheet.createRow(0); title.setHeightInPoints(30);
-        for (int col = 0; col < 11; col++) title.createCell(col).setCellStyle(titleStyle);
+        for (int col = 0; col < 14; col++) title.createCell(col).setCellStyle(titleStyle);
         title.getCell(0).setCellValue("GALAXAM — SYNTHÈSE MENSUELLE DE LA PAIE");
-        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 10));
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 13));
         Row subtitle = sheet.createRow(1);
-        for (int col = 0; col < 11; col++) subtitle.createCell(col).setCellStyle(subtitleStyle);
+        for (int col = 0; col < 14; col++) subtitle.createCell(col).setCellStyle(subtitleStyle);
         subtitle.getCell(0).setCellValue(year + "  ·  " + periodCodes.size() + "/12 périodes validées  ·  montants en ariary");
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 10));
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 13));
         String[] headers = {"Mois", "Statut", "Salariés", "Salaire brut", "CNaPS salarié", "Santé salarié",
-                "Net imposable", "Impôt retenu", "Net à payer", "Cotisations patronales", "Coût employeur"};
+                "Net imposable", "Impôt retenu", "Avances et acomptes", "Prêts", "Autres retenues",
+                "Net à payer", "Cotisations patronales", "Coût employeur"};
         Row head = sheet.createRow(3); head.setHeightInPoints(30);
         for (int col = 0; col < headers.length; col++) {
             Cell cell = head.createCell(col); cell.setCellStyle(headerStyle); cell.setCellValue(headers[col]);
             sheet.setColumnWidth(col, (col == 0 ? 21 : col == 1 ? 16 : col == 2 ? 13 : 22) * 256);
         }
-        int[] metrics = {7, 8, 9, 10, 11, 15, 16, 17};
+        int[] metrics = {7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
         Set<String> included = Set.copyOf(periodCodes);
         Map<String, Set<Integer>> employeesByMonth = new LinkedHashMap<>();
         Map<String, BigDecimal[]> totalsByMonth = new LinkedHashMap<>();
@@ -383,7 +384,7 @@ public class AnnualPayrollExportService {
         }
         for (int month = 1; month <= 12; month++) {
             String code = "%04d-%02d".formatted(year, month);
-            Row row = styledRow(sheet, 3 + month, Arrays.copyOf(month % 2 == 0 ? alternateStyle : bodyStyle, 11));
+            Row row = styledRow(sheet, 3 + month, Arrays.copyOf(month % 2 == 0 ? alternateStyle : bodyStyle, headers.length));
             row.getCell(0).setCellValue(monthLabel(code));
             row.getCell(1).setCellValue(included.contains(code) ? "Inclus" : "Non inclus");
             if (!included.contains(code)) continue;
@@ -395,11 +396,11 @@ public class AnnualPayrollExportService {
                 row.getCell(3 + col).setCellStyle(month % 2 == 0 ? alternateStyle[13] : bodyStyle[13]);
             }
         }
-        Row total = styledRow(sheet, 16, Arrays.copyOf(totalStyle, 11));
+        Row total = styledRow(sheet, 16, Arrays.copyOf(totalStyle, headers.length));
         total.getCell(0).setCellValue("TOTAL DES MOIS INCLUS");
         sheet.addMergedRegion(new CellRangeAddress(16, 16, 0, 1));
         total.getCell(2).setCellValue(employees);
-        for (int col = 3; col < 11; col++) {
+        for (int col = 3; col < headers.length; col++) {
             String letter = CellReference.convertNumToColString(col);
             total.getCell(col).setCellStyle(totalStyle[13]);
             total.getCell(col).setCellFormula("SUM(" + letter + "5:" + letter + "16)");
