@@ -1,24 +1,9 @@
 import FormError from '@/components/ui/feedback/FormError';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
-import { 
-    Clock, 
-    Palmtree, 
-    CheckCircle2, 
-    FileText, 
-    Shield, 
-    Info, 
-    HeartHandshake,
-    Wallet,
-    Sun,
-    Sunset,
-    ChevronDown
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
-import Badge from '@/components/ui/data-display/Badge';
-import Input from '@/components/ui/forms/Input';
-import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate, shiftIsoDate } from '@/utils/dateUtils';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { loadPointageDayContext, selectPointageDayAllowances } from '@/features/attendance/utils/pointageDayContext';
@@ -57,7 +42,7 @@ export default function AnomalieRegularisationModal({
 
     // Formulaire Mode 1 : Horaires
     const [modePresence, setModePresence] = useState('JOURNEE'); // 'JOURNEE', 'MATIN_SEUL', 'APRES_MIDI_SEUL', 'CONTINU'
-    const [optionAutreDemiJournee, setOptionAutreDemiJournee] = useState('AUCUNE'); // 'AUCUNE', 'CONGE_PAYE', 'ABSENCE_DEDUITE'
+    const [optionAutreDemiJournee, setOptionAutreDemiJournee] = useState('ABSENCE_DEDUITE'); // Par défaut : ABSENCE_DEDUITE
     const [heureEntreeMatin, setHeureEntreeMatin] = useState('');
     const [heureSortieMatin, setHeureSortieMatin] = useState('');
     const [heureEntreeAm, setHeureEntreeAm] = useState('');
@@ -116,7 +101,7 @@ export default function AnomalieRegularisationModal({
         }
 
         setOptionAutreDemiJournee(anomalie.importHalfDayMoment
-            ? anomalie.importEventCode === 'C' ? 'CONGE_PAYE' : 'ABSENCE_DEDUITE' : 'AUCUNE');
+            ? (anomalie.importEventCode === 'C' ? 'CONGE_PAYE' : 'ABSENCE_DEDUITE') : 'ABSENCE_DEDUITE');
 
         setOptionAbsence(anomalie.regularisationIntent
             || (anomalie.importEventCode === 'A' ? 'ABSENCE_DEDUITE' : 'CONGE_PAYE'));
@@ -196,10 +181,6 @@ export default function AnomalieRegularisationModal({
         anomalie?.datePointage && dateReprise > anomalie.datePointage
             ? Math.round((Date.parse(`${dateReprise}T00:00:00Z`) - Date.parse(`${anomalie.datePointage}T00:00:00Z`)) / 86400000)
             : 0;
-    const joursCouvertsEstimes = rawSoldeRestant == null ? null
-        : Math.min(nbJoursAImputer, Math.max(0, Number(rawSoldeRestant)));
-    const joursNonCouvertsEstimes = joursCouvertsEstimes == null ? null
-        : Math.max(0, nbJoursAImputer - joursCouvertsEstimes);
 
     useEffect(() => {
         if (!isOpen || !anomalie || activeTab !== 'HEURES') return undefined;
@@ -366,80 +347,117 @@ export default function AnomalieRegularisationModal({
         return () => window.removeEventListener('keydown', handleEnter);
     }, [isOpen, saving, handleSubmit]);
 
+    const formatDayDate = (isoDate) => {
+        if (!isoDate) return '—';
+        const parts = String(isoDate).split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return fmtDate(isoDate);
+    };
+
+    const getInitials = (nom, prenom) => {
+        const n = (nom || '').trim();
+        const p = (prenom || '').trim();
+        if (n && p) return `${n[0]}${p[0]}`.toUpperCase();
+        if (n) return n.slice(0, 2).toUpperCase();
+        return 'AC';
+    };
+
+    const formatIndemnitesSummary = (selections, allowances) => {
+        if (!selections || !allowances || allowances.length === 0) return 'Aucune';
+        const parts = [];
+        for (const a of allowances) {
+            const s = selections[String(a.idIndemnite)];
+            if (!s) continue;
+            const fractionable = a.estFractionnable ?? a.fractionnable;
+            const name = (a.libelle || a.code || '').replace(/^Indemnité de\s+/i, '').trim();
+            if (fractionable) {
+                const count = (s.matin ? 1 : 0) + (s.am ? 1 : 0);
+                if (count === 2) {
+                    parts.push(`${name} ×2`);
+                } else if (count === 1) {
+                    parts.push(s.matin ? `${name} (matin)` : `${name} (après-midi)`);
+                }
+            } else if (s.accordee) {
+                parts.push(name);
+            }
+        }
+        return parts.length > 0 ? parts.join(', ') : 'Aucune';
+    };
+
+    const getSoldeApresDisplay = (opt, rawSolde, duree, nbJours) => {
+        if (rawSolde == null) return '—';
+        const numSolde = Number(rawSolde);
+        if (Number.isNaN(numSolde)) return '—';
+        if (opt !== 'CONGE_PAYE') {
+            return `${formatJours(numSolde)} j`;
+        }
+        const aDebiter = duree === '0.5' ? 0.5 : nbJours;
+        const reste = Math.max(0, Math.round((numSolde - aDebiter) * 100) / 100);
+        return `${formatJours(numSolde)} → ${formatJours(reste)} j`;
+    };
+
     if (!isOpen || !anomalie) return null;
+
+    const hasRetardTab = anomalie.typeAnomalie === 'RETARD' || Number(anomalie.minutesRetard) > 0;
+    const labelDemiJournee = modePresence === 'MATIN_SEUL' ? "l'après-midi" : "la matinée";
 
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={directDayFlow ? 'Corriger ou régulariser la journée' : 'Régularisation du pointage'}
+            title="Régularisation du pointage"
             size="2xl"
             footer={
                 <div className="flex items-center justify-between w-full">
-                    <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                        <Shield className="w-4 h-4 text-[var(--color-fg-muted)]" />
-                        <span>Traçabilité GRH &amp; conformité</span>
+                    <div className="text-xs text-[var(--color-fg-muted)]">
+                        Traçabilité GRH &amp; conformité
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                         <Button 
                             variant="outline" 
                             onClick={onClose}
                             disabled={saving}
-                            className="rounded-none"
+                            className="rounded-none font-bold text-xs uppercase px-4 py-2"
                         >
-                            Annuler
+                            ANNULER
                         </Button>
                         <Button 
                             variant="primary" 
                             onClick={handleSubmit}
                             loading={saving}
-                            className="rounded-none"
+                            className="rounded-none font-bold text-xs uppercase px-5 py-2"
                         >
-                            {activeTab === 'RETARD_REEL' ? 'Confirmer le retard réel' : directDayFlow && activeTab === 'ABSENCE' ? 'Enregistrer le signalement' : directDayFlow ? 'Enregistrer la correction' : 'Enregistrer la régularisation'}
-                            <span className="ml-2 text-[10px] font-normal opacity-70">Entrée ↵</span>
+                            {activeTab === 'RETARD_REEL' ? 'CONFIRMER LE RETARD RÉEL' : 'ENREGISTRER'}
                         </Button>
                     </div>
                 </div>
             }
         >
-            <div className="space-y-5">
+            <div className="space-y-4">
                 {/* Bandeau d'en-tête collaborateur & contexte */}
-                <div className="p-3.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none flex items-center justify-between gap-4">
+                <div className="p-3 border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <Avatar
-                            src={anomalie.photoUrl}
-                            name={`${anomalie.nom || ''} ${anomalie.prenom || ''}`}
-                            size="md"
-                            className="rounded-none"
-                        />
+                        <div className="w-10 h-10 bg-[var(--color-brand-600)] text-white font-bold text-sm flex items-center justify-center shrink-0">
+                            {getInitials(anomalie.nom, anomalie.prenom)}
+                        </div>
                         <div>
-                            <div className="font-semibold text-sm text-[var(--color-fg)]">
+                            <div className="font-bold text-sm text-[var(--color-fg)] uppercase tracking-wide">
                                 {anomalie.nom} {anomalie.prenom}
                             </div>
-                            <div className="text-xs text-[var(--color-fg-muted)] font-data">
-                                {anomalie.matricule} • {anomalie.siteNom || 'Site non renseigné'}
+                            <div className="text-xs text-[var(--color-fg-muted)]">
+                                {anomalie.matricule} · {anomalie.siteNom || 'Siège'}
                             </div>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <div className="text-xs font-semibold text-[var(--color-fg)]">
-                            {fmtDate(anomalie.datePointage)}
+                    <div className="flex items-center gap-2">
+                        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-data text-[var(--color-fg)]">
+                            {formatDayDate(anomalie.datePointage)}
                         </div>
-                        <div className="flex items-center gap-1.5 justify-end mt-1">
-                            <span className="text-[11px] font-data font-medium px-1.5 py-0.5 rounded-none bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
-                                {anomalie.semaineCode || 'S1'}
-                            </span>
-                            <Badge 
-                                variant={
-                                    anomalie.severite === 'CRITIQUE' ? 'error' :
-                                    anomalie.severite === 'HAUTE' ? 'warning' :
-                                    anomalie.severite === 'MOYENNE' ? 'info' : 'neutral'
-                                }
-                                size="sm"
-                                className="rounded-none font-bold"
-                            >
-                                {anomalie.typeAnomalie || anomalie.statutLibelle}
-                            </Badge>
+                        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-data text-[var(--color-fg)]">
+                            {anomalie.semaineCode || 'S3'}
+                        </div>
+                        <div className="bg-[#ffedd5] text-[#c2410c] px-2.5 py-1 text-xs font-bold uppercase tracking-wider">
+                            {anomalie.typeAnomalie === 'RETARD' ? 'RETARD' : (anomalie.statutCode || anomalie.typeAnomalie || anomalie.statutLibelle || 'INCOMPLET')}
                         </div>
                     </div>
                 </div>
@@ -450,551 +468,484 @@ export default function AnomalieRegularisationModal({
                     </FormError>
                 )}
 
-                {directDayFlow && (
-                    <div className="flex items-start gap-2 border border-[var(--color-info-subtle)] bg-[var(--color-info-subtle)]/50 px-3 py-2.5 text-xs text-[var(--color-fg)]">
-                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-info)]" />
-                        <p>Cette action concerne uniquement la journée du <strong>{fmtDate(anomalie.datePointage)}</strong>. Signalez le motif de l’absence, ou corrigez les heures si la personne était présente.</p>
-                    </div>
-                )}
-
                 {/* Onglets de mode */}
-                <div className="flex border-b border-[var(--color-border-subtle)]">
-                    {anomalie.typeAnomalie === 'RETARD' && Number(anomalie.minutesRetard) > 0 && Number(anomalie.idPointage) > 0 && (
+                <div className="flex border-b border-[var(--color-border-subtle)] gap-8">
+                    {hasRetardTab && (
                         <button
                             type="button"
-                            data-regularisation-selected={activeTab === 'RETARD_REEL'}
                             onClick={() => setActiveTab('RETARD_REEL')}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors rounded-none ${activeTab === 'RETARD_REEL'
-                                ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
+                            className={`pb-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                                activeTab === 'RETARD_REEL'
+                                    ? 'text-[var(--color-brand-600)] border-[var(--color-brand-600)]'
+                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] border-transparent'
+                            }`}
                         >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Confirmer le pointage réel</span>
+                            Confirmer
                         </button>
                     )}
                     <button
                         type="button"
-                        data-regularisation-selected={activeTab === 'HEURES'}
                         onClick={() => setActiveTab('HEURES')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors rounded-none ${
+                        className={`pb-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
                             activeTab === 'HEURES'
-                                ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                                ? 'text-[var(--color-brand-600)] border-[var(--color-brand-600)]'
+                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] border-transparent'
                         }`}
                     >
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{directDayFlow ? 'Corriger les heures' : 'Saisie / Oubli de pointage (Présence réelle)'}</span>
+                        Présence réelle
                     </button>
                     <button
                         type="button"
-                        data-regularisation-selected={activeTab === 'ABSENCE'}
                         onClick={() => setActiveTab('ABSENCE')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors rounded-none ${
+                        className={`pb-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
                             activeTab === 'ABSENCE'
-                                ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                                ? 'text-[var(--color-brand-600)] border-[var(--color-brand-600)]'
+                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] border-transparent'
                         }`}
                     >
-                        <Palmtree className="w-3.5 h-3.5" />
-                        <span>{directDayFlow ? 'Signaler absence / congé' : 'Régularisation d’Absence (Congé / Déduction)'}</span>
+                        Absence
                     </button>
                 </div>
 
+                {/* CONTENU ONGLET RETARD REEL */}
                 {activeTab === 'RETARD_REEL' && (
-                    <div className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg)] space-y-2">
-                        <p className="font-semibold">Les horaires saisis sont exacts et le retard de {anomalie.minutesRetard} min est réel.</p>
-                        <p>Confirmer marque ce pointage « Régularisé ». Les horaires et les minutes de retard restent inchangés.</p>
+                    <div className="space-y-4">
+                        <div className="p-4 border border-[var(--color-border)] bg-[var(--color-surface)] space-y-1">
+                            <p className="font-bold text-xs text-[var(--color-fg)]">
+                                Les horaires saisis sont exacts et le retard de {anomalie.minutesRetard || 5} min est réel.
+                            </p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">
+                                Confirmer marque ce pointage « Régularisé ». Les horaires et les minutes de retard restent inchangés.
+                            </p>
+                        </div>
+
+                        {/* Récapitulatif Tab Retard */}
+                        <div className="border border-[var(--color-brand-200)] bg-[var(--color-brand-50)] grid grid-cols-3 divide-x divide-[var(--color-brand-200)]">
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">STATUT</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">Régularisé</div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">RETARD</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">{anomalie.minutesRetard || 5} min, inchangé</div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">HORAIRES</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">Inchangés</div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 1 : HEURES RÉELLES */}
+                {/* CONTENU ONGLET 1 : PRÉSENCE RÉELLE */}
                 {activeTab === 'HEURES' && (
                     <div className="space-y-4">
-                        {/* Sélecteur de mode de présence */}
+                        {/* Mode d'activité de la journée */}
                         <div>
-                            <label className="block text-xs font-semibold text-[var(--color-fg)] mb-2">
-                                Mode d&apos;activité de la journée :
+                            <label className="block text-xs font-bold text-[var(--color-fg)] mb-2">
+                                Mode d&apos;activité de la journée
                             </label>
-                            <div className="grid grid-cols-4 gap-2">
-                                <button
-                                    type="button"
-                                    data-regularisation-selected={modePresence === 'JOURNEE'}
-                                    onClick={() => handleModeChange('JOURNEE')}
-                                    className={`p-2.5 rounded-none border text-left transition-all ${
-                                        modePresence === 'JOURNEE'
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold ring-1 ring-[var(--color-primary)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <div className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Clock className="w-3.5 h-3.5" />
-                                        <span>Standard</span>
-                                    </div>
-                                    <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
-                                        Matin + Après-midi
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    data-regularisation-selected={modePresence === 'MATIN_SEUL'}
-                                    onClick={() => handleModeChange('MATIN_SEUL')}
-                                    className={`p-2.5 rounded-none border text-left transition-all ${
-                                        modePresence === 'MATIN_SEUL'
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold ring-1 ring-[var(--color-primary)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <div className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Sun className="w-3.5 h-3.5 text-[var(--color-warning-500)]" />
-                                        <span>Matinée seule</span>
-                                    </div>
-                                    <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
-                                        Demi-journée (matin)
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    data-regularisation-selected={modePresence === 'APRES_MIDI_SEUL'}
-                                    onClick={() => handleModeChange('APRES_MIDI_SEUL')}
-                                    className={`p-2.5 rounded-none border text-left transition-all ${
-                                        modePresence === 'APRES_MIDI_SEUL'
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold ring-1 ring-[var(--color-primary)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <div className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Sunset className="w-3.5 h-3.5 text-[var(--color-orange-500)]" />
-                                        <span>Après-midi seul</span>
-                                    </div>
-                                    <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
-                                        Demi-journée (AM)
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    data-regularisation-selected={modePresence === 'CONTINU'}
-                                    onClick={() => handleModeChange('CONTINU')}
-                                    className={`p-2.5 rounded-none border text-left transition-all ${
-                                        modePresence === 'CONTINU'
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold ring-1 ring-[var(--color-primary)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <div className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Clock className="w-3.5 h-3.5 text-[var(--color-info-500)]" />
-                                        <span>Continue</span>
-                                    </div>
-                                    <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
-                                        Sans pause dépointée
-                                    </div>
-                                </button>
+                            <div className="inline-flex border border-[var(--color-border)] divide-x divide-[var(--color-border)]">
+                                {[
+                                    { key: 'JOURNEE', label: 'Standard' },
+                                    { key: 'MATIN_SEUL', label: 'Matinée seule' },
+                                    { key: 'APRES_MIDI_SEUL', label: 'Après-midi seul' },
+                                    { key: 'CONTINU', label: 'Continue' }
+                                ].map((item) => (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        onClick={() => handleModeChange(item.key)}
+                                        className={`px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                                            modePresence === item.key
+                                                ? 'bg-[var(--color-brand-600)] text-white'
+                                                : 'bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                                        }`}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
                         {/* Formulaires d'horaires selon le mode choisi */}
                         {modePresence === 'CONTINU' ? (
-                            <div className="p-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Input
-                                        label="Heure de Prise de Poste"
+                            <div className="p-3 border border-[var(--color-border)] bg-[var(--color-surface)] grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs text-[var(--color-fg-muted)]">Prise de poste</label>
+                                    <input
                                         type="time"
                                         value={heureEntreeMatin}
                                         onChange={(e) => setHeureEntreeMatin(e.target.value)}
-                                        className="rounded-none"
+                                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-1.5 focus:border-[var(--color-brand-500)] focus:outline-none"
                                     />
-                                    <Input
-                                        label="Heure de Fin de Poste"
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-[var(--color-fg-muted)]">Fin de poste</label>
+                                    <input
                                         type="time"
                                         value={heureSortieAm}
                                         onChange={(e) => setHeureSortieAm(e.target.value)}
-                                        className="rounded-none"
+                                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-1.5 focus:border-[var(--color-brand-500)] focus:outline-none"
                                     />
                                 </div>
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Bloc Matinée */}
-                                <div className={`p-3 rounded-none space-y-3 border ${
-                                    modePresence === 'APRES_MIDI_SEUL'
-                                        ? 'bg-[var(--color-surface)] border-dashed border-[var(--color-border)] opacity-60'
-                                        : 'bg-[var(--color-surface-subtle)] border-[var(--color-border-subtle)]'
-                                }`}>
-                                    <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5">
-                                            <Sun className="w-3.5 h-3.5 text-[var(--color-warning-500)]" />
-                                            <span>Matinée</span>
-                                        </div>
-                                        {modePresence === 'APRES_MIDI_SEUL' && (
-                                            <span className="text-[10px] font-data text-[var(--color-fg-muted)] bg-[var(--color-surface-subtle)] px-1.5 py-0.5 rounded-none">
-                                                Non travaillée
-                                            </span>
-                                        )}
+                                {modePresence === 'APRES_MIDI_SEUL' ? (
+                                    <div className="border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-3 flex flex-col items-center justify-center min-h-[72px]">
+                                        <div className="font-bold text-xs text-[var(--color-fg)]">Matinée</div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">Non travaillée</div>
                                     </div>
-
-                                    {modePresence !== 'APRES_MIDI_SEUL' ? (
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Input
-                                                label="Entrée Matin"
+                                ) : (
+                                    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-3 grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-[var(--color-fg-muted)]">Entrée matin</label>
+                                            <input
                                                 type="time"
                                                 value={heureEntreeMatin}
                                                 onChange={(e) => setHeureEntreeMatin(e.target.value)}
-                                                className="rounded-none"
+                                                className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-1.5 focus:border-[var(--color-brand-500)] focus:outline-none"
                                             />
-                                            <Input
-                                                label="Sortie Pause"
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-[var(--color-fg-muted)]">Sortie pause</label>
+                                            <input
                                                 type="time"
                                                 value={heureSortieMatin}
                                                 onChange={(e) => setHeureSortieMatin(e.target.value)}
-                                                className="rounded-none"
+                                                className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-1.5 focus:border-[var(--color-brand-500)] focus:outline-none"
                                             />
                                         </div>
-                                    ) : (
-                                        <div className="text-xs text-[var(--color-fg-muted)] py-4 text-center">
-                                            Absence sur la matinée
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
 
                                 {/* Bloc Après-midi */}
-                                <div className={`p-3 rounded-none space-y-3 border ${
-                                    modePresence === 'MATIN_SEUL'
-                                        ? 'bg-[var(--color-surface)] border-dashed border-[var(--color-border)] opacity-60'
-                                        : 'bg-[var(--color-surface-subtle)] border-[var(--color-border-subtle)]'
-                                }`}>
-                                    <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5">
-                                            <Sunset className="w-3.5 h-3.5 text-[var(--color-orange-500)]" />
-                                            <span>Après-midi</span>
-                                        </div>
-                                        {modePresence === 'MATIN_SEUL' && (
-                                            <span className="text-[10px] font-data text-[var(--color-fg-muted)] bg-[var(--color-surface-subtle)] px-1.5 py-0.5 rounded-none">
-                                                Non travaillée
-                                            </span>
-                                        )}
+                                {modePresence === 'MATIN_SEUL' ? (
+                                    <div className="border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-3 flex flex-col items-center justify-center min-h-[72px]">
+                                        <div className="font-bold text-xs text-[var(--color-fg)]">Après-midi</div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">Non travaillée</div>
                                     </div>
-
-                                    {modePresence !== 'MATIN_SEUL' ? (
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Input
-                                                label="Retour Pause"
+                                ) : (
+                                    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-3 grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-[var(--color-fg-muted)]">Retour pause</label>
+                                            <input
                                                 type="time"
                                                 value={heureEntreeAm}
                                                 onChange={(e) => setHeureEntreeAm(e.target.value)}
-                                                className="rounded-none"
+                                                className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-1.5 focus:border-[var(--color-brand-500)] focus:outline-none"
                                             />
-                                            <Input
-                                                label="Sortie Soir"
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-[var(--color-fg-muted)]">Sortie soir</label>
+                                            <input
                                                 type="time"
                                                 value={heureSortieAm}
                                                 onChange={(e) => setHeureSortieAm(e.target.value)}
-                                                className="rounded-none"
+                                                className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-1.5 focus:border-[var(--color-brand-500)] focus:outline-none"
                                             />
                                         </div>
-                                    ) : (
-                                        <div className="text-xs text-[var(--color-fg-muted)] py-4 text-center">
-                                            Absence sur l&apos;après-midi
-                                        </div>
-                                    )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Traitement de l'autre demi-journée */}
+                        {(modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL') && (
+                            <div>
+                                <label className="block text-xs font-bold text-[var(--color-fg)] mb-2">
+                                    Traitement de {labelDemiJournee}
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                    {[
+                                        {
+                                            value: 'AUCUNE',
+                                            label: 'Départ autorisé',
+                                            description: 'Payé au réel · congé intact'
+                                        },
+                                        {
+                                            value: 'CONGE_PAYE',
+                                            label: 'Congé payé (0,5 j)',
+                                            description: 'Impact sur le solde de congés'
+                                        },
+                                        {
+                                            value: 'ABSENCE_DEDUITE',
+                                            label: 'Absence déduite',
+                                            description: 'Retenue horaire sur salaire'
+                                        }
+                                    ].map((opt) => {
+                                        const isSelected = optionAutreDemiJournee === opt.value;
+                                        return (
+                                            <div
+                                                key={opt.value}
+                                                onClick={() => setOptionAutreDemiJournee(opt.value)}
+                                                className={`p-3 border cursor-pointer transition-all rounded-none ${
+                                                    isSelected
+                                                        ? 'border-2 border-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
+                                                        : 'border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border-strong)]'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                                                        isSelected ? 'border-[var(--color-brand-600)]' : 'border-[var(--color-border-strong)]'
+                                                    }`}>
+                                                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-brand-600)]" />}
+                                                    </div>
+                                                    <span className="font-bold text-xs text-[var(--color-fg)]">{opt.label}</span>
+                                                </div>
+                                                <div className="text-[11px] text-[var(--color-fg-muted)] ml-5.5 mt-1 leading-snug">
+                                                    {opt.description}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
 
-                        {/* Traitement de l'autre demi-journée en mode demi-journée */}
-                        {(modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL') && (() => {
-                            const labelDemiJournee = modePresence === 'MATIN_SEUL' ? "l'après-midi" : "la matinée";
-                            return (
-                                <div className="p-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
-                                    <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
-                                        <Info className="w-3.5 h-3.5 text-[var(--color-primary)]" />
-                                        <span>Traitement de la demi-journée non travaillée ({modePresence === 'MATIN_SEUL' ? 'Après-midi' : 'Matin'}) :</span>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <button
-                                            type="button"
-                                            data-regularisation-selected={optionAutreDemiJournee === 'AUCUNE'}
-                                            onClick={() => setOptionAutreDemiJournee('AUCUNE')}
-                                            className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
-                                                optionAutreDemiJournee === 'AUCUNE'
-                                                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
-                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                            }`}
-                                        >
-                                            <div className="font-bold">Départ autorisé</div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Payé au réel (sans solde) • Congé intact</div>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            data-regularisation-selected={optionAutreDemiJournee === 'CONGE_PAYE'}
-                                            onClick={() => setOptionAutreDemiJournee('CONGE_PAYE')}
-                                            className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
-                                                optionAutreDemiJournee === 'CONGE_PAYE'
-                                                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
-                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                            }`}
-                                        >
-                                            <div className="font-bold">Congé payé (0.5 j)</div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Impact de solde confirmé par le module Congés.</div>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            data-regularisation-selected={optionAutreDemiJournee === 'ABSENCE_DEDUITE'}
-                                            onClick={() => setOptionAutreDemiJournee('ABSENCE_DEDUITE')}
-                                            className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
-                                                optionAutreDemiJournee === 'ABSENCE_DEDUITE'
-                                                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
-                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                            }`}
-                                        >
-                                            <div className="font-bold">Absence déduite</div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Retenue horaire sur salaire</div>
-                                        </button>
-                                    </div>
-
-                                    {/* Explication contextuelle dynamique de l'impact */}
-                                    <div className="text-[11px] p-2 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] leading-relaxed">
-                                        {optionAutreDemiJournee === 'AUCUNE' && (
-                                            <div>
-                                                <strong className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Impact : </strong>
-                                                L'absence sur {labelDemiJournee} est autorisée par la hiérarchie.
-                                            </div>
-                                        )}
-                                        {optionAutreDemiJournee === 'CONGE_PAYE' && (
-                                            <div>
-                                                <strong className="text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">Impact : </strong>
-                                                Le module Congés confirmera le débit de solde et le traitement de cette demi-journée.
-                                            </div>
-                                        )}
-                                        {optionAutreDemiJournee === 'ABSENCE_DEDUITE' && (
-                                            <div>
-                                                <strong className="text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]">Impact : </strong>
-                                                Absence non excusée. Les heures non faites de {labelDemiJournee} feront l'objet d'une retenue sur le bulletin de paie.
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* Synthèse calculée des heures */}
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none flex items-center justify-between text-xs">
-                            <span className="text-[var(--color-fg-muted)]">
-                                Total d&apos;heures de travail calculé :
-                            </span>
-                            <span className="font-data font-bold text-sm text-[var(--color-fg)]">
-                                {previewPending ? 'Calcul…' : dayPreview?.totalHeures != null ? `${dayPreview.totalHeures} h` : '—'}
-                            </span>
+                        {/* Indemnités associées */}
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-[var(--color-fg)]">
+                                Indemnités
+                            </label>
+                            {allowancesLoading && <p className="text-xs text-[var(--color-fg-muted)]">Chargement des indemnités…</p>}
+                            {allowancesError && <p className="text-xs text-[var(--color-danger-700)]">{allowancesError}</p>}
+                            {!allowancesLoading && !allowancesError && (
+                                <PointageAllowanceSelector
+                                    allowances={availableAllowances}
+                                    selections={dynamicAllowances}
+                                    onChange={setDynamicAllowances}
+                                />
+                            )}
                         </div>
 
-                        {/* Indemnités associées */}
-                        <div className="p-3 border border-[var(--color-border-subtle)] rounded-none space-y-2">
-                            <div className="text-xs font-semibold text-[var(--color-fg)]">
-                                Indemnités liées à la présence
+                        {/* Motif */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-[var(--color-fg)]">
+                                    Motif <span className="text-[var(--color-danger-500)]">*</span>
+                                </label>
+                                <span className="text-[11px] text-[var(--color-fg-muted)]">3 caractères minimum</span>
                             </div>
-                            <p className="text-[11px] text-[var(--color-fg-muted)]">Selon le paramétrage du site pour cette journée. Vérifiez chaque indemnité avant de confirmer.</p>
-                            {allowancesLoading && <p className="text-xs">Chargement des indemnités du site…</p>}
-                            {allowancesError && <p className="text-xs text-[var(--color-danger-700)]">{allowancesError}</p>}
-                            {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
-                                <p className="text-xs">Aucune indemnité journalière configurée pour ce site.</p>
-                            )}
-                            <PointageAllowanceSelector allowances={availableAllowances} selections={dynamicAllowances} onChange={setDynamicAllowances} />
+                            <textarea
+                                value={motifAjustement}
+                                onChange={(e) => {
+                                    if (error) setError('');
+                                    setMotifAjustement(e.target.value);
+                                }}
+                                rows={2}
+                                placeholder="Ex : oubli de badgeage sortie, permission accordée..."
+                                className="w-full text-xs p-2.5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)] placeholder:text-[var(--color-fg-muted)]"
+                            />
+                        </div>
+
+                        {/* Récapitulatif Tab Présence réelle */}
+                        <div className="border border-[var(--color-brand-200)] bg-[var(--color-brand-50)] grid grid-cols-4 divide-x divide-[var(--color-brand-200)]">
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">HEURES</div>
+                                <div className="text-sm font-bold font-data text-[var(--color-fg)] mt-0.5">
+                                    {previewPending ? 'Calcul…' : dayPreview?.totalHeures != null ? `${String(dayPreview.totalHeures).replace('.', ',')} h` : '—'}
+                                </div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">PAIE</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
+                                    {modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL'
+                                        ? (optionAutreDemiJournee === 'ABSENCE_DEDUITE' ? 'Retenue horaire' : 'Payé au réel')
+                                        : 'Payé au réel'}
+                                </div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">CONGÉS</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
+                                    {optionAutreDemiJournee === 'CONGE_PAYE' ? '0,5 j décompté' : 'Intacts'}
+                                </div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">INDEMNITÉS</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
+                                    {formatIndemnitesSummary(dynamicAllowances, availableAllowances)}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 2 : RÉGULARISATION D'ABSENCE */}
+                {/* CONTENU ONGLET 2 : ABSENCE */}
                 {activeTab === 'ABSENCE' && (
                     <div className="space-y-4">
                         {/* Solde de congés actuel */}
-                        <div className="p-3.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none flex items-center justify-between">
-                            <div className="space-y-0.5">
-                                <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
-                                    <Wallet className="w-3.5 h-3.5 text-[var(--color-primary)]" />
-                                    <span>Solde de Congés Payés du collaborateur</span>
-                                </div>
-                                <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                    {leaveSituationLoading && soldeAcquis == null ? 'Chargement de la situation…' :
-                                        `Acquis : ${soldeAcquis ?? '—'} j. | Consommé : ${soldePris ?? '—'} j.`}
+                        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5 flex items-center justify-between">
+                            <div>
+                                <div className="text-xs font-bold text-[var(--color-fg)]">Solde de congés payés</div>
+                                <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                    {leaveSituationLoading && soldeAcquis == null ? 'Chargement…' : `Acquis ${soldeAcquis ?? '—'} j · Consommé ${soldePris ?? '—'} j`}
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-[11px] text-[var(--color-fg-muted)]">Disponible net</div>
-                                <div className={`font-data text-base font-bold ${
-                                    soldeRestant == null
-                                        ? 'text-[var(--color-fg-muted)]'
-                                        : Number(soldeRestant) > 0
-                                            ? 'text-[var(--color-success)]'
-                                            : Number(soldeRestant) < 0
-                                                ? 'text-[var(--color-error)]'
-                                                : 'text-[var(--color-fg)]'
-                                }`}>
-                                    {soldeRestant ?? '—'} j.
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">DISPONIBLE NET</div>
+                                <div className="text-2xl font-bold font-data text-[var(--color-brand-800)] mt-0.5">
+                                    {soldeRestant != null ? `${soldeRestant} j` : '—'}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Choix du mode d'absence */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium text-[var(--color-fg)]">
-                                Modalité de traitement de l&apos;absence :
+                        {/* Modalité de traitement */}
+                        <div>
+                            <label className="block text-xs font-bold text-[var(--color-fg)] mb-2">
+                                Modalité de traitement
                             </label>
-                            <div className="grid grid-cols-3 gap-2">
-                                <button
-                                    type="button"
-                                    data-regularisation-selected={optionAbsence === 'CONGE_PAYE'}
-                                    onClick={() => setOptionAbsence('CONGE_PAYE')}
-                                    className={`p-3 rounded-none border text-left transition-all ${
-                                        optionAbsence === 'CONGE_PAYE'
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <div className="font-semibold text-xs flex items-center gap-1.5">
-                                        <Palmtree className="w-3.5 h-3.5" />
-                                        <span>Congé Payé Annuel</span>
-                                    </div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-1">
-                                        Imputation directe sur le solde de congés
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    data-regularisation-selected={optionAbsence === 'PERMISSION_EXCEPTIONNELLE'}
-                                    onClick={() => setOptionAbsence('PERMISSION_EXCEPTIONNELLE')}
-                                    className={`p-3 rounded-none border text-left transition-all ${
-                                        optionAbsence === 'PERMISSION_EXCEPTIONNELLE'
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <div className="font-semibold text-xs flex items-center gap-1.5">
-                                        <HeartHandshake className="w-3.5 h-3.5" />
-                                        <span>Permission</span>
-                                    </div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-1">
-                                        Événement familial 10j/an (Salaire maintenu)
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    data-regularisation-selected={optionAbsence === 'ABSENCE_DEDUITE'}
-                                    onClick={() => setOptionAbsence('ABSENCE_DEDUITE')}
-                                    className={`p-3 rounded-none border text-left transition-all ${
-                                        optionAbsence === 'ABSENCE_DEDUITE'
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <div className="font-semibold text-xs flex items-center gap-1.5">
-                                        <FileText className="w-3.5 h-3.5" />
-                                        <span>Absence Déduite</span>
-                                    </div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-1">
-                                        Retenue automatique sur salaire (Taux horaire)
-                                    </div>
-                                </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                {[
+                                    {
+                                        value: 'CONGE_PAYE',
+                                        label: 'Congé payé annuel',
+                                        description: 'Imputé sur le solde de congés'
+                                    },
+                                    {
+                                        value: 'PERMISSION_EXCEPTIONNELLE',
+                                        label: 'Permission',
+                                        description: 'Événement familial, 10 j/an · salaire maintenu'
+                                    },
+                                    {
+                                        value: 'ABSENCE_DEDUITE',
+                                        label: 'Absence déduite',
+                                        description: 'Retenue automatique sur salaire'
+                                    }
+                                ].map((opt) => {
+                                    const isSelected = optionAbsence === opt.value;
+                                    return (
+                                        <div
+                                            key={opt.value}
+                                            onClick={() => setOptionAbsence(opt.value)}
+                                            className={`p-3 border cursor-pointer transition-all rounded-none ${
+                                                isSelected
+                                                    ? 'border-2 border-[var(--color-brand-600)] bg-[var(--color-brand-50)]'
+                                                    : 'border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border-strong)]'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                                                    isSelected ? 'border-[var(--color-brand-600)]' : 'border-[var(--color-border-strong)]'
+                                                }`}>
+                                                    {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-brand-600)]" />}
+                                                </div>
+                                                <span className="font-bold text-xs text-[var(--color-fg)]">{opt.label}</span>
+                                            </div>
+                                            <div className="text-[11px] text-[var(--color-fg-muted)] ml-5.5 mt-1 leading-snug">
+                                                {opt.description}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
-                        {/* Options détaillées selon modalité choisie */}
+                        {/* Volume à imputer pour Congé payé */}
                         {optionAbsence === 'CONGE_PAYE' && (
-                            <div className="p-3.5 border border-[var(--color-border-subtle)] rounded-none space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-[var(--color-fg)]">
-                                        Volume à imputer sur le solde :
-                                    </span>
-                                    <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            data-regularisation-selected={congeDuree === '1.0'}
-                                            onClick={() => setCongeDuree('1.0')}
-                                            className={`px-3 py-1 rounded-none text-xs font-semibold border ${
-                                                congeDuree === '1.0'
-                                                    ? 'bg-[var(--color-primary)] text-[var(--color-on-color)] border-[var(--color-primary)]'
-                                                    : 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
-                                            }`}
-                                        >
-                                            Journée(s) entière(s)
-                                        </button>
-                                        <button
-                                            type="button"
-                                            data-regularisation-selected={congeDuree === '0.5'}
-                                            onClick={() => setCongeDuree('0.5')}
-                                            className={`px-3 py-1 rounded-none text-xs font-semibold border ${
-                                                congeDuree === '0.5'
-                                                    ? 'bg-[var(--color-primary)] text-[var(--color-on-color)] border-[var(--color-primary)]'
-                                                    : 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
-                                            }`}
-                                        >
-                                            Demi-journée (0.5 j)
-                                        </button>
+                            <div className="space-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <div>
+                                        <label className="text-xs font-bold text-[var(--color-fg)] mb-1.5 block">
+                                            Volume à imputer
+                                        </label>
+                                        <div className="inline-flex border border-[var(--color-border)] divide-x divide-[var(--color-border)] w-full">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCongeDuree('1.0')}
+                                                className={`flex-1 py-2 text-xs font-semibold text-center transition-colors cursor-pointer ${
+                                                    congeDuree === '1.0'
+                                                        ? 'bg-[var(--color-brand-600)] text-white'
+                                                        : 'bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                                                }`}
+                                            >
+                                                Journée(s) entière(s)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCongeDuree('0.5')}
+                                                className={`flex-1 py-2 text-xs font-semibold text-center transition-colors cursor-pointer ${
+                                                    congeDuree === '0.5'
+                                                        ? 'bg-[var(--color-brand-600)] text-white'
+                                                        : 'bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                                                }`}
+                                            >
+                                                Demi-journée (0,5 j)
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {congeDuree !== '0.5' ? (
+                                        <div>
+                                            <label htmlFor="regularisation-date-reprise" className="text-xs font-bold text-[var(--color-fg-muted)] mb-1.5 block">
+                                                Date de reprise prévue
+                                            </label>
+                                            <input
+                                                id="regularisation-date-reprise"
+                                                type="date"
+                                                value={dateReprise}
+                                                min={shiftIsoDate(anomalie?.datePointage, 1) || undefined}
+                                                onChange={(e) => setDateReprise(e.target.value)}
+                                                className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-2 focus:border-[var(--color-brand-500)] focus:outline-none"
+                                                required
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label className="text-xs font-bold text-[var(--color-fg-muted)] mb-1.5 block">
+                                                Moment
+                                            </label>
+                                            <div className="flex items-center gap-4 text-xs pt-2">
+                                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="moment"
+                                                        checked={demiJourneeMoment === 'MATIN'}
+                                                        onChange={() => setDemiJourneeMoment('MATIN')}
+                                                        className="w-3.5 h-3.5 accent-[var(--color-brand-600)]"
+                                                    />
+                                                    <span className="text-[var(--color-fg)]">Matinée</span>
+                                                </label>
+                                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="moment"
+                                                        checked={demiJourneeMoment === 'APRES_MIDI'}
+                                                        onChange={() => setDemiJourneeMoment('APRES_MIDI')}
+                                                        className="w-3.5 h-3.5 accent-[var(--color-brand-600)]"
+                                                    />
+                                                    <span className="text-[var(--color-fg)]">Après-midi</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {congeDuree !== '0.5' && (
-                                    <div className="space-y-1">
-                                        <label htmlFor="regularisation-date-reprise" className="block text-xs font-semibold">Date de reprise prévue</label>
-                                        <Input id="regularisation-date-reprise" type="date" value={dateReprise}
-                                            min={shiftIsoDate(anomalie?.datePointage, 1) || undefined}
-                                            onChange={(event) => setDateReprise(event.target.value)} required />
-                                        {nbJoursAImputer > 0 && <p className="text-xs text-[var(--color-fg-muted)]">
-                                            Congé du {fmtDate(anomalie.datePointage)} au {fmtDate(dernierJourConge)} inclus : <strong>{nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''} calendaires</strong>. Le solde disponible sera débité ; la reprise ne l&apos;est pas.
-                                        </p>}
-                                    </div>
+                                {congeDuree !== '0.5' && nbJoursAImputer > 0 && (
+                                    <p className="text-[11px] text-[var(--color-fg-muted)]">
+                                        Du {formatDayDate(anomalie.datePointage)} au {formatDayDate(dernierJourConge)} inclus :{' '}
+                                        <strong className="text-[var(--color-fg)]">
+                                            {nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''} calendaire{nbJoursAImputer > 1 ? 's' : ''} débité{nbJoursAImputer > 1 ? 's' : ''}
+                                        </strong>
+                                        . La reprise n&apos;est pas débitée.
+                                    </p>
                                 )}
-
-                                {congeDuree === '0.5' && (
-                                    <div className="flex items-center gap-3 text-xs pt-1">
-                                        <span className="text-[var(--color-fg-muted)]">Moment :</span>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="moment"
-                                                checked={demiJourneeMoment === 'MATIN'}
-                                                onChange={() => setDemiJourneeMoment('MATIN')}
-                                            />
-                                            <span>Matinée</span>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="moment"
-                                                checked={demiJourneeMoment === 'APRES_MIDI'}
-                                                onChange={() => setDemiJourneeMoment('APRES_MIDI')}
-                                            />
-                                            <span>Après-midi</span>
-                                        </label>
-                                    </div>
-                                )}
-
-                                {/* Diagnostic solde après imputation */}
-                                <div className="p-2.5 rounded-none text-xs flex items-center justify-between bg-[var(--color-info-subtle)] text-[var(--color-info)]">
-                                    <div className="flex items-center gap-1.5">
-                                        <Info className="w-4 h-4 shrink-0" />
-                                        <span>
-                                            {joursCouvertsEstimes == null
-                                                ? 'Le module Congés vérifiera le solde avant enregistrement.'
-                                                : `Estimation : ${formatJours(joursCouvertsEstimes)} j indemnisés, ${formatJours(joursNonCouvertsEstimes)} j non couverts. La période entière est déduite de la base.`}
-                                        </span>
-                                    </div>
-                                </div>
                             </div>
                         )}
 
+                        {/* Permission légale */}
                         {optionAbsence === 'PERMISSION_EXCEPTIONNELLE' && (
-                            <div className="p-3.5 border border-[var(--color-border-subtle)] rounded-none space-y-3">
-                                <label className="block text-xs font-semibold text-[var(--color-fg)]">
-                                    Motif légal de l&apos;événement familial :
+                            <div className="p-3 border border-[var(--color-border)] bg-[var(--color-surface)] space-y-2">
+                                <label className="block text-xs font-bold text-[var(--color-fg)]">
+                                    Motif légal de l&apos;événement familial
                                 </label>
                                 <div className="relative">
                                     <select
                                         value={motifFamilial}
                                         onChange={(e) => setMotifFamilial(e.target.value)}
-                                        className="w-full appearance-none text-xs py-2 pl-3 pr-10 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                                        className="w-full appearance-none text-xs py-2 pl-3 pr-10 border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)]"
                                     >
                                         {MOTIFS_FAMILIAUX.map((m) => (
                                             <option key={m.value} value={m.value}>
@@ -1004,88 +955,109 @@ export default function AnomalieRegularisationModal({
                                     </select>
                                     <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-fg-muted)]" />
                                 </div>
-                                <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)] shrink-0" />
-                                    <span>Conforme au droit malgache : salaire maintenu intégralement sans impact sur le solde annuel.</span>
-                                </div>
                             </div>
                         )}
 
+                        {/* Qualification Absence Déduite */}
                         {optionAbsence === 'ABSENCE_DEDUITE' && (
-                            <div className="p-3.5 border border-[var(--color-border-subtle)] rounded-none space-y-3">
-                                <label className="block text-xs font-semibold text-[var(--color-fg)]">
-                                    Qualification de l&apos;absence :
+                            <div className="p-3 border border-[var(--color-border)] bg-[var(--color-surface)] space-y-2">
+                                <label className="block text-xs font-bold text-[var(--color-fg)]">
+                                    Qualification de l&apos;absence
                                 </label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <label className="flex items-center gap-2 p-2 rounded-none border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-xs cursor-pointer">
+                                    <label className="flex items-center gap-2 p-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-xs cursor-pointer">
                                         <input
                                             type="radio"
                                             name="statutDeduite"
                                             value="ABSENCE_JUSTIFIEE"
                                             checked={statutAbsenceDeduite === 'ABSENCE_JUSTIFIEE'}
                                             onChange={() => setStatutAbsenceDeduite('ABSENCE_JUSTIFIEE')}
+                                            className="w-3.5 h-3.5 accent-[var(--color-brand-600)]"
                                         />
-                                        <span>Absence Justifiée (Certificat / Accord)</span>
+                                        <span>Absence Justifiée</span>
                                     </label>
-                                    <label className="flex items-center gap-2 p-2 rounded-none border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-xs cursor-pointer">
+                                    <label className="flex items-center gap-2 p-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-xs cursor-pointer">
                                         <input
                                             type="radio"
                                             name="statutDeduite"
                                             value="ABSENCE_NON_JUSTIFIEE"
                                             checked={statutAbsenceDeduite === 'ABSENCE_NON_JUSTIFIEE'}
                                             onChange={() => setStatutAbsenceDeduite('ABSENCE_NON_JUSTIFIEE')}
+                                            className="w-3.5 h-3.5 accent-[var(--color-brand-600)]"
                                         />
                                         <span>Absence Non Justifiée</span>
                                     </label>
                                 </div>
-                                <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Info className="w-3.5 h-3.5 text-[var(--color-info)] shrink-0" />
-                                    <span>La déduction est calculée par la Paie avec le diviseur légal applicable à la période.</span>
-                                </div>
                             </div>
                         )}
 
-                        {/* Indemnités lors de la régularisation d'absence */}
-                        <div className="p-3 border border-[var(--color-border-subtle)] rounded-none space-y-2">
+                        {/* Indemnités pendant l'absence */}
+                        <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                                <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
-                                    <Wallet className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
-                                    <span>Indemnités lors de l’absence</span>
-                                </div>
-                                <span className="text-[10px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1.5 py-0.5 font-semibold">
-                                    Exception manuelle à justifier
+                                <label className="text-xs font-bold text-[var(--color-fg)]">
+                                    Indemnités pendant l&apos;absence
+                                </label>
+                                <span className="text-[10px] font-semibold bg-[#ffedd5] text-[#9a3412] px-2 py-0.5">
+                                    Exception à justifier
                                 </span>
                             </div>
-                            <p className="text-[11px] text-[var(--color-fg-muted)]">Aucune indemnité n’est reprise automatiquement de la présence. Les choix importés restent visibles pour vérification.</p>
-                            {allowancesLoading && <p className="text-xs text-[var(--color-fg-muted)]">Chargement des indemnités du site…</p>}
-                            {allowancesError && <p className="text-xs text-[var(--color-danger-700)]">{allowancesError}</p>}
-                            {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
-                                <p className="text-xs text-[var(--color-fg-muted)]">Aucune indemnité journalière configurée pour ce site.</p>
-                            )}
-                            {!allowancesLoading && !allowancesError && availableAllowances.length > 0 && (
-                                <PointageAllowanceSelector allowances={availableAllowances} selections={absenceAllowances} onChange={setAbsenceAllowances} absence />
-                            )}
+                            <PointageAllowanceSelector
+                                allowances={availableAllowances}
+                                selections={absenceAllowances}
+                                onChange={setAbsenceAllowances}
+                                absence
+                            />
+                        </div>
+
+                        {/* Motif */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-[var(--color-fg)]">
+                                    Motif <span className="text-[var(--color-danger-500)]">*</span>
+                                </label>
+                                <span className="text-[11px] text-[var(--color-fg-muted)]">3 caractères minimum</span>
+                            </div>
+                            <textarea
+                                value={motifAjustement}
+                                onChange={(e) => {
+                                    if (error) setError('');
+                                    setMotifAjustement(e.target.value);
+                                }}
+                                rows={2}
+                                placeholder="Ex : justificatif médical reçu, permission accordée..."
+                                className="w-full text-xs p-2.5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)] placeholder:text-[var(--color-fg-muted)]"
+                            />
+                        </div>
+
+                        {/* Récapitulatif Tab Absence */}
+                        <div className="border border-[var(--color-brand-200)] bg-[var(--color-brand-50)] grid grid-cols-4 divide-x divide-[var(--color-brand-200)]">
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">JOURS DÉBITÉS</div>
+                                <div className="text-sm font-bold font-data text-[var(--color-fg)] mt-0.5">
+                                    {congeDuree === '0.5' ? '0,5 j' : `${nbJoursAImputer} j`}
+                                </div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">SOLDE APRÈS</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
+                                    {getSoldeApresDisplay(optionAbsence, rawSoldeRestant, congeDuree, nbJoursAImputer)}
+                                </div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">PAIE</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
+                                    {optionAbsence === 'ABSENCE_DEDUITE' ? 'Déduite' : 'Maintenue'}
+                                </div>
+                            </div>
+                            <div className="p-2.5">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">INDEMNITÉS</div>
+                                <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
+                                    {formatIndemnitesSummary(absenceAllowances, availableAllowances)}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
-
-                {/* Motif / Commentaire obligatoire */}
-                {activeTab !== 'RETARD_REEL' && <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[var(--color-fg)] flex items-center justify-between">
-                        <span>Motif / Note explicative de régularisation <span className="text-[var(--color-error)]">*</span></span>
-                        <span className="text-[10px] text-[var(--color-fg-muted)]">Minimum 3 caractères</span>
-                    </label>
-                    <textarea
-                        value={motifAjustement}
-                        onChange={(e) => {
-                            if (error) setError('');
-                            setMotifAjustement(e.target.value);
-                        }}
-                        rows={3}
-                        placeholder="Précisez le motif (ex: Oubli badgeage sortie, justificatif médical reçu, permission accordée...)"
-                        className="w-full text-xs p-2.5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] placeholder:text-[var(--color-fg-muted)]"
-                    />
-                </div>}
             </div>
         </Modal>
     );

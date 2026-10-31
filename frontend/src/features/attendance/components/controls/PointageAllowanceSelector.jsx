@@ -1,9 +1,11 @@
 import { changePointageAllowance } from '@/features/attendance/utils/pointageRow';
 
 export default function PointageAllowanceSelector({ allowances, selections, onChange, absence = false }) {
+    if (!allowances || allowances.length === 0) return null;
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {allowances.map((allowance) => {
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+            {allowances.map((allowance, index) => {
                 const key = String(allowance.idIndemnite);
                 const selection = selections[key] || {};
                 const fractionable = allowance.estFractionnable ?? allowance.fractionnable;
@@ -12,19 +14,45 @@ export default function PointageAllowanceSelector({ allowances, selections, onCh
                     [key]: changePointageAllowance(previous[key], value, moment)
                 }));
                 return (
-                    <div key={key} className="border border-[var(--color-border)] bg-[var(--color-surface)] p-3 space-y-2 text-xs">
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <strong className="text-[var(--color-brand-700)] shrink-0">{allowance.code}</strong>
-                            <span className="text-[var(--color-fg)]" title={allowance.libelle}>{allowance.libelle}</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--color-border-subtle)] pt-2 text-[var(--color-fg)]">
+                    <div key={key} className="flex items-center gap-3">
+                        {index > 0 && <div className="h-4 w-px bg-[var(--color-border)] hidden sm:block" />}
+                        <span className="text-[var(--color-fg)] font-medium">
+                            {(allowance.libelle || allowance.code || '').replace(/^Indemnité de\s+/i, '')}
+                        </span>
+                        <div className="flex items-center gap-3">
                             {fractionable ? (
                                 <>
-                                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={Boolean(selection.matin)} onChange={(event) => update(event.target.checked, 'MATIN')} /> Matin</label>
-                                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={Boolean(selection.am)} onChange={(event) => update(event.target.checked, 'APRES_MIDI')} /> Après-midi</label>
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={Boolean(selection.matin)}
+                                            onChange={(event) => update(event.target.checked, 'MATIN')}
+                                            className="w-3.5 h-3.5 accent-[var(--color-brand-600)] rounded-none"
+                                        />
+                                        <span className="text-[var(--color-fg)]">Matin</span>
+                                    </label>
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={Boolean(selection.am)}
+                                            onChange={(event) => update(event.target.checked, 'APRES_MIDI')}
+                                            className="w-3.5 h-3.5 accent-[var(--color-brand-600)] rounded-none"
+                                        />
+                                        <span className="text-[var(--color-fg)]">Après-midi</span>
+                                    </label>
                                 </>
                             ) : (
-                                <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={Boolean(selection.accordee)} onChange={(event) => update(event.target.checked)} /> {absence ? 'Accorder exceptionnellement' : 'Accorder'}</label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(selection.accordee)}
+                                        onChange={(event) => update(event.target.checked)}
+                                        className="w-3.5 h-3.5 accent-[var(--color-brand-600)] rounded-none"
+                                    />
+                                    <span className="text-[var(--color-fg)]">
+                                        {absence ? 'Accorder exceptionnellement' : 'Accorder'}
+                                    </span>
+                                </label>
                             )}
                         </div>
                     </div>

@@ -8,7 +8,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import FormError from '@/components/ui/feedback/FormError';
 import Loading from '@/components/ui/feedback/Loading';
 import { useToast } from '@/components/ui/feedback/Toast';
-import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
+import { formatLeaveRateAr } from '@/utils/moneyUtils';
 
 const formatDateFr = (dStr) => {
   if (!dStr) return '-';
