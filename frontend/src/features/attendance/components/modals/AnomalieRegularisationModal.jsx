@@ -182,6 +182,11 @@ export default function AnomalieRegularisationModal({
             ? Math.round((Date.parse(`${dateReprise}T00:00:00Z`) - Date.parse(`${anomalie.datePointage}T00:00:00Z`)) / 86400000)
             : 0;
 
+    const soldeNumerique = rawSoldeRestant != null ? Math.max(0, Number(rawSoldeRestant)) : null;
+    const joursDemandes = congeDuree === '0.5' ? 0.5 : nbJoursAImputer;
+    const joursCouverts = soldeNumerique != null ? Math.min(joursDemandes, soldeNumerique) : joursDemandes;
+    const isCongePartiel = optionAbsence === 'CONGE_PAYE' && soldeNumerique != null && joursDemandes > soldeNumerique;
+
     useEffect(() => {
         if (!isOpen || !anomalie || activeTab !== 'HEURES') return undefined;
         let cancelled = false;
@@ -368,14 +373,18 @@ export default function AnomalieRegularisationModal({
         for (const a of allowances) {
             const s = selections[String(a.idIndemnite)];
             if (!s) continue;
-            const fractionable = a.estFractionnable ?? a.fractionnable;
-            const name = (a.libelle || a.code || '').replace(/^Indemnité de\s+/i, '').trim();
+            const fractionable = Boolean(a.estFractionnable ?? a.fractionnable);
+            const name = (a.libelle || a.code || '').replace(/^Indemnité\s+(de\s+)?/i, '').trim();
             if (fractionable) {
-                const count = (s.matin ? 1 : 0) + (s.am ? 1 : 0);
-                if (count === 2) {
-                    parts.push(`${name} ×2`);
-                } else if (count === 1) {
-                    parts.push(s.matin ? `${name} (matin)` : `${name} (après-midi)`);
+                const hasMatin = Boolean(s.matin);
+                const hasAm = Boolean(s.am);
+                if (hasMatin && hasAm) {
+                    // Journée complète : 0,5 + 0,5 = 1 indemnité complète
+                    parts.push(name);
+                } else if (hasMatin) {
+                    parts.push(`${name} (0,5 j · matin)`);
+                } else if (hasAm) {
+                    parts.push(`${name} (0,5 j · après-midi)`);
                 }
             } else if (s.accordee) {
                 parts.push(name);
@@ -392,7 +401,8 @@ export default function AnomalieRegularisationModal({
             return `${formatJours(numSolde)} j`;
         }
         const aDebiter = duree === '0.5' ? 0.5 : nbJours;
-        const reste = Math.max(0, Math.round((numSolde - aDebiter) * 100) / 100);
+        const imputables = Math.min(aDebiter, Math.max(0, numSolde));
+        const reste = Math.max(0, Math.round((numSolde - imputables) * 100) / 100);
         return `${formatJours(numSolde)} → ${formatJours(reste)} j`;
     };
 
@@ -753,7 +763,11 @@ export default function AnomalieRegularisationModal({
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">PAIE</div>
                                 <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
                                     {modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL'
-                                        ? (optionAutreDemiJournee === 'ABSENCE_DEDUITE' ? 'Retenue horaire' : 'Payé au réel')
+                                        ? (optionAutreDemiJournee === 'CONGE_PAYE'
+                                            ? 'Réel + indemnité congé (0,5 j)'
+                                            : optionAutreDemiJournee === 'ABSENCE_DEDUITE'
+                                                ? 'Retenue horaire'
+                                                : 'Payé au réel')
                                         : 'Payé au réel'}
                                 </div>
                             </div>
@@ -927,7 +941,8 @@ export default function AnomalieRegularisationModal({
                                     <p className="text-[11px] text-[var(--color-fg-muted)]">
                                         Du {formatDayDate(anomalie.datePointage)} au {formatDayDate(dernierJourConge)} inclus :{' '}
                                         <strong className="text-[var(--color-fg)]">
-                                            {nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''} calendaire{nbJoursAImputer > 1 ? 's' : ''} débité{nbJoursAImputer > 1 ? 's' : ''}
+                                            {nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''} calendaire{nbJoursAImputer > 1 ? 's' : ''}
+                                            {isCongePartiel ? ` (${formatJours(joursCouverts)} j couverts sur le solde)` : ` débité${nbJoursAImputer > 1 ? 's' : ''}`}
                                         </strong>
                                         . La reprise n&apos;est pas débitée.
                                     </p>
@@ -1032,21 +1047,48 @@ export default function AnomalieRegularisationModal({
                         {/* Récapitulatif Tab Absence */}
                         <div className="border border-[var(--color-brand-200)] bg-[var(--color-brand-50)] grid grid-cols-4 divide-x divide-[var(--color-brand-200)]">
                             <div className="p-2.5">
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">JOURS DÉBITÉS</div>
-                                <div className="text-sm font-bold font-data text-[var(--color-fg)] mt-0.5">
-                                    {congeDuree === '0.5' ? '0,5 j' : `${nbJoursAImputer} j`}
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">
+                                    {optionAbsence === 'CONGE_PAYE' ? 'JOURS DÉBITÉS' : 'ABSENCE'}
                                 </div>
+                                <div className="text-sm font-bold font-data text-[var(--color-fg)] mt-0.5">
+                                    {optionAbsence === 'CONGE_PAYE'
+                                        ? (isCongePartiel ? `${formatJours(joursCouverts)} j` : `${formatJours(joursDemandes)} j`)
+                                        : `${formatJours(joursDemandes)} j`}
+                                </div>
+                                {optionAbsence === 'CONGE_PAYE' && isCongePartiel && (
+                                    <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
+                                        sur {formatJours(joursDemandes)} j demandés
+                                    </div>
+                                )}
                             </div>
                             <div className="p-2.5">
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">SOLDE APRÈS</div>
                                 <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
                                     {getSoldeApresDisplay(optionAbsence, rawSoldeRestant, congeDuree, nbJoursAImputer)}
                                 </div>
+                                {optionAbsence === 'CONGE_PAYE' && (
+                                    <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
+                                        {isCongePartiel ? 'Solde épuisé (non négatif)' : 'Décompté du solde'}
+                                    </div>
+                                )}
                             </div>
                             <div className="p-2.5">
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">PAIE</div>
                                 <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
-                                    {optionAbsence === 'ABSENCE_DEDUITE' ? 'Déduite' : 'Maintenue'}
+                                    {optionAbsence === 'CONGE_PAYE'
+                                        ? 'Indemnité congé'
+                                        : optionAbsence === 'PERMISSION_EXCEPTIONNELLE'
+                                            ? 'Salaire maintenu'
+                                            : 'Retenue sur salaire'}
+                                </div>
+                                <div className="text-[10px] text-[var(--color-fg-muted)] leading-tight mt-0.5">
+                                    {optionAbsence === 'CONGE_PAYE'
+                                        ? (isCongePartiel
+                                            ? `Déduction base ${formatJours(joursDemandes)} j · Indemnité ${formatJours(joursCouverts)} j`
+                                            : `Déduction base ${formatJours(joursDemandes)} j + indemnité TCONGE`)
+                                        : optionAbsence === 'PERMISSION_EXCEPTIONNELLE'
+                                            ? 'Événement familial (10 j/an)'
+                                            : 'Retenue automatique'}
                                 </div>
                             </div>
                             <div className="p-2.5">
