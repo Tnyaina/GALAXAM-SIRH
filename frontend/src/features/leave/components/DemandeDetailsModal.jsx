@@ -1,3 +1,4 @@
+import { formatLeaveRateAr } from '@/utils/moneyUtils';
 import { useState, useEffect } from 'react';
 import { 
   FileText, X, Check, Pencil, Calculator, Minus, Equal, AlertCircle, ShieldAlert 
@@ -357,7 +358,7 @@ export default function DemandeDetailsModal({
             <span>Jours demandés : <strong className="font-mono text-[var(--color-fg)]">{Number(joursDemandes).toFixed(2)} j</strong></span>
             <span>Impact Paie : <strong>{estRemunere ? 'Congé Rémunéré (TCONGE valorisé)' : 'Sans Solde (Retenue absence)'}</strong></span>
             {soldeEmploye?.tauxJournalierConge && (
-              <span>TCONGE : <strong className="font-mono">{Number(soldeEmploye.tauxJournalierConge).toLocaleString('fr-FR')} Ar/j</strong></span>
+              <span>TCONGE : <strong className="font-mono">{formatLeaveRateAr(soldeEmploye.tauxJournalierConge)}/j</strong></span>
             )}
           </div>
         </section>

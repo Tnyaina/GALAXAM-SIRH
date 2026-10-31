@@ -8,7 +8,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import FormError from '@/components/ui/feedback/FormError';
 import Loading from '@/components/ui/feedback/Loading';
 import { useToast } from '@/components/ui/feedback/Toast';
-import { formatMoneyAr } from '@/utils/moneyUtils';
+import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 
 const formatDateFr = (dStr) => {
   if (!dStr) return '-';
@@ -195,7 +195,7 @@ export default function ExportEtatCongesModal({
                                 <span>Report initial : {soldeOuv} j</span>
                               )}
                               {tauxVal && (
-                                <span>Taux journalier : {formatMoneyAr(tauxVal)}</span>
+                                <span>Taux journalier : {formatLeaveRateAr(tauxVal)}</span>
                               )}
                             </div>
                           </div>

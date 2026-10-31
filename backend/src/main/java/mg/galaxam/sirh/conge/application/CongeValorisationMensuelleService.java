@@ -132,7 +132,7 @@ public class CongeValorisationMensuelleService {
                     cumulJours=cumulJours.add(rs.getBigDecimal(2));
                     cumulValeur=cumulValeur.add(rs.getBigDecimal(3));
                     BigDecimal taux=cumulJours.signum()==0 ? BigDecimal.ZERO
-                            : cumulValeur.divide(cumulJours,2,RoundingMode.HALF_UP);
+                            : cumulValeur.divide(cumulJours,6,RoundingMode.HALF_UP);
                     try (PreparedStatement upd=c.prepareStatement("UPDATE conge_journal_droit SET "
                             + "cumul_jours_droit=?,cumul_valorisation=?,taux_journalier_conge=? WHERE id_journal=?")) {
                         upd.setBigDecimal(1,cumulJours); upd.setBigDecimal(2,cumulValeur);

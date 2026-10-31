@@ -106,7 +106,9 @@ public final class AttendanceStatusPolicy {
 
     public static String resolveRegularizedLeaveCoverage(double coveredDays, double requestedDays, String reason) {
         if (coveredDays >= requestedDays) return "CONGE";
-        if (coveredDays > 0.0) return "DEMI_JOURNEE";
+        // La fraction non couverte est déduite de la base au trentième en paie.
+        // Le statut journalier reste CONGE pour neutraliser un second déficit horaire.
+        if (coveredDays > 0.0) return "CONGE";
         return resolveRegularizedAbsence(null, reason);
     }
 

@@ -318,7 +318,7 @@ public class CongeTauxApplicableService {
 
         // 4. Cas nouveau collaborateur pur (NEW_HIRE sans historique) : Amorçage contractuel canonique Base / 30
         if (salaireBaseFallback != null && salaireBaseFallback.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal tauxBase30 = salaireBaseFallback.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+            BigDecimal tauxBase30 = salaireBaseFallback.divide(new BigDecimal("30.0"), 6, RoundingMode.HALF_UP);
             return new TauxCongeResolution(
                     tauxBase30,
                     TcongeSourceProvenance.INITIALISATION_BASE_30,
@@ -693,7 +693,7 @@ public class CongeTauxApplicableService {
             throw new IllegalStateException("TCONGE_CLOSURE_DROITS_ZERO: impossible de clôturer une référence sans droits acquis.");
         }
 
-        BigDecimal tauxCalcule = cumulValo.divide(cumulDroits, 2, RoundingMode.HALF_UP);
+        BigDecimal tauxCalcule = cumulValo.divide(cumulDroits, 6, RoundingMode.HALF_UP);
         cloturerPeriodeReference(idPeriodeReference, cumulDroits, cumulValo, tauxCalcule, c);
         return tauxCalcule;
     }
@@ -825,7 +825,7 @@ public class CongeTauxApplicableService {
                 ") VALUES (?, ?, ?, NULL, 'CALCUL_PERIODE_REFERENCE', ?, ?, ?) RETURNING id_taux_applicable";
         try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
             psIns.setInt(1, idEmploye);
-            psIns.setBigDecimal(2, tauxCalcule.setScale(2, RoundingMode.HALF_UP));
+            psIns.setBigDecimal(2, tauxCalcule.setScale(6, RoundingMode.HALF_UP));
             psIns.setDate(3, Date.valueOf(dateEffet));
             psIns.setInt(4, idPeriodeReference);
             psIns.setString(5, "Activation explicite de la période " + idPeriodeReference);
@@ -1083,7 +1083,7 @@ public class CongeTauxApplicableService {
                 ") VALUES (?, ?, ?, NULL, 'REPRISE_CUTOVER', ?, ?, ?)";
         try (PreparedStatement psTaux = c.prepareStatement(sqlTaux)) {
             psTaux.setInt(1, req.getIdEmploye());
-            psTaux.setBigDecimal(2, req.getTauxJournalierApplicable().setScale(2, RoundingMode.HALF_UP));
+            psTaux.setBigDecimal(2, req.getTauxJournalierApplicable().setScale(6, RoundingMode.HALF_UP));
             psTaux.setDate(3, Date.valueOf(req.getDateCutover()));
             psTaux.setInt(4, idPeriodeRef);
             psTaux.setString(5, traceArrete);
@@ -1264,7 +1264,7 @@ public class CongeTauxApplicableService {
                 perDto.setCumulDroitsTotal(totalDroits);
                 perDto.setCumulValorisationTotal(totalValo);
                 if (totalDroits.compareTo(BigDecimal.ZERO) > 0) {
-                    perDto.setTauxProjection(totalValo.divide(totalDroits, 2, RoundingMode.HALF_UP));
+                    perDto.setTauxProjection(totalValo.divide(totalDroits, 6, RoundingMode.HALF_UP));
                 }
             }
 

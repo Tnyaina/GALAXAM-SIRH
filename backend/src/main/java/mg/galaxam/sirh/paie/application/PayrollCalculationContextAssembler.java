@@ -311,6 +311,7 @@ final class PayrollCalculationContextAssembler {
             LocalDate dFinPer = in.getDateFinPeriode().toLocalDate();
             var joursConge = congeService.calculerJoursCongeValorisesParDate(idEmploye, dDebPer, dFinPer, c);
             in.setJoursCongeValorisesParDate(joursConge);
+            in.setJoursCongeBaseParDate(congeService.calculerJoursCongeBaseParDate(idEmploye, dDebPer, dFinPer, c));
             in.setNbJoursConges(joursConge.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
         }
 

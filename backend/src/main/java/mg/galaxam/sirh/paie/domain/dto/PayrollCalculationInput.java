@@ -274,6 +274,7 @@ public class PayrollCalculationInput {
     private BigDecimal tauxJournalierConge; // TCONGE dynamique (valorisation grand-livre congés)
     private BigDecimal indemniteCongeLots; // Somme des jours pris × taux historique de chaque lot FIFO
     private Map<LocalDate, BigDecimal> joursCongeValorisesParDate = Map.of();
+    private Map<LocalDate, BigDecimal> joursCongeBaseParDate = Map.of();
     private String modeCalculAbsence = "HEURES_REELLES"; // "HEURES_REELLES" (défaut opposable) ou "TRENTIEME"
     private boolean estPlafonneSante = true; // Plafonnement OSTIE / OMSI à 8x SME
     private boolean indemniteRepasImposable = false;
@@ -471,6 +472,10 @@ public class PayrollCalculationInput {
     public Map<LocalDate, BigDecimal> getJoursCongeValorisesParDate() { return joursCongeValorisesParDate; }
     public void setJoursCongeValorisesParDate(Map<LocalDate, BigDecimal> jours) {
         this.joursCongeValorisesParDate = Map.copyOf(jours);
+    }
+    public Map<LocalDate, BigDecimal> getJoursCongeBaseParDate() { return joursCongeBaseParDate; }
+    public void setJoursCongeBaseParDate(Map<LocalDate, BigDecimal> jours) {
+        this.joursCongeBaseParDate = Map.copyOf(jours);
     }
 
     // Getters & Setters

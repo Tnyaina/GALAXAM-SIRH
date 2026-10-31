@@ -39,6 +39,14 @@ export function formatMoneyAr(val) {
     return num.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(/\u202F/g, ' ') + ' Ar';
 }
 
+/** Taux journalier de congé : conserver les décimales utiles jusqu'à 6 chiffres. */
+export function formatLeaveRateAr(val) {
+    if (val === null || val === undefined || val === '') return '—';
+    const num = Number(val);
+    if (!Number.isFinite(num)) return '—';
+    return num.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 6 }).replace(/\u202F/g, ' ') + ' Ar';
+}
+
 /** Format d'affichage des indemnités de pointage : entier arrondi, zéro explicite. */
 export function formatRoundedMoneyAr(val) {
     if (!val || isNaN(val) || Number(val) === 0) return '0 Ar';

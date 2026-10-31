@@ -13,7 +13,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { useToast } from '@/components/ui/feedback/Toast';
 import congeService from '@/features/leave/api/congeService';
-import { formatMoneyAr } from '@/utils/moneyUtils';
+import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
 import InitialisationSoldeModal from '@/features/leave/components/InitialisationSoldeModal';
 import DroitsLotsPanel from '@/features/leave/components/DroitsLotsPanel';
@@ -220,7 +220,7 @@ export default function PeriodesReferenceTab({
               <span className="font-semibold">{item.prenom} {item.nom}</span>
               {item.matricule && <span className="opacity-75">({item.matricule})</span>}
               <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
-                {item.dateDebut.slice(0, 4)} · TCONGE calculé {formatMoneyAr(item.tauxCalculeCloture)}/j
+                {item.dateDebut.slice(0, 4)} · TCONGE calculé {formatLeaveRateAr(item.tauxCalculeCloture)}/j
               </span>
             </button>
           ))}
@@ -322,8 +322,8 @@ export default function PeriodesReferenceTab({
                 </Td>
                 <Td>
                   <dl className="space-y-1 text-xs">
-                    <div><dt className="inline text-[var(--color-fg-muted)]">Calculé à la clôture : </dt><dd className="inline font-semibold">{ouverte ? 'Après clôture' : Number(periode.tauxCalculeCloture) > 0 ? `${formatMoneyAr(periode.tauxCalculeCloture)} / j` : '—'}</dd></div>
-                    <div><dt className="inline text-[var(--color-fg-muted)]">Applicable : </dt><dd className="inline font-semibold">{periode.dateEffetActivation ? `${formatMoneyAr(periode.tauxActive)} / j` : 'Aucun'}</dd></div>
+                    <div><dt className="inline text-[var(--color-fg-muted)]">Calculé à la clôture : </dt><dd className="inline font-semibold">{ouverte ? 'Après clôture' : Number(periode.tauxCalculeCloture) > 0 ? `${formatLeaveRateAr(periode.tauxCalculeCloture)} / j` : '—'}</dd></div>
+                    <div><dt className="inline text-[var(--color-fg-muted)]">Applicable : </dt><dd className="inline font-semibold">{periode.dateEffetActivation ? `${formatLeaveRateAr(periode.tauxActive)} / j` : 'Aucun'}</dd></div>
                   </dl>
                   {periode.dateEffetActivation
                     ? <p className="mt-1 text-[10px] text-[var(--color-fg-muted)]">Depuis le {dateFr(periode.dateEffetActivation)}</p>
@@ -408,7 +408,7 @@ export default function PeriodesReferenceTab({
       title="Activer le TCONGE calculé" size="lg">
       {activation && <form onSubmit={activer} className="space-y-4">
         <p className="text-sm">Cycle {dateFr(activation.periode.dateDebut)} → {dateFr(activation.periode.dateFin)}</p>
-        <p className="text-sm">Taux calculé à la clôture : <strong>{formatMoneyAr(activation.periode.tauxCalculeCloture)} / jour</strong></p>
+        <p className="text-sm">Taux calculé à la clôture : <strong>{formatLeaveRateAr(activation.periode.tauxCalculeCloture)} / jour</strong></p>
         <Input label="Date d'effet du nouveau taux" type="date" required
           min={premiereDateActivation(activation.periode)}
           value={activation.dateEffet} onChange={(event) => {
@@ -420,7 +420,7 @@ export default function PeriodesReferenceTab({
         {situationDate && <p className="text-sm">
           Taux actuellement applicable au {dateFr(activation.dateEffet)} :{' '}
           <strong>{situationDate.tauxApplicable?.montant != null
-            ? `${formatMoneyAr(situationDate.tauxApplicable.montant)} / jour`
+            ? `${formatLeaveRateAr(situationDate.tauxApplicable.montant)} / jour`
             : 'aucun taux actif'}</strong>
           {situationDate.tauxApplicable?.dateEffet && ` (depuis le ${dateFr(situationDate.tauxApplicable.dateEffet)})`}
         </p>}

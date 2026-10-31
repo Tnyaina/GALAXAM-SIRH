@@ -57,6 +57,9 @@ public class CongeGrandRecapExcelExportService {
                 Row prototype = sheet.getRow(firstData);
                 CellStyle[] styles = new CellStyle[17];
                 for (int column = 0; column < styles.length; column++) styles[column] = prototype.getCell(column).getCellStyle();
+                CellStyle tauxStyle = workbook.createCellStyle();
+                tauxStyle.cloneStyleFrom(styles[13]);
+                tauxStyle.setDataFormat(workbook.createDataFormat().getFormat("#,##0.######"));
 
                 // Le canevas prévoit 100 lignes. Adapter sa taille au nombre réel de salariés.
                 sheet.shiftRows(104, 106, totalRow - 104);
@@ -73,7 +76,7 @@ public class CongeGrandRecapExcelExportService {
                     // Colonnes F-M (5-12) : jours mouvements
                     for (int column = 5; column <= 12; column++) setNumber(row, column, ligne.jours()[column - 5], styles[Math.min(column, styles.length - 1)]);
                     // Col N(13) : TCONGE applicable
-                    setNumber(row, 13, ligne.taux(), styles[Math.min(13, styles.length - 1)]);
+                    setNumber(row, 13, ligne.taux(), tauxStyle);
                     // Col O(14) : Valeur du solde (FIFO historisée)
                     setNumber(row, 14, ligne.valeur(), styles[Math.min(14, styles.length - 1)]);
                     // REC #5 — Col P(15) : Cumul valorisation acquise sur la période
@@ -179,7 +182,9 @@ public class CongeGrandRecapExcelExportService {
                         if (prise.idDemande() != null) row.createCell(7).setCellValue(prise.idDemande());
                         row.createCell(8).setCellValue(prise.jours().doubleValue());
                         row.createCell(9).setCellValue(prise.valeur().doubleValue());
-                        row.createCell(10).setCellValue(prise.tauxHistorique().doubleValue());
+                        Cell tauxCell = row.createCell(10);
+                        tauxCell.setCellValue(prise.tauxHistorique().doubleValue());
+                        tauxCell.setCellStyle(tauxStyle);
                     }
                 }
                 for (int i = 0; i < titres.length; i++) ventilation.autoSizeColumn(i);

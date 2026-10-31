@@ -20,7 +20,7 @@ import { optionsMotifsSortie } from '@/features/employees/utils/motifsSortie';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import { Table, Thead, Th, Tbody, Tr, Td, Tfoot } from '@/components/ui/data-display/Table';
-import { formatMoneyAr } from '@/utils/moneyUtils';
+import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 import { formatStcAnciennete } from '@/features/payroll/utils/stcDisplay';
 import { fmtDate, getTodayDateString } from '@/utils/dateUtils';
 import stcService from '@/features/payroll/api/stcService';
@@ -495,7 +495,7 @@ export default function StcPreparationModal({
                             <div>
                                 <span className="stc-context-label">Congés restants</span>
                                 <strong className="text-[var(--color-fg)]">{prepData.soldeCongesRestant} jours</strong>
-                                <span className="text-[10px] text-[var(--color-fg-muted)] font-data block">({formatMoneyAr(prepData.tauxJournalierConge)}/j)</span>
+                                <span className="text-[10px] text-[var(--color-fg-muted)] font-data block">({formatLeaveRateAr(prepData.tauxJournalierConge)}/j)</span>
                             </div>
                         </div>
                         {!contexteAJour && <p className="text-xs text-[var(--color-brand-700)]" role="status">Mise à jour du contexte de paie pour la date choisie…</p>}

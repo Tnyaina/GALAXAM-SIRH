@@ -579,10 +579,6 @@ public class CongeService {
                 ? solde.getSoldeActuel() : java.math.BigDecimal.ZERO;
         double soldeAvant = soldeDisponible.doubleValue();
 
-        if (!date.equals(endDate) && soldeDisponible.compareTo(BigDecimal.valueOf(days)) < 0) {
-            throw new IllegalArgumentException("Solde de congé insuffisant pour couvrir toute la période de " + days + " jours.");
-        }
-
         double joursCouverts = Math.min(days, Math.max(0.0, soldeAvant));
         joursCouverts = java.math.BigDecimal.valueOf(joursCouverts).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
         double joursRestants = java.math.BigDecimal.valueOf(days - joursCouverts).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
@@ -1797,6 +1793,17 @@ public class CongeService {
     /** Même décompte canonique, exposé par date pour la déduction salariale d'une campagne à deux salaires. */
     public java.util.Map<LocalDate, BigDecimal> calculerJoursCongeValorisesParDate(Integer idEmploye,
             LocalDate dateDebutPeriode, LocalDate dateFinPeriode, Connection c) throws Exception {
+        return calculerJoursCongePaieParDate(idEmploye, dateDebutPeriode, dateFinPeriode, c, false);
+    }
+
+    /** Jours calendaires à retirer de la base, y compris la part non couverte d'une régularisation. */
+    public java.util.Map<LocalDate, BigDecimal> calculerJoursCongeBaseParDate(Integer idEmploye,
+            LocalDate dateDebutPeriode, LocalDate dateFinPeriode, Connection c) throws Exception {
+        return calculerJoursCongePaieParDate(idEmploye, dateDebutPeriode, dateFinPeriode, c, true);
+    }
+
+    private java.util.Map<LocalDate, BigDecimal> calculerJoursCongePaieParDate(Integer idEmploye,
+            LocalDate dateDebutPeriode, LocalDate dateFinPeriode, Connection c, boolean baseComplete) throws Exception {
         if (idEmploye == null || dateDebutPeriode == null || dateFinPeriode == null) {
             return java.util.Map.of();
         }
@@ -1805,7 +1812,7 @@ public class CongeService {
         }
 
         String sql = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.nb_jours_decomptes, " +
-                     "dc.est_remunere, tc.est_paye " +
+                     "dc.est_remunere, tc.est_paye, dc.commentaire " +
                      "FROM demande_conge dc " +
                      "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
                      "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
@@ -1828,6 +1835,9 @@ public class CongeService {
                     LocalDate dDeb = rs.getDate("date_debut").toLocalDate();
                     LocalDate dFin = rs.getDate("date_fin").toLocalDate();
                     boolean estDemiJournee = rs.getBoolean("est_demi_journee");
+                    String commentaire = rs.getString("commentaire");
+                    boolean regularisation = commentaire != null && commentaire.startsWith("[REGULARISATION_POINTAGE]");
+                    BigDecimal joursRestants = rs.getBigDecimal("nb_jours_decomptes");
 
                     LocalDate debutIntersection = dDeb.isBefore(dateDebutPeriode) ? dateDebutPeriode : dDeb;
                     LocalDate finIntersection = dFin.isAfter(dateFinPeriode) ? dateFinPeriode : dFin;
@@ -1835,10 +1845,16 @@ public class CongeService {
                     if (!finIntersection.isBefore(debutIntersection)) {
                         if (estDemiJournee && !debutIntersection.equals(finIntersection))
                             throw new IllegalArgumentException("Une demi-journée ne peut couvrir plusieurs dates.");
-                        for (LocalDate jour = debutIntersection; !jour.isAfter(finIntersection); jour = jour.plusDays(1)) {
+                        // Répartir depuis le début réel, même si la campagne ne recoupe que la fin.
+                        for (LocalDate jour = dDeb; !jour.isAfter(finIntersection); jour = jour.plusDays(1)) {
                             BigDecimal jours = CongeDecompteCalendaireResolver.calculer(
                                     idEmploye, jour, jour, estDemiJournee, c);
-                            if (jours.signum() > 0) parDate.merge(jour, jours, BigDecimal::add);
+                            if (jours.signum() <= 0) continue;
+                            BigDecimal couverts = regularisation ? jours.min(joursRestants.max(BigDecimal.ZERO)) : jours;
+                            if (regularisation) joursRestants = joursRestants.subtract(couverts);
+                            if (jour.isBefore(debutIntersection)) continue;
+                            BigDecimal quantite = baseComplete ? jours : couverts;
+                            if (quantite.signum() > 0) parDate.merge(jour, quantite, BigDecimal::add);
                         }
                     }
                 }

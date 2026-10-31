@@ -7,7 +7,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import Loading from '@/components/ui/feedback/Loading';
 import { Card } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import { formatMoneyAr } from '@/utils/moneyUtils';
+import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 
 const number = (value) => value == null || !Number.isFinite(Number(value)) ? null : Number(value);
 const formatDays = (value) => value == null ? '—' : `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value)} j`;
@@ -109,7 +109,7 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
                       </span>
                     )}</Td>
                     <Td className="text-right"><strong className="font-mono text-xs">{formatDays(lot.remainingDays)}</strong><span className="block text-[10px] text-[var(--color-fg-muted)]">sur {formatDays(lot.initialDays)} {isOpening(lot) ? 'repris' : 'initiaux'}</span></Td>
-                    <Td className="text-right text-xs">{lot.unitRate == null ? '—' : `${formatMoneyAr(lot.unitRate)} / j`}</Td>
+                    <Td className="text-right text-xs">{lot.unitRate == null ? '—' : `${formatLeaveRateAr(lot.unitRate)} / j`}</Td>
                     <Td className="text-right text-xs font-semibold">{fmtMoney(lot.remainingValue)}</Td>
                     <Td><Button variant="ghost" size="xs" aria-label={`${selectedId === lot.idSource ? 'Masquer' : 'Voir'} l’historique du lot ${lotLabel(lot)} #${lot.idSource}`} aria-expanded={selectedId === lot.idSource} onClick={() => setSelectedId(selectedId === lot.idSource ? null : lot.idSource)} iconLeft={<ChevronDown size={13} className={selectedId === lot.idSource ? 'rotate-180' : ''} />}>{selectedId === lot.idSource ? 'Masquer' : 'Historique'}</Button></Td>
                   </Tr>
@@ -138,7 +138,7 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
                     <Td className="text-xs">{item.idDemande == null ? '—' : <Button variant="ghost" size="xs" iconLeft={<FileText size={12} />} onClick={() => onVoirDemande?.(item.idDemande)}>Demande #{item.idDemande}</Button>}</Td>
                     <Td className={`text-right font-mono text-xs ${consumed ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)]'}`}>{formatDays(Math.abs(Number(item.jours)))} {consumed ? 'consommés' : 'restitués'}</Td>
                     <Td className="text-right text-xs">{amount == null ? 'Non déterminé' : `${formatMoneyAr(Math.abs(amount))} ${consumed ? 'consommés' : 'restitués'}`}</Td>
-                    <Td className="text-right text-xs">{item.tauxHistorique == null ? '—' : `${formatMoneyAr(item.tauxHistorique)} / j`}</Td>
+                    <Td className="text-right text-xs">{item.tauxHistorique == null ? '—' : `${formatLeaveRateAr(item.tauxHistorique)} / j`}</Td>
                   </Tr>;
                 })}
               </Tbody></Table>

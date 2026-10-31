@@ -256,7 +256,7 @@ export default function MouvementsSoldeTable({
       setError(null);
       await congeService.creerAjustementManuel({
         idEmploye,
-        nbJours: parseFloat(nbJours),
+        nbJours: Number(String(nbJours).replace(',', '.')),
         commentaire: commentaire.trim(),
         dateMouvement,
       });
@@ -602,7 +602,7 @@ export default function MouvementsSoldeTable({
             </label>
             <Input
               type="number"
-              step="0.5"
+              step="0.01"
               value={nbJours}
               onChange={(e) => setNbJours(e.target.value)}
               placeholder="Ex. +1.5 ou -2"

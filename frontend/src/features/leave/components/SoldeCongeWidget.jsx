@@ -1,7 +1,7 @@
 import { Calendar, Clock, ArrowDownCircle, ShieldAlert, Coins, ChevronDown } from 'lucide-react';
 import StatCard from '@/components/ui/data-display/StatCard';
 import Button from '@/components/ui/forms/Button';
-import { formatMoneyAr } from '@/utils/moneyUtils';
+import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 import Alert from '@/components/ui/feedback/Alert';
 
 const formatJours = (value) => {
@@ -62,7 +62,7 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, valo
               <div>
                 <p className="text-xs font-semibold text-[var(--color-fg-muted)]">Taux TCONGE applicable</p>
                 <p className="text-sm font-semibold text-[var(--color-fg)]">
-                  {taux == null ? 'Non renseigné' : `${formatMoneyAr(taux)} / jour`}
+                  {taux == null ? 'Non renseigné' : `${formatLeaveRateAr(taux)} / jour`}
                 </p>
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, valo
               {cycle && <p>Cycle : <strong className="text-[var(--color-fg)]">{cycle.statut || '-'}</strong>
                 {cycle.modeReprise ? ` · Reprise ${cycle.openingComplete ? 'complète' : 'partielle'}` : ''}</p>}
               {cycle?.cumulDroitsTotal != null && <p>Droits cumulés pour le taux du cycle : <strong className="text-[var(--color-fg)]">{formatJours(cycle.cumulDroitsTotal)} j</strong>{cycle.modeReprise && cycle.cumulDroitsOuverture != null && <span className="block">Dont {formatJours(cycle.cumulDroitsOuverture)} j repris à l’ouverture.</span>}</p>}
-              {cycle?.tauxProjection != null && <p>Taux estimé du prochain cycle : <strong className="text-[var(--color-fg)]">{formatMoneyAr(cycle.tauxProjection)} / jour</strong><span className="block">Valorisation cumulée ({formatMoneyAr(cycle.cumulValorisationTotal)}) ÷ droits cumulés ({formatJours(cycle.cumulDroitsTotal)} j). Applicable après clôture et activation.</span>{ecartTauxReprise && <span className="block text-[var(--color-danger-600)]">Écart important avec le taux actuel : vérifier les cumuls de l’arrêté de reprise avant la clôture.</span>}</p>}
+              {cycle?.tauxProjection != null && <p>Taux estimé du prochain cycle : <strong className="text-[var(--color-fg)]">{formatLeaveRateAr(cycle.tauxProjection)} / jour</strong><span className="block">Valorisation cumulée ({formatMoneyAr(cycle.cumulValorisationTotal)}) ÷ droits cumulés ({formatJours(cycle.cumulDroitsTotal)} j). Applicable après clôture et activation.</span>{ecartTauxReprise && <span className="block text-[var(--color-danger-600)]">Écart important avec le taux actuel : vérifier les cumuls de l’arrêté de reprise avant la clôture.</span>}</p>}
             </div>
           )}
         </div>

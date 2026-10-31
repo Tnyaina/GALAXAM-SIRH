@@ -283,7 +283,7 @@ public class PayrollLeaveJournalService {
 
     static BigDecimal calculerTauxJournalier(BigDecimal cumulValeur, BigDecimal cumulJours) {
         return cumulJours.signum() > 0
-                ? cumulValeur.divide(cumulJours, 2, RoundingMode.HALF_UP)
+                ? cumulValeur.divide(cumulJours, 6, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
     }
 

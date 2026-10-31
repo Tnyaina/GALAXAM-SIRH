@@ -45,7 +45,7 @@ class PayrollLeaveJournalValuationTest {
         assertEquals(new BigDecimal("77500.00"), valeurMois);
         BigDecimal cumulDroits = new BigDecimal("2.5").add(new BigDecimal("2.5"));
         BigDecimal cumulValeur = new BigDecimal("75000.00").add(valeurMois);
-        assertEquals(new BigDecimal("30500.00"),
+        assertEquals(new BigDecimal("30500.000000"),
                 PayrollLeaveJournalService.calculerTauxJournalier(cumulValeur, cumulDroits));
     }
 
@@ -54,11 +54,13 @@ class PayrollLeaveJournalValuationTest {
         BigDecimal cumulJours = new BigDecimal("15.0000");
         BigDecimal cumulValeur = new BigDecimal("165000.00");
 
-        assertEquals(new BigDecimal("11000.00"),
+        assertEquals(new BigDecimal("11000.000000"),
                 PayrollLeaveJournalService.calculerTauxJournalier(cumulValeur, cumulJours));
         assertEquals(BigDecimal.ZERO,
                 PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("165000.00"), BigDecimal.ZERO));
-        assertEquals(new BigDecimal("1.01"),
+        assertEquals(new BigDecimal("1.005000"),
                 PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("1.005"), BigDecimal.ONE));
+        assertEquals(new BigDecimal("31914.926000"),
+                PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("31914.926"), BigDecimal.ONE));
     }
 }

@@ -17,7 +17,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
-import { formatMoneyAr } from '@/utils/moneyUtils';
+import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 import BulletinVariableCorrection from './BulletinVariableCorrection';
 import { summarizeNetDeductions } from '@/features/payroll/utils/netDeductions';
 import { libelleRubriqueBulletin, rubriquesPaieAffichables } from '@/features/payroll/utils/payrollPresentation';
@@ -271,7 +271,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                             <p className="text-[11px] leading-relaxed text-[var(--color-fg-muted)]">Le salaire de base est ajusté pour ces jours, puis l’indemnité de congé est ajoutée. L’effet net correspond à la différence entre les deux lignes.</p>
                                             <div className="text-[11px] text-[var(--color-fg-muted)] pl-3 border-l-2 border-[var(--color-info-400)] dark:border-[var(--color-info-600)] space-y-2">
                                                 <div className="flex justify-between gap-3"><span>Déduction du salaire de base · {explication.nbJoursConge} j × {formatAr(explication.tauxJournalierTrentieme)}/j</span><strong className="shrink-0 font-data text-[var(--color-danger-600)]">−{formatAr(explication.deductionCongeTrentieme)}</strong></div>
-                                                <div className="flex justify-between gap-3"><span>Indemnité de congé · {explication.nbJoursConge} j × {formatAr(explication.tauxJournalierConge)}/j</span><strong className="shrink-0 font-data text-[var(--color-success-600)]">+{formatAr(explication.indemniteConge)}</strong></div>
+                                                <div className="flex justify-between gap-3"><span>Indemnité de congé · {explication.nbJoursConge} j × {formatLeaveRateAr(explication.tauxJournalierConge)}/j</span><strong className="shrink-0 font-data text-[var(--color-success-600)]">+{formatAr(explication.indemniteConge)}</strong></div>
                                             </div>
                                             <p className="text-[10px] text-[var(--color-fg-subtle)]">Sources : congés validés et règle TCONGE.</p>
                                         </div>

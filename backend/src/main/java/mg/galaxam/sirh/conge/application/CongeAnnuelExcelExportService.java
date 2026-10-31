@@ -19,6 +19,7 @@ import java.util.TreeMap;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -131,7 +132,9 @@ public class CongeAnnuelExcelExportService {
                     if (prise.idDemande() != null) r.createCell(5).setCellValue(prise.idDemande());
                     r.createCell(6).setCellValue(prise.jours().doubleValue());
                     r.createCell(7).setCellValue(prise.valeur().doubleValue());
-                    r.createCell(8).setCellValue(prise.tauxHistorique().doubleValue());
+                    Cell tauxCell = r.createCell(8);
+                    tauxCell.setCellValue(prise.tauxHistorique().doubleValue());
+                    tauxCell.setCellStyle(tauxStyle(workbook, null));
                 }
                 Sheet notice = workbook.getSheetAt(2);
                 setCellString(notice, 7, 1,
@@ -200,11 +203,11 @@ public class CongeAnnuelExcelExportService {
         // Ligne 5 (index 4) : Situation d'ouverture & TCONGE
         setCellString(sheet, 4, 0, "Solde ouv. : " + formatJours(ref.soldeOuverture) + " j");
         setCellString(sheet, 4, 2, "Valorisation droits ouverture : " + formatMoney(ref.valoOuverture));
-        setCellString(sheet, 4, 4, "TCONGE ouv. : " + formatMoney(ref.tauxJournalier));
+        setCellString(sheet, 4, 4, "TCONGE ouv. : " + formatTaux(ref.tauxJournalier));
         setCellString(sheet, 4, 6, "Mode reprise : " + safe(ref.modeReprise));
         setCellString(sheet, 4, 9, "Statut : " + safe(ref.statut));
         String tClotureText = (ref.tauxCloture != null && ref.tauxCloture.compareTo(BigDecimal.ZERO) > 0)
-                ? formatMoney(ref.tauxCloture)
+                ? formatTaux(ref.tauxCloture)
                 : "En cours";
         setCellString(sheet, 4, 12, "TCONGE clôture : " + tClotureText);
 
@@ -372,7 +375,7 @@ public class CongeAnnuelExcelExportService {
             setNumericValue(row, 4, credit);
             setNumericValue(row, 5, debit);
             setNumericValue(row, 6, runningBalance);
-            setNumericValue(row, 7, ref.tauxJournalier);
+            setTauxValue(row, 7, ref.tauxJournalier);
             setNumericValue(row, 8, obtenirValeurStock(idEmploye, ref.dateDebut, c, valeursStockParDate));
             setCellString(sheet, rowIndex, 9, "Système RH (Report)");
             rowIndex++;
@@ -426,7 +429,7 @@ public class CongeAnnuelExcelExportService {
             setNumericValue(row, 5, nbJ.compareTo(BigDecimal.ZERO) < 0 ? nbJ.abs() : BigDecimal.ZERO);
             setNumericValue(row, 6, runningBalance);
             BigDecimal tauxMouvement = tauxParDate.get(dMvt);
-            setNumericValue(row, 7, tauxMouvement);
+            setTauxValue(row, 7, tauxMouvement);
             setNumericValue(row, 8, obtenirValeurStock(idEmploye, dMvt, c, valeursStockParDate));
             setCellString(sheet, rowIndex, 9, m.getCreatedBy() != null ? "Manuel (Admin #" + m.getCreatedBy() + ")" : "Automatique Système");
             rowIndex++;
@@ -829,6 +832,19 @@ public class CongeAnnuelExcelExportService {
         } else cell.setBlank();
     }
 
+    private void setTauxValue(Row row, int colIndex, BigDecimal value) {
+        setNumericValue(row, colIndex, value);
+        Cell cell = row.getCell(colIndex);
+        cell.setCellStyle(tauxStyle(row.getSheet().getWorkbook(), cell.getCellStyle()));
+    }
+
+    private CellStyle tauxStyle(org.apache.poi.ss.usermodel.Workbook workbook, CellStyle base) {
+        CellStyle style = workbook.createCellStyle();
+        if (base != null) style.cloneStyleFrom(base);
+        style.setDataFormat(workbook.createDataFormat().getFormat("#,##0.######"));
+        return style;
+    }
+
     private String safe(String s) {
         return s != null ? s.trim() : "—";
     }
@@ -836,6 +852,11 @@ public class CongeAnnuelExcelExportService {
     private String formatMoney(BigDecimal amount) {
         if (amount == null) return "—";
         return String.format("%,.2f Ar", amount.doubleValue());
+    }
+
+    private String formatTaux(BigDecimal taux) {
+        if (taux == null) return "—";
+        return taux.stripTrailingZeros().toPlainString() + " Ar/j";
     }
 
     private String formatJours(BigDecimal j) {

@@ -116,4 +116,30 @@ class CongePayrollRemunerationTest {
         assertEquals(new BigDecimal("6923.21"), amount(absenceLines, "RETENUE_ABSENCE"));
         assertEquals(new BigDecimal("1000.00"), leaveNet(input));
     }
+
+    @Test
+    void employee592MatchesOctoberSpreadsheetWithThreeCalendarDaysAnd244PaidDays() {
+        PayrollCalculationInput input = input(null, true, new BigDecimal("2.44"), new BigDecimal("2.75"));
+        input.setSalaireBaseContractuel(new BigDecimal("1000000"));
+        input.setJoursCongeBaseParDate(Map.of(
+                LocalDate.of(2026, 10, 23), BigDecimal.ONE,
+                LocalDate.of(2026, 10, 24), BigDecimal.ONE,
+                LocalDate.of(2026, 10, 25), BigDecimal.ONE));
+        input.setJoursCongeValorisesParDate(Map.of(
+                LocalDate.of(2026, 10, 23), BigDecimal.ONE,
+                LocalDate.of(2026, 10, 24), BigDecimal.ONE,
+                LocalDate.of(2026, 10, 25), new BigDecimal("0.44")));
+        input.setSalaireParJour(Map.of(
+                LocalDate.of(2026, 10, 23), new BigDecimal("1000000"),
+                LocalDate.of(2026, 10, 24), new BigDecimal("1000000"),
+                LocalDate.of(2026, 10, 25), new BigDecimal("1000000")));
+        input.setIndemniteCongeLots(new BigDecimal("2.44").multiply(new BigDecimal("31914.926")));
+        List<BulletinPaieLigne> lines = calculateLeaveLines(input);
+        List<BulletinPaieLigne> absenceLines = new ArrayList<>();
+        engine.calculerRetenueAbsence(input, new BigDecimal("1000000"),
+                input.getTauxHoraireEffectif(), new BulletinPaie(), absenceLines);
+        assertEquals(new BigDecimal("100000.00"), amount(lines, "DEDUCTION_CONGE_BASE"));
+        assertEquals(new BigDecimal("77872.42"), amount(lines, "INDEMNITE_CONGE_PAYE"));
+        assertEquals(new BigDecimal("15865.69"), amount(absenceLines, "RETENUE_ABSENCE"));
+    }
 }

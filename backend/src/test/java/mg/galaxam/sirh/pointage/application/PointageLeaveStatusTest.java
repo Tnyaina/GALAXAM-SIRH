@@ -53,7 +53,7 @@ class PointageLeaveStatusTest {
                 PointageSyntheseService.appliquerStatutCongeValide("DEMI_JOURNEE", 4.0, false, true));
         assertEquals("DEMI_JOURNEE",
                 PointageSyntheseService.appliquerStatutCongeValide("DEMI_JOURNEE", 4.0, true, true));
-        assertEquals("DEMI_JOURNEE",
+        assertEquals("CONGE",
                 AttendanceStatusPolicy.resolveRegularizedLeaveCoverage(0.5, 1.0, "Solde partiel"));
     }
 

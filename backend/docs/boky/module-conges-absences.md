@@ -765,4 +765,57 @@ Conservés à titre comparatif pour l'audit des contrats antérieurs et l'analys
 2. **Première tranche annuelle** : aucune planification/alerte ne suit les 15 jours continus à prendre dans les trois mois après l'ouverture du droit. La justification des nécessités de service et les exceptions doivent être définies avec la RH avant automatisation.
 3. **Rattachement des comptes salariés** : l'accès personnel utilise l'e-mail partagé entre le compte et le dossier employé et échoue si le lien est absent ou ambigu. En base locale, un compte sur deux est associé sans ambiguïté. Il faut rattacher les comptes de salariés concernés avant leur ouverture en préproduction, puis faire la recette navigateur avec un compte associé.
 
+---
+
+## 13. Régularisation partielle depuis Pointage (RG-CONGE-PARTIAL)
+
+> **Ajouté le 31 octobre 2026** — Comportement vérifié par le test `CongePayrollRemunerationTest.employee592MatchesOctoberSpreadsheetWithThreeCalendarDaysAnd244PaidDays` (passe).
+
+Quand un employé a pris **N jours calendaires** de congé mais ne dispose que de **K < N jours** de solde :
+
+| Grandeur | Valeur (exemple emp 592, octobre 2026) |
+|---|---|
+| Intervalle calendaire | 23/10 → 25/10 = **3 jours** |
+| Solde disponible | **2,44 j** |
+| Jours couverts (`nb_jours_decomptes`) | **2,44 j** |
+| Jours non couverts (absence résiduelle) | **0,56 j ≈ 2,75 h** |
+
+### Création de la demande
+
+- `regulariserCongeAnnuelDepuisPointageStructure` crée une `demande_conge` avec `date_debut = 23/10`, `date_fin = 25/10`.
+- `nb_jours_decomptes = min(days, soldeDisponible)` → **2,44 j** (jamais le solde ne passe sous zéro).
+- La validation de cohérence (`calculerNombreJours` = jours **calendaires stricts**) passe car `days=3` == `ChronoUnit.DAYS.between(23/10, 25/10) + 1 = 3`. ✅
+
+### Mouvement Ledger
+
+Le mouvement `PRISE` dans `mouvement_solde_conge` débite **−2,44 j** du solde (via `d.getNbJoursDecomptes().negate()`).  
+Le solde annuel est donc correctement réduit de K, pas de N.
+
+### Calcul de paie (PayrollExecutionEngine)
+
+```
+DEDUCTION_CONGE_BASE  = salaire_base ÷ 30 × joursCongeBaseParDate.sum()
+                      = 1 000 000 ÷ 30 × 3  = 100 000,00 Ar
+                        (tous les jours calendaires déduisent la base)
+
+INDEMNITE_CONGE_PAYE  = TCONGE × joursCongeValorisesParDate.sum()
+                      = 31 914,926 × 2,44    =  77 872,42 Ar
+                        (seuls les jours couverts par solde sont indemnisés)
+
+RETENUE_ABSENCE       = taux_horaire × heures_absence
+                      ≈ 5 769,23 × 2,75 h   =  15 865,69 Ar
+                        (les (N−K) jours restants → minutes d'absence)
+```
+
+Les champs `joursCongeBaseParDate` (Map date → 1j par jour calendaire, total = 3) et `joursCongeValorisesParDate` (Map date → part couverte par solde, total = 2,44) sont alimentés par `PayrollCalculationContextAssembler.chargerConges()` via `CongeService.calculerJoursCongeBaseParDate()` et `CongeService.calculerJoursCongeValorisesParDate()`.
+
+### Règle synthétique
+
+> Règle **RG-CONGE-PARTIAL** : pour une régularisation partielle (solde insuffisant),
+> - `DEDUCTION_CONGE_BASE` porte sur **N** jours calendaires (trentième),
+> - `INDEMNITE_CONGE_PAYE` porte sur **K** jours seulement (TCONGE × K),
+> - les **(N − K)** jours résiduels sont traités comme des **minutes d'absence** décomptées dans `RETENUE_ABSENCE`.
+
+---
+
 *Documentation technique du module Congés & Absences — décrit l'implémentation et les preuves explicitement citées ; ne vaut pas certification juridique ni recette exhaustive.*

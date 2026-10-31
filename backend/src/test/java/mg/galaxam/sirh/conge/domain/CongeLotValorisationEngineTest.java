@@ -30,6 +30,16 @@ class CongeLotValorisationEngineTest {
     }
 
     @Test
+    void tauxHistoriqueSixDecimalesConserveLaValorisationDuCas592() {
+        var situation = engine.calculer(List.of(
+                movement(1, "AJUSTEMENT", "3.00", "2026-09-25", null,
+                        "[SOLDE_INITIAL] reprise", "95744.78"),
+                movement(2, "PRISE", "-2.44", "2026-10-23", 592,
+                        "Congé octobre", null)));
+        assertDecimal("77872.42", situation.imputations().get(0).valeur());
+    }
+
+    @Test
     void repriseDetailleeConsommeLePlusAncienLotSelonSaDateOrigineEtSaValeur() {
         var situation = engine.calculer(List.of(
                 new CongeLotValorisationEngine.Mouvement(1, "AJUSTEMENT", d("4"),

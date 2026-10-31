@@ -196,6 +196,10 @@ export default function AnomalieRegularisationModal({
         anomalie?.datePointage && dateReprise > anomalie.datePointage
             ? Math.round((Date.parse(`${dateReprise}T00:00:00Z`) - Date.parse(`${anomalie.datePointage}T00:00:00Z`)) / 86400000)
             : 0;
+    const joursCouvertsEstimes = rawSoldeRestant == null ? null
+        : Math.min(nbJoursAImputer, Math.max(0, Number(rawSoldeRestant)));
+    const joursNonCouvertsEstimes = joursCouvertsEstimes == null ? null
+        : Math.max(0, nbJoursAImputer - joursCouvertsEstimes);
 
     useEffect(() => {
         if (!isOpen || !anomalie || activeTab !== 'HEURES') return undefined;
@@ -938,7 +942,7 @@ export default function AnomalieRegularisationModal({
                                             min={shiftIsoDate(anomalie?.datePointage, 1) || undefined}
                                             onChange={(event) => setDateReprise(event.target.value)} required />
                                         {nbJoursAImputer > 0 && <p className="text-xs text-[var(--color-fg-muted)]">
-                                            Congé du {fmtDate(anomalie.datePointage)} au {fmtDate(dernierJourConge)} inclus : <strong>{nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''} calendaires débités</strong>. La reprise n&apos;est pas débitée.
+                                            Congé du {fmtDate(anomalie.datePointage)} au {fmtDate(dernierJourConge)} inclus : <strong>{nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''} calendaires</strong>. Le solde disponible sera débité ; la reprise ne l&apos;est pas.
                                         </p>}
                                     </div>
                                 )}
@@ -972,9 +976,9 @@ export default function AnomalieRegularisationModal({
                                     <div className="flex items-center gap-1.5">
                                         <Info className="w-4 h-4 shrink-0" />
                                         <span>
-                                            {nbJoursAImputer > 1
-                                                ? 'Le module Congés vérifiera le solde pour toute la période. Si le solde est insuffisant, aucune journée ne sera régularisée.'
-                                                : 'Le module Congés vérifiera le solde disponible et confirmera le nombre de jours couverts.'}
+                                            {joursCouvertsEstimes == null
+                                                ? 'Le module Congés vérifiera le solde avant enregistrement.'
+                                                : `Estimation : ${formatJours(joursCouvertsEstimes)} j indemnisés, ${formatJours(joursNonCouvertsEstimes)} j non couverts. La période entière est déduite de la base.`}
                                         </span>
                                     </div>
                                 </div>

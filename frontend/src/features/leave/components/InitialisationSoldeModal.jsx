@@ -8,12 +8,13 @@ import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Modal from '@/components/ui/overlays/Modal';
 import FormError from '@/components/ui/feedback/FormError';
 import { useToast } from '@/components/ui/feedback/Toast';
-import { formatMoneyAr } from '@/utils/moneyUtils';
+import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 import employeService from '@/features/employees/api/employeService';
 
-const emptyLot = () => ({ exercice: '', joursRestants: '', tauxHistorique: '' });
+const emptyLot = () => ({ id: crypto.randomUUID(), exercice: '', joursRestants: '', tauxHistorique: '' });
+const parseJours = (value) => Number(String(value ?? '').replace(',', '.'));
 const valeurLot = (lot) => {
-  const valeur = Number(lot.joursRestants) * Number(lot.tauxHistorique);
+  const valeur = parseJours(lot.joursRestants) * Number(lot.tauxHistorique);
   return Number.isFinite(valeur) ? Number(valeur.toFixed(2)) : 0;
 };
 
@@ -33,7 +34,7 @@ export default function InitialisationSoldeModal({
   const [tauxApplicable, setTauxApplicable] = useState('');
   const [referenceArrete, setReferenceArrete] = useState('');
   const [commentaire, setCommentaire] = useState('');
-  const [repriseMode, setRepriseMode] = useState('GLOBAL');
+  const [repriseMode, setRepriseMode] = useState('DETAILLE');
   const [lotsReprise, setLotsReprise] = useState([emptyLot()]);
 
   // Données pour AGGREGATED_OPENING
@@ -66,6 +67,8 @@ export default function InitialisationSoldeModal({
   // Données dérivées
   const dateDebutReference = dateCutover ? `${dateCutover.slice(0, 4)}-01-01` : '';
   const dateFinCalculee = dateCutover ? `${dateCutover.slice(0, 4)}-12-31` : '';
+  const joursLots = Number(lotsReprise.reduce((sum, lot) => sum + (parseJours(lot.joursRestants) || 0), 0).toFixed(2));
+  const valeurLots = Number(lotsReprise.reduce((sum, lot) => sum + valeurLot(lot), 0).toFixed(2));
 
   // Initialisation à chaque ouverture
   useEffect(() => {
@@ -80,7 +83,7 @@ export default function InitialisationSoldeModal({
     setCumulDroitsOuverture('');
     setCumulValorisationOuverture('');
     setCommentaire('');
-    setRepriseMode('GLOBAL');
+    setRepriseMode('DETAILLE');
     setLotsReprise([emptyLot()]);
     setError(null);
   }, [isOpen]);
@@ -93,24 +96,19 @@ export default function InitialisationSoldeModal({
     const detaille = repriseMode === 'DETAILLE';
     if (detaille && lotsReprise.some((lot) => !/^\d{4}$/.test(String(lot.exercice))
       || Number(lot.exercice) < 1900 || Number(lot.exercice) > Number(dateCutover.slice(0, 4))
-      || !Number.isFinite(Number(lot.joursRestants)) || Number(lot.joursRestants) <= 0
+      || !Number.isFinite(parseJours(lot.joursRestants)) || parseJours(lot.joursRestants) <= 0
       || !Number.isFinite(Number(lot.tauxHistorique)) || Number(lot.tauxHistorique) <= 0
       || valeurLot(lot) <= 0
       || !/^\d+(?:[.,]\d{1,2})?$/.test(String(lot.joursRestants)))) {
       setError('Chaque lot exige un exercice au plus tard celui de l’arrêté, des jours restants et un taux historique positifs.');
       return;
     }
-    const sVal = parseFloat(soldeJours);
+    const sVal = detaille ? joursLots : parseJours(soldeJours);
     if (isNaN(sVal) || sVal < 0) {
       setError('Veuillez renseigner un solde de jours valide (≥ 0).');
       return;
     }
-    if (detaille && (sVal <= 0 || Number(lotsReprise.reduce((sum, lot) => sum + Number(lot.joursRestants), 0).toFixed(2)) !== sVal)) {
-      setError('La somme des jours de tous les exercices doit correspondre au solde certifié.');
-      return;
-    }
-
-    const vVal = detaille ? Number(lotsReprise.reduce((sum, lot) => sum + valeurLot(lot), 0).toFixed(2)) : parseFloat(valeurSoldeOuverture);
+    const vVal = detaille ? valeurLots : parseFloat(valeurSoldeOuverture);
     if (isNaN(vVal) || vVal < 0) {
       setError('La valeur du stock est obligatoire (montant Ariary arrêté par la DAF).');
       return;
@@ -177,13 +175,13 @@ export default function InitialisationSoldeModal({
       };
       if (detaille) payload.lotsReprise = [...lotsReprise]
         .sort((a, b) => Number(a.exercice) - Number(b.exercice))
-        .map((lot) => ({ dateOrigine: `${lot.exercice}-01-01`, joursRestants: Number(lot.joursRestants), valeurRestante: valeurLot(lot) }));
+        .map((lot) => ({ dateOrigine: `${lot.exercice}-01-01`, joursRestants: parseJours(lot.joursRestants), valeurRestante: valeurLot(lot) }));
 
       await congeService.cutoverOpening(payload);
 
       toast({
         title: 'Reprise historique enregistrée',
-        message: `Stock repris : ${sVal} j / ${formatMoneyAr(vVal)} ; TCONGE applicable : ${formatMoneyAr(tVal)}/j.`,
+        message: `Stock repris : ${sVal} j / ${formatMoneyAr(vVal)} ; TCONGE applicable : ${formatLeaveRateAr(tVal)}/j.`,
         type: 'success'
       });
 
@@ -215,7 +213,7 @@ export default function InitialisationSoldeModal({
           <p className="mt-3 leading-relaxed text-[var(--color-fg-muted)]">Pour une nouvelle embauche sans droits antérieurs, ne saisissez rien ici : la première clôture de paie crée automatiquement la période civile et l'acquisition. La date d'arrêté inclut les acquisitions déjà comptées dans les cumuls saisis ; les paies closes à cette date ou avant ne les recréent pas.</p>
           <ol className="mt-2 ml-4 list-decimal space-y-1 text-[var(--color-fg-muted)]">
             <li>Choisissez la date de la dernière clôture de paie dont les acquisitions figurent dans l'arrêté DAF (par exemple le 25/09/2026). La clôture suivante doit venir après cette date.</li>
-            <li>En mode global, saisissez le stock restant et sa valeur totale sans préciser l'origine des jours. En mode détaillé, saisissez le solde certifié, puis répartissez tous ses jours par exercice avec le taux historique de chaque lot.</li>
+            <li>En mode détaillé, ajoutez un lot par exercice ou par taux historique. Vérifiez le total calculé avec l'arrêté DAF.</li>
             <li>Le TCONGE est le dernier taux journalier applicable certifié par la DAF, pas le salaire actuel ni 240 000 ÷ 14,5 dans l'exemple.</li>
             <li>Les cumuls annuels sont les droits acquis et leur valorisation depuis le 1er janvier jusqu'à cette clôture, même si certains droits ont déjà été consommés. Exemple : 22,5 jours acquis et 315 000 Ar ; ces chiffres diffèrent du stock restant.</li>
             <li>La période civile est calculée automatiquement du 1er janvier au 31 décembre de l'année d'arrêté. Indiquez la référence identifiable de l'arrêté DAF qui justifie ces chiffres.</li>
@@ -247,8 +245,8 @@ export default function InitialisationSoldeModal({
           <fieldset className="space-y-2">
             <legend className="text-xs font-medium text-[var(--color-fg)]">Mode de reprise</legend>
             <div className="flex flex-wrap gap-2 text-xs">
-              <label className={`flex min-h-10 cursor-pointer items-center gap-2 border px-3 py-2 ${repriseMode === 'GLOBAL' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10' : 'border-[var(--color-border-subtle)]'}`}><input type="radio" name="repriseMode" checked={repriseMode === 'GLOBAL'} onChange={() => setRepriseMode('GLOBAL')} /> Solde global · origine inconnue</label>
-              <label className={`flex min-h-10 cursor-pointer items-center gap-2 border px-3 py-2 ${repriseMode === 'DETAILLE' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10' : 'border-[var(--color-border-subtle)]'}`}><input type="radio" name="repriseMode" checked={repriseMode === 'DETAILLE'} onChange={() => setRepriseMode('DETAILLE')} /> Lots par exercice</label>
+              <label className={`flex min-h-10 cursor-pointer items-center gap-2 border px-3 py-2 ${repriseMode === 'DETAILLE' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10' : 'border-[var(--color-border-subtle)]'}`}><input type="radio" name="repriseMode" checked={repriseMode === 'DETAILLE'} onChange={() => setRepriseMode('DETAILLE')} /> Plusieurs lots</label>
+              <label className={`flex min-h-10 cursor-pointer items-center gap-2 border px-3 py-2 ${repriseMode === 'GLOBAL' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10' : 'border-[var(--color-border-subtle)]'}`}><input type="radio" name="repriseMode" checked={repriseMode === 'GLOBAL'} onChange={() => setRepriseMode('GLOBAL')} /> Solde global</label>
             </div>
           </fieldset>
 
@@ -279,28 +277,28 @@ export default function InitialisationSoldeModal({
               />
             </div>
 
-            <div>
+            {repriseMode === 'GLOBAL' && <div>
               <label className="block text-xs font-medium text-[var(--color-fg)] mb-1 leading-tight">
                 Solde certifié disponible (jours) <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <Input
                 type="number"
-                step={repriseMode === 'DETAILLE' ? '0.01' : '0.25'}
+                step="0.01"
                 min="0"
                 value={soldeJours}
                 onChange={(e) => setSoldeJours(e.target.value)}
-                placeholder="Ex. 14.5"
+                placeholder="Ex. 2,44"
                 required
               />
-            </div>
+            </div>}
 
             <div>
               <label className="block text-xs font-medium text-[var(--color-fg)] mb-1 leading-tight">
                 Dernier TCONGE applicable certifié (Ar / jour) <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <MoneyInput
-                maxDecimals={2}
-                min="0.01"
+                maxDecimals={6}
+                min="0.000001"
                 value={tauxApplicable}
                 onValueChange={setTauxApplicable}
                 placeholder="Ex. 16 666.67"
@@ -328,16 +326,18 @@ export default function InitialisationSoldeModal({
             </span>
           </div>}
           {repriseMode === 'DETAILLE' && <div className="space-y-2 border-t border-[var(--color-border-subtle)] pt-3">
-            <p className="text-xs text-[var(--color-fg-muted)]">Répartissez les {soldeJours || 'jours du solde'} par exercice d’acquisition (ex. 2 j de 2024, 3 j de 2025…). Les exercices les plus anciens sont consommés en premier.</p>
-            {lotsReprise.map((lot, index) => <div key={index} className="grid grid-cols-1 md:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto] gap-3 items-end border-b border-[var(--color-border-subtle)] py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><h3 className="text-sm font-semibold">Lots de reprise</h3><p className="text-xs text-[var(--color-fg-muted)]">Un lot par exercice ou par taux. Le plus ancien est utilisé d'abord.</p></div>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setLotsReprise((prev) => [...prev, emptyLot()])}>+ Ajouter un lot</Button>
+            </div>
+            {lotsReprise.map((lot, index) => <div key={lot.id} className="grid grid-cols-1 md:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto] gap-3 items-end border-b border-[var(--color-border-subtle)] py-3">
               <Input label={`Lot ${index + 1} · exercice`} type="number" min="1900" max={dateCutover ? dateCutover.slice(0, 4) : undefined} step="1" placeholder="Ex. 2024" value={lot.exercice} required onChange={(e) => setLotsReprise((prev) => prev.map((item, i) => i === index ? { ...item, exercice: e.target.value } : item))} />
-              <Input label="Jours restants" type="number" min="0.01" step="0.01" value={lot.joursRestants} required onChange={(e) => setLotsReprise((prev) => prev.map((item, i) => i === index ? { ...item, joursRestants: e.target.value } : item))} />
-              <MoneyInput label="Taux historique (Ar/j)" maxDecimals={2} min="0.01" value={lot.tauxHistorique} required onValueChange={(value) => setLotsReprise((prev) => prev.map((item, i) => i === index ? { ...item, tauxHistorique: value } : item))} />
+              <Input label="Jours restants" type="number" min="0.01" step="0.01" placeholder="Ex. 2.5" value={lot.joursRestants} required onChange={(e) => setLotsReprise((prev) => prev.map((item, i) => i === index ? { ...item, joursRestants: e.target.value } : item))} />
+              <MoneyInput label="Taux historique (Ar/j)" maxDecimals={6} min="0.000001" placeholder="Ex. 31 914,926" value={lot.tauxHistorique} required onValueChange={(value) => setLotsReprise((prev) => prev.map((item, i) => i === index ? { ...item, tauxHistorique: value } : item))} />
               <div className="text-xs"><span className="block text-[var(--color-fg-muted)]">Valeur restante</span><strong>{lot.joursRestants && lot.tauxHistorique ? formatMoneyAr(valeurLot(lot)) : '—'}</strong></div>
               <Button type="button" variant="ghost" size="sm" disabled={lotsReprise.length === 1} onClick={() => setLotsReprise((prev) => prev.filter((_, i) => i !== index))}>Retirer</Button>
             </div>)}
-            <Button type="button" variant="ghost" size="sm" onClick={() => setLotsReprise((prev) => [...prev, emptyLot()])}>Ajouter un exercice</Button>
-            <p className="text-xs font-semibold">Lots renseignés : {lotsReprise.reduce((sum, lot) => sum + (Number(lot.joursRestants) || 0), 0).toFixed(2)} / {soldeJours || '—'} j · {formatMoneyAr(lotsReprise.reduce((sum, lot) => sum + valeurLot(lot), 0))}</p>
+            <p className="rounded bg-[var(--color-bg-subtle)] px-3 py-2 text-xs font-semibold">Stock calculé : {joursLots.toFixed(2)} j · {formatMoneyAr(valeurLots)} <span className="font-normal text-[var(--color-fg-muted)]">— à vérifier avec l'arrêté DAF</span></p>
           </div>}
         </section>
 
@@ -432,7 +432,7 @@ export default function InitialisationSoldeModal({
           <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">Nom ou numéro permettant de retrouver le document source. Aucun fichier n'est importé ici.</span>
         </div>
         <div>
-          <Input label="Précision complémentaire (facultative)" type="text"
+          <Input label="Précision complémentaire (facultative)" type="text" placeholder="Ex. dossier RH-2026-14"
             value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
         </div>
 
@@ -443,8 +443,8 @@ export default function InitialisationSoldeModal({
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
             <div><dt className="text-[var(--color-fg-muted)]">Date d’arrêté</dt><dd className="font-medium">{dateCutover ? new Date(`${dateCutover}T00:00:00`).toLocaleDateString('fr-FR') : 'À renseigner'}</dd></div>
             <div><dt className="text-[var(--color-fg-muted)]">Période de référence</dt><dd className="font-medium">{dateDebutReference || '—'} → {dateFinCalculee || '—'}</dd></div>
-            <div><dt className="text-[var(--color-fg-muted)]">Stock certifié · {repriseMode === 'DETAILLE' ? `${lotsReprise.length} lot(s)` : 'global'}</dt><dd className="font-medium">{repriseMode === 'DETAILLE' ? `${lotsReprise.reduce((sum, lot) => sum + (Number(lot.joursRestants) || 0), 0).toFixed(2)} jours · ${formatMoneyAr(lotsReprise.reduce((sum, lot) => sum + valeurLot(lot), 0))}` : `${soldeJours || 'À renseigner'} jours · ${valeurSoldeOuverture === '' ? 'valeur à renseigner' : formatMoneyAr(valeurSoldeOuverture)}`}</dd></div>
-            <div><dt className="text-[var(--color-fg-muted)]">TCONGE applicable</dt><dd className="font-medium">{tauxApplicable ? `${formatMoneyAr(tauxApplicable)} / jour` : 'À renseigner'}</dd></div>
+            <div><dt className="text-[var(--color-fg-muted)]">Stock · {repriseMode === 'DETAILLE' ? `${lotsReprise.length} lot(s)` : 'global'}</dt><dd className="font-medium">{repriseMode === 'DETAILLE' ? `${joursLots.toFixed(2)} jours · ${formatMoneyAr(valeurLots)}` : `${soldeJours || 'À renseigner'} jours · ${valeurSoldeOuverture === '' ? 'valeur à renseigner' : formatMoneyAr(valeurSoldeOuverture)}`}</dd></div>
+            <div><dt className="text-[var(--color-fg-muted)]">TCONGE applicable</dt><dd className="font-medium">{tauxApplicable ? `${formatLeaveRateAr(tauxApplicable)} / jour` : 'À renseigner'}</dd></div>
             <div className="sm:col-span-2"><dt className="text-[var(--color-fg-muted)]">Cumul acquis cette année</dt><dd className="font-medium">{cumulDroitsOuverture === '' ? 'jours à renseigner' : `${cumulDroitsOuverture} jours`} · {cumulValorisationOuverture === '' ? 'valeur à renseigner' : formatMoneyAr(cumulValorisationOuverture)}</dd></div>
             <div className="sm:col-span-2"><dt className="text-[var(--color-fg-muted)]">Référence DAF</dt><dd className="font-medium break-words">{referenceArrete.trim() || 'À renseigner'}</dd></div>
           </dl>
