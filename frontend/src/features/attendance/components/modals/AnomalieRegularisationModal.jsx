@@ -893,18 +893,64 @@ export default function AnomalieRegularisationModal({
 
                                     {congeDuree !== '0.5' ? (
                                         <div>
-                                            <label htmlFor="regularisation-date-reprise" className="text-xs font-bold text-[var(--color-fg-muted)] mb-1.5 block">
-                                                Date de reprise prévue
-                                            </label>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <label htmlFor="regularisation-date-reprise" className="text-xs font-bold text-[var(--color-fg-muted)]">
+                                                    Date de reprise prévue <span className="text-[var(--color-danger-500)]">*</span>
+                                                </label>
+                                                {anomalie?.datePointage && (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-[10px] text-[var(--color-fg-muted)]">Raccourcis :</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDateReprise(shiftIsoDate(anomalie.datePointage, 1))}
+                                                            className="text-[10px] font-semibold text-[var(--color-brand-600)] hover:underline cursor-pointer"
+                                                        >
+                                                            1 j
+                                                        </button>
+                                                        <span className="text-[var(--color-border)]">·</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDateReprise(shiftIsoDate(anomalie.datePointage, 3))}
+                                                            className="text-[10px] font-semibold text-[var(--color-brand-600)] hover:underline cursor-pointer"
+                                                        >
+                                                            3 j (ven→lun)
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                             <input
                                                 id="regularisation-date-reprise"
                                                 type="date"
                                                 value={dateReprise}
                                                 min={shiftIsoDate(anomalie?.datePointage, 1) || undefined}
                                                 onChange={(e) => setDateReprise(e.target.value)}
-                                                className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs p-2 focus:border-[var(--color-brand-500)] focus:outline-none"
+                                                className={`w-full border text-xs p-2 focus:outline-none ${
+                                                    dateReprise && anomalie?.datePointage && dateReprise <= anomalie.datePointage
+                                                        ? 'border-[var(--color-danger-500)] bg-[var(--color-danger-50)] text-[var(--color-danger-900)]'
+                                                        : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:border-[var(--color-brand-500)]'
+                                                }`}
                                                 required
                                             />
+                                            {dateReprise && anomalie?.datePointage && dateReprise <= anomalie.datePointage ? (
+                                                <p className="text-[11px] text-[var(--color-danger-600)] mt-1 font-medium">
+                                                    ⚠️ Date invalide : la reprise ({dateReprise}) doit être postérieure au début du congé ({fmtDate(anomalie.datePointage)}). Pour 3 jours (23 au 25/10), indiquez le <strong>{shiftIsoDate(anomalie.datePointage, 3)}</strong>.
+                                                </p>
+                                            ) : nbJoursAImputer > 0 ? (
+                                                <div className="mt-1 flex items-center justify-between text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">
+                                                        Période : du <strong>{fmtDate(anomalie.datePointage)}</strong> au <strong>{fmtDate(dernierJourConge)}</strong> inclus ({nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''})
+                                                    </span>
+                                                    {isCongePartiel && (
+                                                        <span className="text-[var(--color-warning-700)] font-semibold">
+                                                            Couvert à {formatJours(joursCouverts)} j (solde : {formatJours(soldeNumerique)} j)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <p className="text-[10px] text-[var(--color-fg-muted)] mt-1">
+                                                    Premier jour de retour au travail. Ex : reprise le {shiftIsoDate(anomalie?.datePointage, 3) || 'JJ/MM/AAAA'} = 3 jours (du {fmtDate(anomalie?.datePointage)} au {fmtDate(shiftIsoDate(anomalie?.datePointage, 2))}).
+                                                </p>
+                                            )}
                                         </div>
                                     ) : (
                                         <div>
@@ -1076,14 +1122,16 @@ export default function AnomalieRegularisationModal({
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-700)]">PAIE</div>
                                 <div className="text-xs font-bold text-[var(--color-fg)] mt-0.5">
                                     {optionAbsence === 'CONGE_PAYE'
-                                        ? 'Indemnité congé'
+                                        ? (joursCouverts > 0 ? 'Indemnité congé' : 'Retenue absence')
                                         : optionAbsence === 'PERMISSION_EXCEPTIONNELLE'
                                             ? 'Salaire maintenu'
                                             : 'Retenue sur salaire'}
                                 </div>
                                 <div className="text-[10px] text-[var(--color-fg-muted)] leading-tight mt-0.5">
                                     {optionAbsence === 'CONGE_PAYE'
-                                        ? (isCongePartiel
+                                        ? (joursCouverts <= 0
+                                            ? 'Aucun solde : retenue selon le pointage'
+                                            : isCongePartiel
                                             ? `Déduction base ${formatJours(joursDemandes)} j · Indemnité ${formatJours(joursCouverts)} j`
                                             : `Déduction base ${formatJours(joursDemandes)} j + indemnité TCONGE`)
                                         : optionAbsence === 'PERMISSION_EXCEPTIONNELLE'

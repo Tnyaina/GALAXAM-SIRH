@@ -336,7 +336,7 @@ public class CongeLotValorisationService {
                     trace.tauxHistorique()));
         }
         BigDecimal total = BigDecimal.ZERO;
-        String sql = "SELECT d.id_demande_conge, d.date_debut, d.date_fin, d.est_demi_journee, "
+        String sql = "SELECT d.id_demande_conge, d.date_debut, d.date_fin, d.est_demi_journee, d.nb_jours_decomptes, "
                 + "d.est_remunere, t.est_paye "
                 + "FROM demande_conge d JOIN ref_statut_demande_conge s ON s.id_statut_demande_conge = d.id_statut_demande_conge "
                 + "JOIN ref_type_conge t ON t.id_type_conge = d.id_type_conge "
@@ -364,6 +364,11 @@ public class CongeLotValorisationService {
                             ? decompte.calculer(debutConge, debutIntersection.minusDays(1), demi)
                             : BigDecimal.ZERO;
                     BigDecimal prendre = decompte.calculer(debutIntersection, finIntersection, demi);
+                    // La demande régularisée peut couvrir 3 dates mais ne débiter que 2,44 j.
+                    // Les lots FIFO ne valorisent que les jours effectivement débités.
+                    BigDecimal joursDebites = rs.getBigDecimal("nb_jours_decomptes");
+                    ignorer = ignorer.min(joursDebites);
+                    prendre = prendre.min(joursDebites.subtract(ignorer).max(BigDecimal.ZERO));
                     List<CongeLotValorisationEngine.Imputation> lots = new ArrayList<>(
                             allocations.getOrDefault(demande, new LinkedHashMap<>()).values());
                     for (var lot : lots) {

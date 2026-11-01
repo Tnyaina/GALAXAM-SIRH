@@ -428,10 +428,10 @@ La commande Pointage `PUT /pointages/anomalies/{idPointage}/regulariser` accepte
 Pour l'option `CONGE_PAYE`, `CongeService.regulariserCongeAnnuelDepuisPointageStructure` tente de couvrir l'absence avec le solde annuel acquis, puis `PointageAnomalieService` rattache la demande créée au pointage. Les résultats diffèrent selon le solde :
 
 1. **Couverture complète :** la demande annuelle est créée et validée pour toute la durée ; un mouvement `PRISE` est enregistré et le pointage reçoit le statut `CONGE` avec l'identifiant de demande.
-2. **Couverture partielle d'une journée :** si le solde est supérieur à zéro mais inférieur à la durée demandée, la demande est créée et validée pour la fraction couverte. Le pointage reçoit `DEMI_JOURNEE` et conserve le lien vers cette demande ; le reste n'est pas débité comme congé. La fraction non couverte n'est pas transformée par ce code en ligne de paie dédiée ; son effet salarial n'est pas établi ici.
+2. **Couverture partielle :** si le solde est supérieur à zéro mais inférieur à la durée demandée, la demande est créée et validée pour la fraction couverte. La période entière reste liée au congé dans le Pointage ; la part non couverte ne débite pas le solde et ne reçoit pas d'indemnité. En paie mensuelle, la base est déduite pour toute la période au trentième.
 3. **Solde nul :** aucune demande ni mouvement `PRISE` n'est créé. Le pointage reste traité comme une absence : `ABSENCE_JUSTIFIEE` si un motif est renseigné, sinon `ABSENCE_NON_JUSTIFIEE`.
 
-La couverture partielle est limitée à une seule journée. Pour une période de plusieurs jours, le service exige un solde couvrant toute la durée et rejette la régularisation sinon. Les contrôles des journées supplémentaires (période ouverte, absence de temps ou congé déjà lié) s'appliquent avant l'écriture. Les écritures Congés et Pointage sont effectuées dans la transaction JDBC de régularisation.
+La couverture partielle accepte une période de plusieurs jours. Les contrôles des journées supplémentaires (période ouverte, absence de temps ou congé déjà lié) s'appliquent avant l'écriture. Les écritures Congés et Pointage sont effectuées dans la transaction JDBC de régularisation.
 
 #### C. Permission exceptionnelle oubliée dans le pointage
 L'option `PERMISSION_EXCEPTIONNELLE` appelle `CongeService.regulariserPermissionDepuisPointage` : le service recherche un type actif `PERMISSION`, ou à défaut `EXCEPTIONNEL`, refuse l'opération si aucun de ces types n'est actif ou si une demande couvre déjà la date, puis crée et valide une demande d'un jour avec le préfixe `[REGULARISATION_POINTAGE]`. La commande est exécutée sous les mêmes permissions Pointage (`POINTAGE_WRITE`, `POINTAGE_VALIDATE` ou `ROLE_ADMIN`) et passe par les contrôles Congés de création et validation, dont les contrôles de pool lorsqu'ils s'appliquent. Elle ne permet pas à l'Agent Pointage de définir explicitement `est_remunere` ; la valeur par défaut du type s'applique.
@@ -804,17 +804,20 @@ INDEMNITE_CONGE_PAYE  = TCONGE × joursCongeValorisesParDate.sum()
 
 RETENUE_ABSENCE       = taux_horaire × heures_absence
                       ≈ 5 769,23 × 2,75 h   =  15 865,69 Ar
-                        (les (N−K) jours restants → minutes d'absence)
+                        (déficit de pointage indépendant de la période de congé)
 ```
 
 Les champs `joursCongeBaseParDate` (Map date → 1j par jour calendaire, total = 3) et `joursCongeValorisesParDate` (Map date → part couverte par solde, total = 2,44) sont alimentés par `PayrollCalculationContextAssembler.chargerConges()` via `CongeService.calculerJoursCongeBaseParDate()` et `CongeService.calculerJoursCongeValorisesParDate()`.
+`CongeLotValorisationService.valorisationPrisesSurPeriode()` borne également chaque segment de paie aux `nb_jours_decomptes` de la demande : une période de 3 jours avec 2,44 jours débités ne peut pas demander 3 jours aux lots FIFO.
+
+Le rejeu `Employee592ReplayIntegrationTest` sur une copie PostgreSQL temporaire de la situation 0592 vérifie le débit de 2,44 j, la ventilation 3 j / 2,44 j, le FIFO de 77 872,42 Ar et les lignes de paie de 100 000,00 Ar, 77 872,42 Ar et 15 865,69 Ar. Il ne constitue pas un bulletin complet : le pointage n'est pas gelé et les autres variables du récapitulatif Excel ne sont pas toutes saisies dans la base.
 
 ### Règle synthétique
 
 > Règle **RG-CONGE-PARTIAL** : pour une régularisation partielle (solde insuffisant),
 > - `DEDUCTION_CONGE_BASE` porte sur **N** jours calendaires (trentième),
 > - `INDEMNITE_CONGE_PAYE` porte sur **K** jours seulement (TCONGE × K),
-> - les **(N − K)** jours résiduels sont traités comme des **minutes d'absence** décomptées dans `RETENUE_ABSENCE`.
+> - les **(N − K)** jours résiduels ne reçoivent pas d'indemnité ; ils sont déjà inclus dans la déduction de N jours. Seules les autres minutes de déficit du pointage alimentent `RETENUE_ABSENCE`.
 
 ---
 

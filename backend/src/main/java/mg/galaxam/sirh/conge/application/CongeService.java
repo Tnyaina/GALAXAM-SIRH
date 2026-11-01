@@ -600,7 +600,7 @@ public class CongeService {
         demande.setDateDebut(date);
         demande.setDateFin(endDate);
         demande.setNbJoursDecomptes(java.math.BigDecimal.valueOf(joursCouverts));
-        boolean isDemi = (joursCouverts == 0.5);
+        boolean isDemi = (days == 0.5);
         demande.setEstDemiJournee(isDemi);
         demande.setMomentDemiJournee(isDemi ? (momentDemiJournee != null ? momentDemiJournee : "MATIN") : null);
         demande.setDerogationDelaiPreavis(true);

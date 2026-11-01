@@ -108,7 +108,7 @@ public final class AttendanceStatusPolicy {
         if (coveredDays >= requestedDays) return "CONGE";
         // La fraction non couverte est déduite de la base au trentième en paie.
         // Le statut journalier reste CONGE pour neutraliser un second déficit horaire.
-        if (coveredDays > 0.0) return "CONGE";
+        if (coveredDays > 0.0) return requestedDays == 0.5 ? "DEMI_JOURNEE" : "CONGE";
         return resolveRegularizedAbsence(null, reason);
     }
 

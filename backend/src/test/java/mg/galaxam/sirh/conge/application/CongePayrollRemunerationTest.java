@@ -106,15 +106,16 @@ class CongePayrollRemunerationTest {
     }
 
     @Test
-    void partialPointageCoveragePaysOnlyCoveredHalfAndDeductsUncoveredHalfAsAbsence() {
-        PayrollCalculationInput input = input(null, true, new BigDecimal("0.5"), new BigDecimal("4"));
+    void partialRegularizedDayDeductsFullBaseAndPaysOnlyCoveredHalf() {
+        PayrollCalculationInput input = input(null, true, new BigDecimal("0.5"), BigDecimal.ZERO);
+        input.setJoursCongeBaseParDate(Map.of(DAY, BigDecimal.ONE));
         List<BulletinPaieLigne> leaveLines = calculateLeaveLines(input);
         List<BulletinPaieLigne> absenceLines = new ArrayList<>();
         engine.calculerRetenueAbsence(input, SALARY, input.getTauxHoraireEffectif(), new BulletinPaie(), absenceLines);
-        assertEquals(new BigDecimal("5000.00"), amount(leaveLines, "DEDUCTION_CONGE_BASE"));
+        assertEquals(new BigDecimal("10000.00"), amount(leaveLines, "DEDUCTION_CONGE_BASE"));
         assertEquals(new BigDecimal("6000.00"), amount(leaveLines, "INDEMNITE_CONGE_PAYE"));
-        assertEquals(new BigDecimal("6923.21"), amount(absenceLines, "RETENUE_ABSENCE"));
-        assertEquals(new BigDecimal("1000.00"), leaveNet(input));
+        assertNull(amount(absenceLines, "RETENUE_ABSENCE"));
+        assertEquals(new BigDecimal("-4000.00"), leaveNet(input));
     }
 
     @Test
