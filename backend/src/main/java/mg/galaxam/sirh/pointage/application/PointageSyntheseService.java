@@ -9,6 +9,7 @@ import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkInterval;
+import mg.galaxam.sirh.pointage.domain.calculation.CorrectedPointageTime;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkIntervalFactory;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.TemporalBucket;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.AttendanceTemporalPartitioner;
@@ -62,11 +63,10 @@ public class PointageSyntheseService {
     static double joursCongePourAttendu(AttendanceEngine.Result.Status statut,
             boolean congeValide, boolean remunere, boolean demiJournee) {
         if (congeValide) {
-            if (demiJournee) return 0.5;
+            if (demiJournee) return remunere ? 0.5 : 0.0;
             return remunere ? 1.0 : 0.0;
         }
         if (statut == AttendanceEngine.Result.Status.LEAVE) return 1.0;
-        if (statut == AttendanceEngine.Result.Status.HALF_DAY) return 0.5;
         return 0.0;
     }
 
@@ -910,6 +910,13 @@ public class PointageSyntheseService {
                     .multiply(BigDecimal.valueOf(60)).setScale(0, RoundingMode.HALF_UP).longValueExact();
             long firstBandMinutes = AttendanceEngine.prorateFirstOvertimeBand(
                     configuredFirstBandMinutes, expectedMinutes, nominalWeekMinutes);
+            Set<LocalDate> paidHalfDayLeaveDates = new java.util.HashSet<>();
+            for (AttendanceEngine.Result day : jours) {
+                CongeValideInfo leave = congesValidesEmploye.get(day.date());
+                if (leave != null && leave.estRemunere() && leave.estDemi()) {
+                    paidHalfDayLeaveDates.add(day.date());
+                }
+            }
             LocalDate premierJourEmploi = null;
             for (LocalDate day = debutTroncon; !day.isAfter(finTroncon); day = day.plusDays(1)) {
                 if (contextesJournaliers.containsKey(day)) {
@@ -924,7 +931,7 @@ public class PointageSyntheseService {
             AttendanceEngine.WeekResult res = weeklyAttendanceCalculator.calculateWeek(
                     new AttendanceEngine.WeekContext(lundi, expectedMinutes, firstBandMinutes,
                             premierJourEmploi != null && contextesJournaliers.get(premierJourEmploi).overtimeEligible(),
-                            seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact()), jours);
+                            seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact(), paidHalfDayLeaveDates), jours);
             weeklyResults.add(res);
 
             // Résultat unique du moteur hebdomadaire : affichage et paie utilisent
@@ -963,6 +970,9 @@ public class PointageSyntheseService {
             tDto.setHeuresDeficit(minutesToHours(deficitTroncon));
             tDto.setHeuresHs30(minutesToHours(res.overtime30Minutes()));
             tDto.setHeuresHs50(minutesToHours(res.overtime50Minutes()));
+            long hs30Constatees = Math.min(res.grossOvertimeMinutes(), firstBandMinutes);
+            tDto.setHeuresHs30Constatees(minutesToHours(hs30Constatees));
+            tDto.setHeuresHs50Constatees(minutesToHours(res.grossOvertimeMinutes() - hs30Constatees));
             long nightMinutes = 0;
             long sundayMinutes = 0;
             long holidayMinutes = 0;
@@ -981,10 +991,17 @@ public class PointageSyntheseService {
 
         // La compensation de chaque semaine est déjà terminée. Le rapprochement
         // de période reprend uniquement ses totaux, comme le récapitulatif Excel.
-        // Le solde inclut HS30 et HS50 brutes ; les qualifications nuit/dimanche/férié ne sont pas ajoutées à nouveau.
+        // Tous les excédents hebdomadaires compensent les déficits. Seules les
+        // tranches éligibles deviennent des HS payables après ce rapprochement.
         int deficitMinutes = Math.toIntExact(periodResult.absenceMinutes());
         int hs30Minutes = Math.toIntExact(periodResult.overtime30Minutes());
         int hs50Minutes = Math.toIntExact(periodResult.overtime50Minutes());
+        int excedentCompensableMinutes = Math.toIntExact(weeklyResults.stream()
+                .mapToLong(AttendanceEngine.WeekResult::grossOvertimeMinutes).sum());
+        int nonPayableSurplusMinutes = Math.subtractExact(excedentCompensableMinutes,
+                Math.addExact(hs30Minutes, hs50Minutes));
+        boolean overtimeEligibleForPeriod = contextesJournaliers.values().stream()
+                .anyMatch(mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay::overtimeEligible);
         int ajustementMinutes = 0;
         if (idPeriode != null && ajustementPeriodeService != null) {
             try (PreparedStatement bornes = c.prepareStatement(
@@ -999,10 +1016,12 @@ public class PointageSyntheseService {
             }
         }
         var balance = AttendanceEngine.PeriodBalance.calculate(
-                hs30Minutes, hs50Minutes, deficitMinutes, ajustementMinutes);
+                hs30Minutes, hs50Minutes, nonPayableSurplusMinutes,
+                deficitMinutes, ajustementMinutes, overtimeEligibleForPeriod);
         dto.setMinutesPremierPalierHs(seuilHsTranche1.multiply(BigDecimal.valueOf(60)).intValueExact());
         int soldeMinutes = balance.balanceMinutes();
         dto.setMinutesDeficitHebdo(deficitMinutes);
+        dto.setMinutesExcedentCompensable(excedentCompensableMinutes);
         dto.setMinutesHs30Hebdo(hs30Minutes);
         dto.setMinutesHs50Hebdo(hs50Minutes);
         dto.setMinutesAjustementPeriode(ajustementMinutes);
@@ -1022,8 +1041,8 @@ public class PointageSyntheseService {
         // Conversion finale pour l'API ; les minutes entières restent la valeur de calcul.
         dto.setTotalHeuresTravaillees(minutesToHours(periodResult.workedMinutes()));
         dto.setSurplusBrut(minutesToHours(totalHsBrutesMinutes));
-        dto.setHeuresHs30(minutesToHours(periodResult.overtime30Minutes()));
-        dto.setHeuresHs50(minutesToHours(periodResult.overtime50Minutes()));
+        dto.setHeuresHs30(minutesToHours(balance.overtime30Minutes()));
+        dto.setHeuresHs50(minutesToHours(balance.overtime50Minutes()));
 
         // REGLE GESTION CADRES & HEURES DE NUIT :
         // Les cadres au forfait n'ont pas de majoration HS ni d'heures de nuit payees en sus par defaut.
@@ -1041,7 +1060,7 @@ public class PointageSyntheseService {
         dto.setHeuresDimancheTotal(minutesToHours(periodResult.sundayMinutes()));
         dto.setHeuresFerieTotal(minutesToHours(periodResult.publicHolidayMinutes()));
         dto.setRetardCompense(minutesToHours(totalRetardCompenseMinutes));
-        dto.setHeuresAbsenceRetenues(minutesToHours(totalDeficitMinutes));
+        dto.setHeuresAbsenceRetenues(minutesToHours(balance.absenceMinutes()));
         dto.setTotalMinutesRetard(totalMinsRetard);
         dto.setNbJoursRepas(repasCount);
         dto.setMontantRepas(periodResult.mealAmount());
@@ -1107,6 +1126,13 @@ public class PointageSyntheseService {
                         dto.setNbJoursRepas(rs.getInt("nb_jours_repas"));
                         dto.setMontantRepas(nullToZero(rs.getBigDecimal("montant_repas")));
                         dto.setMinutesDeficitHebdo((Integer)rs.getObject("minutes_deficit_hebdo"));
+                        Integer frozenBalance = (Integer)rs.getObject("minutes_solde_periode");
+                        Integer frozenDeficit = (Integer)rs.getObject("minutes_deficit_hebdo");
+                        Integer frozenAdjustment = (Integer)rs.getObject("minutes_ajustement_periode");
+                        if (frozenBalance != null && frozenDeficit != null && frozenAdjustment != null) {
+                            dto.setMinutesExcedentCompensable(Math.subtractExact(
+                                    Math.addExact(frozenBalance, frozenDeficit), frozenAdjustment));
+                        }
                         dto.setMinutesHs30Hebdo((Integer)rs.getObject("minutes_hs30_hebdo"));
                         dto.setMinutesHs50Hebdo((Integer)rs.getObject("minutes_hs50_hebdo"));
                         dto.setMinutesAjustementPeriode((Integer)rs.getObject("minutes_ajustement_periode"));
@@ -2034,9 +2060,9 @@ public class PointageSyntheseService {
         // Capture l'heure effective (plancher d'arrivée valorisé déjà appliqué lors de la saisie)
         // pour permettre l'audit complet du calcul : "quelle entrée a été comptabilisée lors du gel V1 ?"
         String days = "INSERT INTO pointage_snapshot_jour " +
-                "(id_cumul, id_pointage, version_pointage, date_pointage, minutes_travaillees, minutes_retard, minutes_nuit, statut_jour, heure_entree_effective) " +
+                "(id_cumul, id_pointage, version_pointage, date_pointage, minutes_travaillees, minutes_retard, minutes_nuit, statut_jour, heure_entree_effective, minutes_correction_temps) " +
                 "SELECT ?, p.id_pointage, p.version, p.date_pointage, ROUND(p.total_heures * 60), " +
-                "p.minutes_retard, ROUND(p.heures_nuit * 60), s.code, p.heure_entree_matin_effective FROM pointage_jour p " +
+                "p.minutes_retard, ROUND(p.heures_nuit * 60), s.code, p.heure_entree_matin_effective, p.minutes_correction_temps FROM pointage_jour p " +
                 "JOIN ref_statut_pointage_jour s ON s.id_statut_jour = p.id_statut_jour " +
                 "WHERE p.id_employe = ? AND p.id_periode_paie = ?";
         try (PreparedStatement ps = c.prepareStatement(days)) {
@@ -2174,7 +2200,7 @@ public class PointageSyntheseService {
 
         List<WorkInterval> intervals = new ArrayList<>();
         String sqlP = "SELECT id_pointage, date_pointage, COALESCE(heure_entree_matin_effective, heure_entree_matin) AS heure_entree_matin, heure_sortie_matin, " +
-                      "heure_entree_am, heure_sortie_am, horaire_continu_jour " +
+                      "heure_entree_am, heure_sortie_am, horaire_continu_jour, minutes_correction_temps " +
                       "FROM pointage_jour WHERE id_employe = ? AND id_periode_paie = ? ORDER BY date_pointage ASC";
         try (PreparedStatement psP = c.prepareStatement(sqlP)) {
             psP.setInt(1, employeeId);
@@ -2189,13 +2215,17 @@ public class PointageSyntheseService {
                     Time sm = rsP.getTime("heure_sortie_matin");
                     Time ea = rsP.getTime("heure_entree_am");
                     Time sa = rsP.getTime("heure_sortie_am");
+                    var corrected = CorrectedPointageTime.apply(
+                            em == null ? null : em.toLocalTime(), sm == null ? null : sm.toLocalTime(),
+                            ea == null ? null : ea.toLocalTime(), sa == null ? null : sa.toLocalTime(),
+                            rsP.getInt("minutes_correction_temps"));
                     boolean continu = rsP.getBoolean("horaire_continu_jour");
                     intervals.addAll(WorkIntervalFactory.createIntervals(
                             employeeId, ptId, datePointage,
                             em != null ? em.toLocalTime() : null,
-                            sm != null ? sm.toLocalTime() : null,
+                            corrected.morning(),
                             ea != null ? ea.toLocalTime() : null,
-                            sa != null ? sa.toLocalTime() : null,
+                            corrected.afternoon(),
                             continu,
                             "PTG_" + ptId
                     ));
@@ -2316,18 +2346,24 @@ public class PointageSyntheseService {
         }
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT id_pointage,id_employe,COALESCE(heure_entree_matin_effective,heure_entree_matin) AS em,"
-                        + "heure_sortie_matin AS sm,heure_entree_am AS ea,heure_sortie_am AS sa,horaire_continu_jour "
+                        + "heure_sortie_matin AS sm,heure_entree_am AS ea,heure_sortie_am AS sa,horaire_continu_jour,minutes_correction_temps "
                         + "FROM pointage_jour WHERE id_periode_paie=? AND date_pointage=?")) {
             ps.setInt(1, periodId);
             ps.setDate(2, Date.valueOf(fin));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int id = rs.getInt("id_pointage");
-                    var intervals = WorkIntervalFactory.createIntervals(rs.getInt("id_employe"), id, fin,
+                    var corrected = CorrectedPointageTime.apply(
                             rs.getTime("em") == null ? null : rs.getTime("em").toLocalTime(),
                             rs.getTime("sm") == null ? null : rs.getTime("sm").toLocalTime(),
                             rs.getTime("ea") == null ? null : rs.getTime("ea").toLocalTime(),
                             rs.getTime("sa") == null ? null : rs.getTime("sa").toLocalTime(),
+                            rs.getInt("minutes_correction_temps"));
+                    var intervals = WorkIntervalFactory.createIntervals(rs.getInt("id_employe"), id, fin,
+                            rs.getTime("em") == null ? null : rs.getTime("em").toLocalTime(),
+                            corrected.morning(),
+                            rs.getTime("ea") == null ? null : rs.getTime("ea").toLocalTime(),
+                            corrected.afternoon(),
                             rs.getBoolean("horaire_continu_jour"), "PTG_" + id);
                     if (intervals.stream().anyMatch(interval -> interval.end().isAfter(fin.plusDays(1).atStartOfDay()))) {
                         chevauchantes.add(new PointagePreflight.VacationChevauchante(

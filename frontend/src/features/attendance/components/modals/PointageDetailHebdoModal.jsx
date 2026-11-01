@@ -1,3 +1,4 @@
+import PointageCorrectionBadge from '@/features/attendance/components/PointageCorrectionBadge';
 import { useState, useEffect, useCallback } from 'react';
 import { 
     Clock, 
@@ -347,6 +348,7 @@ export default function PointageDetailHebdoModal({
 
                                                 const retMin = ptg.minutesRetard || 0;
                                                 const faitStr = ptg.heures || (ptg.totalHeures ? formatHeuresMinutes(ptg.totalHeures) : (ptg.totalHeuresDecimal ? formatHeuresMinutes(ptg.totalHeuresDecimal) : '—'));
+                                                const correctionBadge = <PointageCorrectionBadge minutes={ptg.minutesCorrectionTemps} sortieBadge={sortie !== '—' ? sortie : sortiePause} />;
                                                 const ecartStr = ptg.ecart || (ptg.ecart8h ? (ptg.ecart8h > 0 ? `+${formatHeuresDecimal(ptg.ecart8h)}` : `-${formatHeuresDecimal(Math.abs(ptg.ecart8h))}`) : '00 min');
                                                 const isEcartPos = ptg.ecartPositif ?? (ptg.ecart8h ? ptg.ecart8h >= 0 : true);
 
@@ -387,6 +389,7 @@ export default function PointageDetailHebdoModal({
                                                         {/* Heures faites */}
                                                         <Td className="text-center font-data text-xs font-semibold">
                                                             {faitStr}
+                                                            {correctionBadge}
                                                         </Td>
                                                         {/* Écart vs Norme */}
                                                         <Td className="text-center font-data text-xs">

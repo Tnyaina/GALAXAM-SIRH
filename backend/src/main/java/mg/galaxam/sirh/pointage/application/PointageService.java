@@ -7,6 +7,8 @@ import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.CorrectedPointageTime;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.PointageAllowancePolicy;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkIntervalFactory;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.NightWindow;
@@ -32,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -939,7 +942,7 @@ public class PointageService {
             Map<Integer, Map<String, Object>> pointagesParEmploye = new HashMap<>();
             String sqlPointagesJour = "SELECT p.id_employe, p.id_pointage, COALESCE(p.version, 1) AS version, "
                     + "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, "
-                    + "p.total_heures, p.minutes_retard, p.heures_nuit, p.motif_ajustement, "
+                    + "p.total_heures, p.minutes_retard, p.heures_nuit, p.minutes_correction_temps, p.motif_ajustement, "
                     + "st.code AS statut_code, st.libelle AS statut_libelle, p.horaire_continu_jour "
                     + "FROM pointage_jour p LEFT JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
                     + "WHERE p.date_pointage = ?"
@@ -958,6 +961,7 @@ public class PointageService {
                         row.put("heure_entree_am", rs.getTime("heure_entree_am"));
                         row.put("heure_sortie_am", rs.getTime("heure_sortie_am"));
                         row.put("total_heures", rs.getDouble("total_heures"));
+                        row.put("minutes_correction_temps", rs.getInt("minutes_correction_temps"));
                         row.put("minutes_retard", rs.getInt("minutes_retard"));
                         row.put("heures_nuit", rs.getDouble("heures_nuit"));
                         row.put("motif_ajustement", rs.getString("motif_ajustement"));
@@ -1102,6 +1106,7 @@ public class PointageService {
                                     dto.setHeureEntreeAm(ea != null ? ea.toString().substring(0, 5) : "");
                                     dto.setHeureSortieAm(sa != null ? sa.toString().substring(0, 5) : "");
                                     dto.setTotalHeures((Double) existingPointage.get("total_heures"));
+                                    dto.setMinutesCorrectionTemps((Integer) existingPointage.get("minutes_correction_temps"));
                                     dto.setMinutesRetard((Integer) existingPointage.get("minutes_retard"));
                                     dto.setHeuresNuit((Double) existingPointage.get("heures_nuit"));
                                     dto.setMotifAjustement((String) existingPointage.get("motif_ajustement"));
@@ -1852,9 +1857,38 @@ public class PointageService {
             }
         }
 
+        int retainedCorrection = 0;
+        double retainedMorning = day.morningHours();
+        double retainedAfternoon = day.afternoonHours();
+        double retainedTotal = day.totalHours();
+        double retainedNight = day.nightHours();
+        try (PreparedStatement previous = c.prepareStatement(
+                "SELECT p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, "
+                + "p.heure_entree_matin_effective, p.horaire_continu_jour, s.code, "
+                + "p.minutes_correction_temps, p.heures_matin, p.heures_am, p.total_heures, p.heures_nuit "
+                + "FROM pointage_jour p JOIN ref_statut_pointage_jour s ON s.id_statut_jour=p.id_statut_jour "
+                + "WHERE p.id_pointage=? FOR UPDATE")) {
+            previous.setInt(1, day.pointageId());
+            try (ResultSet current = previous.executeQuery()) {
+                if (current.next() && current.getInt("minutes_correction_temps") != 0
+                        && Objects.equals(current.getTime("heure_entree_matin"), day.morningEntry())
+                        && Objects.equals(current.getTime("heure_sortie_matin"), day.morningExit())
+                        && Objects.equals(current.getTime("heure_entree_am"), day.afternoonEntry())
+                        && Objects.equals(current.getTime("heure_sortie_am"), day.afternoonExit())
+                        && Objects.equals(current.getTime("heure_entree_matin_effective"), day.effectiveMorningEntry())
+                        && current.getBoolean("horaire_continu_jour") == day.continuousSchedule()
+                        && Objects.equals(current.getString("code"), day.statusCode())) {
+                    retainedCorrection = current.getInt("minutes_correction_temps");
+                    retainedMorning = current.getDouble("heures_matin");
+                    retainedAfternoon = current.getDouble("heures_am");
+                    retainedTotal = current.getDouble("total_heures");
+                    retainedNight = current.getDouble("heures_nuit");
+                }
+            }
+        }
         String sql = "UPDATE pointage_jour SET "
                 + "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, "
-                + "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, "
+                + "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, minutes_correction_temps = ?, "
                 + "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), "
                 + "montant_total_indemnites = ?, horaire_continu_jour = ?, heure_entree_matin_effective = ?, "
                 + "id_demande_conge = CASE WHEN ? THEN ? ELSE id_demande_conge END, "
@@ -1863,13 +1897,35 @@ public class PointageService {
                 + "version = version + 1, updated_at = CURRENT_TIMESTAMP "
                 + "WHERE id_pointage = ? AND version = ? RETURNING id_pointage";
         try (PreparedStatement statement = c.prepareStatement(sql)) {
-            bindDayValues(statement, day, 1);
-            statement.setBoolean(15, linkValidatedLeave);
-            statement.setObject(16, day.validatedLeaveId());
-            statement.setBoolean(17, resetAdjustmentAudit);
-            statement.setBoolean(18, resetAdjustmentAudit);
-            statement.setInt(19, day.pointageId());
-            statement.setInt(20, day.expectedVersion());
+            RegularizedDayWrite stored = new RegularizedDayWrite(day.pointageId(), day.employeeId(), day.periodId(),
+                    day.siteId(), day.date(), day.morningEntry(), day.morningExit(), day.afternoonEntry(),
+                    day.afternoonExit(), retainedMorning, retainedAfternoon, retainedTotal, day.lateMinutes(),
+                    retainedNight, day.adjustmentReason(), day.statusCode(), day.continuousSchedule(),
+                    day.expectedVersion(), day.effectiveMorningEntry(), day.dynamicAllowances(), day.validatedLeaveId());
+            // La mise à jour possède une colonne minutes_correction_temps (absente
+            // du chemin INSERT) : ne pas réutiliser bindDayValues ici, sinon le
+            // motif texte est envoyé à la place des minutes.
+            statement.setTime(1, stored.morningEntry());
+            statement.setTime(2, stored.morningExit());
+            statement.setTime(3, stored.afternoonEntry());
+            statement.setTime(4, stored.afternoonExit());
+            statement.setDouble(5, stored.morningHours());
+            statement.setDouble(6, stored.afternoonHours());
+            statement.setDouble(7, stored.totalHours());
+            statement.setInt(8, stored.lateMinutes());
+            statement.setDouble(9, stored.nightHours());
+            statement.setInt(10, retainedCorrection);
+            statement.setString(11, stored.adjustmentReason());
+            statement.setString(12, stored.statusCode());
+            statement.setBigDecimal(13, BigDecimal.ZERO);
+            statement.setBoolean(14, stored.continuousSchedule());
+            statement.setTime(15, stored.effectiveMorningEntry());
+            statement.setBoolean(16, linkValidatedLeave);
+            statement.setObject(17, day.validatedLeaveId());
+            statement.setBoolean(18, resetAdjustmentAudit && retainedCorrection == 0);
+            statement.setBoolean(19, resetAdjustmentAudit && retainedCorrection == 0);
+            statement.setInt(20, day.pointageId());
+            statement.setInt(21, day.expectedVersion());
             try (ResultSet result = statement.executeQuery()) {
                 if (!result.next()) throw new IllegalStateException(
                         "Conflit de modification concurrente sur le pointage ID " + day.pointageId()
@@ -1895,6 +1951,131 @@ public class PointageService {
         statement.setBigDecimal(start + 11, BigDecimal.ZERO);
         statement.setBoolean(start + 12, day.continuousSchedule());
         statement.setTime(start + 13, day.effectiveMorningEntry());
+    }
+
+    /** Remplace la correction quotidienne ; les heures de badge restent intactes. */
+    public void corrigerTempsJour(int pointageId, int expectedVersion, int correctionMinutes,
+            String motif, Integer userId, boolean daf) throws SQLException {
+        if (motif == null || motif.trim().length() < 3)
+            throw new IllegalArgumentException("Un motif de trois caractères minimum est requis.");
+        try (Connection c = dataSource.getConnection()) {
+            boolean autoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+            try {
+                applyTimeCorrection(c, pointageId, expectedVersion, correctionMinutes, motif, userId, daf);
+                c.commit();
+            } catch (RuntimeException | SQLException error) {
+                c.rollback();
+                throw error;
+            } finally {
+                c.setAutoCommit(autoCommit);
+            }
+        }
+    }
+
+    public record TimeCorrectionDay(int pointageId, int version) {}
+
+    /** Toutes les journées du lot sont corrigées ou aucune ne l'est. */
+    public int corrigerTempsJours(int employeeId, int periodId, List<TimeCorrectionDay> days,
+            int correctionMinutes, String motif, Integer userId, boolean daf) throws SQLException {
+        if (days == null || days.isEmpty() || days.size() > 100)
+            throw new IllegalArgumentException("Sélectionnez entre 1 et 100 journées.");
+        if (motif == null || motif.trim().length() < 3)
+            throw new IllegalArgumentException("Un motif de trois caractères minimum est requis.");
+        var ordered = days.stream().sorted(java.util.Comparator.comparingInt(TimeCorrectionDay::pointageId)).toList();
+        if (ordered.stream().map(TimeCorrectionDay::pointageId).distinct().count() != ordered.size())
+            throw new IllegalArgumentException("Une journée apparaît plusieurs fois dans le lot.");
+        try (Connection c = dataSource.getConnection()) {
+            boolean autoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+            try {
+                for (TimeCorrectionDay day : ordered) {
+                    try (PreparedStatement check = c.prepareStatement(
+                            "SELECT id_employe, id_periode_paie FROM pointage_jour WHERE id_pointage=? FOR UPDATE")) {
+                        check.setInt(1, day.pointageId());
+                        try (ResultSet rs = check.executeQuery()) {
+                            if (!rs.next() || rs.getInt(1) != employeeId || rs.getInt(2) != periodId)
+                                throw new IllegalArgumentException("Le lot doit concerner un seul employé et une seule période.");
+                        }
+                    }
+                    applyTimeCorrection(c, day.pointageId(), day.version(), correctionMinutes, motif, userId, daf);
+                }
+                c.commit();
+                return ordered.size();
+            } catch (RuntimeException | SQLException error) {
+                c.rollback();
+                throw error;
+            } finally {
+                c.setAutoCommit(autoCommit);
+            }
+        }
+    }
+
+    private void applyTimeCorrection(Connection c, int pointageId, int expectedVersion,
+            int correctionMinutes, String motif, Integer userId, boolean daf) throws SQLException {
+                String select = "SELECT p.id_employe, p.date_pointage, p.version, p.id_demande_conge, "
+                        + "p.heure_entree_matin, p.heure_entree_matin_effective, p.heure_sortie_matin, "
+                        + "p.heure_entree_am, p.heure_sortie_am, p.horaire_continu_jour, "
+                        + "p.heures_matin, p.heures_am, p.total_heures, p.minutes_correction_temps, "
+                        + "pp.date_fin, pp.statut FROM pointage_jour p "
+                        + "JOIN periode_paie pp ON pp.id_periode_paie=p.id_periode_paie "
+                        + "WHERE p.id_pointage=? FOR UPDATE OF p";
+                try (PreparedStatement ps = c.prepareStatement(select)) {
+                    ps.setInt(1, pointageId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) throw new IllegalArgumentException("Journée de pointage introuvable.");
+                        if (rs.getInt("version") != expectedVersion)
+                            throw new IllegalStateException("Pointage modifié par un autre utilisateur ; rechargez la journée.");
+                        if (rs.getObject("id_demande_conge") != null)
+                            throw new IllegalStateException("Cette journée est liée à un congé validé.");
+                        String status = rs.getString("statut");
+                        if (!("BROUILLON".equals(status) || "EN_COURS".equals(status) || "A_VALIDER".equals(status)
+                                || ("TRANSMIS_DAF".equals(status) && daf)))
+                            throw new IllegalStateException("La période n'est plus modifiable.");
+                        LocalDate date = rs.getDate("date_pointage").toLocalDate();
+                        LocalTime em = toLocalTime(rs.getTime("heure_entree_matin_effective"));
+                        if (em == null) em = toLocalTime(rs.getTime("heure_entree_matin"));
+                        LocalTime sm = toLocalTime(rs.getTime("heure_sortie_matin"));
+                        LocalTime ea = toLocalTime(rs.getTime("heure_entree_am"));
+                        LocalTime sa = toLocalTime(rs.getTime("heure_sortie_am"));
+                        var exits = CorrectedPointageTime.apply(em, sm, ea, sa, correctionMinutes);
+                        boolean continuous = rs.getBoolean("horaire_continu_jour");
+                        verifierVacationDansCampagne(rs.getInt("id_employe"), date,
+                                rs.getDate("date_fin").toLocalDate(), em, exits.morning(), ea,
+                                exits.afternoon(), continuous);
+                        int previous = rs.getInt("minutes_correction_temps");
+                        long delta = (long) correctionMinutes - previous;
+                        boolean afternoon = ea != null && sa != null;
+                        double morning = rs.getDouble("heures_matin") + ((!afternoon || continuous) ? delta / 60.0 : 0);
+                        double pm = rs.getDouble("heures_am") + (afternoon && !continuous ? delta / 60.0 : 0);
+                        double total = rs.getDouble("total_heures") + delta / 60.0;
+                        if (morning < -0.000001 || pm < -0.000001 || total < -0.000001)
+                            throw new IllegalArgumentException("La correction dépasse le temps travaillé.");
+                        var intervals = WorkIntervalFactory.createIntervals(rs.getInt("id_employe"), pointageId,
+                                date, em, exits.morning(), ea, exits.afternoon(), continuous, "PTG_" + pointageId);
+                        NightWindow night = resolveNightWindowAt(c, date);
+                        NightWindow next = resolveNextDayNightWindow(c, date, em, exits.morning(),
+                                ea, exits.afternoon(), continuous);
+                        long nightMinutes = TemporalAttendanceEngine.nightMinutes(intervals,
+                                night == null ? null : night.start(), night == null ? null : night.end(), next);
+                        try (PreparedStatement update = c.prepareStatement(
+                                "UPDATE pointage_jour SET minutes_correction_temps=?, heures_matin=?, heures_am=?, "
+                                + "total_heures=?, heures_nuit=?, motif_ajustement=?, ajuste_par=?, "
+                                + "date_ajustement=CURRENT_TIMESTAMP, version=version+1, updated_at=CURRENT_TIMESTAMP "
+                                + "WHERE id_pointage=? AND version=?")) {
+                            update.setInt(1, correctionMinutes);
+                            update.setDouble(2, Math.max(0, morning));
+                            update.setDouble(3, Math.max(0, pm));
+                            update.setDouble(4, Math.max(0, total));
+                            update.setDouble(5, nightMinutes / 60.0);
+                            update.setString(6, motif.trim());
+                            update.setObject(7, userId);
+                            update.setInt(8, pointageId);
+                            update.setInt(9, expectedVersion);
+                            if (update.executeUpdate() != 1) throw new IllegalStateException("Conflit de version du pointage.");
+                        }
+                    }
+                }
     }
 
     /**

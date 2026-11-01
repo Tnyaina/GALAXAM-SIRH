@@ -61,6 +61,31 @@ class AttendanceOvertimeWorkflowTest {
         assertEquals(60, balanced.overtime30Minutes());
         assertEquals(60, balanced.overtime50Minutes());
 
+        var cadreAvecDeficit = AttendanceEngine.PeriodBalance.calculate(0, 0, 117, 282, 0, false);
+        assertEquals(-165, cadreAvecDeficit.balanceMinutes());
+        assertEquals(165, cadreAvecDeficit.absenceMinutes());
+        assertEquals(0, cadreAvecDeficit.overtime30Minutes());
+
+        var cadreExcedentaire = AttendanceEngine.PeriodBalance.calculate(0, 0, 135, 0, 0, false);
+        assertEquals(135, cadreExcedentaire.balanceMinutes());
+        assertEquals(0, cadreExcedentaire.overtime30Minutes());
+        var cadreAvecAjustementPositif = AttendanceEngine.PeriodBalance.calculate(0, 0, 135, 0, 30, false);
+        assertEquals(165, cadreAvecAjustementPositif.balanceMinutes());
+        assertEquals(0, cadreAvecAjustementPositif.overtime30Minutes());
+
+        var cadreAjuste = AttendanceEngine.PeriodBalance.calculate(0, 0, 117, 282, 30, false);
+        assertEquals(-135, cadreAjuste.balanceMinutes());
+        assertEquals(0, cadreAjuste.overtime30Minutes());
+
+        var pointage592 = AttendanceEngine.PeriodBalance.calculate(0, 0, 180, 219, 0, false);
+        assertEquals(-39, pointage592.balanceMinutes());
+        var pointage592AvecConventionExcel = AttendanceEngine.PeriodBalance.calculate(0, 0, 180, 219, -126, false);
+        assertEquals(-165, pointage592AvecConventionExcel.balanceMinutes());
+
+        var nonCadre = AttendanceEngine.PeriodBalance.calculate(194, 0, 0, 0, 0, true);
+        assertEquals(194, nonCadre.balanceMinutes());
+        assertEquals(194, nonCadre.overtime30Minutes());
+
         var invalid = assertThrows(IllegalArgumentException.class,
                 () -> AttendanceEngine.PeriodBalance.calculate(0, 0, -1, 0));
         assertEquals("Volumes de rapprochement invalides.", invalid.getMessage());

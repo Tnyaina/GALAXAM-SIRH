@@ -1207,6 +1207,15 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                                 <Eye size={13} />
                                                             </button>
                                                             {isDaf && (
+                                                                <button type="button" disabled={isPeriodLocked}
+                                                                    onClick={() => navigate(`/pointages?tab=saisie-employe&periode=${selectedPeriode}&employe=${row.idEmploye}`)}
+                                                                    className={`w-7 h-7 inline-flex items-center justify-center border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'}`}
+                                                                    title="Corriger le temps des journées sélectionnées"
+                                                                    aria-label={`Corriger le temps journalier de ${row.prenom || ''} ${row.nom || ''}`.trim()}>
+                                                                    <Clock size={13} />
+                                                                </button>
+                                                            )}
+                                                            {isDaf && (
                                                                 <button
                                                                     type="button"
                                                                     disabled={isPeriodLocked}

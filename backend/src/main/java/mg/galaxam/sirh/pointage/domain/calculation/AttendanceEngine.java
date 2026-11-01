@@ -31,6 +31,21 @@ public class AttendanceEngine {
             return new PeriodBalance(balance, balance < 0 ? Math.negateExact(balance) : 0,
                     tier30, tier50);
         }
+
+        /** Les excédents non éligibles compensent le déficit sans créer de HS payables. */
+        public static PeriodBalance calculate(int hs30, int hs50, int nonPayableSurplus,
+                int deficit, int adjustment, boolean overtimeEligible) {
+            if (nonPayableSurplus < 0 || hs30 < 0 || hs50 < 0 || deficit < 0)
+                throw new IllegalArgumentException("Volumes de rapprochement invalides.");
+            int balance = Math.addExact(Math.subtractExact(
+                    Math.addExact(Math.addExact(hs30, hs50), nonPayableSurplus), deficit), adjustment);
+            int deficitAfterNonPayable = Math.max(0, Math.subtractExact(deficit, nonPayableSurplus));
+            PeriodBalance payable = overtimeEligible
+                    ? calculate(hs30, hs50, deficitAfterNonPayable, adjustment)
+                    : new PeriodBalance(0, 0, 0, 0);
+            return new PeriodBalance(balance, balance < 0 ? Math.negateExact(balance) : 0,
+                    payable.overtime30Minutes(), payable.overtime50Minutes());
+        }
     }
 
     public record Context(
@@ -305,11 +320,18 @@ public class AttendanceEngine {
     // Calcul hebdomadaire : les surplus journaliers compensent les déficits
     // du même tronçon avant de devenir des heures supplémentaires.
     public record WeekContext(LocalDate weekStart, long expectedMinutes,
-            long firstOvertimeBandMinutes, boolean overtimeEligible, long standardDayMinutes) {
+            long firstOvertimeBandMinutes, boolean overtimeEligible, long standardDayMinutes,
+            java.util.Set<LocalDate> paidHalfDayLeaveDates) {
+        public WeekContext(LocalDate weekStart, long expectedMinutes,
+                long firstOvertimeBandMinutes, boolean overtimeEligible, long standardDayMinutes) {
+            this(weekStart, expectedMinutes, firstOvertimeBandMinutes, overtimeEligible,
+                    standardDayMinutes, java.util.Set.of());
+        }
         public WeekContext {
             if (weekStart == null || expectedMinutes < 0 || firstOvertimeBandMinutes < 0 || standardDayMinutes < 0) {
                 throw new IllegalArgumentException("Contexte hebdomadaire invalide.");
             }
+            paidHalfDayLeaveDates = paidHalfDayLeaveDates == null ? java.util.Set.of() : java.util.Set.copyOf(paidHalfDayLeaveDates);
         }
     }
 
@@ -352,7 +374,8 @@ public class AttendanceEngine {
             late += day.lateMinutes();
             if (isCompensableWorkingDay(day)) {
                 dailySurplus += Math.max(0,
-                        day.workedMinutes() - dailyTarget(day, context.standardDayMinutes()));
+                        day.workedMinutes() - dailyTarget(day, context.standardDayMinutes(),
+                                context.paidHalfDayLeaveDates().contains(day.date())));
             }
         }
         long missingBeforeCompensation = Math.max(0, context.expectedMinutes() - worked + dailySurplus);
@@ -372,9 +395,9 @@ public class AttendanceEngine {
                 && day.status() != Result.Status.PUBLIC_HOLIDAY_OFF;
     }
 
-    private long dailyTarget(Result day, long standardDayMinutes) {
+    private long dailyTarget(Result day, long standardDayMinutes, boolean paidHalfDayLeave) {
         if (day.date() != null && day.date().getDayOfWeek() == DayOfWeek.SATURDAY) return 0;
-        return day.status() == Result.Status.HALF_DAY ? standardDayMinutes / 2 : standardDayMinutes;
+        return paidHalfDayLeave ? standardDayMinutes / 2 : standardDayMinutes;
     }
 
     /** SEMAINE ∩ PÉRIODE : chaque tronçon est autonome pour la compensation. */

@@ -110,7 +110,16 @@ const attendanceApi = {
             return (await apiClient.get('/pointages/anomalies', { params: cleanParams, signal: options?.signal })).data;
         },
         regularize: async (idPointage, payload) => {
-            const data = (await apiClient.put(`/pointages/anomalies/${idPointage}/regulariser`, payload)).data;
+            const data = payload?.typeRegularisation === 'CORRECTION_TEMPS'
+                ? (await apiClient.put(`/pointages/${idPointage}/correction-temps`, {
+                    version: payload.version, minutesCorrection: payload.minutesCorrection, motif: payload.motifAjustement
+                })).data
+                : (await apiClient.put(`/pointages/anomalies/${idPointage}/regulariser`, payload)).data;
+            notifyPointageUpdated();
+            return data;
+        },
+        correctTimeBatch: async (payload) => {
+            const data = (await apiClient.put('/pointages/correction-temps/lot', payload)).data;
             notifyPointageUpdated();
             return data;
         }
@@ -204,6 +213,7 @@ export const attendanceService = {
     enregistrerBatch: attendanceApi.daily.saveBatch,
     getAnomalies: attendanceApi.anomalies.list,
     regulariser: attendanceApi.anomalies.regularize,
+    corrigerTempsLot: attendanceApi.anomalies.correctTimeBatch,
     getFicheEmploye: attendanceApi.employees.getSheet,
     getImportTemplate: attendanceApi.employees.getImportTemplate,
     previewImport: attendanceApi.employees.previewImport,

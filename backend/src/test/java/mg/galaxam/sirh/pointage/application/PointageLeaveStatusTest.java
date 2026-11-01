@@ -48,6 +48,53 @@ class PointageLeaveStatusTest {
     }
 
     @Test
+    void halfDayWithoutLeaveKeepsFortyHourTargetAndDoesNotCreateArtificialOvertime() {
+        var monday = java.time.LocalDate.of(2026, 10, 5);
+        var halfDay = new AttendanceEngine.Result(1, monday,
+                AttendanceEngine.Result.Status.HALF_DAY, 0, 0, 300, 300, 0, 180, 0,
+                false, false, 0, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO, java.util.List.of());
+        var targetDays = PointageSyntheseService.joursCongePourAttendu(
+                halfDay.status(), false, false, false);
+        assertEquals(0.0, targetDays);
+        var week = new AttendanceEngine().calculateWeek(new AttendanceEngine.WeekContext(
+                monday, PointageSyntheseService.minutesAttendues(java.math.BigDecimal.valueOf(8), 5, targetDays),
+                480, true, 480), java.util.List.of(halfDay));
+        assertEquals(2400, week.expectedMinutes());
+        assertEquals(0, week.dailySurplusMinutes());
+    }
+
+    @Test
+    void paidHalfDayLeaveKeepsItsHalfDayDailyTarget() {
+        var monday = java.time.LocalDate.of(2026, 10, 5);
+        var halfDay = new AttendanceEngine.Result(1, monday,
+                AttendanceEngine.Result.Status.HALF_DAY, 0, 0, 300, 300, 0, 0, 0,
+                false, false, 0, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO, java.util.List.of());
+        var week = new AttendanceEngine().calculateWeek(new AttendanceEngine.WeekContext(
+                monday, 240, 480, true, 480, java.util.Set.of(monday)), java.util.List.of(halfDay));
+        assertEquals(60, week.dailySurplusMinutes());
+    }
+
+    @Test
+    void octoberFifthHalfDayWithoutLeaveLeavesFourHoursToCompensate() {
+        var monday = java.time.LocalDate.of(2026, 10, 5);
+        var days = new java.util.ArrayList<AttendanceEngine.Result>();
+        for (int index = 0; index < 5; index++) {
+            days.add(new AttendanceEngine.Result(1, monday.plusDays(index),
+                    index == 0 ? AttendanceEngine.Result.Status.HALF_DAY : AttendanceEngine.Result.Status.PRESENT,
+                    0, 0, index == 0 ? 240 : 480, index == 0 ? 240 : 480, 0, 0, 0,
+                    false, false, 0, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO,
+                    java.math.BigDecimal.ZERO, java.util.List.of()));
+        }
+        var week = new AttendanceEngine().calculateWeek(new AttendanceEngine.WeekContext(
+                monday, 2400, 480, true, 480), days);
+        assertEquals(2400, week.expectedMinutes());
+        assertEquals(240, week.absenceMinutes());
+        assertEquals(0, week.overtime30Minutes());
+    }
+
+    @Test
     void unpaidValidatedHalfDayDoesNotEraseTheUncoveredHalfWhenAWorkRowExists() {
         assertEquals("ABSENCE_JUSTIFIEE",
                 PointageSyntheseService.appliquerStatutCongeValide("DEMI_JOURNEE", 4.0, false, true));
@@ -78,8 +125,8 @@ class PointageLeaveStatusTest {
                         java.time.DayOfWeek.MONDAY)), expectedMinutes, 0, false, 480),
                 java.util.List.of(result));
 
-        assertEquals(240, week.absenceMinutes(),
-                "a validated half-day unpaid leave must reduce the expected work target by half a scheduled day");
+        assertEquals(480, week.absenceMinutes(),
+                "an unpaid half-day does not reduce the expected work target when no work is recorded");
     }
 
     @Test
@@ -108,7 +155,7 @@ class PointageLeaveStatusTest {
 
     @Test
     void approvedLeaveFractionsReduceExpectedWorkByTheirScheduledFraction() {
-        assertEquals(0.5, PointageSyntheseService.joursCongePourAttendu(
+        assertEquals(0.0, PointageSyntheseService.joursCongePourAttendu(
                 AttendanceEngine.Result.Status.ABSENT, true, false, true));
         assertEquals(0.5, PointageSyntheseService.joursCongePourAttendu(
                 AttendanceEngine.Result.Status.ABSENT, true, true, true));
@@ -116,7 +163,7 @@ class PointageLeaveStatusTest {
                 AttendanceEngine.Result.Status.ABSENT, true, false, false));
         assertEquals(1.0, PointageSyntheseService.joursCongePourAttendu(
                 AttendanceEngine.Result.Status.LEAVE, true, true, false));
-        assertEquals(0.5, PointageSyntheseService.joursCongePourAttendu(
+        assertEquals(0.0, PointageSyntheseService.joursCongePourAttendu(
                 AttendanceEngine.Result.Status.HALF_DAY, false, false, false));
         assertEquals(210, PointageSyntheseService.minutesAttendues(
                 java.math.BigDecimal.valueOf(7), 1, 0.5),

@@ -38,14 +38,22 @@ export const clearPointageAllowances = (allowances = {}) => Object.fromEntries(
 );
 
 /** Toute modification d'heures redemande au serveur la qualification de la journée. */
-export const changePointageHours = (row, hours) => markPointageForPreview({
-    ...row, ...hours, codeStatut: 'NON_SAISI', motifAjustement: '', typeCongeJour: null
-});
+export const changePointageHours = (row, hours) => {
+    const changed = POINTAGE_TIME_FIELDS.some(field => Object.hasOwn(hours, field)
+        && cleanPointageTime(hours[field]) !== cleanPointageTime(row[field]))
+        || (hours.horaireContinu !== undefined && Boolean(hours.horaireContinu) !== Boolean(row.horaireContinu));
+    return markPointageForPreview({
+        ...row, ...hours, codeStatut: 'NON_SAISI', motifAjustement: '', typeCongeJour: null,
+        minutesCorrectionTemps: changed ? 0 : row.minutesCorrectionTemps,
+        _correctionCleared: Boolean(row._correctionCleared || (changed && row.minutesCorrectionTemps))
+    });
+};
 
 export const changePointageStatus = (row, codeStatut, motifAjustement = '') => {
     const absence = ['ABSENCE_JUSTIFIEE', 'ABSENCE_NON_JUSTIFIEE'].includes(codeStatut);
     return markPointageForPreview({
         ...row, codeStatut, motifAjustement,
+        minutesCorrectionTemps: codeStatut === row.codeStatut ? row.minutesCorrectionTemps : 0,
         typeCongeJour: codeStatut === 'CONGE' ? 'FULL_DAY' : null,
         ...(absence ? {
             dynamicIndemnites: clearPointageAllowances(row.dynamicIndemnites),
@@ -73,8 +81,8 @@ export const applyPointagePreview = (row, preview) => ({
     ...row,
     heuresMatin: preview.heuresMatin,
     heuresAm: preview.heuresAm,
-    totalHeures: preview.totalHeures,
-    heuresNuit: preview.heuresNuit,
+    totalHeures: preview.totalHeures == null ? null : preview.totalHeures + (Number(row.minutesCorrectionTemps) || 0) / 60,
+    heuresNuit: Number(row.minutesCorrectionTemps) ? row.heuresNuit : preview.heuresNuit,
     minutesRetard: preview.minutesRetard,
     codeStatut: preview.codeStatut || row.codeStatut,
     libelleStatut: preview.libelleStatut,

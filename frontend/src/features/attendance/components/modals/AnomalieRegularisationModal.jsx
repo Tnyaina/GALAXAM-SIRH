@@ -9,6 +9,7 @@ import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { loadPointageDayContext, selectPointageDayAllowances } from '@/features/attendance/utils/pointageDayContext';
 import PointageAllowanceSelector from '@/features/attendance/components/controls/PointageAllowanceSelector';
 import congeService from '@/features/leave/api/congeService';
+import { useAuth } from '@/context/AuthContext';
 
 const MOTIFS_FAMILIAUX = [
     { label: 'Mariage du salarié (3 jours)', value: 'Mariage du salarié' },
@@ -25,6 +26,8 @@ export default function AnomalieRegularisationModal({
     onSuccess,
     directDayFlow = false
 }) {
+    const { hasPermission } = useAuth();
+    const canCorrectTime = hasPermission('POINTAGE_VALIDATE');
     // État local : onglet, soumission et formulaire de régularisation.
     const [activeTab, setActiveTab] = useState('HEURES'); // 'HEURES', 'ABSENCE' ou 'RETARD_REEL'
     const [saving, setSaving] = useState(false);
@@ -42,11 +45,12 @@ export default function AnomalieRegularisationModal({
 
     // Formulaire Mode 1 : Horaires
     const [modePresence, setModePresence] = useState('JOURNEE'); // 'JOURNEE', 'MATIN_SEUL', 'APRES_MIDI_SEUL', 'CONTINU'
-    const [optionAutreDemiJournee, setOptionAutreDemiJournee] = useState('ABSENCE_DEDUITE'); // Par défaut : ABSENCE_DEDUITE
+    const [optionAutreDemiJournee, setOptionAutreDemiJournee] = useState('ABSENCE_INJUSTIFIEE');
     const [heureEntreeMatin, setHeureEntreeMatin] = useState('');
     const [heureSortieMatin, setHeureSortieMatin] = useState('');
     const [heureEntreeAm, setHeureEntreeAm] = useState('');
     const [heureSortieAm, setHeureSortieAm] = useState('');
+    const [minutesCorrection, setMinutesCorrection] = useState('0');
 
     // Formulaire Mode 2 : Absence
     const [optionAbsence, setOptionAbsence] = useState('CONGE_PAYE'); // 'CONGE_PAYE', 'PERMISSION_EXCEPTIONNELLE', 'ABSENCE_DEDUITE'
@@ -85,6 +89,7 @@ export default function AnomalieRegularisationModal({
         setHeureSortieMatin(sm || anomalie.heureFinMatinSite || '');
         setHeureEntreeAm(ea || anomalie.heureDebutAmSite || '');
         setHeureSortieAm(sa || anomalie.heureFinAmSite || '');
+        setMinutesCorrection(String(anomalie.minutesCorrectionTemps || 0));
 
         const isContinu = Boolean(anomalie.horaireContinuJour || anomalie.horaireContinu);
         const isMatinSeul = (em && sm && !ea && !sa) || (anomalie.statutCode === 'DEMI_JOURNEE' && em && sm);
@@ -100,8 +105,8 @@ export default function AnomalieRegularisationModal({
             setModePresence('JOURNEE');
         }
 
-        setOptionAutreDemiJournee(anomalie.importHalfDayMoment
-            ? (anomalie.importEventCode === 'C' ? 'CONGE_PAYE' : 'ABSENCE_DEDUITE') : 'ABSENCE_DEDUITE');
+        setOptionAutreDemiJournee(anomalie.congeApprouve || (anomalie.importHalfDayMoment && anomalie.importEventCode === 'C')
+            ? 'CONGE_PAYE' : 'ABSENCE_INJUSTIFIEE');
 
         setOptionAbsence(anomalie.regularisationIntent
             || (anomalie.importEventCode === 'A' ? 'ABSENCE_DEDUITE' : 'CONGE_PAYE'));
@@ -112,7 +117,8 @@ export default function AnomalieRegularisationModal({
         setMotifFamilial(MOTIFS_FAMILIAUX[0].value);
         setStatutAbsenceDeduite('ABSENCE_JUSTIFIEE');
 
-        setMotifAjustement(anomalie.motifAjustement || '');
+        setMotifAjustement(String(anomalie.motifAjustement || '')
+            .replace(/^\[Demi-journée (?:autorisée non rémunérée|injustifiée)\]\s*/, ''));
     }, [anomalie, isOpen, directDayFlow]);
 
     useEffect(() => {
@@ -203,7 +209,9 @@ export default function AnomalieRegularisationModal({
                     heureSortieAm: modePresence === 'MATIN_SEUL' ? null : heureSortieAm || null,
                     horaireContinu: modePresence === 'CONTINU',
                     codeStatut: modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL' ? 'DEMI_JOURNEE' : 'PRESENT',
-                    typeCongeJour: modePresence === 'MATIN_SEUL' ? 'APRES_MIDI' : modePresence === 'APRES_MIDI_SEUL' ? 'MATIN' : null
+                    typeCongeJour: optionAutreDemiJournee === 'CONGE_PAYE'
+                        ? (modePresence === 'MATIN_SEUL' ? 'APRES_MIDI' : modePresence === 'APRES_MIDI_SEUL' ? 'MATIN' : null)
+                        : null
                 });
                 if (!cancelled) setDayPreview(preview);
             } catch (previewError) {
@@ -213,7 +221,7 @@ export default function AnomalieRegularisationModal({
             }
         }, 250);
         return () => { cancelled = true; clearTimeout(timer); };
-    }, [isOpen, anomalie, activeTab, modePresence, heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm]);
+    }, [isOpen, anomalie, activeTab, modePresence, optionAutreDemiJournee, heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm]);
 
     // Action de sauvegarde
     const handleSubmit = useCallback(async (e) => {
@@ -227,6 +235,11 @@ export default function AnomalieRegularisationModal({
         }
         if (activeTab === 'ABSENCE' && optionAbsence === 'CONGE_PAYE' && nbJoursAImputer <= 0) {
             setError('La date de reprise doit être postérieure au premier jour de congé.');
+            return;
+        }
+        if (activeTab === 'CORRECTION_TEMPS' && (!canCorrectTime || !anomalie.idPointage || !Number.isInteger(Number(minutesCorrection))
+            || Math.abs(Number(minutesCorrection)) > 480)) {
+            setError('Saisissez une correction entière entre −480 et +480 minutes sur une journée enregistrée.');
             return;
         }
         submissionInFlight.current = true;
@@ -245,6 +258,8 @@ export default function AnomalieRegularisationModal({
 
             if (activeTab === 'RETARD_REEL') {
                 // Les horaires et les minutes déjà enregistrés restent inchangés.
+            } else if (activeTab === 'CORRECTION_TEMPS') {
+                payload.minutesCorrection = Number(minutesCorrection);
             } else if (activeTab === 'HEURES') {
                 if (allowancesLoading || allowancesError) {
                     setError(allowancesError || 'Chargement des indemnités en cours.');
@@ -329,7 +344,7 @@ export default function AnomalieRegularisationModal({
             submissionInFlight.current = false;
             setSaving(false);
         }
-    }, [saving, activeTab, motifAjustement, optionAbsence, nbJoursAImputer, anomalie,
+    }, [saving, activeTab, motifAjustement, optionAbsence, nbJoursAImputer, anomalie, minutesCorrection, canCorrectTime,
         modePresence, heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm,
         allowancesLoading, allowancesError, previewPending, dayPreview, optionAutreDemiJournee,
         dynamicAllowances, absenceAllowances, congeDuree, dateReprise, demiJourneeMoment, motifFamilial,
@@ -504,6 +519,14 @@ export default function AnomalieRegularisationModal({
                     >
                         Présence réelle
                     </button>
+                    {canCorrectTime && Number(anomalie.idPointage) > 0 && Boolean(anomalie.heureSortieAm || anomalie.heureSortieMatin) && (
+                        <button type="button" onClick={() => setActiveTab('CORRECTION_TEMPS')}
+                            className={`pb-2.5 text-xs font-bold border-b-2 cursor-pointer ${activeTab === 'CORRECTION_TEMPS'
+                                ? 'text-[var(--color-brand-600)] border-[var(--color-brand-600)]'
+                                : 'text-[var(--color-fg-muted)] border-transparent'}`}>
+                            Temps corrigé
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setActiveTab('ABSENCE')}
@@ -548,6 +571,30 @@ export default function AnomalieRegularisationModal({
                 )}
 
                 {/* CONTENU ONGLET 1 : PRÉSENCE RÉELLE */}
+                {activeTab === 'CORRECTION_TEMPS' && (
+                    <div className="space-y-3 text-xs">
+                        <p className="text-[var(--color-fg-muted)]">Les badges restent inchangés. La correction modifie le temps retenu.</p>
+                        <div className="border border-[var(--color-border)] p-3">
+                            Badge de sortie : <strong>{anomalie.heureSortieAm || anomalie.heureSortieMatin || '—'}</strong>
+                            <span className="mx-2">→</span>
+                            Sortie retenue : <strong>{(() => {
+                                const badge = anomalie.heureSortieAm || anomalie.heureSortieMatin;
+                                if (!/^\d{2}:\d{2}/.test(badge || '') || !Number.isInteger(Number(minutesCorrection))) return '—';
+                                const total = ((Number(badge.slice(0, 2)) * 60 + Number(badge.slice(3, 5)) + Number(minutesCorrection)) % 1440 + 1440) % 1440;
+                                return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+                            })()}</strong>
+                        </div>
+                        <label className="block font-semibold" htmlFor="minutes-correction-temps">Correction en minutes</label>
+                        <input id="minutes-correction-temps" type="number" step="1" min="-480" max="480"
+                            value={minutesCorrection} onChange={(event) => setMinutesCorrection(event.target.value)}
+                            placeholder="Ex. -7" className="w-40 p-2 border border-[var(--color-border)] bg-[var(--color-surface)]" />
+                        <p className="text-[var(--color-fg-muted)]">Valeur négative : temps retiré. Zéro : supprimer la correction.</p>
+                        <label className="block font-semibold" htmlFor="motif-correction-temps">Motif *</label>
+                        <textarea id="motif-correction-temps" value={motifAjustement}
+                            onChange={(event) => setMotifAjustement(event.target.value)} rows={2}
+                            placeholder="Ex. Sortie retenue à 16:56" className="w-full p-2 border border-[var(--color-border)] bg-[var(--color-surface)]" />
+                    </div>
+                )}
                 {activeTab === 'HEURES' && (
                     <div className="space-y-4">
                         {/* Mode d'activité de la journée */}
@@ -671,9 +718,9 @@ export default function AnomalieRegularisationModal({
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                     {[
                                         {
-                                            value: 'AUCUNE',
-                                            label: 'Départ autorisé',
-                                            description: 'Payé au réel · congé intact'
+                                            value: 'ABSENCE_AUTORISEE_NON_REMUNEREE',
+                                            label: 'Absence autorisée',
+                                            description: 'Non rémunérée · congé intact'
                                         },
                                         {
                                             value: 'CONGE_PAYE',
@@ -681,9 +728,9 @@ export default function AnomalieRegularisationModal({
                                             description: 'Impact sur le solde de congés'
                                         },
                                         {
-                                            value: 'ABSENCE_DEDUITE',
-                                            label: 'Absence déduite',
-                                            description: 'Retenue horaire sur salaire'
+                                            value: 'ABSENCE_INJUSTIFIEE',
+                                            label: 'Absence injustifiée',
+                                            description: 'Retenue horaire · congé intact'
                                         }
                                     ].map((opt) => {
                                         const isSelected = optionAutreDemiJournee === opt.value;
@@ -765,9 +812,7 @@ export default function AnomalieRegularisationModal({
                                     {modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL'
                                         ? (optionAutreDemiJournee === 'CONGE_PAYE'
                                             ? 'Réel + indemnité congé (0,5 j)'
-                                            : optionAutreDemiJournee === 'ABSENCE_DEDUITE'
-                                                ? 'Retenue horaire'
-                                                : 'Payé au réel')
+                                            : 'Retenue horaire')
                                         : 'Payé au réel'}
                                 </div>
                             </div>

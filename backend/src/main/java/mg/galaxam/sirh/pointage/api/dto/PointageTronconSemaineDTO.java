@@ -34,6 +34,8 @@ public class PointageTronconSemaineDTO implements Serializable {
 
     private double heuresHs30;
     private double heuresHs50;
+    private double heuresHs30Constatees;
+    private double heuresHs50Constatees;
     private double heuresDimanche;
     private double heuresFerie;
     private double heuresNuit;
@@ -231,6 +233,11 @@ public class PointageTronconSemaineDTO implements Serializable {
     public void setHeuresHs50(double heuresHs50) {
         this.heuresHs50 = heuresHs50;
     }
+
+    public double getHeuresHs30Constatees() { return heuresHs30Constatees; }
+    public void setHeuresHs30Constatees(double value) { this.heuresHs30Constatees = value; }
+    public double getHeuresHs50Constatees() { return heuresHs50Constatees; }
+    public void setHeuresHs50Constatees(double value) { this.heuresHs50Constatees = value; }
 
     public double getHeuresDimanche() {
         return heuresDimanche;

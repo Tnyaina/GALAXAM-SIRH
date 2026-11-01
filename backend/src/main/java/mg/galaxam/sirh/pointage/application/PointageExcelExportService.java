@@ -41,7 +41,7 @@ public class PointageExcelExportService {
             row++;
             int journalTitle = row;
             merged(sheet, row++, 0, 9, "JOURNAL DES PRÉSENCES", section);
-            String[] headings = {"Date", "Jour", "Statut", "Entrée", "Pause", "Retour", "Sortie", "Heures", "Retard (min)", "Observation"};
+            String[] headings = {"Date", "Jour", "Statut", "Entrée", "Pause", "Retour", "Sortie", "Heures", "Retard (min)", "Correction / observation"};
             for (int c = 0; c < headings.length; c++) cell(sheet, row, c, headings[c], header);
             row++;
             int firstDay = row;
@@ -51,7 +51,7 @@ public class PointageExcelExportService {
                 totalHours += d.getTotalHeuresDecimal() == null ? 0 : d.getTotalHeuresDecimal();
                 Object[] values = {PointageDocumentData.date(d.getDateComplete()), cleanWeekday(d.getJour()), status(d.getStatut()),
                         d.getEntree(), d.getSortiePause(), d.getRetourPause(), d.getSortie(), PointageDocumentData.dualHours(d.getTotalHeuresDecimal()),
-                        d.getMinutesRetard(), d.getObservation()};
+                        d.getMinutesRetard(), correctionObservation(d)};
                 for (int c = 0; c < values.length; c++) cell(sheet, row, c, values[c], text);
                 row++;
             }
@@ -199,6 +199,14 @@ public class PointageExcelExportService {
             default -> "Présent";
         };
     }
+    static String correctionObservation(mg.galaxam.sirh.pointage.api.dto.PointageJourDTO day) {
+        Integer minutes = day.getMinutesCorrectionTemps();
+        String motif = day.getObservation() == null ? "" : day.getObservation();
+        if (minutes == null || minutes == 0) return motif;
+        return "Temps corrigé " + (minutes > 0 ? "+" : "") + minutes + " min"
+                + (motif.isBlank() ? "" : " · " + motif);
+    }
+
     public static String buildExportFilename(FichePointageEmployeDTO fiche, String extension) {
         String nom = fiche.getNom() != null && !fiche.getNom().isBlank() ? fiche.getNom() :
                 fiche.getNomComplet() == null ? "Employe" : fiche.getNomComplet().split("\\s+")[0];

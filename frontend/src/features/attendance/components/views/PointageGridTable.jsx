@@ -1,3 +1,4 @@
+import PointageCorrectionBadge from '@/features/attendance/components/PointageCorrectionBadge';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Clock, UserX, FastForward } from 'lucide-react';
@@ -385,6 +386,8 @@ export default function PointageGridTable({
                                                 </span>
                                             )}
                                             {row._previewError && <span className="text-[11px] text-[var(--color-danger-600)]" title={row._previewError}>Prévisualisation indisponible</span>}
+                                            <PointageCorrectionBadge minutes={row.minutesCorrectionTemps} sortieBadge={row.heureSortieAm || row.heureSortieMatin} />
+                                            {row._correctionCleared && <span className="text-[10px] text-[var(--color-warning-700)]">Correction retirée à la sauvegarde</span>}
                                             {row.heuresNuit > 0 && (
                                                 <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] bg-[var(--color-purple-500)]/10 px-1 mt-0.5">
                                                     <Moon size={11} /> nuit

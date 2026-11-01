@@ -171,7 +171,7 @@ public class PointageAnomalieService {
                 "s.heure_debut_matin AS heure_debut_matin_site, s.heure_fin_matin AS heure_fin_matin_site, " +
                 "s.heure_debut_apres_midi AS heure_debut_am_site, s.heure_fin_apres_midi AS heure_fin_am_site, p.date_pointage, " +
                 "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, " +
-                "p.total_heures, p.minutes_retard, st.code AS statut_code, st.libelle AS statut_libelle, " +
+                "p.total_heures, p.minutes_correction_temps, p.minutes_retard, st.code AS statut_code, st.libelle AS statut_libelle, " +
                 "p.motif_ajustement, p.date_ajustement, p.id_demande_conge, " +
                 "ltr_valide.id_demande_conge AS demande_validee_id, p.montant_total_indemnites, " +
                 "pij_repas.accorde AS repas_accorde, pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction, " +
@@ -274,6 +274,7 @@ public class PointageAnomalieService {
                         dto.setHeureEntreeAm(ea != null ? ea.toString().substring(0, 5) : "");
                         dto.setHeureSortieAm(sa != null ? sa.toString().substring(0, 5) : "");
                         dto.setTotalHeures(rs.getDouble("total_heures"));
+                        dto.setMinutesCorrectionTemps(rs.getInt("minutes_correction_temps"));
                         dto.setMinutesRetard(rs.getInt("minutes_retard"));
                         dto.setStatutCode(rs.getString("statut_code"));
                         dto.setStatutLibelle(rs.getString("statut_libelle"));
@@ -864,13 +865,20 @@ public class PointageAnomalieService {
                         codeStatut, isDemiMatin, isDemiAm, totalH);
 
                 String optionAutreDemiJournee = payload.get("optionAutreDemiJournee") != null ? payload.get("optionAutreDemiJournee").toString() : "";
-                if ((isDemiMatin || isDemiAm || "DEMI_JOURNEE".equalsIgnoreCase(codeStatut))
-                        && ("CONGE_PAYE".equalsIgnoreCase(optionAutreDemiJournee) || "CONGE".equalsIgnoreCase(optionAutreDemiJournee))) {
-                    String momentAbsent = isDemiMatin ? "APRES_MIDI" : "MATIN";
-                    validatedLeaveId = congeService.regulariserCongeAnnuelDepuisPointage(idEmp, datePtg, 0.5,
-                            momentAbsent,
-                            (motif != null && !motif.isBlank()) ? motif : "Demi-journée congé payé (pointage partiel)",
-                            currentUserId(), c);
+                if (isDemiMatin || isDemiAm || "DEMI_JOURNEE".equalsIgnoreCase(codeStatut)) {
+                    if ("CONGE_PAYE".equalsIgnoreCase(optionAutreDemiJournee) || "CONGE".equalsIgnoreCase(optionAutreDemiJournee)) {
+                        String momentAbsent = isDemiMatin ? "APRES_MIDI" : "MATIN";
+                        validatedLeaveId = congeService.regulariserCongeAnnuelDepuisPointage(idEmp, datePtg, 0.5,
+                                momentAbsent,
+                                (motif != null && !motif.isBlank()) ? motif : "Demi-journée congé payé (pointage partiel)",
+                                currentUserId(), c);
+                    } else if ("ABSENCE_AUTORISEE_NON_REMUNEREE".equalsIgnoreCase(optionAutreDemiJournee)) {
+                        motif = "[Demi-journée autorisée non rémunérée] " + motif;
+                    } else if ("ABSENCE_INJUSTIFIEE".equalsIgnoreCase(optionAutreDemiJournee)) {
+                        motif = "[Demi-journée injustifiée] " + motif;
+                    } else {
+                        throw new IllegalArgumentException("Choisissez le traitement de la demi-journée non travaillée.");
+                    }
                 }
             }
 

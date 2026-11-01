@@ -24,6 +24,9 @@ public class SaisiePointageJourDTO {
     private Double heuresMatin;
     private Double heuresAm;
     private Double totalHeures;
+    private Integer minutesCorrectionTemps;
+    public Integer getMinutesCorrectionTemps() { return minutesCorrectionTemps; }
+    public void setMinutesCorrectionTemps(Integer value) { minutesCorrectionTemps = value; }
     private Double heuresNuit;
     private Integer minutesRetard;
 

@@ -189,6 +189,9 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         })()}
                     </div>
                 </section>
+                    {semaines.some(week => week.estCadre) && (
+                        <p className="text-xs text-[var(--color-fg-muted)]">Pour un cadre, les HS du tableau sont constatées et compensent le déficit ; seules les valeurs finales ci-dessus vont en paie.</p>
+                    )}
                     <Table density="compact" bordered={false} tableClassName="min-w-[900px] text-xs">
                         <Thead>
                             <Tr>
@@ -231,18 +234,18 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                         )}
                                     </Td>
                                     <Td className="font-data">
-                                        {Number(week.heuresHs30 || 0) > 0 ? (
+                                        {Number(week.estCadre ? week.heuresHs30Constatees : week.heuresHs30 || 0) > 0 ? (
                                             <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                +{Number(week.heuresHs30).toFixed(2)} h
+                                                +{Number(week.estCadre ? week.heuresHs30Constatees : week.heuresHs30).toFixed(2)} h
                                             </span>
                                         ) : (
                                             <span className="text-[var(--color-fg-muted)]">-</span>
                                         )}
                                     </Td>
                                     <Td className="font-data">
-                                        {Number(week.heuresHs50 || 0) > 0 ? (
+                                        {Number(week.estCadre ? week.heuresHs50Constatees : week.heuresHs50 || 0) > 0 ? (
                                             <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                +{Number(week.heuresHs50).toFixed(2)} h
+                                                +{Number(week.estCadre ? week.heuresHs50Constatees : week.heuresHs50).toFixed(2)} h
                                             </span>
                                         ) : (
                                             <span className="text-[var(--color-fg-muted)]">-</span>
@@ -293,12 +296,12 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
 
                     {/* 2. HS cumulées */}
                     {(() => {
-                        const rawHs = recap.hsTotalHebdo || '00h00';
+                        const rawHs = recap.excedentCompensable || '00h00';
                         const hasHs = rawHs !== '00h00' && rawHs !== '—' && !rawHs.startsWith('00h00');
                         const formattedHs = hasHs && !rawHs.startsWith('+') ? `+${rawHs}` : rawHs;
                         return (
                             <div className={`p-3 ${hasHs ? 'border-2 border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'}`}>
-                                <span className="text-[var(--color-fg-muted)]">HS cumulées (30 % + 50 %)</span>
+                                <span className="text-[var(--color-fg-muted)]">Excédents compensables</span>
                                 <strong className={`block mt-1 text-base ${hasHs ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold' : ''}`}>
                                     {formattedHs}
                                 </strong>

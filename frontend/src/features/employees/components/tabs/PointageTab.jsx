@@ -1,3 +1,4 @@
+import PointageCorrectionBadge from '@/features/attendance/components/PointageCorrectionBadge';
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -862,6 +863,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                         ({ptg.totalHeuresDecimal != null ? ptg.totalHeuresDecimal.toFixed(2) : parseHhMmToDecimal(ptg.heures).toFixed(2)}h)
                                                                     </div>
                                                                 )}
+                                                                <PointageCorrectionBadge minutes={ptg.minutesCorrectionTemps} sortieBadge={ptg.sortie !== '—' ? ptg.sortie : ptg.sortiePause} />
                                                             </Td>
                                                             <Td className="font-data text-xs text-center py-2.5 px-3">
                                                                 <div>

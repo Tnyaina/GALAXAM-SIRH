@@ -23,6 +23,9 @@ public class PointageAnomalieDTO {
     private String heureSortieAm;
     
     private Double totalHeures;
+    private Integer minutesCorrectionTemps;
+    public Integer getMinutesCorrectionTemps() { return minutesCorrectionTemps; }
+    public void setMinutesCorrectionTemps(Integer value) { minutesCorrectionTemps = value; }
     private Integer minutesRetard;
     
     private Integer idStatutJour;

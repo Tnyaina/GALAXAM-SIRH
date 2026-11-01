@@ -238,15 +238,17 @@ Au sein d'une même semaine (du lundi au dimanche), les heures excédentaires ac
 Le solde horaire final de la période est calculé selon la formule algébrique :
 
 $$
-\text{Solde}_{\text{Période}} = \sum \text{HS}_{30} + \sum \text{HS}_{50} - \sum \text{Déficits Hebdo} + \text{Ajustements DAF}
+\text{Solde}_{\text{Période}} = \sum \text{Excédents compensables} - \sum \text{Déficits Hebdo} + \text{Ajustements DAF}
 $$
+
+Les excédents compensables incluent les heures au-delà de l'objectif hebdomadaire des cadres non éligibles aux HS. Elles réduisent le déficit de période, mais un solde positif de ces heures ne crée aucune HS payable. Les tranches HS à 30 % et 50 % restent réservées aux périodes éligibles ; les volumes payables sont déterminés après compensation. Le gel conserve le solde final, la retenue finale et les seules HS payables.
 
 **Règles strictes d'absorption et d'imputation :**
 
 1. Les déficits hebdomadaires et les ajustements DAF négatifs **consomment en priorité absolue les HS à 30%**.
 2. Une fois la tranche à 30% épuisée, ils consomment les **HS à 50%**.
 3. Si le déficit total dépasse l'ensemble des heures supplémentaires acquises, l'excédent résiduel devient une **retenue pour absence finale** transmise à la paie (`heures_absence_retenues` valorisées au taux horaire contractuel $S_{base} / 173{,}33$).
-4. Un ajustement DAF positif non spécifiquement typé alimente par défaut la tranche des **HS à 30%**.
+4. Un ajustement DAF positif non spécifiquement typé alimente par défaut la tranche des **HS à 30%** si le salarié est éligible aux HS ; pour un cadre non éligible, il ne modifie que le solde compensable.
 
 ---
 
@@ -449,3 +451,6 @@ Exemple chiffré conservé tel qu'il figure dans la version antérieure. Sa prov
 Tests présents dans le dépôt au moment de la vérification : `PayrollPeriodMigrationTargetedTest`, `PayrollPeriodTransitionTargetedTest`, `PointageAuditAtomicityTest`, `PointageDerogationAuthorizationTest`, `PointageImportInvalidWorkbookTest`, `PointageLeaveStatusTest` et `PointageTimeValidationTest`, entre autres tests de calendrier. La classe `PointagePhase6IntegrationTest` n'a pas été retrouvée et la référence à 518 tests ne dispose pas d'un rapport reproductible dans le dépôt. Aucun test n'a été exécuté dans cette mise à jour documentaire ; la présence d'un test ne signifie pas qu'il a été exécuté sur l'état actuel de la branche.
 
 *Documentation technique du module Pointage. Les règles citées et les contrôles décrits ne constituent pas une certification de conformité légale ni un rapprochement de recette indépendant.*
+# Correction du temps journalier
+
+Une correction en minutes est enregistrée dans `pointage_jour.minutes_correction_temps` ; les badges source restent inchangés. La correction porte sur la dernière sortie de la journée, y compris pour une demi-journée. `heures_matin`, `heures_am`, `total_heures` et `heures_nuit` reflètent le temps corrigé. La synthèse hebdomadaire lit `total_heures` ; le snapshot journalier conserve aussi les minutes corrigées et ses intervalles utilisent la sortie effective. Une sauvegarde classique conserve la correction si les badges, l'entrée effectivement valorisée, le type d'horaire et le statut restent identiques ; elle la remet à zéro lorsqu'un de ces éléments change. La méthode applicative `PointageService.corrigerTempsJour` remplace la correction existante et exige un motif et la version de la journée. La migration numérotée `docker/migrations/0006_pointage_correction_temps.sql` ajoute les colonnes sur les bases existantes et neuves après le DDL canonique figé.

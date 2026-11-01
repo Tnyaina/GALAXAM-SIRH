@@ -70,7 +70,7 @@ public class PointagePdfExportService {
                                 ? "-"
                                 : d.getMinutesRetard() + " min";
 
-                        String obsStr = cleanValue(d.getObservation());
+                        String obsStr = cleanValue(PointageExcelExportService.correctionObservation(d));
 
                         String[] fields = {
                                 PointageDocumentData.date(d.getDateComplete()),

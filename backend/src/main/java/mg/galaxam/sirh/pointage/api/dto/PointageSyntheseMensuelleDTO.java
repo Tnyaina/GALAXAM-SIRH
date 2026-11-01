@@ -49,6 +49,7 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
 
     // Rapprochement de fin de période : quantités exactes en minutes.
     private Integer minutesDeficitHebdo;
+    private Integer minutesExcedentCompensable;
     private Integer minutesHs30Hebdo;
     private Integer minutesHs50Hebdo;
     private Integer minutesAjustementPeriode;
@@ -60,6 +61,8 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
 
     public Integer getMinutesDeficitHebdo() { return minutesDeficitHebdo; }
     public void setMinutesDeficitHebdo(Integer value) { minutesDeficitHebdo = value; }
+    public Integer getMinutesExcedentCompensable() { return minutesExcedentCompensable; }
+    public void setMinutesExcedentCompensable(Integer value) { minutesExcedentCompensable = value; }
     public Integer getMinutesHs30Hebdo() { return minutesHs30Hebdo; }
     public void setMinutesHs30Hebdo(Integer value) { minutesHs30Hebdo = value; }
     public Integer getMinutesHs50Hebdo() { return minutesHs50Hebdo; }

@@ -105,6 +105,7 @@ export default function DafAjustementPointageModal({
                 heureSortieMatin: cleanPointageTime(selectedDay.sortiePause || selectedDay.heureSortieMatin),
                 heureEntreeAm: cleanPointageTime(selectedDay.retourPause || selectedDay.heureEntreeAm),
                 heureSortieAm: cleanPointageTime(selectedDay.sortie || selectedDay.heureSortieAm),
+                minutesCorrectionTemps: selectedDay.minutesCorrectionTemps || 0,
                 horaireContinuJour: selectedDay.horaireContinuJour,
                 motifAjustement: selectedDay.observation || ''
             }}

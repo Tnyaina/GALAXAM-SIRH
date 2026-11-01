@@ -45,6 +45,9 @@ public class PointageController {
     @Autowired private DataSource dataSource;
 
     public record AjustementPeriodeRequest(Integer minutesSignees, String motif) {}
+    public record CorrectionTempsJourRequest(Integer version, Integer minutesCorrection, String motif) {}
+    public record CorrectionTempsLotRequest(Integer idEmploye, Integer idPeriodePaie,
+            Integer minutesCorrection, String motif, List<PointageService.TimeCorrectionDay> jours) {}
 
     @GetMapping("/synthese/preflight")
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
@@ -263,6 +266,41 @@ public class PointageController {
         return ResponseEntity.ok(resp);
     }
 
+    @PutMapping("/{idPointage}/correction-temps")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<Map<String, Object>> corrigerTempsJour(@PathVariable int idPointage,
+            @RequestBody CorrectionTempsJourRequest request) throws SQLException {
+        if (request == null || request.version() == null || request.minutesCorrection() == null)
+            throw new IllegalArgumentException("Version et correction en minutes obligatoires.");
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        Integer userId = authentication != null
+                && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.CustomUserDetails user
+                ? user.getIdUtilisateur() : null;
+        boolean daf = authentication != null && authentication.getAuthorities().stream().anyMatch(authority ->
+                "POINTAGE_VALIDATE".equals(authority.getAuthority()) || "ROLE_ADMIN".equals(authority.getAuthority()));
+        pointageSaisieService.corrigerTempsJour(idPointage, request.version(),
+                request.minutesCorrection(), request.motif(), userId, daf);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PutMapping("/correction-temps/lot")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<Map<String, Object>> corrigerTempsLot(@RequestBody CorrectionTempsLotRequest request)
+            throws SQLException {
+        if (request == null || request.idEmploye() == null || request.idPeriodePaie() == null
+                || request.minutesCorrection() == null)
+            throw new IllegalArgumentException("Employé, période et correction obligatoires.");
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        Integer userId = authentication != null
+                && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.CustomUserDetails user
+                ? user.getIdUtilisateur() : null;
+        boolean daf = authentication != null && authentication.getAuthorities().stream().anyMatch(authority ->
+                "POINTAGE_VALIDATE".equals(authority.getAuthority()) || "ROLE_ADMIN".equals(authority.getAuthority()));
+        int count = pointageSaisieService.corrigerTempsJours(request.idEmploye(), request.idPeriodePaie(),
+                request.jours(), request.minutesCorrection(), request.motif(), userId, daf);
+        return ResponseEntity.ok(Map.of("success", true, "nombreJours", count));
+    }
+
     // Fiche employé et export
     @GetMapping("/employes/{idEmploye}/import/modele")
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
@@ -289,7 +327,7 @@ public class PointageController {
     }
 
     @GetMapping("/employes/{idEmploye}")
-    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FichePointageEmployeDTO> getFichePointageEmploye(@PathVariable Integer idEmploye,
             @RequestParam(required = false) String date,
             @RequestParam(required = false, defaultValue = "periode") String period,
@@ -304,7 +342,7 @@ public class PointageController {
         boolean mutable = periodAvailable && fiche.getStatutPeriode() != null && java.util.List.of("EN_COURS", "A_VALIDER", "TRANSMIS_DAF").contains(fiche.getStatutPeriode());
         boolean daf = user.hasAny("POINTAGE_VALIDATE");
         fiche.setAvailableActions(Map.of(
-                "CORRECT_DAY", mutable && user.hasAny("POINTAGE_WRITE") && ("EN_COURS".equals(fiche.getStatutPeriode()) || daf),
+                "CORRECT_DAY", mutable && (("EN_COURS".equals(fiche.getStatutPeriode()) && user.hasAny("POINTAGE_WRITE")) || daf),
                 "ADJUST_BALANCE", mutable && daf && fiche.getSoldePeriode() != null,
                 "TEAM_ENTRY", periodAvailable && "EN_COURS".equals(fiche.getStatutPeriode()) && user.hasAny("POINTAGE_WRITE")));
         boolean canCorrect = Boolean.TRUE.equals(fiche.getAvailableActions().get("CORRECT_DAY"));

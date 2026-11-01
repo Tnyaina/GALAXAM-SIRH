@@ -1,3 +1,4 @@
+import PointageCorrectionBadge from '@/features/attendance/components/PointageCorrectionBadge';
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import {
     ChevronDown,
@@ -32,7 +33,11 @@ export default function PeriodeEmployeeTable({
     updateDayStatut,
     updateRowDynamicIndemnite,
     handleResetDay,
-    openRegularisation
+    openRegularisation,
+    selectedCorrectionDates = new Set(),
+    isCorrectionEligible = () => false,
+    onToggleCorrectionDate,
+    onToggleCorrectionWeek
 }) {
     const [pendingWeekFill, setPendingWeekFill] = useState(null);
     // ── Navigation clavier rapide et saut automatique ────────────────────────
@@ -269,6 +274,11 @@ export default function PeriodeEmployeeTable({
                                     </span>
                                 )}
                                 {weekMissing > 0 && <span className="text-[var(--color-warning-700)]">{weekMissing} à saisir</span>}
+                                {canEditPeriod && week.rows.some(row => isCorrectionEligible(row) && row.heureEntreeAm && row.heureSortieAm) && (
+                                    <Button variant="outline" size="xs" onClick={() => onToggleCorrectionWeek(week.rows)}>
+                                        Sélectionner les journées complètes
+                                    </Button>
+                                )}
                                 {canEditPeriod && (
                                     <Button variant="outline" size="xs" onClick={() => requestWeekFill(summaryRows)}>
                                         <ClockCheck size={13} /> Remplir semaine
@@ -339,6 +349,11 @@ export default function PeriodeEmployeeTable({
                                             >
                                                 {/* 1. Date */}
                                                 <Td role="cell" data-label="Date" data-mobile-span="full" className="font-semibold tabular-nums text-xs px-3 py-2 whitespace-nowrap">
+                                                    {isCorrectionEligible(row) && (
+                                                        <input type="checkbox" className="mr-2 align-middle" aria-label={`Sélectionner le ${row.date} pour correction du temps`}
+                                                            checked={selectedCorrectionDates.has(row.datePointage)}
+                                                            onChange={() => onToggleCorrectionDate(row.datePointage)} />
+                                                    )}
                                                     {row.date}
                                                 </Td>
 
@@ -509,6 +524,8 @@ export default function PeriodeEmployeeTable({
                                                                     ({formatHeuresDecimal(row.totalHeuresDecimal)})
                                                                 </div>
                                                             )}
+                                                            <PointageCorrectionBadge minutes={row.minutesCorrectionTemps} sortieBadge={row.heureSortieAm || row.heureSortieMatin} />
+                                                            {row._correctionCleared && <span className="block text-[10px] text-[var(--color-warning-700)]">Correction retirée à la sauvegarde</span>}
                                                         </Td>
 
                                                         {/* 9. Statut */}

@@ -314,7 +314,7 @@ public class PointageEmployeService {
         Map<LocalDate, PointageRecord> pointageMap = new HashMap<>();
 
         String sqlPointage = "SELECT p.id_pointage, p.id_site, p.version, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
-                "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
+                "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, p.minutes_correction_temps, " +
                 "p.horaire_continu_jour, p.motif_ajustement, p.montant_total_indemnites, " +
                 "p.code_second_repas, p.montant_second_repas, s.code AS code_statut, " +
                 "pij_repas.accorde AS repas_accorde, pij_repas.quantite AS repas_quantite, " +
@@ -341,6 +341,7 @@ public class PointageEmployeService {
                     r.idPointage = rs.getInt("id_pointage");
                     r.idSite = rs.getInt("id_site");
                     r.version = rs.getInt("version");
+                    r.minutesCorrectionTemps = rs.getInt("minutes_correction_temps");
                     r.observation = rs.getString("motif_ajustement");
                     r.datePointage = rs.getDate("date_pointage").toLocalDate();
                     r.entreeMatin = rs.getTime("heure_entree_matin");
@@ -563,6 +564,7 @@ public class PointageEmployeService {
                 dto.setIdPointage(rec.idPointage);
                 dto.setIdSite(rec.idSite);
                 dto.setVersion(rec.version);
+                dto.setMinutesCorrectionTemps(rec.minutesCorrectionTemps);
                 dto.setObservation(rec.observation);
                 dto.setEntree(rec.entreeMatin != null ? rec.entreeMatin.toString().substring(0, 5) : "—");
                 dto.setSortiePause(rec.sortieMatin != null ? rec.sortieMatin.toString().substring(0, 5) : "—");
@@ -1113,6 +1115,8 @@ public class PointageEmployeService {
         result.setSoldePeriode(startDate.isAfter(today) ? null : synDto);
         regles.put("dureeJourNormale", String.valueOf(dureeJourMins / 60.0));
         recap.put("deficitHebdo", synDto == null ? "—" : startDate.isAfter(today) ? "00h00" : formatHoursMinutes(synDto.getMinutesDeficitHebdo()));
+        recap.put("excedentCompensable", synDto == null || synDto.getMinutesExcedentCompensable() == null
+                ? "—" : formatHoursMinutes(synDto.getMinutesExcedentCompensable()));
         recap.put("hs50Hebdo", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs50Hebdo()));
         recap.put("hs50Finales", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs50Finales()));
         recap.put("hsTotalHebdo", synDto == null || synDto.getMinutesHs30Hebdo() == null || synDto.getMinutesHs50Hebdo() == null ? "—" : formatHoursMinutes(Math.addExact(synDto.getMinutesHs30Hebdo(), synDto.getMinutesHs50Hebdo())));
@@ -1286,6 +1290,7 @@ public class PointageEmployeService {
         int idPointage;
         int idSite;
         int version;
+        int minutesCorrectionTemps;
         LocalDate datePointage;
         Time entreeMatin;
         Time sortieMatin;

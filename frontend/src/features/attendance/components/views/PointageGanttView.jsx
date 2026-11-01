@@ -4,6 +4,7 @@ import { Clock, User, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Ca
 import { isDateInFuture, isDateToday } from '@/utils/dateUtils';
 import { getAttendanceBadgeClass } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { getAttendanceStatus } from '@/features/attendance/utils/attendanceStatus';
+import PointageCorrectionBadge from '@/features/attendance/components/PointageCorrectionBadge';
 
 /**
  * PointageGanttView — Vue Gantt hebdomadaire du pointage.
@@ -297,6 +298,7 @@ function GanttCell({ cellData, day }) {
             {timeStr && (
                 <span className="text-[8px] font-data leading-tight opacity-80">{timeStr}</span>
             )}
+            {Boolean(cellData?.minutesCorrectionTemps) && <span className="text-[7px] font-bold">Corrigé</span>}
             {cellData?.retard && cellData?.minutesRetard > 0 && (
                 <span className="text-[7px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] leading-tight">
                     -{cellData.minutesRetard}min
@@ -365,6 +367,9 @@ function GanttTooltip({ tooltip, tooltipRef }) {
                 {totalH > 0 && (
                     <TooltipRow label="Total heures" value={<span className="font-data font-bold">{totalH.toFixed(2)}h</span>} />
                 )}
+                {Boolean(cellData?.minutesCorrectionTemps) && <TooltipRow label="Correction" value={
+                    <PointageCorrectionBadge minutes={cellData.minutesCorrectionTemps} sortieBadge={sa || sm} />
+                } />}
 
                 {Number(cellData?.heuresNuit || 0) > 0 && (
                     <TooltipRow label="Heures de nuit" value={<span className="font-data text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-bold">{Number(cellData.heuresNuit).toFixed(2)}h</span>} />

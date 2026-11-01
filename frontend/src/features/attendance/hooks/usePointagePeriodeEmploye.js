@@ -14,8 +14,8 @@ const cleanTime = cleanPointageTime;
 const periodRowKey = row => row.datePointage;
 const decoratePeriodPreview = (row, preview) => ({
     ...row,
-    heuresFaites: preview.totalHeures != null ? formatHeuresMinutes(preview.totalHeures) : row.heuresFaites,
-    totalHeuresDecimal: preview.totalHeures != null ? preview.totalHeures : row.totalHeuresDecimal,
+    heuresFaites: preview.totalHeures != null ? formatHeuresMinutes(preview.totalHeures + (Number(row.minutesCorrectionTemps) || 0) / 60) : row.heuresFaites,
+    totalHeuresDecimal: preview.totalHeures != null ? preview.totalHeures + (Number(row.minutesCorrectionTemps) || 0) / 60 : row.totalHeuresDecimal,
     minutesRetard: preview.minutesRetard ?? 0
 });
 
@@ -232,6 +232,7 @@ export function usePointagePeriodeEmploye({
                     horaireContinu: Boolean(ptg.horaireContinuJour),
                     codeStatut, motifAjustement: ptg.observation || '',
                     heuresFaites: heuresFaitesStr, totalHeuresDecimal: totalHeuresDec,
+                    minutesCorrectionTemps: ptg.minutesCorrectionTemps || 0,
                     minutesRetard: ptg.minutesRetard ?? 0,
                     indemniteRepas: repasInd ? Boolean(dynamicIndemnites[String(repasInd.idIndemnite)]?.accordee)
                         : Boolean(ptg.indemniteRepas),

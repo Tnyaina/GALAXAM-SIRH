@@ -7,9 +7,10 @@ import Button from '@/components/ui/forms/Button';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import PeriodeNavigator from '@/components/ui/navigation/PeriodeNavigator';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
-import { pointageSyntheseService, periodePaieService } from '@/features/attendance/api/attendanceApi';
+import { pointageSyntheseService, periodePaieService, attendanceService } from '@/features/attendance/api/attendanceApi';
 import organisationService from '@/features/organization/api/organisationService';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { useAuth } from '@/context/AuthContext';
 import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 
 import usePointagePeriodeEmploye, { isDayRowModified } from '@/features/attendance/hooks/usePointagePeriodeEmploye';
@@ -19,6 +20,7 @@ import PeriodeEmployeeTable from '@/features/attendance/components/views/Periode
 import PeriodeEmployeeImportPreview from '@/features/attendance/components/views/PeriodeEmployeeImportPreview';
 import { importHalfDayMoment } from '@/features/attendance/utils/pointageImport';
 import PeriodeRecapModal from '@/features/attendance/components/modals/PeriodeRecapModal';
+import PointageCorrectionLotModal from '@/features/attendance/components/modals/PointageCorrectionLotModal';
 import { isAttendanceUnentered, isAttendanceUnjustifiedAbsence } from '@/features/attendance/utils/attendanceStatus';
 import { isPointageException, isPointageAnomaly } from '@/features/attendance/utils/pointageDayFilter';
 
@@ -30,6 +32,8 @@ export default function SaisiePeriodeEmployePage({
     sitesDisponibles: propSitesList = null
 }) {
     const toast = useToast();
+    const { hasPermission } = useAuth();
+    const canCorrectTime = hasPermission('POINTAGE_VALIDATE');
     const [searchParams, setSearchParams] = useSearchParams();
 
     // ── 1. Période & Sites ────────────────────────────────────────────────────
@@ -69,6 +73,10 @@ export default function SaisiePeriodeEmployePage({
 
     // Ligne en cours de régularisation (modale d'anomalie)
     const [regularisationRow, setRegularisationRow] = useState(null);
+    const [selectedCorrectionDates, setSelectedCorrectionDates] = useState(() => new Set());
+    const [correctionLotOpen, setCorrectionLotOpen] = useState(false);
+    const [correctionLotSaving, setCorrectionLotSaving] = useState(false);
+    const [correctionLotError, setCorrectionLotError] = useState('');
 
     // Modale de récapitulatif avant enregistrement batch
     const [showRecapModal, setShowRecapModal] = useState(false);
@@ -140,6 +148,7 @@ export default function SaisiePeriodeEmployePage({
 
     // Protection globale contre la fermeture d'onglet / rafraîchissement
     useUnsavedChanges(dirtyCount > 0, `${dirtyCount} journée(s) modifiée(s) ne sont pas encore enregistrées.`);
+    useEffect(() => { setSelectedCorrectionDates(new Set()); setCorrectionLotOpen(false); }, [selectedEmployeId, selectedPeriodeId]);
 
     // ── 4. Initialisation des périodes & sites ─────────────────────────────────
     useEffect(() => {
@@ -393,6 +402,47 @@ export default function SaisiePeriodeEmployePage({
         }).filter(week => week.rows.length > 0);
     }, [grilleRows, filteredRows]);
 
+    const isCorrectionEligible = useCallback((row) => Boolean(canCorrectTime && canEditPeriod && dirtyCount === 0
+        && row.idPointage && row.version != null && row.canCorrect !== false
+        && row.statut !== 'NON_ECHU' && !row.isNonEchu && !row.conge && !row.congeApprouve
+        && (row.heureSortieAm || row.heureSortieMatin)), [canCorrectTime, canEditPeriod, dirtyCount]);
+    const correctionLotDays = useMemo(() => grilleRows.filter(row =>
+        selectedCorrectionDates.has(row.datePointage) && isCorrectionEligible(row)),
+    [grilleRows, selectedCorrectionDates, isCorrectionEligible]);
+    const toggleCorrectionDate = useCallback(date => setSelectedCorrectionDates(previous => {
+        const next = new Set(previous);
+        if (next.has(date)) next.delete(date); else next.add(date);
+        return next;
+    }), []);
+    const toggleCorrectionWeek = useCallback(rows => setSelectedCorrectionDates(previous => {
+        // Une correction de sortie du soir ne doit pas inclure une matinée seule.
+        const eligible = rows.filter(row => isCorrectionEligible(row) && row.heureEntreeAm && row.heureSortieAm)
+            .map(row => row.datePointage);
+        const next = new Set(previous);
+        if (eligible.every(date => next.has(date))) eligible.forEach(date => next.delete(date));
+        else eligible.forEach(date => next.add(date));
+        return next;
+    }), [isCorrectionEligible]);
+    const confirmCorrectionLot = async (minutesCorrection, motif) => {
+        if (!canCorrectTime || dirtyCount || !correctionLotDays.length) return;
+        setCorrectionLotSaving(true);
+        setCorrectionLotError('');
+        try {
+            await attendanceService.corrigerTempsLot({
+                idEmploye: selectedEmployeId, idPeriodePaie: selectedPeriodeId, minutesCorrection, motif,
+                jours: correctionLotDays.map(row => ({ pointageId: row.idPointage, version: row.version }))
+            });
+            await loadFicheEmploye();
+            setSelectedCorrectionDates(new Set());
+            setCorrectionLotOpen(false);
+            toast({ title: 'Temps corrigé', message: `${correctionLotDays.length} journée(s) mises à jour.`, type: 'success' });
+        } catch (err) {
+            setCorrectionLotError(err?.response?.data?.message || err?.message || 'Correction impossible. Rechargez le pointage.');
+        } finally {
+            setCorrectionLotSaving(false);
+        }
+    };
+
     // ── 8. Demande d'enregistrement avec récapitulatif ────────────────────────
     const handleRequestSave = () => {
         if (!canEditPeriod) return;
@@ -575,6 +625,18 @@ export default function SaisiePeriodeEmployePage({
                     )}
 
                     {/* Tableau journalier par semaine */}
+                    {canCorrectTime && canEditPeriod && !loading && grilleRows.some(isCorrectionEligible) && (
+                        <div className="flex flex-wrap items-center gap-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 text-xs">
+                            <strong>Contrôle DAF · correction du temps</strong>
+                            <span>Cochez les jours, puis appliquez la même correction à chacun.</span>
+                            <span>{correctionLotDays.length} jour(s) sélectionné(s)</span>
+                            <Button size="xs" disabled={!correctionLotDays.length || dirtyCount > 0} onClick={() => { setCorrectionLotError(''); setCorrectionLotOpen(true); }}>
+                                Corriger la sélection
+                            </Button>
+                            {selectedCorrectionDates.size > 0 && <Button size="xs" variant="ghost" onClick={() => setSelectedCorrectionDates(new Set())}>Effacer</Button>}
+                            {dirtyCount > 0 && <span>Enregistrez les modifications avant de corriger.</span>}
+                        </div>
+                    )}
                     {loading ? (
                         <SkeletonTable rows={10} columns={10} />
                     ) : error ? (
@@ -602,6 +664,10 @@ export default function SaisiePeriodeEmployePage({
                             updateRowDynamicIndemnite={updateRowDynamicIndemnite}
                             handleResetDay={handleResetDay}
                             openRegularisation={(r) => setRegularisationRow(r)}
+                            selectedCorrectionDates={selectedCorrectionDates}
+                            isCorrectionEligible={isCorrectionEligible}
+                            onToggleCorrectionDate={toggleCorrectionDate}
+                            onToggleCorrectionWeek={toggleCorrectionWeek}
                         />
                     )}
                 </>
@@ -634,6 +700,7 @@ export default function SaisiePeriodeEmployePage({
                             heureSortieMatin: regularisationRow.heureSortieMatin,
                             heureEntreeAm: regularisationRow.heureEntreeAm,
                             heureSortieAm: regularisationRow.heureSortieAm,
+                            minutesCorrectionTemps: regularisationRow.minutesCorrectionTemps || 0,
                             importEventCode: regularisationRow.importEventCode,
                             importHalfDayMoment: regularisationRow.importHalfDayMoment,
                             importAllowanceOverrides: regularisationRow.importAllowanceOverrides,
@@ -654,6 +721,8 @@ export default function SaisiePeriodeEmployePage({
                 employeNom={ficheData?.nomComplet || `${ficheData?.nom || ''} ${ficheData?.prenom || ''}`}
                 siteIndemnites={siteIndemnites}
             />
+            <PointageCorrectionLotModal isOpen={correctionLotOpen} onClose={() => setCorrectionLotOpen(false)}
+                days={correctionLotDays} onConfirm={confirmCorrectionLot} saving={correctionLotSaving} error={correctionLotError} />
 
             {/* Confirmation en cas de navigation avec modifications non enregistrées */}
             <ConfirmDialog

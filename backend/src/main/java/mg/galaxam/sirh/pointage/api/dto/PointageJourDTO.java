@@ -6,6 +6,9 @@ import java.util.Map;
 
 public class PointageJourDTO {
     private String observation;
+    private Integer minutesCorrectionTemps;
+    public Integer getMinutesCorrectionTemps() { return minutesCorrectionTemps; }
+    public void setMinutesCorrectionTemps(Integer value) { minutesCorrectionTemps = value; }
     public String getObservation() { return observation; }
     public void setObservation(String value) { observation = value; }
     private boolean canCorrect;
