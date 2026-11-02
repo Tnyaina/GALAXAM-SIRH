@@ -88,11 +88,13 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
     const [bulletinQuery, setBulletinQuery] = useState('');
     const [bulletinStatus, setBulletinStatus] = useState('ALL');
     const [bulletinType, setBulletinType] = useState('ALL');
+    const [bulletinPeriod, setBulletinPeriod] = useState('LATEST');
     const [bulletinPage, setBulletinPage] = useState(1);
     const [bulletinPageSize, setBulletinPageSize] = useState(10);
     const [movementQuery, setMovementQuery] = useState('');
     const [movementCategory, setMovementCategory] = useState('ALL');
     const [movementStatus, setMovementStatus] = useState('ALL');
+    const [movementPeriod, setMovementPeriod] = useState('LATEST');
     const [movementPage, setMovementPage] = useState(1);
     const [movementPageSize, setMovementPageSize] = useState(10);
     const [bulletinsOpen, setBulletinsOpen] = useState(true);
@@ -147,11 +149,18 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
     const bulletinTypes = [...new Set(bulletins.map((item) => item.typeBulletin || 'MENSUEL'))];
     const bulletinStatuses = [...new Set(bulletins.map((item) => item.statut).filter(Boolean))];
     const movementStatuses = [...new Set(mouvements.map((item) => item.etatDossier || item.statut).filter(Boolean))];
+    const movementPeriodCode = (item) => item.codePeriode || item.periodePaie?.code || String(item.dateDemande || item.datePaiement || '').slice(0, 7) || 'SANS_PERIODE';
+    const bulletinPeriods = [...new Set(bulletins.map(item => item.codePeriode).filter(Boolean))].sort().reverse();
+    const movementPeriods = [...new Set(mouvements.map(movementPeriodCode))]
+        .sort((a, b) => a === 'SANS_PERIODE' ? 1 : b === 'SANS_PERIODE' ? -1 : b.localeCompare(a));
+    const activeBulletinPeriod = bulletinPeriod === 'LATEST' ? bulletinPeriods[0] : bulletinPeriod;
+    const activeMovementPeriod = movementPeriod === 'LATEST' ? movementPeriods[0] : movementPeriod;
     const filteredBulletins = bulletins
         .filter((item) => {
             const query = normalizeSearch(bulletinQuery);
             const searchable = normalizeSearch([item.codePeriode, item.libellePeriode, item.typeBulletin, item.statut].join(' '));
             return (!query || searchable.includes(query))
+                && (activeBulletinPeriod === 'ALL' || item.codePeriode === activeBulletinPeriod)
                 && (bulletinStatus === 'ALL' || item.statut === bulletinStatus)
                 && (bulletinType === 'ALL' || (item.typeBulletin || 'MENSUEL') === bulletinType);
         })
@@ -162,6 +171,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
             const searchable = normalizeSearch([item.typeLibelle, item.typeMouvement, item.motif, item.etatDossier, item.statut, item.idBulletin].join(' '));
             const status = item.etatDossier || item.statut || '';
             return (!query || searchable.includes(query))
+                && (activeMovementPeriod === 'ALL' || movementPeriodCode(item) === activeMovementPeriod)
                 && (movementCategory === 'ALL' || getMovementCategory(item) === movementCategory)
                 && (movementStatus === 'ALL' || status === movementStatus);
         })
@@ -171,14 +181,15 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
     const acompteCount = mouvements.filter((item) => getMovementCategory(item) === 'ACOMPTE').length;
     const avanceCount = mouvements.filter((item) => getMovementCategory(item) === 'AVANCE').length;
 
-    useEffect(() => { setBulletinPage(1); }, [bulletinQuery, bulletinStatus, bulletinType, bulletinPageSize]);
-    useEffect(() => { setMovementPage(1); }, [movementQuery, movementCategory, movementStatus, movementPageSize]);
+    useEffect(() => { setBulletinPage(1); }, [bulletinQuery, bulletinStatus, bulletinType, bulletinPeriod, bulletinPageSize]);
+    useEffect(() => { setMovementPage(1); }, [movementQuery, movementCategory, movementStatus, movementPeriod, movementPageSize]);
     useEffect(() => {
         if (movementsOpen) document.getElementById('paie-mouvements')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, [movementsOpen]);
 
     const focusMovements = (category) => {
         setMovementCategory(category);
+        setMovementPeriod('ALL');
         setMovementStatus('ALL');
         setMovementQuery('');
         setMovementPage(1);
@@ -260,10 +271,20 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                     <EmptyState title="Aucun bulletin de paie" description="Aucune paie n'a encore ete calculee ou cloturee pour ce salarie." />
                 ) : (
                     <div className="space-y-3">
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(220px,1fr)_190px_190px]">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(180px,1fr)_190px_190px_190px]">
+                            <SearchSelect
+                                aria-label="Choisir la période des bulletins"
+                                value={bulletinPeriod}
+                                onChange={(val) => setBulletinPeriod(val || 'LATEST')}
+                                options={[
+                                    { value: 'LATEST', label: `Période récente · ${bulletinPeriods[0]}` },
+                                    ...bulletinPeriods.slice(1).map(code => ({ value: code, label: code })),
+                                    { value: 'ALL', label: 'Toutes les périodes' },
+                                ]}
+                            />
                             <Input
                                 aria-label="Rechercher un bulletin par période"
-                                placeholder="Rechercher une période…"
+                                placeholder="Rechercher dans la période…"
                                 value={bulletinQuery}
                                 onChange={(event) => setBulletinQuery(event.target.value)}
                                 iconLeft={<Search size={14} />}
@@ -290,7 +311,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                             />
                         </div>
                         {filteredBulletins.length === 0 ? (
-                            <EmptyState title="Aucun bulletin correspondant" description="Modifiez la période, le statut ou le type sélectionné." />
+                            <EmptyState title="Aucun bulletin pour cette sélection" description="Choisissez une autre période ou modifiez les filtres." />
                         ) : <>
                     <div className="overflow-x-auto -mx-4">
                         <Table className="w-full text-xs">
@@ -361,10 +382,20 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                 ) : (
                     <div className="space-y-3">
                         <p className="text-[11px] text-[var(--color-fg-muted)]">Historique en lecture seule · saisie depuis la campagne de paie.</p>
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(220px,1fr)_190px_190px]">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(180px,1fr)_190px_190px_190px]">
+                            <SearchSelect
+                                aria-label="Choisir la période des mouvements"
+                                value={movementPeriod}
+                                onChange={(val) => setMovementPeriod(val || 'LATEST')}
+                                options={[
+                                    { value: 'LATEST', label: `Période récente · ${movementPeriods[0]}` },
+                                    ...movementPeriods.slice(1).map(code => ({ value: code, label: code === 'SANS_PERIODE' ? 'Sans période' : code })),
+                                    { value: 'ALL', label: 'Toutes les périodes' },
+                                ]}
+                            />
                             <Input
                                 aria-label="Rechercher un mouvement"
-                                placeholder="Rechercher un acompte, une avance, un motif…"
+                                placeholder="Rechercher dans la période…"
                                 value={movementQuery}
                                 onChange={(event) => setMovementQuery(event.target.value)}
                                 iconLeft={<Search size={14} />}
@@ -393,7 +424,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite, canRead =
                             />
                         </div>
                         {filteredMovements.length === 0 ? (
-                            <EmptyState title="Aucun mouvement correspondant" description="Modifiez les filtres ou la recherche." />
+                            <EmptyState title="Aucun mouvement pour cette sélection" description="Choisissez une autre période ou modifiez les filtres." />
                         ) : <>
                         <div className="overflow-x-auto -mx-4">
                             <Table className="w-full text-xs">

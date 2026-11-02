@@ -14,7 +14,6 @@ import Button from '@/components/ui/forms/Button';
 import { Card } from '@/components/ui/data-display/Card';
 import Badge from '@/components/ui/data-display/Badge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
-import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
 import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
 import { fmtDateInput, getTodayDateString, calculateAge } from '@/utils/dateUtils';
@@ -467,20 +466,20 @@ export function FamilleFormStep({
                                     {/* Données d'état civil */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
                                         <div className="md:col-span-2">
-                                            <Input label="Nom" value={enf.nom} onChange={e => setEnfant(idx, 'nom', e.target.value)} placeholder="Nom" error={fieldErrors[`enfant_${idx}_nom`]} />
+                                            <Input label="Nom" required value={enf.nom} onChange={e => setEnfant(idx, 'nom', e.target.value)} placeholder="Nom" error={fieldErrors[`enfant_${idx}_nom`]} />
                                         </div>
                                         <div className="md:col-span-2">
-                                            <Input label="Prénom" value={enf.prenom} onChange={e => setEnfant(idx, 'prenom', e.target.value)} placeholder="Prénom" error={fieldErrors[`enfant_${idx}_prenom`]} />
+                                            <Input label="Prénom" required value={enf.prenom} onChange={e => setEnfant(idx, 'prenom', e.target.value)} placeholder="Prénom" error={fieldErrors[`enfant_${idx}_prenom`]} />
                                         </div>
                                         <div className="md:col-span-2">
-                                            <Select label="Sexe" value={enf.sexe} onChange={e => setEnfant(idx, 'sexe', e.target.value)}>
+                                            <Select label="Sexe" required value={enf.sexe} onChange={e => setEnfant(idx, 'sexe', e.target.value)}>
                                                 {GENRES_ENFANT.map(g => (
                                                     <option key={g.value} value={g.value}>{g.label}</option>
                                                 ))}
                                             </Select>
                                         </div>
                                         <div className="md:col-span-3">
-                                            <Input label="Date Naissance" type="date" max={getTodayDateString()} value={enf.dateNaissance} onChange={e => setEnfant(idx, 'dateNaissance', e.target.value)} error={fieldErrors[`enfant_${idx}_dateNaissance`]} />
+                                            <Input label="Date Naissance" required type="date" max={getTodayDateString()} value={enf.dateNaissance} onChange={e => setEnfant(idx, 'dateNaissance', e.target.value)} error={fieldErrors[`enfant_${idx}_dateNaissance`]} />
                                         </div>
                                         <div className="md:col-span-3">
                                             <AutocompleteInput 
@@ -533,11 +532,10 @@ export function FamilleFormStep({
                                         )}
 
                                         {/* Indicateur visuel d'éligibilité fiscale IRSA */}
-                                        <Alert
-                                            type={evalIrsa.eligible ? 'success' : 'warning'}
-                                            title={evalIrsa.eligible ? 'Éligibilité estimative selon les données actuelles' : 'Estimation indicative : critères non réunis'}
-                                            message={`${evalIrsa.motif}. Cette estimation utilise la date du jour ; le calcul officiel est effectué pour la période de paie.`}
-                                        />
+                                        <details className={`border px-3 py-2 text-xs ${evalIrsa.eligible ? 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/10' : 'border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10'}`}>
+                                            <summary className="cursor-pointer font-semibold">IRSA : {evalIrsa.eligible ? 'éligible selon les données actuelles' : 'éligibilité à vérifier'} · Voir le détail</summary>
+                                            <p className="mt-2 text-[var(--color-fg-muted)]">{evalIrsa.motif}. Estimation à la date du jour ; le calcul définitif utilise la période de paie.</p>
+                                        </details>
                                     </div>
                                 </Card>
                             );

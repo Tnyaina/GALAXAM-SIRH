@@ -80,6 +80,7 @@ const WORKFLOW_ACTIONS = {
 };
 
 const normalizeSearch = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const PREVIEW_VARIABLE_LIMIT = 5;
 
 export default function PeriodePaiePage() {
     // Contexte, navigation et hook métier
@@ -438,6 +439,9 @@ export default function PeriodePaiePage() {
                         ) : visiblePeriodes.map(p => {
                             const periodId = p.idPeriodePaie || p.id;
                             const variables = variablesByPeriod[periodId] || [];
+                            const variableGains = variables.filter(item => item.sens === 'GAIN');
+                            const variableRetenues = variables.filter(item => item.sens === 'RETENUE');
+                            const totalVariables = (items) => items.reduce((sum, item) => sum + Number(item.montant ?? item.montantDemande ?? 0), 0);
                             const isExpanded = expandedPeriodId === periodId;
                             const availableActions = Object.entries(WORKFLOW_ACTIONS).filter(([command]) => p.availableActions?.[command]?.allowed === true);
                             const mainAction = availableActions.find(([command]) => command !== 'CLOSE');
@@ -510,20 +514,39 @@ export default function PeriodePaiePage() {
                                     {isExpanded && (
                                         <div id={`campagne-details-${periodId}`} className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3 sm:px-5">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h4 className="text-xs font-bold text-[var(--color-fg)]">Éléments variables</h4>
-                                                <Button size="xs" variant="outline" onClick={() => navigate(`/paie/periodes/${periodId}/variables`)}>Gérer les variables</Button>
+                                                <h4 className="text-xs font-bold text-[var(--color-fg)]">Éléments variables · {variables.length}</h4>
+                                                <Button size="xs" variant="outline" onClick={() => navigate(`/paie/periodes/${periodId}/variables`)}>Voir toutes les variables</Button>
                                             </div>
                                             {variables.length === 0 ? (
                                                 <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Aucun élément variable enregistré.</p>
                                             ) : (
-                                                <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                                                    {variables.map(variable => (
-                                                        <li key={variable.idAvance || variable.idAjustement || variable.id} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 text-xs flex items-center justify-between gap-3">
-                                                            <span className="min-w-0"><strong className="block truncate text-[var(--color-fg)]">{variable.libelle || variable.typeMouvement || 'Variable de paie'}</strong><span className="text-[var(--color-fg-muted)]">{variable.nomEmploye || variable.matricule || 'Population'}</span></span>
-                                                            <strong className="font-data whitespace-nowrap text-[var(--color-fg)]">{formatMoneyAr(variable.montant ?? variable.montantDemande ?? 0)}</strong>
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                                <div className="mt-2 space-y-2">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        <div className="border-l-[3px] border-l-[var(--color-success-500)] bg-[var(--color-surface)] px-3 py-2 text-xs">
+                                                            <span className="text-[var(--color-fg-muted)]">Gains saisis · {variableGains.length}</span>
+                                                            <strong className="block mt-0.5 font-data text-sm text-[var(--color-success-700)]">+ {formatMoneyAr(totalVariables(variableGains))}</strong>
+                                                        </div>
+                                                        <div className="border-l-[3px] border-l-[var(--color-danger-500)] bg-[var(--color-surface)] px-3 py-2 text-xs">
+                                                            <span className="text-[var(--color-fg-muted)]">Retenues saisies · {variableRetenues.length}</span>
+                                                            <strong className="block mt-0.5 font-data text-sm text-[var(--color-danger-700)]">− {formatMoneyAr(totalVariables(variableRetenues))}</strong>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[11px] text-[var(--color-fg-muted)]">Montants des mouvements enregistrés ; leur effet final dépend du statut et du calcul de paie.</p>
+                                                    <ul className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                                                        {variables.slice(0, PREVIEW_VARIABLE_LIMIT).map(variable => (
+                                                            <li key={variable.idAvance || variable.idAjustement || variable.id} className="px-3 py-2 text-xs flex flex-wrap items-center justify-between gap-2">
+                                                                <span className="min-w-0">
+                                                                    <strong className="block text-[var(--color-fg)]">{variable.typeLibelle || variable.libelle || variable.typeMouvement || 'Variable de paie'}</strong>
+                                                                    <span className="text-[var(--color-fg-muted)]">{variable.nomComplet || variable.nomEmploye || variable.matricule || 'Population'}{variable.matricule && (variable.nomComplet || variable.nomEmploye) ? ` · ${variable.matricule}` : ''}</span>
+                                                                </span>
+                                                                <strong className={`font-data whitespace-nowrap ${variable.sens === 'GAIN' ? 'text-[var(--color-success-700)]' : variable.sens === 'RETENUE' ? 'text-[var(--color-danger-700)]' : 'text-[var(--color-fg)]'}`}>
+                                                                    {variable.sens === 'GAIN' ? '+' : variable.sens === 'RETENUE' ? '−' : ''} {formatMoneyAr(variable.montant ?? variable.montantDemande ?? 0)}
+                                                                </strong>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                    {variables.length > PREVIEW_VARIABLE_LIMIT && <p className="text-xs text-[var(--color-fg-muted)]">{variables.length - PREVIEW_VARIABLE_LIMIT} autre{variables.length - PREVIEW_VARIABLE_LIMIT > 1 ? 's' : ''} variable{variables.length - PREVIEW_VARIABLE_LIMIT > 1 ? 's' : ''} · utilisez « Voir toutes les variables » pour consulter la liste complète.</p>}
+                                                </div>
                                             )}
                                             {secondaryActions.length > 0 && (
                                                 <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center gap-2">
@@ -635,7 +658,7 @@ export default function PeriodePaiePage() {
                         />
                         <Input
                             label="Libellé"
-                            placeholder="Septembre 2026"
+                            placeholder="Ex. Octobre 2026"
                             value={newPeriode.libelle}
                             onChange={e => setNewPeriode({ ...newPeriode, libelle: e.target.value })}
                             required

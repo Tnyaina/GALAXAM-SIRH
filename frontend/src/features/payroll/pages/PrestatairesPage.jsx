@@ -328,7 +328,7 @@ export default function PrestatairesPage() {
                     <SearchSelect label="Prestataire" required error={fieldErrors.idPrestataire} value={contrat.idPrestataire} onChange={value => updateField(setContrat, 'idPrestataire', value)}
                         options={prestataires.filter(p => p.est_actif).map(p => ({ value: String(p.id_prestataire), label: `${p.nom} · ${p.nif}` }))}
                         hint={prestataires.length === 0 ? 'Créez d’abord un dossier prestataire.' : null} />
-                    <Input label="Référence du contrat" required error={fieldErrors.reference} placeholder="Ex. PREST-2026-001" value={contrat.reference} onChange={e => updateField(setContrat, 'reference', e.target.value)} />
+                    <Input label="Référence du contrat" required error={fieldErrors.reference} placeholder="Ex. PREST-001" value={contrat.reference} onChange={e => updateField(setContrat, 'reference', e.target.value)} />
                     <Input label="Objet" required error={fieldErrors.objet} placeholder="Ex. mission de conseil, maintenance ou transport" value={contrat.objet} onChange={e => updateField(setContrat, 'objet', e.target.value)} />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Input label="Début" type="date" required error={fieldErrors.dateDebut} value={contrat.dateDebut} onChange={e => updateField(setContrat, 'dateDebut', e.target.value)} />

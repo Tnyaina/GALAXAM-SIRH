@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.text.NumberFormat;
 import java.util.Set;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
@@ -456,7 +458,8 @@ final class PayrollCalculationContextAssembler {
                                             ? in.getSalaireBaseCampagne() : in.getSalaireBaseNonMensuel());
                             amountCalculation=calculation;
                             montant=calculation.montant().subtract(rs.getBigDecimal("montant_impute")).max(BigDecimal.ZERO);
-                            explanation="Version "+rs.getString("rubrique_code")+" ; condition "+rs.getString("condition_application")+" ; "+calculation.explication();
+                            explanation=expliquerMontantVariable(rs.getString("condition_application"),
+                                    rs.getString("methode_calcul"), calculation);
                             if(!simulation && !"MONTANT".equals(rs.getString("methode_calcul"))) {
                                 try(var update=c.prepareStatement("UPDATE paie_avance_acompte SET montant=?,montant_initial=?,solde_restant=?,updated_at=CURRENT_TIMESTAMP WHERE id_avance=? AND montant_impute=0")) {
                                     update.setBigDecimal(1,montant);update.setBigDecimal(2,montant);update.setBigDecimal(3,montant);update.setInt(4,idAvance);update.executeUpdate();
@@ -569,6 +572,32 @@ final class PayrollCalculationContextAssembler {
         }
         in.setAvancesAcomptes(avances);
         in.setIdsMouvementsGains(idsGains);
+    }
+
+    private static String expliquerMontantVariable(String condition, String method,
+            mg.galaxam.sirh.paie.domain.engine.ManualPayrollRules.AmountResult calculation) {
+        String portee = "TOUS".equalsIgnoreCase(condition) ? "tous les salariés"
+                : (condition == null || condition.isBlank() ? "condition générale" : condition);
+        String montant = formatAr(calculation.montant());
+        String details = switch (method) {
+            case "QUANTITE_TAUX" -> formatNumber(calculation.quantite()) + " × "
+                    + formatAr(calculation.taux()) + " = " + montant;
+            case "POURCENTAGE_SALAIRE_BASE" -> formatAr(calculation.base()) + " × "
+                    + formatNumber(calculation.taux()) + " % = " + montant;
+            default -> "Montant saisi : " + montant;
+        };
+        return details + " · applicable à " + portee + ".";
+    }
+
+    private static String formatAr(BigDecimal amount) {
+        return formatNumber(amount) + " Ar";
+    }
+
+    private static String formatNumber(BigDecimal amount) {
+        NumberFormat format = NumberFormat.getNumberInstance(Locale.FRANCE);
+        format.setMinimumFractionDigits(0);
+        format.setMaximumFractionDigits(2);
+        return format.format(amount == null ? BigDecimal.ZERO : amount);
     }
 
     private void chargerIndemnitesSnapshot(PayrollCalculationInput input, int snapshotId, Connection connection)

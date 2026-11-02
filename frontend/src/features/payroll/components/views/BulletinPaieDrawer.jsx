@@ -122,6 +122,12 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const retenuesBrut = compositionLignes.filter(l => l.sens === 'RETENUE');
     const hsExonereeIrsa = Number(fiscalite?.remunerationHsExonereeIrsa ?? lignes.find(l => l.codeRubrique === 'HS_EXONEREE_IRSA')?.montantSalarial ?? 0);
     const gainsBrutsExoneres = compositionBrut?.gainsExoneresIrsa ?? 0;
+    const formatHsCalculation = (code) => {
+        const line = lignes.find(item => item.codeRubrique === code);
+        if (!line?.quantite || !line?.baseCalcul || !line?.tauxSalarial) return null;
+        const minutes = Math.round(Number(line.quantite) * 60);
+        return `${formatMinutes(minutes)} × ${formatAr(line.baseCalcul)}/h × ${Number(line.tauxSalarial).toLocaleString('fr-FR')} %`;
+    };
 
     return (
         <>
@@ -234,7 +240,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 <>
                                                     {[...gainsBruts, ...retenuesBrut].sort((a, b) => Number(a.ordre || 0) - Number(b.ordre || 0)).map((l, index) => (
                                                         <div key={`${l.codeRubrique}-${index}`} className="flex justify-between gap-4 py-1 text-[var(--color-fg)]">
-                                                            <span className="font-sans">{libelleRubriqueBulletin(l)}{l.commentaire && <span className="block text-xs font-normal text-[var(--color-fg-muted)]">{l.commentaire}</span>}</span>
+                                                            <span className="font-sans">{libelleRubriqueBulletin(l)}{l.commentaire && l.codeRubrique !== 'AUTIMP' && <span className="block text-xs font-normal text-[var(--color-fg-muted)]">{l.commentaire}</span>}</span>
                                                             <span className={`font-bold whitespace-nowrap ${l.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                                                 {l.sens === 'GAIN' ? '+' : '−'}{formatAr(l.montantSalarial)}
                                                             </span>
@@ -312,11 +318,22 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
 
                                     {/* Heures supplémentaires */}
                                     {((bulletin.heuresHs30 || 0) > 0 || (bulletin.heuresHs50 || 0) > 0) && (
-                                        <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
-                                            <span className="text-[var(--color-fg)]">Heures supplémentaires (+30%: {formatHours(bulletin.heuresHs30)}h / +50%: {formatHours(bulletin.heuresHs50)}h)</span>
-                                            <span className="font-data font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                +{formatAr(Number(explication?.montantHs30 || 0) + Number(explication?.montantHs50 || 0))}
-                                            </span>
+                                        <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px] space-y-2">
+                                            <div className="flex justify-between items-center gap-3">
+                                                <span className="font-semibold text-[var(--color-fg)]">Heures supplémentaires</span>
+                                                <span className="font-data font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                                                    +{formatAr(Number(explication?.montantHs30 || 0) + Number(explication?.montantHs50 || 0))}
+                                                </span>
+                                            </div>
+                                            {Number(bulletin.heuresHs30 || 0) > 0 && <div className="text-[var(--color-fg-muted)]">
+                                                HS à +30 % · {formatMinutes(Math.round(Number(bulletin.heuresHs30) * 60))}
+                                                {formatHsCalculation('HEURES_SUP_30') && <span className="block">{formatHsCalculation('HEURES_SUP_30')} = {formatAr(explication?.montantHs30)}</span>}
+                                            </div>}
+                                            {Number(bulletin.heuresHs50 || 0) > 0 && <div className="text-[var(--color-fg-muted)]">
+                                                HS à +50 % · {formatMinutes(Math.round(Number(bulletin.heuresHs50) * 60))}
+                                                {formatHsCalculation('HEURES_SUP_50') && <span className="block">{formatHsCalculation('HEURES_SUP_50')} = {formatAr(explication?.montantHs50)}</span>}
+                                            </div>}
+                                            <p className="text-[10px] text-[var(--color-fg-subtle)]">La paie valorise les minutes du pointage. Une durée Excel saisie en heures décimales peut différer de quelques minutes.</p>
                                         </div>
                                     )}
 

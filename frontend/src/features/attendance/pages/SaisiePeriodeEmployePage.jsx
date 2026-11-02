@@ -113,6 +113,8 @@ export default function SaisiePeriodeEmployePage({
         canEditPeriod,
         kpis,
         importPreview,
+        importError,
+        setImportError,
         importSelections,
         importSignals,
         importLoading,
@@ -572,6 +574,19 @@ export default function SaisiePeriodeEmployePage({
                             e.target.value = '';
                         }}
                     />
+
+                    {importError && (
+                        <section role="alert" aria-label="Erreur d'import du pointage" className="border-l-4 border-[var(--color-danger-600)] bg-[var(--color-danger-500)]/5 p-4 space-y-2 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                                <h3 className="font-bold text-[var(--color-danger-700)]">{importError.title}</h3>
+                                <button type="button" onClick={() => setImportError(null)} className="text-xs underline">Masquer</button>
+                            </div>
+                            {importError.fileName && <p><strong>Fichier :</strong> {importError.fileName}</p>}
+                            <p><strong>Sélection actuelle :</strong> {ficheData?.prenom || currentEmpSummary?.prenom || ''} {ficheData?.nom || currentEmpSummary?.nom || `collaborateur n° ${selectedEmployeId}`}{(ficheData?.matricule || currentEmpSummary?.matricule) && ` · matricule ${ficheData?.matricule || currentEmpSummary?.matricule}`} · période n° {selectedPeriodeId}</p>
+                            <p className="whitespace-pre-wrap">{importError.detail}</p>
+                            <p><strong>Que faire :</strong> {importError.action}</p>
+                        </section>
+                    )}
 
                     {/* Signalements d'importation à régulariser */}
                     {Object.keys(importSignals).length > 0 && (

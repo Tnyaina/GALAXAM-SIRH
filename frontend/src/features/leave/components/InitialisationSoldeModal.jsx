@@ -204,8 +204,8 @@ export default function InitialisationSoldeModal({
     }
   };
 
-  const nomAffichage = `${employe?.nom || employeDetail?.nom || 'AGENT'} ${employe?.prenom || employeDetail?.prenom || 'A CADRE'}`;
-  const matriculeAffichage = employe?.matricule || employe?.matriculeEmploye || employeDetail?.matricule || '0592';
+  const nomAffichage = [employe?.nom || employeDetail?.nom, employe?.prenom || employeDetail?.prenom].filter(Boolean).join(' ') || 'Collaborateur';
+  const matriculeAffichage = employe?.matricule || employe?.matriculeEmploye || employeDetail?.matricule || '—';
 
   return (
     <>
@@ -358,7 +358,7 @@ export default function InitialisationSoldeModal({
                       min="0.000001"
                       value={tauxApplicable}
                       onValueChange={setTauxApplicable}
-                      placeholder="31 914,926"
+                      placeholder="Ex. 10 000"
                       required
                     />
                     <p className="text-[11px] text-[var(--color-fg-muted)] mt-1 leading-snug">
@@ -406,7 +406,7 @@ export default function InitialisationSoldeModal({
                                 min="1900"
                                 max={dateCutover ? dateCutover.slice(0, 4) : undefined}
                                 step="1"
-                                placeholder="Ex. 2024"
+                                placeholder="Ex. 2025"
                                 value={lot.exercice}
                                 required
                                 onChange={(e) => setLotsReprise((prev) => prev.map((item, i) => i === index ? { ...item, exercice: e.target.value } : item))}
@@ -427,7 +427,7 @@ export default function InitialisationSoldeModal({
                               <MoneyInput
                                 maxDecimals={6}
                                 min="0.000001"
-                                placeholder="Ex. 31 914,926"
+                                placeholder="Ex. 10 000"
                                 value={lot.tauxHistorique}
                                 required
                                 onValueChange={(value) => setLotsReprise((prev) => prev.map((item, i) => i === index ? { ...item, tauxHistorique: value } : item))}
@@ -489,7 +489,7 @@ export default function InitialisationSoldeModal({
                     min="0.000001"
                     value={tauxApplicable}
                     onValueChange={setTauxApplicable}
-                    placeholder="31 914,926"
+                    placeholder="Ex. 10 000"
                     required
                   />
                   <p className="text-[11px] text-[var(--color-fg-muted)] mt-1 leading-snug">
@@ -521,7 +521,7 @@ export default function InitialisationSoldeModal({
                     min="0"
                     value={valeurSoldeOuverture}
                     onValueChange={setValeurSoldeOuverture}
-                    placeholder="Ex. 240 000"
+                    placeholder="Ex. 25 000"
                     required
                   />
                   <p className="text-[11px] text-[var(--color-fg-muted)] mt-1 leading-snug">
@@ -594,7 +594,7 @@ export default function InitialisationSoldeModal({
                   min="0"
                   value={cumulValorisationOuverture}
                   onValueChange={setCumulValorisationOuverture}
-                  placeholder="Ex. 3 150 000"
+                  placeholder="Ex. 100 000"
                   required
                 />
                 <p className="text-[11px] text-[var(--color-fg-muted)] mt-1 leading-snug">
@@ -623,7 +623,7 @@ export default function InitialisationSoldeModal({
                   type="text"
                   value={referenceArrete}
                   onChange={(e) => setReferenceArrete(e.target.value)}
-                  placeholder="Ex. Arrêté congés DAF au 25/09/2026, dossier RH-2026-14"
+                  placeholder="Ex. Arrêté DAF n° 01"
                   required
                 />
                 <p className="text-[11px] text-[var(--color-fg-muted)] leading-snug">

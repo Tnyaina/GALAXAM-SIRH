@@ -14,6 +14,7 @@ export default function Pagination({
     pageSizeOptions = [10, 25, 50, 100],
     onPageChange,
     onPageSizeChange,
+    itemLabel = '',
     className = '',
 }) {
     // Données dérivées : bornes et nombre de pages.
@@ -62,7 +63,7 @@ export default function Pagination({
                 <span>
                     Affichage de <span className="font-data font-bold text-[var(--color-fg)]">{startItem}</span> à{' '}
                     <span className="font-data font-bold text-[var(--color-fg)]">{endItem}</span> sur{' '}
-                    <span className="font-data font-bold text-[var(--color-fg)]">{count}</span>
+                    <span className="font-data font-bold text-[var(--color-fg)]">{count}</span>{itemLabel ? ` ${itemLabel}` : ''}
                 </span>
 
                 {onPageSizeChange && pageSizeOptions && (

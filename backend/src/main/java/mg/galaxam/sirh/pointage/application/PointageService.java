@@ -1794,7 +1794,12 @@ public class PointageService {
                         dto.getDynamicIndemnites(), null);
                 int idPtg;
                 try {
-                    idPtg = writeDay(write, false, true, c);
+                    boolean absenceQualifiee = "ABSENCE_JUSTIFIEE".equals(codeStatut)
+                            || "ABSENCE_NON_JUSTIFIEE".equals(codeStatut);
+                    idPtg = writeDay(write, false, !absenceQualifiee, c);
+                    if (absenceQualifiee) {
+                        marquerAbsenceTraitee(idPtg, c);
+                    }
                 } catch (SQLException exception) {
                     if (existingIdPointage == null && exception.getMessage() != null
                             && (exception.getMessage().toLowerCase(Locale.ROOT).contains("duplicate")
@@ -1818,6 +1823,17 @@ public class PointageService {
         result.put("success", true);
         result.put("message", "Pointages enregistrés avec succès.");
         return result;
+    }
+
+    /** Le choix explicite du statut d'absence dans la saisie est lui-même la décision de traitement. */
+    private void marquerAbsenceTraitee(int pointageId, Connection c) throws SQLException {
+        try (PreparedStatement statement = c.prepareStatement(
+                "UPDATE pointage_jour SET ajuste_par = ?, date_ajustement = CURRENT_TIMESTAMP "
+                        + "WHERE id_pointage = ?")) {
+            statement.setObject(1, mg.galaxam.sirh.securite.CustomUserDetails.getCurrentUserId());
+            statement.setInt(2, pointageId);
+            statement.executeUpdate();
+        }
     }
 
     /** Payload SQL du chemin de régularisation, gardé dans le propriétaire des writes journaliers. */

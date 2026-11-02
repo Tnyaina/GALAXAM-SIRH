@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-disp
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import InfoDisclosure from '@/components/ui/feedback/InfoDisclosure';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { fmtDate } from '@/utils/dateUtils';
@@ -80,31 +81,7 @@ export default function DocumentsRhTab({
                     <Button type="button" variant="outline" size="sm" onClick={onRetry}>Réessayer</Button>
                 </Alert>
             )}
-            {/* 1. Bandeau de conformité standardisé avec le composant Alert */}
-            {canWrite && obligatoiresManquants.length > 0 && (
-                <Alert
-                    variant="warning"
-                    title={`Conformité RH — ${obligatoiresManquants.length} pièce${obligatoiresManquants.length > 1 ? 's' : ''} obligatoire${obligatoiresManquants.length > 1 ? 's' : ''} attendue${obligatoiresManquants.length > 1 ? 's' : ''}`}
-                >
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                        {obligatoiresManquants.map(m => (
-                            <Button
-                                key={m.idTypeDocument}
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                className="bg-[var(--color-surface)] border-[var(--color-warning-500)]/40 hover:bg-[var(--color-warning-500)]/15 text-[var(--color-fg)]"
-                                onClick={() => onOpenUploadModal(m.idTypeDocument)}
-                                iconLeft={<Upload size={12} />}
-                            >
-                                Verser {m.libelle}
-                            </Button>
-                        ))}
-                    </div>
-                </Alert>
-            )}
-
-            {/* 2. Carte Principale des Documents RH */}
+            {/* Carte principale des documents RH */}
             <Card shadow="sm">
                 <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div className="flex items-center gap-2.5 flex-wrap">
@@ -112,8 +89,8 @@ export default function DocumentsRhTab({
                             <FileText size={15} className="text-[var(--color-brand-600)]" />
                             Pièces justificatives &amp; Documents RH
                         </CardTitle>
-                        {documentsStatus === 'success' && <Badge variant={isConforme ? "success" : "warning"} size="xs" dot>
-                            {isConforme ? "Dossier conforme" : `${obligatoiresManquants.length} manquant${obligatoiresManquants.length > 1 ? 's' : ''}`}
+                        {documentsStatus === 'success' && <Badge variant={isConforme ? 'success' : 'default'} size="xs" dot>
+                            {isConforme ? 'Dossier conforme' : `${obligatoiresManquants.length} pièce${obligatoiresManquants.length > 1 ? 's' : ''} à déposer`}
                         </Badge>}
                         {documents.length > 0 && (
                             <Badge variant="default" size="xs">
@@ -133,6 +110,27 @@ export default function DocumentsRhTab({
                         </Button>
                     )}
                 </CardHeader>
+
+                {documentsStatus === 'success' && obligatoiresManquants.length > 0 && (
+                    <div className="px-5 py-1.5 border-b border-[var(--color-border-subtle)]">
+                        <InfoDisclosure label="Voir les pièces attendues">
+                            <div className="space-y-2">
+                                <p>{obligatoiresManquants.length} pièce{obligatoiresManquants.length > 1 ? 's' : ''} obligatoire{obligatoiresManquants.length > 1 ? 's' : ''} reste{obligatoiresManquants.length > 1 ? 'nt' : ''} à déposer dans ce dossier.</p>
+                                <ul className="flex flex-wrap gap-2">
+                                    {obligatoiresManquants.map(m => (
+                                        <li key={m.idTypeDocument}>
+                                            {canWrite ? (
+                                                <Button type="button" variant="outline" size="xs" onClick={() => onOpenUploadModal(m.idTypeDocument)} iconLeft={<Upload size={12} />}>
+                                                    Verser {m.libelle}
+                                                </Button>
+                                            ) : m.libelle}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </InfoDisclosure>
+                    </div>
+                )}
 
                 {/* Barre de Recherche & Filtres essentiels */}
                 {documents.length > 0 && (

@@ -5,6 +5,7 @@ import { getTodayDateString } from '@/utils/dateUtils';
 import { toPointageBatchPayload } from '@/features/attendance/utils/pointageBatchPayload';
 import { getConfiguredPause, getConfiguredStandardHours } from '@/features/attendance/utils/pointageStandardHours';
 import { importHalfDayMoment, importLineNeedsReview } from '@/features/attendance/utils/pointageImport';
+import { describePointageImportError } from '@/features/attendance/utils/pointageImportError';
 import { usePointageBatchPreview } from '@/features/attendance/hooks/usePointageBatchPreview';
 import { changePointageAllowance, changePointageHours, changePointageStatus, cleanPointageTime, clearPointageAllowances, isPointageRowModified, markPointageForPreview, POINTAGE_TIME_FIELDS } from '@/features/attendance/utils/pointageRow';
 
@@ -75,6 +76,7 @@ export function usePointagePeriodeEmploye({
 
     // ── État import ──────────────────────────────────────────────────────────
     const [importPreview, setImportPreview] = useState(null);
+    const [importError, setImportError] = useState(null);
     const [importSelections, setImportSelections] = useState({});
     const [importSignals, setImportSignals] = useState({});
     const [importLoading, setImportLoading] = useState(false);
@@ -85,7 +87,7 @@ export function usePointagePeriodeEmploye({
     const loadReqId = useRef(0);
     const importApplyLock = useRef(false);
 
-    useEffect(() => { setImportSignals({}); }, [selectedEmployeId, selectedPeriodeId]);
+    useEffect(() => { setImportSignals({}); setImportError(null); }, [selectedEmployeId, selectedPeriodeId]);
 
     // ── Indemnités affichées (site + import fusionnés) ───────────────────────
     const displayedIndemnites = useMemo(() => {
@@ -545,8 +547,12 @@ export function usePointagePeriodeEmploye({
 
     const handleImportFile = useCallback(async (file, dirtyCountVal) => {
         if (!file) return;
+        setImportError(null);
+        setImportPreview(null);
+        setImportSelections({});
         if (dirtyCountVal > 0) {
-            notify({ title: 'Information', message: 'Enregistrez les modifications avant de prévisualiser un import.', type: 'info' }); return;
+            setImportError({ title: 'Modifications non enregistrées', detail: 'La grille contient des changements en attente.', action: 'Enregistrez la grille, puis sélectionnez à nouveau le fichier à importer.', fileName: file.name });
+            return;
         }
         setImportLoading(true);
         setImportPreviewLoading(true);
@@ -555,9 +561,9 @@ export function usePointagePeriodeEmploye({
             setImportPreview(preview);
             setImportSelections(Object.fromEntries((preview.lines || []).map(line => [line.ligne, line.selectedByDefault])));
         } catch (err) {
-            notify({ title: 'Erreur', message: err?.response?.data?.message || 'Impossible de lire le fichier.', type: 'error' });
+            setImportError({ ...describePointageImportError(err, 'Impossible de lire le fichier de pointage.'), fileName: file.name });
         } finally { setImportLoading(false); setImportPreviewLoading(false); }
-    }, [selectedEmployeId, selectedPeriodeId, notify]);
+    }, [selectedEmployeId, selectedPeriodeId]);
 
     const handleApplyImport = useCallback(async (approvedConflicts = {}) => {
         if (importApplyLock.current) return;
@@ -632,6 +638,7 @@ export function usePointagePeriodeEmploye({
 
     const handleSaveImport = useCallback(async (approvedConflicts = {}) => {
         if (importApplyLock.current || !canEditPeriod) return false;
+        setImportError(null);
         const selected = (importPreview?.lines || []).filter(line => importSelections[line.ligne]
             && line.decision === 'IMPORT' && !line.eventCode);
         if (!selected.length) return false;
@@ -655,9 +662,11 @@ export function usePointagePeriodeEmploye({
             if (!Array.isArray(verification) || verification.length !== payload.length) {
                 throw new Error('Le contrôle du lot est incomplet. Aucun pointage n’a été enregistré.');
             }
-            const invalid = verification?.find(result => result.error || !result.preview || result.preview.hasValidationError);
-            if (invalid) {
-                notify({ title: 'Import à vérifier', message: invalid.error || invalid.preview?.validationMessages?.[0] || 'Une journée est invalide.', type: 'error' });
+            const invalidIndex = verification.findIndex(result => result.error || !result.preview || result.preview.hasValidationError);
+            if (invalidIndex >= 0) {
+                const invalid = verification[invalidIndex];
+                const line = selected[invalidIndex];
+                setImportError({ title: `Journée du ${line.date} à corriger`, detail: invalid.error || invalid.preview?.validationMessages?.join(' · ') || 'Une journée est invalide.', action: `Vérifiez la ligne ${line.ligne} de l’aperçu d’import avant d’enregistrer.` });
                 return false;
             }
             const response = await attendanceService.daily.saveBatch(payload);
@@ -673,7 +682,7 @@ export function usePointagePeriodeEmploye({
                 : `${payload.length} journée(s) enregistrée(s).`, type: 'success' });
             return true;
         } catch (error) {
-            notify({ title: 'Erreur d’import', message: error?.response?.data?.message || error.message || 'Impossible d’enregistrer l’import.', type: 'error' });
+            setImportError(describePointageImportError(error, 'Impossible d’enregistrer l’import.'));
             return false;
         } finally {
             importApplyLock.current = false;
@@ -697,7 +706,7 @@ export function usePointagePeriodeEmploye({
         ficheData, siteParams, siteIndemnites, displayedIndemnites,
         grilleRows, initialRows, modifiedRows, dirtyCount,
         loading, saving, error, isAutonome, canEditPeriod, kpis,
-        importPreview, importSelections, importSignals, importLoading, importPreviewLoading, importApplying,
+        importPreview, importError, setImportError, importSelections, importSignals, importLoading, importPreviewLoading, importApplying,
         setImportSelections, setImportPreview,
         updateDayHours, toggleDayContinu, updateDayStatut, updateRowDynamicIndemnite,
         handleApplyStandardHours, handleDeducePauses, handleResetDay,

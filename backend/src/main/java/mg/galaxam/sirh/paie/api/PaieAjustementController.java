@@ -116,7 +116,7 @@ public class PaieAjustementController {
             Authentication authentication) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             StringBuilder sql = new StringBuilder(
-                    "SELECT paa.*, " +
+                    "SELECT paa.*, periode.code AS code_periode, periode.libelle AS libelle_periode, " +
                             "e.matricule, TRIM(CONCAT(COALESCE(e.nom, ''), ' ', COALESCE(e.prenom, ''))) AS nom_complet, "
                             +
                             "COALESCE(rtmp.code, paa.type_mouvement) AS type_code, " +
@@ -129,6 +129,7 @@ public class PaieAjustementController {
                             "pj.created_at AS justificatif_date_depot " +
                             "FROM paie_avance_acompte paa " +
                             "JOIN employe e ON paa.id_employe = e.id_employe " +
+                            "LEFT JOIN periode_paie periode ON periode.id_periode_paie = paa.id_periode_paie " +
                             "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement "
                             +
                             "LEFT JOIN paie_rubrique pr ON pr.id_rubrique = rtmp.id_rubrique " +
@@ -162,6 +163,8 @@ public class PaieAjustementController {
                         map.put("matricule", rs.getString("matricule"));
                         map.put("nomComplet", rs.getString("nom_complet"));
                         map.put("idPeriodePaie", rs.getObject("id_periode_paie"));
+                        map.put("codePeriode", rs.getString("code_periode"));
+                        map.put("libellePeriode", rs.getString("libelle_periode"));
                         map.put("idTypeMouvement", rs.getObject("id_type_mouvement"));
                         map.put("idCongeCutoverCorrection", rs.getObject("id_conge_cutover_correction"));
                         map.put("typeMouvement", rs.getString("type_code"));

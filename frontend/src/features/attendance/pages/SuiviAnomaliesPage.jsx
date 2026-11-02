@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
     Clock,
@@ -13,6 +13,7 @@ import {
     ChevronUp
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import InfoDisclosure from '@/components/ui/feedback/InfoDisclosure';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
@@ -62,6 +63,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('ALL');
     const [filterSeverite, setFilterSeverite] = useState('ALL');
+    const [filterBlocking, setFilterBlocking] = useState(false);
     const [filterSemaine, setFilterSemaine] = useState('ALL'); // 'ALL', 'S1', 'S2', ...
     const [filterDate, setFilterDate] = useState('');
     const [filterStatutTraitement, setFilterStatutTraitement] = useState('TODO'); // 'ALL', 'TODO', 'DONE'
@@ -69,7 +71,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const [isMissingDaysCollapsed, setIsMissingDaysCollapsed] = useState(true);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(8);
+    const [pageSize, setPageSize] = useState(10);
 
     // Modale de régularisation
     const [selectedAnomalie, setSelectedAnomalie] = useState(null);
@@ -244,6 +246,18 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
     // Anomalies bloquantes pour la transmission DAF
     const nbBloquantes = Number(stats?.bloquantes || 0);
+    const blockingAnomalies = useMemo(() => (anomalies || []).filter(ano => ano.bloquantTransmission === true && ano.statutAnomalie !== 'done'), [anomalies]);
+    const showBlockingAnomalies = () => {
+        setFilterBlocking(true);
+        setFilterStatutTraitement('TODO');
+        setFilterSemaine('ALL');
+        setFilterDate('');
+        setFilterType('ALL');
+        setFilterSeverite('ALL');
+        setSearchQuery('');
+        setCurrentPage(1);
+        document.getElementById('anomalies')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     // Semaines restantes non saisies / non clôturées
     const nbSemainesRestantes = useMemo(() => {
@@ -303,6 +317,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     // Filtrage dynamique des anomalies
     const filteredAnomalies = useMemo(() => {
         return (anomalies || []).filter(ano => {
+            if (filterBlocking && !ano.bloquantTransmission) return false;
             // Filtre par semaine sélectionnée dans les cartes S1..S5
             if (filterSemaine !== 'ALL' && ano.semaineCode !== filterSemaine) {
                 return false;
@@ -339,14 +354,37 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             }
             return true;
         });
-    }, [anomalies, filterSemaine, filterDate, filterStatutTraitement, filterSeverite, filterType, searchQuery]);
+    }, [anomalies, filterBlocking, filterSemaine, filterDate, filterStatutTraitement, filterSeverite, filterType, searchQuery]);
+    const hasActiveAnomalyFilters = Boolean(
+        searchQuery || filterBlocking || filterDate || filterSemaine !== 'ALL'
+        || filterType !== 'ALL' || filterSeverite !== 'ALL' || filterStatutTraitement !== 'TODO'
+    );
+    const resetAnomalyFilters = () => {
+        setFilterDate('');
+        setFilterSemaine('ALL');
+        setFilterType('ALL');
+        setFilterSeverite('ALL');
+        setFilterBlocking(false);
+        setFilterStatutTraitement('TODO');
+        setSearchQuery('');
+        setCurrentPage(1);
+    };
 
-    // Pagination
-    const _totalPages = Math.ceil(filteredAnomalies.length / pageSize) || 1;
-    const paginatedAnomalies = useMemo(() => {
+    // Regroupement et pagination par collaborateur : toutes ses anomalies restent ensemble.
+    const anomalyGroups = useMemo(() => {
+        const groups = new Map();
+        filteredAnomalies.forEach(ano => {
+            const key = String(ano.idEmploye || ano.matricule || `${ano.nom}-${ano.prenom}`);
+            if (!groups.has(key)) groups.set(key, { key, name: `${ano.nom || ''} ${ano.prenom || ''}`.trim(), matricule: ano.matricule, items: [] });
+            groups.get(key).items.push(ano);
+        });
+        return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+    }, [filteredAnomalies]);
+    const paginatedGroups = useMemo(() => {
         const start = (currentPage - 1) * pageSize;
-        return filteredAnomalies.slice(start, start + pageSize);
-    }, [filteredAnomalies, currentPage, pageSize]);
+        return anomalyGroups.slice(start, start + pageSize);
+    }, [anomalyGroups, currentPage, pageSize]);
+    const paginatedAnomalies = paginatedGroups.flatMap(group => group.items);
 
     const isBulkRetardEligible = (anomalie) => anomalie?.typeAnomalie === 'RETARD'
         && anomalie.statutAnomalie === 'todo'
@@ -513,18 +551,37 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 <StatCard
                     title="Journées sans statut"
                     value={isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length ?? '—')}
-                    subtext="Jours ouvrables à compléter avant transmission"
+                    subtext="Bloquant · jours ouvrables à compléter avant transmission"
                     icon={<Calendar size={17} />}
-                    color={(isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0)) > 0 ? 'warning' : 'success'}
+                    color={(isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0)) > 0 ? 'danger' : 'success'}
                 />
                 <StatCard
                     title="Anomalies bloquantes"
                     value={nbBloquantes}
-                    subtext="Pointages enregistrés qui demandent une décision"
+                    subtext={nbBloquantes > 0 ? 'Voir les salariés et journées concernés' : 'Aucune anomalie bloquante'}
                     icon={<Shield size={17} />}
                     color={nbBloquantes > 0 ? 'danger' : 'success'}
+                    active={filterBlocking}
+                    onClick={nbBloquantes > 0 ? showBlockingAnomalies : undefined}
                 />
             </div>
+
+            {blockingAnomalies.length > 0 && (
+                <section className="border border-[var(--color-danger-500)]/30 bg-[var(--color-danger-500)]/5 p-3 text-sm" aria-label="Anomalies bloquantes à régulariser">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <strong className="text-[var(--color-danger-700)]">Transmission bloquée · {blockingAnomalies.length} pointage{blockingAnomalies.length > 1 ? 's' : ''} à régulariser</strong>
+                        <Button type="button" variant="outline" size="sm" onClick={showBlockingAnomalies}>Afficher dans la liste</Button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {blockingAnomalies.map(ano => (
+                            <Link key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`} to={employeeDayUrl(ano.idEmploye, ano.datePointage)}
+                                className="border border-[var(--color-danger-500)]/30 bg-[var(--color-surface)] px-2 py-1 text-xs font-semibold text-[var(--color-fg)] hover:text-[var(--color-brand-600)] hover:underline">
+                                {ano.nom} {ano.prenom} · {ano.matricule} · {fmtDate(ano.datePointage)} · {getAnomalyTypeLabel(ano)} →
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* Les journées absentes du pointage ne figurent pas dans la liste des anomalies enregistrées. */}
             {filterStatutTraitement !== 'DONE' && (missingDays.length > 0 || preflightError) && (
@@ -543,8 +600,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         className="w-full justify-between p-3 text-left normal-case tracking-normal"
                     >
                         <span className="flex min-w-0 flex-1 flex-col items-start text-left normal-case tracking-normal">
-                            <span id="missing-days-title" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                            <span id="missing-days-title" className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                                 Journées ouvrables sans statut · {missingDays.length}
+                                {missingDays.length > 0 && <Badge variant="danger">Bloquant · priorité haute</Badge>}
                             </span>
                             {!isMissingDaysCollapsed && (
                                 <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-[var(--color-fg-muted)]">
@@ -559,7 +617,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 <div className="max-h-72 overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
                                     {missingDays.map(day => (
                                         <div key={`${day.idEmploye}-${day.date}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs">
-                                            <div><strong>{day.nom} {day.prenom}</strong> <span className="text-[var(--color-fg-muted)]">· {day.matricule} · {fmtDate(day.date)}</span></div>
+                                            <div><strong>{day.nom} {day.prenom}</strong> <span className="text-[var(--color-fg-muted)]">· {day.matricule} · {fmtDate(day.date)}</span> <Badge variant="danger">Bloquant</Badge></div>
                                             <Link to={employeeDayUrl(day.idEmploye, day.date)} className="font-semibold text-[var(--color-brand-600)] hover:underline">Ouvrir la journée →</Link>
                                         </div>
                                     ))}
@@ -715,9 +773,15 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             Pointages à vérifier et régularisations
                         </h2>
                         <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                            {filteredAnomalies.length} élément{filteredAnomalies.length > 1 ? 's' : ''} de suivi
+                            {filteredAnomalies.length} anomalie{filteredAnomalies.length > 1 ? 's' : ''} · {anomalyGroups.length} collaborateur{anomalyGroups.length > 1 ? 's' : ''}
                             {nbBloquantes > 0 && ` — dont ${nbBloquantes} bloquante(s) avant transmission`}
                         </p>
+                        {filterBlocking && <Button type="button" variant="ghost" size="xs" onClick={() => { setFilterBlocking(false); setCurrentPage(1); }}>Filtre : bloquantes · Effacer</Button>}
+                        {hasActiveAnomalyFilters && (
+                            <Button type="button" variant="ghost" size="xs" onClick={resetAnomalyFilters}>
+                                Réinitialiser les filtres
+                            </Button>
+                        )}
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -810,33 +874,13 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 className="text-xs w-full"
                             />
                         </div>
-                        {(filterDate || filterSemaine !== 'ALL' || filterType !== 'ALL' || filterSeverite !== 'ALL' || filterStatutTraitement !== 'ALL' || searchQuery) && (
-                            <div className="flex justify-end">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setFilterDate('');
-                                        setFilterSemaine('ALL');
-                                        setFilterType('ALL');
-                                        setFilterSeverite('ALL');
-                                        setFilterStatutTraitement('ALL');
-                                        setSearchQuery('');
-                                        setCurrentPage(1);
-                                    }}
-                                >
-                                    Réinitialiser les filtres
-                                </Button>
-                            </div>
-                        )}
                         </>
                     )}
                 </div>
 
-                <p className="px-3 py-1.5 border-b border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)]">
-                    Un retard peut être corrigé si la saisie est erronée, ou confirmé comme réel. Dans les deux cas, il reste tracé et passe à « Régularisé ».
-                </p>
+                <div className="px-3 py-1 border-b border-[var(--color-border-subtle)]">
+                    <InfoDisclosure label="Comment traiter un retard ?" message="Un retard peut être corrigé si la saisie est erronée, ou confirmé comme réel. Dans les deux cas, il reste tracé et passe à « Régularisé »." />
+                </div>
 
                 {selectedRetards.size > 0 && (
                     <div className="flex flex-col gap-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -887,14 +931,25 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </Thead>
                         <Tbody>
                             {paginatedAnomalies && paginatedAnomalies.length > 0 ? (
-                                paginatedAnomalies.map((ano) => {
+                                paginatedAnomalies.map((ano, index) => {
                                     const severity = SEVERITY_PRESENTATION[ano.severite] || SEVERITY_PRESENTATION.FAIBLE;
 
                                     const isDone = ano.statutAnomalie === 'done';
+                                    const employeeKey = String(ano.idEmploye || ano.matricule || `${ano.nom}-${ano.prenom}`);
+                                    const previous = paginatedAnomalies[index - 1];
+                                    const previousKey = previous && String(previous.idEmploye || previous.matricule || `${previous.nom}-${previous.prenom}`);
+                                    const group = paginatedGroups.find(item => item.key === employeeKey);
 
                                         return (
+                                        <Fragment key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`}>
+                                        {employeeKey !== previousKey && (
+                                            <Tr className="bg-[var(--color-bg-subtle)] border-t-2 border-[var(--color-border-subtle)]">
+                                                <Td colSpan={8} className="!py-2 text-xs font-semibold text-[var(--color-fg)]">
+                                                    {group?.name || 'Collaborateur'} <span className="ml-1 font-data font-normal text-[var(--color-fg-muted)]">{group?.matricule || ''} · {group?.items.length || 0} anomalie{group?.items.length > 1 ? 's' : ''}</span>
+                                                </Td>
+                                            </Tr>
+                                        )}
                                         <Tr
-                                            key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`}
                                             className={`border-l-4 ${severity.border}`}
                                         >
                                             <Td className="text-center">
@@ -965,6 +1020,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                             {/* Sévérité Chip */}
                                             <Td className="text-center">
                                                 <Badge variant={severity.badge} size="xs">{severity.label}</Badge>
+                                                {ano.bloquantTransmission && !isDone && <div className="mt-1"><Badge variant="danger" size="xs">Bloquante</Badge></div>}
                                             </Td>
 
                                             {/* Statut */}
@@ -1006,6 +1062,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                 </div>
                                             </Td>
                                         </Tr>
+                                        </Fragment>
                                     );
                                 })
                             ) : (
@@ -1022,9 +1079,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 {/* Pagination officielle Galaxam */}
                 <Pagination
                     currentPage={currentPage}
-                    totalItems={filteredAnomalies.length}
+                    totalItems={anomalyGroups.length}
+                    itemLabel="collaborateurs"
                     pageSize={pageSize}
-                    pageSizeOptions={[8, 15, 25, 50]}
+                    pageSizeOptions={[10, 25, 50]}
                     onPageChange={(p) => setCurrentPage(p)}
                     onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
                 />

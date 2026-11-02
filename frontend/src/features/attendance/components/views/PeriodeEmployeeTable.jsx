@@ -524,7 +524,7 @@ export default function PeriodeEmployeeTable({
                                                                     ({formatHeuresDecimal(row.totalHeuresDecimal)})
                                                                 </div>
                                                             )}
-                                                            <PointageCorrectionBadge minutes={row.minutesCorrectionTemps} sortieBadge={row.heureSortieAm || row.heureSortieMatin} />
+                                                            <div className="mt-1"><PointageCorrectionBadge minutes={row.minutesCorrectionTemps} sortieBadge={row.heureSortieAm || row.heureSortieMatin} /></div>
                                                             {row._correctionCleared && <span className="block text-[10px] text-[var(--color-warning-700)]">Correction retirée à la sauvegarde</span>}
                                                         </Td>
 

@@ -239,14 +239,14 @@ public class PointageImportService {
                 String fileEnd = metadataText(metadata, 7);
                 String currentEmployee = titleName(fiche);
                 String currentPeriod = fiche.getLibellePeriode() == null ? "Période " + periodId : fiche.getLibellePeriode();
-                String fileIdentity = "collaborateur " + (fileEmployee.isBlank() ? "#" + modelEmployeeId : fileEmployee)
+                String fileIdentity = "collaborateur " + (fileEmployee.isBlank() ? "inconnu" : fileEmployee) + " (ID " + modelEmployeeId + ")"
                         + (fileMatricule.isBlank() ? "" : " (" + fileMatricule + ")")
-                        + ", période " + (filePeriod.isBlank() ? "#" + modelPeriodId : filePeriod)
+                        + ", période " + (filePeriod.isBlank() ? "inconnue" : filePeriod) + " (ID " + modelPeriodId + ")"
                         + (fileStart.isBlank() || fileEnd.isBlank() ? "" : " (" + fileStart + " au " + fileEnd + ")")
                         + (fileSite.isBlank() ? "" : ", site " + fileSite);
-                String selectedIdentity = "collaborateur " + currentEmployee
+                String selectedIdentity = "collaborateur " + currentEmployee + " (ID " + employeeId + ")"
                         + (fiche.getMatricule() == null || fiche.getMatricule().isBlank() ? "" : " (" + fiche.getMatricule() + ")")
-                        + ", période " + currentPeriod + " (" + fiche.getDateDebut() + " au " + fiche.getDateFin() + ")";
+                        + ", période " + currentPeriod + " (ID " + periodId + ", " + fiche.getDateDebut() + " au " + fiche.getDateFin() + ")";
                 throw new IllegalArgumentException("Ce fichier correspond au " + fileIdentity + ", alors que la sélection actuelle est le "
                         + selectedIdentity + ". Téléchargez le modèle depuis cette fiche et cette période.");
             }

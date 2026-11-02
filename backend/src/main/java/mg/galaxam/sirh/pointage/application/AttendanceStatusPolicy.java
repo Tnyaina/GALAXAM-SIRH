@@ -126,8 +126,8 @@ public final class AttendanceStatusPolicy {
             actions.add(new SaisiePointageJourDTO.StatusAction("DEMI_JOURNEE", "Demi-journée",
                     "Valider une seule plage travaillée avec motif", true));
         }
-        actions.add(new SaisiePointageJourDTO.StatusAction("ABSENCE_JUSTIFIEE", "Absence justifiée", "Absence documentée ou autorisée", true));
-        actions.add(new SaisiePointageJourDTO.StatusAction("ABSENCE_NON_JUSTIFIEE", "Absence non justifiée", "Absence sans justificatif", false));
+        actions.add(new SaisiePointageJourDTO.StatusAction("ABSENCE_JUSTIFIEE", "Absence justifiée", "Motif obligatoire · qualification enregistrée directement", true));
+        actions.add(new SaisiePointageJourDTO.StatusAction("ABSENCE_NON_JUSTIFIEE", "Absence non justifiée", "Qualification enregistrée directement", false));
         actions.add(new SaisiePointageJourDTO.StatusAction("CONGE", "Congé payé", "Imputer sur solde congé payé", false));
         return actions;
     }

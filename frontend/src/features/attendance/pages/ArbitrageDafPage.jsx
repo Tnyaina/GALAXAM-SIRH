@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
+import InfoDisclosure from '@/components/ui/feedback/InfoDisclosure';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card, CardBody, CardFooter, CardHeader, CardSubtitle, CardTitle } from '@/components/ui/data-display/Card';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
@@ -48,7 +49,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [selectedEmployeToAdjust, setSelectedEmployeToAdjust] = useState(null);
     const [selectedEmployeForDetail, setSelectedEmployeForDetail] = useState(null);
     const [selectedEmployeForSolde, setSelectedEmployeForSolde] = useState(null);
-    const [showAuditColumns, setShowAuditColumns] = useState(false);
     const [showAdditionalKpis, setShowAdditionalKpis] = useState(false);
     const [adjustInitialDate, setAdjustInitialDate] = useState(null);
     const [sites, setSites] = useState([]);
@@ -60,6 +60,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [preflight, setPreflight] = useState(null);
     const [preflightError, setPreflightError] = useState('');
     const [preflightRevision, setPreflightRevision] = useState(0);
+    const [showPreflightDetails, setShowPreflightDetails] = useState(false);
     const loadSequence = useRef(0);
     const activePeriodeSnapshot = useRef(null);
     const [loadedQuery, setLoadedQuery] = useState(null);
@@ -306,6 +307,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     }[approvalBlockCode];
     const canSubmit = periodActions.SUBMIT?.allowed === true;
     const transmissionBlockReason = periodActions.SUBMIT?.reason || null;
+    const transmissionBlockCode = periodActions.SUBMIT?.reasonCodes?.[0];
+    const transmissionBlockMessage = {
+        PERIOD_NOT_ENDED: 'La période doit être terminée avant la transmission.',
+        POINTAGE_EMPTY: 'Aucun pointage n’a été saisi pour cette période.',
+        BLOCKING_ANOMALIES: 'Des anomalies de pointage doivent être régularisées.',
+        POINTAGE_POPULATION_EMPTY: 'Aucun collaborateur n’est présent dans la synthèse.',
+        POINTAGE_JOURNEES_MANQUANTES: 'Des journées ouvrables n’ont aucun pointage ni statut explicite.',
+        POINTAGE_CROSS_PERIOD_SHIFT: 'Une vacation du dernier jour déborde sur la campagne suivante.',
+        POINTAGE_HS_ELIGIBILITY_CHANGE: 'L’éligibilité aux HS change au milieu d’une semaine.'
+    }[transmissionBlockCode] || transmissionBlockReason;
 
     const kpis = serverKpis;
 
@@ -629,27 +640,46 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 {!loadError && preflightError && <div role="alert" className="border border-[var(--color-danger-300)] bg-[var(--color-danger-50)] p-3 text-sm text-[var(--color-danger-800)]">
                     {preflightError} La validation reste bloquée jusqu’à ce que le contrôle serveur soit disponible.
                 </div>}
-                {!loadError && isPendingDaf && preflight && !isPreflightPret && (
-                    <div role="status" aria-live="polite" className="border border-[var(--color-warning-300)] bg-[var(--color-warning-50)] p-4 text-sm text-[var(--color-warning-900)] space-y-2">
-                        <strong>Validation en attente de correction</strong>
+                {!loadError && preflight && !isPreflightPret && !isPeriodLocked && (
+                    <section aria-label="Prérequis de la période" className="border border-[var(--color-border-subtle)] border-l-[3px] border-l-[var(--color-warning-500)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-fg)]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-start gap-2.5">
+                                <AlertTriangle size={17} className="mt-0.5 shrink-0 text-[var(--color-warning-700)]" aria-hidden="true" />
+                                <div>
+                                    <strong className="block">{isPendingDaf ? 'Validation en attente' : 'Transmission en attente'}</strong>
+                                    <p className="text-xs text-[var(--color-fg-muted)]">
+                                        {preflight.journeesManquantes?.length > 0
+                                            ? `${preflight.journeesManquantes.length} journées ouvrables à compléter avant ${isPendingDaf ? 'validation' : 'transmission'}.`
+                                            : 'Des prérequis de pointage restent à corriger.'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => setShowPreflightDetails(value => !value)}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-brand-700)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)]"
+                                aria-expanded={showPreflightDetails}>
+                                {showPreflightDetails ? 'Masquer les détails' : 'Voir les détails'}
+                                <ChevronDown size={14} className={showPreflightDetails ? 'rotate-180' : ''} />
+                            </button>
+                        </div>
+                        {showPreflightDetails && <div className="mt-3 border-t border-[var(--color-border-subtle)] pt-3 space-y-2">
                         {preflight.nombreEmployes === 0 && <p>Aucun collaborateur dans la synthèse de période.</p>}
                         {preflight.journeesManquantes?.length > 0 && <>
                             <p><strong>{preflight.journeesManquantes.length} journée(s) ouvrable(s)</strong> sans pointage ni statut explicite. Cliquez sur une journée pour ouvrir la saisie au bon jour.</p>
-                            <div className="flex flex-wrap gap-2">{preflight.journeesManquantes.slice(0, 12).map((jour) => (
+                            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">{preflight.journeesManquantes.slice(0, 12).map((jour) => (
                                 <Button key={`${jour.idEmploye}-${jour.date}`} type="button" variant="outline" size="xs"
-                                    className="border-[var(--color-warning-400)]"
+                                    className="text-[var(--color-fg)]"
                                     title={`${jour.nom} ${jour.prenom} — journée du ${jour.date} sans pointage`}
-                                    onClick={() => navigate(`/pointages?tab=saisie&date=${jour.date}${jour.idSite ? `&site=${jour.idSite}` : ''}`)}>
+                                    onClick={() => navigate(`/pointages?tab=saisie&mode=employe&periode=${selectedPeriode}&employe=${jour.idEmploye}&date=${jour.date}${jour.idSite ? `&site=${jour.idSite}` : ''}`)}>
                                     {jour.matricule} · {jour.date}
                                 </Button>
                             ))}</div>
-                            {preflight.journeesManquantes.length > 12 && <p className="text-xs">+ {preflight.journeesManquantes.length - 12} autres journées à traiter.</p>}
+                            {preflight.journeesManquantes.length > 12 && <p className="text-xs text-[var(--color-fg-muted)]">{preflight.journeesManquantes.length - 12} autres journées à traiter dans la saisie.</p>}
                         </>}
                         {preflight.vacationsChevauchantes?.length > 0 && <>
                             <p><strong>{preflight.vacationsChevauchantes.length} vacation(s)</strong> dépassent minuit le dernier jour de la campagne. Scindez chaque vacation en deux pointages : les heures du lendemain appartiennent à la campagne suivante.</p>
                             <div className="flex flex-wrap gap-2">{preflight.vacationsChevauchantes.map((vacation) => (
                                 <Button key={vacation.idPointage} type="button" variant="outline" size="xs"
-                                    className="border-[var(--color-warning-400)]"
+                                    className="border-[var(--color-warning-300)] text-[var(--color-fg)]"
                                     onClick={() => navigate(`/pointages?tab=saisie&date=${vacation.datePointage}`)}>
                                     Pointage #{vacation.idPointage} · {vacation.datePointage} → {vacation.dateSuivante}
                                 </Button>
@@ -678,10 +708,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 Condition de blocage non résolue. Cliquez sur <strong>Actualiser les calculs</strong> puis rechargez la page.
                             </p>
                         )}
+                        </div>}
+                    </section>
+                )}
+                {!loadError && !preflight && !isPendingDaf && !isPeriodLocked && !canSubmit && transmissionBlockMessage && (
+                    <div role="status" aria-live="polite" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-fg-muted)]">
+                        Transmission en attente : {transmissionBlockMessage}
                     </div>
                 )}
                 {!loadError && isDaf && isPendingDaf && isPreflightPret && !canApprove && approvalBlockMessage && (
-                    <div role="status" aria-live="polite" className="border border-[var(--color-warning-300)] bg-[var(--color-warning-50)] p-3 text-sm text-[var(--color-warning-900)]">
+                    <div role="status" aria-live="polite" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-fg-muted)]">
                         Validation en attente : {approvalBlockMessage}
                     </div>
                 )}
@@ -708,7 +744,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                     ? 'La période est transmise pour arbitrage. Vérifiez les soldes hebdomadaires, corrigez les journées ou ajustez le solde final avec un motif si nécessaire. La validation scelle une version utilisée par la paie.'
                                     : canSubmit
                                         ? 'La transmission ouvre l’examen DAF. Le gel définitif intervient après la décision de validation.'
-                                        : 'La période ne peut pas encore être transmise. Consultez les prérequis et les motifs de blocage ci-dessus.'}
+                                        : 'La période ne peut pas encore être transmise. Corrigez les prérequis indiqués ci-dessus.'}
                         </p>
                         {isDaf && isPendingDaf && !canApprove && (
                             <p className="mt-2 text-xs text-[var(--color-fg-muted)]">
@@ -898,23 +934,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 </button>
                             </div>
 
-                            {/* Toggle colonnes audit (Surplus / Compensé) */}
-                            {viewMode === 'synthese' && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAuditColumns(prev => !prev)}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold border transition-all cursor-pointer ${
-                                        showAuditColumns
-                                            ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
-                                            : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                    }`}
-                                    title={showAuditColumns ? 'Masquer le détail des calculs : surplus journalier et heures utilisées en compensation' : 'Afficher le détail des calculs : surplus journalier et heures utilisées en compensation'}
-                                    aria-label={showAuditColumns ? 'Masquer le détail des calculs' : 'Afficher le détail des calculs'}
-                                >
-                                    <Scale size={13} />
-                                    <span className="hidden md:inline">{showAuditColumns ? 'Masquer le détail des calculs' : 'Afficher le détail des calculs'}</span>
-                                </button>
-                            )}
                         </div>
                     </div>
 
@@ -939,85 +958,37 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             </div>
                         ) : (
                             <div className="space-y-0 overflow-x-auto">
+                                <div className="px-3 py-1 border-b border-[var(--color-border-subtle)]">
+                                    <InfoDisclosure label="Comprendre le calcul du solde" message="Solde final = excédents − déficits + ajustements. Les retards sont déjà pris en compte dans ce calcul ; congés et indemnités sont présentés séparément." />
+                                </div>
 
                                 <Table density="comfortable" bordered={false}>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-[190px] max-w-[210px]">Collaborateur</Th>
-                                            <Th className="text-center w-16">Jours</Th>
-                                            <Th className="text-center w-20">Heures</Th>
-                                                    <Th className="text-center w-16">
-                                                        <span className="inline-flex items-center gap-1 text-[var(--color-purple-700)] dark:text-[var(--color-purple-200)]">
-                                                    <TrendingUp size={11} /> HS 30% finales
-                                                </span>
-                                            </Th>
-                                                    <Th className="text-center w-16">
-                                                        <span className="inline-flex items-center gap-1 text-[var(--color-purple-700)] dark:text-[var(--color-purple-200)]">
-                                                    <Award size={11} /> HS 50%
-                                                </span>
-                                            </Th>
-                                            <Th className="text-center w-14">
-                                                        <span className="inline-flex items-center gap-1 text-[var(--color-info-700)] dark:text-[var(--color-info-200)]">
-                                                    <Moon size={11} /> Nuit
-                                                </span>
-                                            </Th>
-                                            <Th className="text-center w-16">Dimanche</Th>
-                                            <Th className="text-center w-16">Férié</Th>
-                                                    <Th className="text-center w-28">
-                                                        <span className="inline-flex items-center gap-1 text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)]">
-                                                    <Banknote size={11} /> Indemnités
-                                                </span>
-                                            </Th>
-                                                    <Th className="text-center w-20" title="Retards constatés sur la journée (matin et après-midi)">
-                                                        <span className="inline-flex items-center gap-1 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                                    <Clock size={11} /> Retards
-                                                </span>
-                                            </Th>
-                                            {showAuditColumns && (
-                                                <>
-                                                    <Th className="text-center w-20" title="Heures réalisées au-delà de la durée normale d'une journée">
-                                                        <span className="inline-flex items-center gap-1 text-[var(--color-info-700)] dark:text-[var(--color-info-200)]">
-                                                            <TrendingUp size={11} /> En plus
-                                                        </span>
-                                                    </Th>
-                                                    <Th className="text-center w-22" title="Heures en plus utilisées pour compenser un manque de la même semaine">
-                                                        <span className="inline-flex items-center gap-1 text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                            <Scale size={11} /> Utilisées
-                                                        </span>
-                                                    </Th>
-                                                </>
-                                            )}
-                                            <Th className="text-center w-20" title="Absence horaire finale après rapprochement de période, hors congés">
-                                                <span className="inline-flex items-center gap-1 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                                    <AlertTriangle size={11} /> Absence finale
-                                                </span>
-                                            </Th>
-                                            <Th className="text-center w-16" title="Jours d'absence non justifiée">
-                                                Absences
-                                            </Th>
-                                            <Th className="text-center w-20">Actions</Th>
+                                            <Th className="text-center min-w-[125px]">Solde final</Th>
+                                            <Th className="min-w-[230px]">Calcul du solde</Th>
+                                            <Th className="min-w-[170px]">Effet sur la paie</Th>
+                                            <Th className="min-w-[180px]">Autres repères</Th>
+                                            <Th className="text-center min-w-[210px]">Actions</Th>
                                         </Tr>
                                     </Thead>
                                     <Tbody>
                                         {displayedData.map((row) => {
-                                            const presents = row.nbJoursPresents ?? row.joursPresents;
                                             const profilLabel = row.badgeProfilLabel || (row.dispensePointage ? 'AUTONOME' : row.estCadre ? 'CADRE' : null);
                                             const profilVariant = row.badgeProfilVariant || (row.dispensePointage ? 'neutral' : row.estCadre ? 'info' : null);
                                             const allowanceEntries = Object.entries(row.montantsIndemnites || {});
-                                            const fixedEntries = Object.entries(row.indemnitesFixesMensuelles || {});
-                                            const fixedEstimated = !['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(row.statutPeriode);
-                                            const hs30Finales = row.minutesHs30Finales != null ? row.minutesHs30Finales / 60 : (row.heuresHs30 || 0);
-                                            const hs50Finales = row.minutesHs50Finales != null ? row.minutesHs50Finales / 60 : (row.heuresHs50 || 0);
-                                            const absenceFinale = row.minutesAbsenceFinale != null ? row.minutesAbsenceFinale / 60 : (row.heuresAbsenceRetenues || 0);
-                                            const heuresQualifiees = (row.tronconsSemaine || []).reduce((totals, week) => ({
-                                                nuit: totals.nuit + Number(week.heuresNuit || 0),
-                                                dimanche: totals.dimanche + Number(week.heuresDimanche || 0),
-                                                ferie: totals.ferie + Number(week.heuresFerie || 0),
-                                            }), { nuit: 0, dimanche: 0, ferie: 0 });
                                             const totalIndRow = allowanceEntries.reduce((total, [, amount]) => total + Number(amount || 0), 0);
-
+                                            const deficitMins = Math.max(0, Number(row.minutesDeficitHebdo ?? 0));
+                                            const excedentMins = Math.max(0, Number(row.minutesExcedentCompensable ?? 0));
+                                            const ajustementMins = Number(row.minutesAjustementPeriode ?? 0);
+                                            const soldeMins = Number(row.minutesSoldePeriode ?? 0);
+                                            const hs30Mins = Math.max(0, Number(row.minutesHs30Finales ?? Math.round((row.heuresHs30 || 0) * 60)));
+                                            const hs50Mins = Math.max(0, Number(row.minutesHs50Finales ?? Math.round((row.heuresHs50 || 0) * 60)));
+                                            const absenceMins = Math.max(0, Number(row.minutesAbsenceFinale ?? Math.round((row.heuresAbsenceRetenues || 0) * 60)));
+                                            const signedDuration = (mins) => `${mins < 0 ? '−' : mins > 0 ? '+' : ''}${formatHeuresMinutes(Math.abs(mins) / 60)}`;
                                             return (
-                                                <Tr key={row.idEmploye || row.matricule}>
+                                                <Tr key={row.idEmploye || row.matricule} className={soldeMins < 0 ? 'border-l-[3px] border-l-[var(--color-danger-500)] bg-[var(--color-danger-500)]/[0.025]' : soldeMins > 0 ? 'border-l-[3px] border-l-[var(--color-success-500)] bg-[var(--color-success-500)]/[0.025]' : 'border-l-[3px] border-l-[var(--color-border-subtle)]'}>
                                                     <Td className="w-[190px] max-w-[210px]">
                                                         <div className="font-semibold text-sm text-[var(--color-fg)] truncate" title={`${row.nom} ${row.prenom}`}>
                                                             <button
@@ -1038,174 +1009,41 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             )}
                                                         </div>
                                                     </Td>
-                                                    <Td className="text-center font-sans tabular-nums text-sm">
-                                                        <div className="font-semibold">{presents != null && presents > 0 ? `${presents}j` : presents === 0 ? '0j' : '—'}</div>
-                                                        {((row.nbJoursConge || 0) > 0 || (row.nbJoursFerieChome || 0) > 0) && (
-                                                            <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5 font-sans">
-                                                                {(row.nbJoursConge || 0) > 0 && (
-                                                                    <span className="text-[11px] px-1 py-0.2 rounded-none bg-[var(--color-info-500)]/15 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-medium" title={`${row.nbJoursConge}j de congé payé`}>
-                                                                        +{row.nbJoursConge}j congé
-                                                                    </span>
-                                                                )}
-                                                                {(row.nbJoursFerieChome || 0) > 0 && (
-                                                                    <span className="text-[11px] px-1 py-0.2 rounded-none bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium" title={`${row.nbJoursFerieChome}j férié chômé`}>
-                                                                        +{row.nbJoursFerieChome}j férié
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </Td>
-                                                    <Td className="text-center font-sans tabular-nums text-sm font-semibold">
-                                                        {row.totalHeuresTravaillees != null ? (
-                                                            <div>
-                                                                <div>{formatHeuresMinutes(row.totalHeuresTravaillees)}</div>
-                                                                <div className="attendance-duration-secondary">({formatHeuresDecimal(row.totalHeuresTravaillees)})</div>
-                                                            </div>
-                                                        ) : '—'}
-                                                    </Td>
                                                     <Td className="text-center">
-                                                        {hs30Finales > 0 ? (
-                                                            <span className="attendance-overtime inline-block attendance-duration text-sm font-bold px-1.5 py-0.5" title="HS 30 % après rapprochement de période">
-                                                                {formatHeuresMinutes(hs30Finales)}
-                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(hs30Finales)})</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                        )}
+                                                        <button type="button" onClick={() => setSelectedEmployeForSolde(row)}
+                                                            className={`inline-flex flex-col items-center min-w-[90px] px-2.5 py-1.5 text-base font-bold tabular-nums border hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] ${soldeMins < 0 ? 'border-[var(--color-danger-500)]/25 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : soldeMins > 0 ? 'border-[var(--color-success-500)]/25 bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : 'border-[var(--color-border-subtle)] text-[var(--color-fg)]'}`}
+                                                            aria-label={`Solde final de ${row.nom} ${row.prenom} : ${signedDuration(soldeMins)}. Voir le calcul`}>
+                                                            <span>{signedDuration(soldeMins)}</span>
+                                                            <span className="text-[11px] font-normal text-[var(--color-fg-muted)]">{soldeMins < 0 ? 'Déficit' : soldeMins > 0 ? 'Excédent' : 'Équilibré'}</span>
+                                                        </button>
                                                     </Td>
-                                                    <Td className="text-center">
-                                                        {hs50Finales > 0 ? (
-                                                            <span className="attendance-overtime inline-block attendance-duration text-sm font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(hs50Finales)}`}>
-                                                                {formatHeuresMinutes(hs50Finales)}
-                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(hs50Finales)})</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                        )}
+                                                    <Td className="text-xs leading-5 text-[var(--color-fg-muted)]">
+                                                        <span className="block">Déficit {deficitMins ? `−${formatHeuresMinutes(deficitMins / 60)}` : '—'}</span>
+                                                        <span className="block">Excédents {excedentMins ? `+${formatHeuresMinutes(excedentMins / 60)}` : '—'}</span>
+                                                        {ajustementMins !== 0 && <span className="block">Ajustement {signedDuration(ajustementMins)}</span>}
                                                     </Td>
-                                                    <Td className="text-center">
-                                                        <span className="attendance-info inline-block attendance-duration text-sm font-bold px-1.5 py-0.5">
-                                                            {formatHeuresMinutes(heuresQualifiees.nuit)}
-                                                            <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.nuit)})</span>
-                                                        </span>
+                                                    <Td className="text-xs leading-5">
+                                                        {absenceMins > 0 && <span className="block font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]">Retenue −{formatHeuresMinutes(absenceMins / 60)}</span>}
+                                                        {hs30Mins > 0 && <span className="block font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">HS 30 % +{formatHeuresMinutes(hs30Mins / 60)}</span>}
+                                                        {hs50Mins > 0 && <span className="block font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">HS 50 % +{formatHeuresMinutes(hs50Mins / 60)}</span>}
+                                                        {absenceMins === 0 && hs30Mins === 0 && hs50Mins === 0 && <span className="text-[var(--color-fg-muted)]">Aucun effet horaire</span>}
                                                     </Td>
-                                                    <Td className="text-center font-sans tabular-nums text-sm">
-                                                        {formatHeuresMinutes(heuresQualifiees.dimanche)}
-                                                        <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.dimanche)})</span>
-                                                    </Td>
-                                                    <Td className="text-center font-sans tabular-nums text-sm">
-                                                        {formatHeuresMinutes(heuresQualifiees.ferie)}
-                                                        <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.ferie)})</span>
-                                                    </Td>
-                                                    {/* Total Indemnités regroupé */}
-                                                    <Td className="attendance-allowance text-center attendance-duration text-sm">
-                                                        {totalIndRow > 0 ? (
-                                                            <button type="button" className="flex flex-col items-center w-full hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]" onClick={() => setSelectedEmployeForDetail(row)} aria-label={`Voir le détail des indemnités de ${row.nom} ${row.prenom}`}>
-                                                                <span className="font-bold">{formatMonnaie(totalIndRow)}</span>
-                                                                <span className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                                                    {allowanceEntries.map(([code]) => code).join(' · ')}
-                                                                </span>
-                                                                {fixedEntries.length > 0 && <span className="text-[11px] text-[var(--color-brand-600)] mt-0.5">Fixe mensuel {fixedEstimated ? 'estimé' : 'validé'}</span>}
-                                                            </button>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                        )}
-                                                    </Td>
-                                                    {/* Retards (Rouge) */}
-                                                    <Td className="text-center">
-                                                        {(row.totalMinutesRetard || 0) > 0 ? (
-                                                            <span
-                                                                className="attendance-retention inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
-                                                                title={`Retards constatés (matin et après-midi) : ${formatHeuresDecimal(row.totalMinutesRetard / 60)} (${formatHeuresMinutes(row.totalMinutesRetard / 60)})`}
-                                                            >
-                                                                {formatHeuresMinutes(row.totalMinutesRetard / 60)}
-                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.totalMinutesRetard / 60)})</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                        )}
-                                                    </Td>
-                                                    {/* Colonnes d'audit conditionnelles */}
-                                                    {showAuditColumns && (
-                                                        <>
-                                                            {/* Surplus brut */}
-                                                            <Td className="text-center">
-                                                                {(row.surplusBrut || 0) > 0 ? (
-                                                                    <span
-                                                                className="attendance-info inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
-                                                                        title={`Heures en plus sur la journée : +${formatHeuresMinutes(row.surplusBrut)} (+${formatHeuresDecimal(row.surplusBrut)})`}
-                                                                    >
-                                                                        +{formatHeuresMinutes(row.surplusBrut)}
-                                                                        <span className="attendance-duration-secondary block">(+{formatHeuresDecimal(row.surplusBrut)})</span>
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                                )}
-                                                            </Td>
-                                                            {/* Compensé */}
-                                                            <Td className="text-center">
-                                                                {(row.retardCompense || 0) > 0 ? (
-                                                                    <span
-                                                                className="attendance-compensation inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
-                                                                        title={`Heures manquantes comblées par les surplus intra-semaine : -${formatHeuresDecimal(row.retardCompense)} (-${formatHeuresMinutes(row.retardCompense)})`}
-                                                                    >
-                                                                        -{formatHeuresMinutes(row.retardCompense)}
-                                                                        <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(row.retardCompense)})</span>
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                                )}
-                                                            </Td>
-                                                        </>
-                                                    )}
-                                                    {/* Retenue Paie (Net) */}
-                                                    <Td className="text-center">
-                                                        {absenceFinale > 0 ? (
-                                                            <span
-                                                                className="attendance-retention inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
-                                                                title={`Absence horaire finale hors congés : -${formatHeuresDecimal(absenceFinale)} (-${formatHeuresMinutes(absenceFinale)})`}
-                                                            >
-                                                                -{formatHeuresMinutes(absenceFinale)}
-                                                                <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(absenceFinale)})</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                        )}
-                                                    </Td>
-                                                    {/* Absences (Jours) */}
-                                                    <Td className="text-center">
-                                                        {(row.nbJoursAbsence || 0) > 0 ? (
-                                                            <span
-                                                                className="inline-block font-sans tabular-nums text-sm text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold bg-[var(--color-danger-500)]/10 px-1.5 py-0.5 border border-[var(--color-danger-500)]/20 cursor-help"
-                                                                title={`Absence non justifiée : ${row.nbJoursAbsence} jour(s)`}
-                                                            >
-                                                                {row.nbJoursAbsence}j
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
-                                                        )}
+                                                    <Td className="text-xs leading-5 text-[var(--color-fg-muted)]">
+                                                        {(row.nbJoursConge || 0) > 0 && <span className="block">Congés : {row.nbJoursConge} j</span>}
+                                                        {(row.nbJoursAbsence || 0) > 0 && <span className="block">Absences : {row.nbJoursAbsence} j</span>}
+                                                        {(row.totalMinutesRetard || 0) > 0 && <span className="block" title="Retards constatés, déjà pris en compte dans le calcul du solde">Retards : {formatHeuresMinutes(row.totalMinutesRetard / 60)}</span>}
+                                                        {totalIndRow > 0 && <span className="block">Indemnités : {formatMonnaie(totalIndRow)}</span>}
+                                                        {!row.nbJoursConge && !row.nbJoursAbsence && !row.totalMinutesRetard && totalIndRow === 0 && '—'}
                                                     </Td>
                                                     {/* Actions : Voir détail & Ajuster */}
                                                     <Td className="text-center">
-                                                        <div className="flex items-center justify-center gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSelectedEmployeForSolde(row)}
-                                                                className="w-7 h-7 inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
-                                                                title="Voir le solde horaire de période et les ajustements"
-                                                                aria-label={`Voir le solde horaire de période de ${row.prenom || ''} ${row.nom || ''}`.trim()}
-                                                            >
-                                                                <Scale size={13} />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSelectedEmployeForDetail(row)}
-                                                                className="w-7 h-7 inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
-                                                                title="Voir le détail des pointages & la compensation hebdomadaire"
-                                                                aria-label={`Voir le détail des pointages de ${row.prenom || ''} ${row.nom || ''}`.trim()}
-                                                            >
-                                                                <Eye size={13} />
-                                                            </button>
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <Button type="button" variant="outline" size="xs" iconLeft={<Scale size={13} />} onClick={() => setSelectedEmployeForSolde(row)} aria-label={`Voir le solde horaire de période de ${row.prenom || ''} ${row.nom || ''}`.trim()}>
+                                                                Solde
+                                                            </Button>
+                                                            <Button type="button" variant="outline" size="xs" iconLeft={<Eye size={13} />} onClick={() => setSelectedEmployeForDetail(row)} aria-label={`Voir le détail des pointages de ${row.prenom || ''} ${row.nom || ''}`.trim()}>
+                                                                Détail
+                                                            </Button>
                                                             {isDaf && (
                                                                 <button type="button" disabled={isPeriodLocked}
                                                                     onClick={() => navigate(`/pointages?tab=saisie-employe&periode=${selectedPeriode}&employe=${row.idEmploye}`)}

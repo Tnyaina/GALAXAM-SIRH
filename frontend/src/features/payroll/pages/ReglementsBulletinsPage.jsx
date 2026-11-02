@@ -5,6 +5,7 @@ import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Input, { Checkbox, Textarea } from '@/components/ui/forms/Input';
 import Alert from '@/components/ui/feedback/Alert';
+import InfoDisclosure from '@/components/ui/feedback/InfoDisclosure';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/data-display/Card';
@@ -142,7 +143,7 @@ export default function ReglementsBulletinsPage() {
             <StatCard title="Reste à payer" value={formatMoneyAr(total - paid)} subtext="Inclut les virements non enregistrés" color="brand" />
         </div>
         <Card shadow="none"><CardHeader><CardTitle size="sm">Bulletins individuels</CardTitle></CardHeader><CardBody className="space-y-3">
-            {canWrite && <Alert type="info" message="Pour enregistrer un salaire déjà versé par virement, chèque, espèces ou mobile money, ouvrez « Enregistrer un paiement » sur le bulletin. Les cases de sélection servent uniquement à préparer un fichier de virements bancaires." />}
+            {canWrite && <InfoDisclosure label="Comment enregistrer un paiement ?" message="Pour enregistrer un salaire déjà versé par virement, chèque, espèces ou mobile money, ouvrez « Enregistrer un paiement » sur le bulletin. Les cases de sélection servent uniquement à préparer un fichier de virements bancaires." />}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <Input label="Rechercher" value={query} onChange={e => { setQuery(e.target.value); setCurrentPage(1); }} placeholder="Nom, matricule ou référence" containerClassName="w-full sm:max-w-sm" />
                 {canWrite && <Button disabled={!selectedEligible.length || busy} onClick={createLot}>Préparer un lot de virements ({selectedEligible.length})</Button>}

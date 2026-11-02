@@ -409,7 +409,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 disabled={isReadOnly}
                                 value={formData.libelle}
                                 onChange={e => upd('libelle', e.target.value)}
-                                placeholder="Ex : Loi de Finances 2027 (Loi n°2026-XXX) — Barème IRSA 6 tranches"
+                                placeholder="Ex. Loi de finances — barème IRSA"
                                 hint="Texte de référence affiché sur les documents administratifs"
                             />
                         </div>

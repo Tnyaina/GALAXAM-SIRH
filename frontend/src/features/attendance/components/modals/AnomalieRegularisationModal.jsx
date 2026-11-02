@@ -587,12 +587,12 @@ export default function AnomalieRegularisationModal({
                         <label className="block font-semibold" htmlFor="minutes-correction-temps">Correction en minutes</label>
                         <input id="minutes-correction-temps" type="number" step="1" min="-480" max="480"
                             value={minutesCorrection} onChange={(event) => setMinutesCorrection(event.target.value)}
-                            placeholder="Ex. -7" className="w-40 p-2 border border-[var(--color-border)] bg-[var(--color-surface)]" />
-                        <p className="text-[var(--color-fg-muted)]">Valeur négative : temps retiré. Zéro : supprimer la correction.</p>
+                            placeholder="Ex. -7 ou +7" className="w-40 p-2 border border-[var(--color-border)] bg-[var(--color-surface)]" />
+                        <p className="text-[var(--color-fg-muted)]">− retire des minutes, + en ajoute ; 0 efface la correction.</p>
                         <label className="block font-semibold" htmlFor="motif-correction-temps">Motif *</label>
                         <textarea id="motif-correction-temps" value={motifAjustement}
                             onChange={(event) => setMotifAjustement(event.target.value)} rows={2}
-                            placeholder="Ex. Sortie retenue à 16:56" className="w-full p-2 border border-[var(--color-border)] bg-[var(--color-surface)]" />
+                            placeholder="Ex. Ajustement du temps" className="w-full p-2 border border-[var(--color-border)] bg-[var(--color-surface)]" />
                     </div>
                 )}
                 {activeTab === 'HEURES' && (
@@ -720,7 +720,7 @@ export default function AnomalieRegularisationModal({
                                         {
                                             value: 'ABSENCE_AUTORISEE_NON_REMUNEREE',
                                             label: 'Absence autorisée',
-                                            description: 'Non rémunérée · congé intact'
+                                            description: 'Retenue horaire · accord enregistré · congé intact'
                                         },
                                         {
                                             value: 'CONGE_PAYE',
@@ -730,7 +730,7 @@ export default function AnomalieRegularisationModal({
                                         {
                                             value: 'ABSENCE_INJUSTIFIEE',
                                             label: 'Absence injustifiée',
-                                            description: 'Retenue horaire · congé intact'
+                                            description: 'Retenue horaire · sans accord · congé intact'
                                         }
                                     ].map((opt) => {
                                         const isSelected = optionAutreDemiJournee === opt.value;
@@ -866,7 +866,7 @@ export default function AnomalieRegularisationModal({
                                     {
                                         value: 'PERMISSION_EXCEPTIONNELLE',
                                         label: 'Permission',
-                                        description: 'Événement familial, 10 j/an · salaire maintenu'
+                                        description: 'Événement familial · décompté du quota légal, selon règles applicables'
                                     },
                                     {
                                         value: 'ABSENCE_DEDUITE',
@@ -1070,6 +1070,7 @@ export default function AnomalieRegularisationModal({
                                 <label className="block text-xs font-bold text-[var(--color-fg)]">
                                     Qualification de l&apos;absence
                                 </label>
+                                <p className="text-xs text-[var(--color-fg-muted)]">Les deux qualifications entraînent une retenue horaire. Choisissez selon l&apos;accord ou le justificatif disponible, puis notez sa référence dans le motif.</p>
                                 <div className="grid grid-cols-2 gap-2">
                                     <label className="flex items-center gap-2 p-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-xs cursor-pointer">
                                         <input
@@ -1080,7 +1081,7 @@ export default function AnomalieRegularisationModal({
                                             onChange={() => setStatutAbsenceDeduite('ABSENCE_JUSTIFIEE')}
                                             className="w-3.5 h-3.5 accent-[var(--color-brand-600)]"
                                         />
-                                        <span>Absence Justifiée</span>
+                                        <span>Justifiée / autorisée</span>
                                     </label>
                                     <label className="flex items-center gap-2 p-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-xs cursor-pointer">
                                         <input
@@ -1091,7 +1092,7 @@ export default function AnomalieRegularisationModal({
                                             onChange={() => setStatutAbsenceDeduite('ABSENCE_NON_JUSTIFIEE')}
                                             className="w-3.5 h-3.5 accent-[var(--color-brand-600)]"
                                         />
-                                        <span>Absence Non Justifiée</span>
+                                        <span>Non justifiée</span>
                                     </label>
                                 </div>
                             </div>
@@ -1130,7 +1131,7 @@ export default function AnomalieRegularisationModal({
                                     setMotifAjustement(e.target.value);
                                 }}
                                 rows={2}
-                                placeholder="Ex : justificatif médical reçu, permission accordée..."
+                                placeholder="Ex. Certificat médical remis à RH"
                                 className="w-full text-xs p-2.5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)] placeholder:text-[var(--color-fg-muted)]"
                             />
                         </div>

@@ -8,7 +8,7 @@ export default function PointageCorrectionBadge({ minutes, sortieBadge }) {
         : null;
     const retained = adjusted == null ? '' : `${String(Math.floor(adjusted / 60)).padStart(2, '0')}:${String(adjusted % 60).padStart(2, '0')}`;
     const detail = retained ? `Sortie badgée ${match[0]} · sortie retenue ${retained}` : 'Temps corrigé';
-    return <span className="inline-block text-[10px] font-semibold text-[var(--color-brand-700)] bg-[var(--color-brand-50)] px-1.5 py-0.5" title={detail}>
+    return <span className="inline-flex items-center whitespace-nowrap border border-[var(--color-brand-200)] bg-[var(--color-brand-50)] px-2 py-1 text-xs font-semibold leading-none text-[var(--color-brand-700)]" title={detail}>
         Corrigé {sign}{Math.abs(value)} min
     </span>;
 }
