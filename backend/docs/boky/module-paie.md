@@ -297,7 +297,7 @@ L'impôt est calculé par `PayrollTaxCalculations` sur l'assiette imposable nett
 #### RG-PAIE-07 : Priorité et quotité d'imputation des acomptes et avances
 Les retenues de trésorerie sur le salaire net s'exécutent selon un ordre de priorité strict :
 1. **Acompte de quinzaine** : priorité absolue sur le net disponible (créance sur salaire déjà acquis).
-2. **Avance spéciale / exceptionnelle** : prélevée sur le net restant après acompte, dans la limite de la quotité saisissable légale configurée. Le montant prélevé est débité de `paie_avance_acompte.solde_restant` et tracé dans `paie_mouvement_imputation`.
+2. **Avance spéciale / exceptionnelle** : prélevée après l'acompte, à hauteur du solde restant dû et du net encore disponible. Aucun plafond de 10 % n'est appliqué. Le montant prélevé est débité de `paie_avance_acompte.solde_restant` et tracé dans `paie_mouvement_imputation`.
 
 #### RG-PAIE-08 : Sécurisation des règlements et preuve binaire (ancien identifiant SP84)
 Tout paiement de bulletin mensuel confirmé exige une pièce justificative binaire authentique ($\le 5\text{ Mo}$, formats PDF/PNG/JPEG) contrôlée par signature MIME et stockée dans la même transaction. Le reste à payer est calculé dynamiquement sous verrou pessimiste du bulletin (`FOR UPDATE`) :
@@ -350,9 +350,11 @@ L’acompte de quinzaine correspond à une partie du salaire déjà acquis et ve
 
 ### Avance exceptionnelle
 
-L’avance exceptionnelle est un mouvement de catégorie `AVANCE` avec suivi du solde. Son parcours est similaire à l’acompte, mais le montant restant est recouvré au fil des bulletins. La demande contient salarié, période, type, montant, motif et mode de règlement. L’approbation seule ne permet pas une retenue : un utilisateur autorisé consigne ensuite date réelle, mode actif et référence du versement. Cette confirmation enregistre un paiement exécuté ; elle ne lance pas un virement bancaire.
+L’avance exceptionnelle est un mouvement de catégorie `AVANCE` avec suivi du solde. Son parcours est similaire à l’acompte, mais le montant restant est recouvré au fil des bulletins. La demande contient salarié, période, type, montant demandé, motif et mode de règlement. Dans le workflow actuel, l’approbation accepte ou rejette la demande sans modifier son montant ; un utilisateur autorisé consigne ensuite date réelle, mode actif et référence du versement. Cette confirmation enregistre un paiement exécuté ; elle ne lance pas un virement bancaire.
 
-Au calcul, les acomptes sont imputés avant les avances spéciales. Le plafond de retenue d’avance est résolu depuis la configuration légale datée et appliqué au net après acompte. Le montant retenu est inscrit dans `paie_mouvement_imputation`, ajouté à `montant_impute` et soustrait de `solde_restant`. Le reliquat est proposé sur les périodes paie éligibles suivantes jusqu’au solde nul. L’écran suit les états « à approuver », « à verser », « versement historique à vérifier », « versé à imputer », « remboursement en cours », « soldé », « rejeté » et « annulé ».
+Au calcul, les acomptes sont imputés avant les avances spéciales. Aucun plafond en pourcentage n'est appliqué à l'avance : la retenue est limitée au plus petit montant entre le solde restant dû et le net disponible après l'acompte et les avances précédentes du bulletin. Le montant retenu est inscrit dans `paie_mouvement_imputation`, ajouté à `montant_impute` et soustrait de `solde_restant`. Le reliquat est proposé sur les périodes paie éligibles suivantes jusqu’au solde nul. L’écran suit les états « à approuver », « à verser », « versement historique à vérifier », « versé à imputer », « remboursement en cours », « soldé », « rejeté » et « annulé ».
+
+Le montant saisi est aujourd'hui le montant demandé et, après approbation et confirmation du versement, le principal à rembourser. Si la DAF accorde un montant différent de celui demandé, le workflow actuel ne permet pas de le distinguer : il faut corriger la demande avant approbation ou créer une évolution séparant montant demandé, montant accordé et montant effectivement versé.
 
 Un dossier déjà versé ne peut pas être annulé par la commande ordinaire. Les dossiers historiques dont les retenues n’ont pas de preuve fiable de versement sont marqués à vérifier. Aucun champ d’échéancier personnalisé d’avance n’est disponible dans le formulaire actuel.
 

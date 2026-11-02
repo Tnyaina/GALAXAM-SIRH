@@ -199,7 +199,7 @@ public class PayrollCalculationTargetedTest {
         acompte.setSoldeRestant(new BigDecimal("150000.00"));
         acompte.setStatut("APPROUVE");
 
-        // Avance spéciale de 50 000 Ar (respecte le plafond légal de 10% du salaire net)
+        // Avance spéciale de 50 000 Ar, remboursée selon le net disponible.
         PaieAvanceAcompte avance = new PaieAvanceAcompte();
         avance.setIdAvance(2);
         avance.setIdEmploye(101);

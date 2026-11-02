@@ -904,9 +904,6 @@ public class PayrollExecutionEngine {
 
         BigDecimal netApresAcompte = netAvantTresorerie.subtract(totalAcomptesQuinzaine).max(BigDecimal.ZERO);
 
-        // Plafond des avances employeur résolu dans la configuration légale de la période.
-        BigDecimal plafondDixiemeAvances = MoneyRoundingPolicy.amount(netApresAcompte.multiply(input.getPlafondAvanceEmployeur()));
-
         if (input.getAvancesAcomptes() != null) {
             for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
                 if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
@@ -920,7 +917,9 @@ public class PayrollExecutionEngine {
                     String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
                             ? a.getLibelleRubriqueCalcul() : "Avance exceptionnelle sur salaire";
 
-                    BigDecimal capaciteRestanteAvance = plafondDixiemeAvances.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
+                    // Avance exceptionnelle : retenir le montant dû sans plafond en pourcentage,
+                    // dans la limite du net encore disponible sur ce bulletin.
+                    BigDecimal capaciteRestanteAvance = netApresAcompte.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
                     BigDecimal mntAvanceRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(capaciteRestanteAvance));
 
                     if (mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {

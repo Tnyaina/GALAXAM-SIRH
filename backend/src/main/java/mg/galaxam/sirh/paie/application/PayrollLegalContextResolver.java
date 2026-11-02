@@ -37,8 +37,6 @@ public class PayrollLegalContextResolver {
         int configId = config.getIdConfigLegale();
         if (config.getSmeNational() == null || config.getSmeNational().signum() <= 0)
             throw PayrollConfigurationGuard.missing("SME_NATIONAL", input.getIdEmploye(), targetDate.toString());
-        if (config.getPlafondAvanceEmployeurPct() == null)
-            throw PayrollConfigurationGuard.missing("PLAFOND_AVANCE_EMPLOYEUR", input.getIdEmploye(), targetDate.toString());
         if (config.getQuotiteCessiblePct() == null)
             throw PayrollConfigurationGuard.missing("QUOTITE_CESSIBLE", input.getIdEmploye(), targetDate.toString());
         if (input.isSoumisIrsa() && (config.getMinimumPerceptionIrsa() == null
@@ -48,7 +46,6 @@ public class PayrollLegalContextResolver {
         if (config.getPlafondCotisationMensuel() == null || config.getPlafondCotisationMensuel().signum() <= 0)
             throw PayrollConfigurationGuard.missing("PLAFOND_COTISATION_MENSUEL", input.getIdEmploye(), targetDate.toString());
         input.setPlafondCotisationMensuel(config.getPlafondCotisationMensuel());
-        input.setPlafondAvanceEmployeur(config.getPlafondAvanceEmployeurPct().movePointLeft(2));
         input.setQuotiteCessible(config.getQuotiteCessiblePct().movePointLeft(2));
         input.setMinimumPerceptionIrsa(config.getMinimumPerceptionIrsa());
         input.setDeductionParEnfant(config.getDeductionChargeFamille());

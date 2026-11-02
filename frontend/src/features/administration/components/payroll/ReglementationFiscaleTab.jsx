@@ -85,7 +85,7 @@ const MAJORATION_ORDER = { 'HS_30': 1, 'HS_50': 2, 'NUIT': 3, 'DIMANCHE': 4, 'FE
 
 const EMPTY_FORM = {
     codeVersion: '', libelle: '', dateDebut: '', dateFin: '',
-    smeNational: '', smeAgricole: '', plafondCotisationNbSme: '', plafondAvanceEmployeurPct: '10', quotiteCessiblePct: '33.333333',
+    smeNational: '', smeAgricole: '', plafondCotisationNbSme: '', quotiteCessiblePct: '33.333333',
     seuilExonerationIrsa: '', minimumPerceptionIrsa: '', deductionChargeFamille: '',
     arrondiBaseIrsa: '',
     dureeHebdoLegale: '', diviseurMensuelHeures: '', seuilHsTranche1: '', plafondHsHebdo: '',
@@ -487,9 +487,12 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 </div>
                                 <div id="exercice-retenues" className="sm:col-span-2 border-t border-[var(--color-border-subtle)] pt-3 scroll-mt-24">
                                     <p className="text-sm font-semibold text-[var(--color-fg)] mb-2">Retenues sur salaire</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <Input label="Avances employeur (%)" type="number" min="0" max="100" step="0.000001" required={!isReadOnly} disabled={isReadOnly} value={formData.plafondAvanceEmployeurPct} onChange={e => upd('plafondAvanceEmployeurPct', e.target.value)} hint="Plafond applicable aux avances employeur." />
-                                        <Input label="Quotité cessible (%)" type="number" min="0" max="100" step="0.000001" required={!isReadOnly} disabled={isReadOnly} value={formData.quotiteCessiblePct} onChange={e => upd('quotiteCessiblePct', e.target.value)} hint="Plafond applicable aux prêts et saisies." />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                                        <Input label="Quotité cessible (%)" type="number" min="0" max="100" step="0.000001" required={!isReadOnly} disabled={isReadOnly} value={formData.quotiteCessiblePct} onChange={e => upd('quotiteCessiblePct', e.target.value)} hint="Paramètre distinct des avances exceptionnelles." />
+                                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">
+                                            <p className="font-semibold text-[var(--color-fg)]">Avances exceptionnelles</p>
+                                            <p className="mt-1">Aucun plafond en pourcentage. La paie retient le solde dû dans la limite du net disponible après les acomptes.</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -803,7 +806,6 @@ export default function ReglementationFiscaleTab() {
             smeNational: String(activeConfig.smeNational ?? ''),
             smeAgricole: String(activeConfig.smeAgricole ?? ''),
             plafondCotisationNbSme: String(activeConfig.plafondCotisationNbSme ?? ''),
-            plafondAvanceEmployeurPct: String(activeConfig.plafondAvanceEmployeurPct ?? '10'),
             quotiteCessiblePct: String(activeConfig.quotiteCessiblePct ?? '33.333333'),
             seuilExonerationIrsa: String(activeConfig.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(activeConfig.minimumPerceptionIrsa ?? ''),
@@ -838,7 +840,6 @@ export default function ReglementationFiscaleTab() {
             smeNational: String(config.smeNational ?? ''),
             smeAgricole: String(config.smeAgricole ?? ''),
             plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? ''),
-            plafondAvanceEmployeurPct: String(config.plafondAvanceEmployeurPct ?? '10'),
             quotiteCessiblePct: String(config.quotiteCessiblePct ?? '33.333333'),
             seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
@@ -896,7 +897,6 @@ export default function ReglementationFiscaleTab() {
             smeNational: String(config.smeNational ?? ''),
             smeAgricole: String(config.smeAgricole ?? ''),
             plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? ''),
-            plafondAvanceEmployeurPct: String(config.plafondAvanceEmployeurPct ?? '10'),
             quotiteCessiblePct: String(config.quotiteCessiblePct ?? '33.333333'),
             seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
@@ -946,7 +946,6 @@ export default function ReglementationFiscaleTab() {
         smeNational: parseSafe(formData.smeNational),
         smeAgricole: parseSafe(formData.smeAgricole),
         plafondCotisationNbSme: parseSafe(formData.plafondCotisationNbSme, 8),
-        plafondAvanceEmployeurPct: parseSafe(formData.plafondAvanceEmployeurPct, 10),
         quotiteCessiblePct: parseSafe(formData.quotiteCessiblePct, 33.333333),
         seuilExonerationIrsa: parseSafe(formData.seuilExonerationIrsa),
         minimumPerceptionIrsa: parseSafe(formData.minimumPerceptionIrsa),
@@ -1079,10 +1078,10 @@ export default function ReglementationFiscaleTab() {
                         </div>}
 
                         {activeSection === 'retenues' && <div>
-                            <SectionTitle icon={Scale} label="Plafonds de retenues" color="var(--color-brand-600)" />
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                <KpiField label="Avances employeur" value={`${fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%`} sub="Plafond de remboursement" />
-                                <KpiField label="Quotité cessible" value={`${fmtNb(activeConfig.quotiteCessiblePct, 4)}%`} sub="Prêts et saisies" />
+                            <SectionTitle icon={Scale} label="Retenues sur salaire" color="var(--color-brand-600)" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <KpiField label="Avances exceptionnelles" value="Sans plafond en %" sub="Solde dû, limité au net disponible après acomptes" />
+                                <KpiField label="Quotité cessible" value={`${fmtNb(activeConfig.quotiteCessiblePct, 4)}%`} sub="Paramètre distinct des avances" />
                             </div>
                         </div>}
 
@@ -1279,7 +1278,7 @@ export default function ReglementationFiscaleTab() {
                                 <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
                                 valorisation selon le TCONGE individuel
                             </p>
-                            <p>• <strong>Retenues sur salaire</strong> : avance employeur&nbsp;<strong>{fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%</strong>, quotité cessible&nbsp;<strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong>.</p>
+                            <p>• <strong>Retenues sur salaire</strong> : avances exceptionnelles sans plafond en pourcentage, limitées au solde dû et au net disponible après acomptes. La quotité cessible de <strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong> est un paramètre séparé.</p>
                         </>
                     ) : (
                         <p className=" text-[var(--color-warning-600)]">Aucun exercice fiscal actif — initialisez le premier exercice ci-dessous.</p>

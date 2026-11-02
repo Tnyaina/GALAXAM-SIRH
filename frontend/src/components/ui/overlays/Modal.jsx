@@ -18,6 +18,7 @@ export default function Modal({
     children,
     footer,
     className = '',
+    bodyClassName = '',
     closeOnBackdrop = true,
     closeOnEscape = true,
     isDirty = false,
@@ -107,7 +108,7 @@ export default function Modal({
                     </div>
 
                     {/* Body */}
-                    <div className="min-h-0 flex-1 p-4 sm:p-5 overflow-y-auto space-y-3.5">
+                    <div className={`min-h-0 flex-1 p-4 sm:p-5 overflow-y-auto space-y-3.5 ${bodyClassName}`}>
                         {children}
                     </div>
 

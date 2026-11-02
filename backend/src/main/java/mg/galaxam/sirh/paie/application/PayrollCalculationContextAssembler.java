@@ -219,8 +219,14 @@ final class PayrollCalculationContextAssembler {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
-                    long rawHs30Minutes = PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_30"));
-                    long rawHs50Minutes = PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50"));
+                    // Utiliser les totaux hebdomadaires figés en minutes (source fiable),
+                    // avec repli sur le champ legacy en heures décimales pour les anciens snapshots.
+                    Integer rawHs30Hebdo = (Integer) rs.getObject("minutes_hs30_hebdo");
+                    Integer rawHs50Hebdo = (Integer) rs.getObject("minutes_hs50_hebdo");
+                    long rawHs30Minutes = rawHs30Hebdo != null ? rawHs30Hebdo
+                            : PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_30"));
+                    long rawHs50Minutes = rawHs50Hebdo != null ? rawHs50Hebdo
+                            : PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50"));
                     long hs50Minutes = rawHs50Minutes;
                     long hs30Minutes = rawHs30Minutes;
                     long absenceMinutes = PayrollAttendanceInput.hoursToMinutes(hAbs);

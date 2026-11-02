@@ -30,7 +30,6 @@ public class PaieConfigLegaleRequest {
     private BigDecimal smeNational;
     private BigDecimal smeAgricole;
     private BigDecimal plafondCotisationNbSme;
-    private BigDecimal plafondAvanceEmployeurPct;
     private BigDecimal quotiteCessiblePct;
 
     // Règles Fiscales IRSA
@@ -71,8 +70,6 @@ public class PaieConfigLegaleRequest {
     public void setSmeAgricole(BigDecimal v) { this.smeAgricole = v; }
     public BigDecimal getPlafondCotisationNbSme() { return plafondCotisationNbSme; }
     public void setPlafondCotisationNbSme(BigDecimal v) { this.plafondCotisationNbSme = v; }
-    public BigDecimal getPlafondAvanceEmployeurPct() { return plafondAvanceEmployeurPct; }
-    public void setPlafondAvanceEmployeurPct(BigDecimal v) { this.plafondAvanceEmployeurPct = v; }
     public BigDecimal getQuotiteCessiblePct() { return quotiteCessiblePct; }
     public void setQuotiteCessiblePct(BigDecimal v) { this.quotiteCessiblePct = v; }
     public BigDecimal getSeuilExonerationIrsa() { return seuilExonerationIrsa; }

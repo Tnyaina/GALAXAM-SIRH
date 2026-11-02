@@ -31,6 +31,8 @@
   .ui-modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.5rem; }
   .ui-modal-actions > button { flex: 0 0 auto; max-width: 100%; white-space: normal; }
   .ui-modal-actions > button > span { min-width: 0; white-space: normal; }
+  .advance-request-modal #modal-title { font-size: 1.125rem; line-height: 1.35; }
+  .advance-request-modal label { text-transform: none; letter-spacing: normal; }
   @media (max-width: 639px) {
     .ui-dialog-actions > button { width: 100%; }
   }
@@ -202,6 +204,16 @@
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
   }
+  .payroll-variable-table tbody tr.payroll-variable-group {
+    display: block;
+    padding: 0;
+    background: var(--color-bg-subtle);
+  }
+  .payroll-variable-table tbody tr.payroll-variable-group td[role="cell"] {
+    display: block;
+    padding: 0.5rem !important;
+  }
+  .payroll-variable-table tbody tr.payroll-variable-group td[role="cell"]::before { display: none; }
   .payroll-variable-table td[role="cell"] {
     display: block;
     width: auto;

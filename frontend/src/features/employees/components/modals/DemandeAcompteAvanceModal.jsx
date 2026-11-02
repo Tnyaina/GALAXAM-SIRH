@@ -1,25 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import {
-    Banknote,
-    Receipt,
-    Wallet,
-    Calendar,
-    CheckCircle2,
-    AlertCircle,
-    ArrowRight,
-    User,
-    Sparkles,
-    CreditCard,
-    Smartphone,
-    Coins,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
-import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import useUnsavedChanges from '@/hooks/useUnsavedChanges';
@@ -42,13 +28,6 @@ const SUGGESTIONS_MOTIFS = [
     'Scolarité et rentrée',
     'Dépense imprévue du foyer',
 ];
-
-const MODE_ICONS = {
-    VIREMENT: CreditCard,
-    MOBILE_MONEY: Smartphone,
-    ESPECES: Coins,
-    CHEQUE: Receipt,
-};
 
 export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese, onClose, onCreated }) {
     const { periodes, context, selectedPeriodeId, selectPeriode, loading: loadingPeriod, error: periodError } = usePayrollCampaign();
@@ -243,6 +222,19 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
     const isDirty = Boolean((!idEmploye && selectedEmpId) || montant || motif || modeReglement);
     useUnsavedChanges(isDirty);
 
+    const selectedType = types.find(type => type.code === typeCode);
+    const selectedMode = modes.find(mode => mode.code === modeReglement);
+    const beneficiaryName = effectiveEmploye?.nomComplet
+        || [effectiveEmploye?.nom, effectiveEmploye?.prenom].filter(Boolean).join(' ')
+        || (effectiveIdEmploye ? 'Collaborateur sélectionné' : 'Non sélectionné');
+    const footerMessage = !isMontantValide
+        ? 'Saisissez un montant supérieur à 0 Ar.'
+        : !hasMotif
+            ? 'Renseignez un motif pour enregistrer.'
+            : !effectiveIdEmploye
+                ? 'Sélectionnez un collaborateur.'
+                : 'Demande prête à enregistrer.';
+
     return (
         <Modal
             isOpen
@@ -250,19 +242,32 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
             closeOnBackdrop={false}
             isDirty={isDirty}
             title="Demande d’acompte ou d’avance sur salaire"
-            size="2xl"
+            size="full"
+            className="advance-request-modal"
+            bodyClassName="!p-0 !space-y-0"
+            footer={
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-xs text-[var(--color-fg-muted)]">{footerMessage}</span>
+                    <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="outline" size="md" onClick={onClose}>Annuler</Button>
+                        <Button type="submit" form="advance-request-form" size="md" disabled={!canSubmit} loading={submitting}>
+                            {submitting ? 'Enregistrement…' : 'Enregistrer la demande'}
+                        </Button>
+                    </div>
+                </div>
+            }
         >
-            <form onSubmit={submit} className="space-y-4 text-xs">
-                <p className="text-xs text-[var(--color-fg-muted)]">
-                    Saisir une demande d'acompte ou d'avance — La demande sera enregistrée en attente d’approbation dans la campagne de paie sélectionnée.
-                </p>
-                {error && <FormError message={error} />}
-                {periodError && <Alert type="error" message={periodError} />}
-                {typesError && <Alert type="error" message={typesError} />}
+            <form id="advance-request-form" onSubmit={submit} className="grid lg:grid-cols-[minmax(0,2.1fr)_minmax(19rem,1fr)] text-sm">
+                <div className="min-w-0 space-y-6 p-5 sm:p-7">
+                    {(error || periodError || typesError) && (
+                        <div className="space-y-2">
+                            {error && <FormError message={error} />}
+                            {periodError && <Alert type="error" message={periodError} />}
+                            {typesError && <Alert type="error" message={typesError} />}
+                        </div>
+                    )}
 
-                {/* Sélecteur de collaborateur quand la modale est ouverte hors de la fiche employé */}
-                {!idEmploye && (
-                    <div className="space-y-1">
+                    {!idEmploye && (
                         <EmployeSearchSelect
                             required
                             label="Collaborateur bénéficiaire"
@@ -273,250 +278,26 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                             }}
                             placeholder="Rechercher par nom, prénom ou matricule…"
                         />
-                    </div>
-                )}
-
-                {/* 1. Carte collaborateur & repères financiers contextuels */}
-                <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 rounded-none">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-2 mb-2.5">
-                        <div className="flex items-center gap-2">
-                            <span className="w-7 h-7 rounded-none bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] flex items-center justify-center font-bold text-xs">
-                                <User size={14} />
-                            </span>
-                            <div>
-                                <span className="font-bold text-[var(--color-fg)] text-xs">
-                                    {effectiveEmploye?.nomComplet || effectiveEmploye?.nom || (effectiveIdEmploye ? 'Collaborateur sélectionné' : 'Aucun collaborateur sélectionné')}
-                                </span>
-                                {effectiveEmploye?.matricule && (
-                                    <span className="ml-1.5 text-[11px] text-[var(--color-fg-muted)] font-mono">
-                                        #{effectiveEmploye.matricule}
-                                    </span>
-                                )}
-                                {(effectiveEmploye?.fonction || effectiveEmploye?.poste) && (
-                                    <span className="ml-2 text-[11px] text-[var(--color-fg-subtle)]">
-                                        · {effectiveEmploye.fonction || effectiveEmploye.poste}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <Badge variant="outline" size="xs">Dossier Paie</Badge>
-                    </div>
-
-                    {!effectiveIdEmploye ? (
-                        <p className="text-xs text-[var(--color-fg-muted)] py-1">
-                            Sélectionnez un collaborateur ci-dessus pour afficher ses repères financiers (salaire de base, repère 50%, encours).
-                        </p>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                                <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                    {modeCalculPaie === 'JOURNALIER' ? 'Taux contractuel par jour'
-                                        : modeCalculPaie === 'HORAIRE' ? 'Taux contractuel par heure'
-                                            : 'Salaire contractuel de base'}
-                                </span>
-                                <span className="text-xs font-bold text-[var(--color-fg)] font-mono mt-0.5 block">
-                                    {loadingEmpSynthese ? 'Chargement…' : salaireBase > 0 ? formatMoneyAr(salaireBase) : 'Non renseigné'}
-                                </span>
-                            </div>
-                            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                                <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                    {salaireMensuel ? 'Repère quinzaine (50%)' : 'Repère quinzaine'}
-                                </span>
-                                <span className="text-xs font-bold text-[var(--color-brand-700)] font-mono mt-0.5 block">
-                                    {loadingEmpSynthese ? '…' : plafondAcompte > 0 ? formatMoneyAr(plafondAcompte) : 'Selon paie acquise'}
-                                </span>
-                            </div>
-                            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                                <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                    Encours acomptes / avances
-                                </span>
-                                <span className={`text-xs font-bold font-mono mt-0.5 block ${encoursAcomptes > 0 ? 'text-[var(--color-warning-600)]' : 'text-[var(--color-success-600)]'}`}>
-                                    {loadingEmpSynthese ? '…' : formatMoneyAr(encoursAcomptes)}
-                                    {!loadingEmpSynthese && encoursAcomptes === 0 && <span className="ml-1 text-[10px] font-normal text-[var(--color-fg-subtle)]">(Aucun encours)</span>}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* 2. Période de paie ciblée */}
-                <div className="space-y-1">
-                    <SearchSelect
-                        label="Période de paie ciblée"
-                        required
-                        value={selectedPeriodeId || ''}
-                        onChange={value => value && selectPeriode(Number(value))}
-                        options={periodOptions}
-                        placeholder={loadingPeriod ? 'Chargement des périodes…' : 'Sélectionner la période…'}
-                        disabled={loadingPeriod || periodOptions.length === 0}
-                    />
-
-                    {/* Retour visuel basé sur l'état réel et le workflow backend */}
-                    {workflowDenialReason && (
-                        <Alert type="warning" message={`Saisie verrouillée par le workflow de paie : ${workflowDenialReason}`} />
                     )}
 
-                    {activePeriod && !workflowDenialReason && (
-                        <div className="flex items-center gap-1.5 pt-0.5 text-[11px]">
-                            {activePeriod.statutCode === 'VALIDEE' ? (
-                                <span className="inline-flex items-center gap-1 text-[var(--color-brand-700)] font-medium">
-                                    <CheckCircle2 size={12} className="text-[var(--color-brand-600)]" />
-                                    Pointage figé — Période prête pour la saisie des variables et acomptes.
-                                </span>
-                            ) : activePeriod.statutCode === 'EN_COURS' ? (
-                                <span className="inline-flex items-center gap-1 text-[var(--color-fg-muted)] font-medium">
-                                    <Calendar size={12} /> Pointage en cours — Les demandes seront déduites sur ce cycle.
-                                </span>
-                            ) : null}
-                        </div>
-                    )}
-                </div>
-
-                {/* 3. Sélecteur de Type : Alimenté dynamiquement par le référentiel Backend */}
-                <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-[var(--color-fg)]">
-                        Nature de la demande <span className="text-[var(--color-danger-500)]">*</span>
-                    </label>
-
-                    {loadingTypes ? (
-                        <div className="p-3 text-center text-xs text-[var(--color-fg-muted)] border border-dashed border-[var(--color-border-subtle)]">
-                            Chargement des types de demande autorisés…
-                        </div>
-                    ) : types.length === 0 ? (
-                        <Alert type="warning" message="Aucun type d’acompte ou avance actif trouvé dans le référentiel de paie." />
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {types.map((type) => {
-                                const isAcompte = type.categorie === 'ACOMPTE';
-                                const isSelected = typeCode === type.code;
-                                const IconComp = isAcompte ? Wallet : Banknote;
-
-                                return (
-                                    <button
-                                        key={type.code}
-                                        type="button"
-                                        onClick={() => setTypeCode(type.code)}
-                                        className={`p-3 text-left border transition-all rounded-none relative ${isSelected
-                                            ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-500)]/10 ring-1 ring-[var(--color-brand-600)]'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] hover:bg-[var(--color-bg-subtle)]'
-                                            }`}
-                                    >
-                                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`p-1.5 rounded-none ${isSelected ? 'bg-[var(--color-brand-500)]/20 text-[var(--color-brand-700)]' : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'}`}>
-                                                    <IconComp size={15} />
-                                                </span>
-                                                <div>
-                                                    <span className="font-bold text-xs text-[var(--color-fg)] block">
-                                                        {type.libelle}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <Badge variant={isSelected ? 'brand' : 'outline'} size="xs">
-                                                {type.categorie}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                                            {type.description || (isAcompte
-                                                ? 'Versement anticipé pour le travail déjà accompli. Déduit sur le bulletin de la période.'
-                                                : 'Avance exceptionnelle de trésorerie avec modalités de retenue définies en concertation.')}
-                                        </p>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                {/* 4. Montant & Raccourcis Quick-Picks (simples suggestions d'aide à la saisie) */}
-                <div className="space-y-1.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <label className="block text-xs font-semibold text-[var(--color-fg)]">
-                            Montant de la demande <span className="text-[var(--color-danger-500)]">*</span>
-                        </label>
-                        {salaireMensuel && salaireBase > 0 && (
-                            <span className="text-[11px] text-[var(--color-fg-muted)]">
-                                Suggestions rapides (base : {formatMoneyAr(salaireBase)}) :
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                        {quickAmounts.map((q, idx) => (
-                            <button
-                                key={idx}
-                                type="button"
-                                onClick={() => setMontant(String(q.value))}
-                                className={`px-2.5 py-1 text-[11px] font-medium border transition-colors ${numMontant === q.value
-                                    ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] font-bold'
-                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] hover:border-[var(--color-brand-500)]'
-                                    }`}
-                            >
-                                {q.label} {q.sub ? `(${q.sub})` : ''}
-                            </button>
-                        ))}
-                    </div>
-
-                    <MoneyInput
-                        min="1"
-                        required
-                        placeholder="Ex. 100 000"
-                        value={montant}
-                        onValueChange={setMontant}
-                    />
-
-                    {/* Retours indicatifs d'aide visuelle (non bloquants) */}
-                    {isMontantValide && salaireMensuel && salaireBase > 0 && (
-                        <div className="pt-1">
-                            {numMontant <= plafondAcompte ? (
-                                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
-                                    <CheckCircle2 size={13} className="shrink-0" />
-                                    <span>Montant dans le repère standard de la quinzaine (≤ 50 % du salaire).</span>
-                                </div>
-                            ) : numMontant <= salaireBase ? (
-                                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
-                                    <AlertCircle size={13} className="shrink-0" />
-                                    <span>Montant supérieur à 50 % du salaire mensuel. Soumis à accord.</span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-danger-600)] font-medium">
-                                    <AlertCircle size={13} className="shrink-0" />
-                                    <span>Information : le montant dépasse le salaire mensuel de base ({formatMoneyAr(salaireBase)}).</span>
-                                </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="min-w-0">
+                            <SearchSelect
+                                label="Période de paie ciblée"
+                                required
+                                value={selectedPeriodeId || ''}
+                                onChange={value => value && selectPeriode(Number(value))}
+                                options={periodOptions}
+                                placeholder={loadingPeriod ? 'Chargement des périodes…' : 'Sélectionner la période…'}
+                                disabled={loadingPeriod || periodOptions.length === 0}
+                            />
+                            {workflowDenialReason && (
+                                <div className="mt-2"><Alert type="warning" message={workflowDenialReason} /></div>
+                            )}
+                            {activePeriod && !workflowDenialReason && (
+                                <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{activePeriod.sublabel}</p>
                             )}
                         </div>
-                    )}
-                </div>
-
-                {/* 5. Mode de règlement & Date souhaitée (Alimentés dynamiquement) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-[var(--color-fg)]">
-                            Mode de versement
-                        </label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                            {modes.map((mode) => {
-                                const IconComponent = MODE_ICONS[mode.code] || CreditCard;
-                                const isSelected = modeReglement === mode.code;
-                                return (
-                                    <button
-                                        key={mode.code}
-                                        type="button"
-                                        onClick={() => setModeReglement(mode.code)}
-                                        className={`flex items-center gap-1.5 px-2.5 py-1.5 border text-left transition-colors rounded-none ${isSelected
-                                            ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] font-semibold'
-                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                            }`}
-                                    >
-                                        <IconComponent size={13} className={isSelected ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-subtle)]'} />
-                                        <span className="text-[11px] truncate">{mode.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div className="space-y-1.5">
                         <Input
                             label="Date de la demande"
                             type="date"
@@ -525,78 +306,146 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                             onChange={e => setDateDemande(e.target.value)}
                         />
                     </div>
-                </div>
 
-                {/* 6. Motif & Suggestions rapides */}
-                <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                        <label className="block text-xs font-semibold text-[var(--color-fg)]">
-                            Motif ou justification <span className="text-[var(--color-danger-500)]">*</span>
-                        </label>
-                        <span className="text-[11px] text-[var(--color-fg-muted)]">Suggestions rapides :</span>
+                    <fieldset className="min-w-0">
+                        <legend className="mb-2 font-semibold text-[var(--color-fg)]">Nature de la demande <span className="text-[var(--color-danger-500)]">*</span></legend>
+                        {loadingTypes ? (
+                            <p className="border border-dashed border-[var(--color-border)] p-3 text-[var(--color-fg-muted)]">Chargement des types…</p>
+                        ) : types.length === 0 ? (
+                            <Alert type="warning" message="Aucun type d’acompte ou d’avance actif." />
+                        ) : (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {types.map(type => {
+                                    const selected = typeCode === type.code;
+                                    return (
+                                        <label key={type.code} className={`flex cursor-pointer items-center gap-3 border px-4 py-3 transition-colors ${selected
+                                            ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-50)] text-[var(--color-fg)]'
+                                            : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'}`}>
+                                            <input
+                                                type="radio"
+                                                name="advance-request-type"
+                                                value={type.code}
+                                                checked={selected}
+                                                onChange={() => setTypeCode(type.code)}
+                                                className="h-4 w-4 accent-[var(--color-brand-600)]"
+                                            />
+                                            <span className="font-semibold">{type.libelle}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {selectedType && (
+                            <p className="mt-2 text-xs text-[var(--color-fg-muted)]">
+                                {selectedType.categorie === 'ACOMPTE'
+                                    ? (selectedType.description || 'Acompte versé puis imputé sur la période ciblée.')
+                                    : 'Remboursement sans plafond en pourcentage, selon le solde dû et le net disponible.'}
+                            </p>
+                        )}
+                    </fieldset>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="min-w-0">
+                            <MoneyInput
+                                label="Montant de la demande"
+                                min="1"
+                                required
+                                placeholder="Ex. 100 000"
+                                value={montant}
+                                onValueChange={setMontant}
+                                iconRight={<span className="font-semibold text-[var(--color-fg)]">Ar</span>}
+                            />
+                            <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Montants suggérés">
+                                {quickAmounts.map(q => (
+                                    <button
+                                        key={q.value}
+                                        type="button"
+                                        onClick={() => setMontant(String(q.value))}
+                                        className={`border px-2.5 py-1 text-xs transition-colors ${numMontant === q.value
+                                            ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-50)] text-[var(--color-brand-700)]'
+                                            : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] hover:border-[var(--color-brand-500)]'}`}
+                                    >
+                                        {q.sub ? `${q.label} · ${q.sub}` : q.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="min-w-0">
+                            <label htmlFor="advance-payment-mode" className="mb-1 block font-semibold text-[var(--color-fg)]">Mode de versement</label>
+                            <div className="relative">
+                                <select
+                                    id="advance-payment-mode"
+                                    value={modeReglement}
+                                    onChange={event => setModeReglement(event.target.value)}
+                                    className="ui-toolbar-control w-full appearance-none border border-[var(--color-border)] bg-[var(--color-surface)] px-3 pr-9 text-sm text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)]"
+                                >
+                                    {modes.map(mode => <option key={mode.code} value={mode.code}>{mode.label}</option>)}
+                                </select>
+                                <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 mb-1.5">
-                        {SUGGESTIONS_MOTIFS.map((sug, i) => (
-                            <button
-                                key={i}
-                                type="button"
-                                onClick={() => setMotif(sug)}
-                                className="px-2 py-0.5 text-[10px] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] text-[var(--color-fg-muted)] hover:text-[var(--color-brand-700)] transition-colors rounded-none"
-                            >
-                                + {sug}
-                            </button>
+                    <div>
+                        <Input
+                            label="Motif ou justification"
+                            required
+                            placeholder="Ex. Dépense imprévue à couvrir"
+                            value={motif}
+                            onChange={e => setMotif(e.target.value)}
+                        />
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span className="mr-1 text-xs text-[var(--color-fg-muted)]">Suggestions :</span>
+                            {SUGGESTIONS_MOTIFS.map(suggestion => (
+                                <button
+                                    key={suggestion}
+                                    type="button"
+                                    onClick={() => setMotif(suggestion)}
+                                    className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-2.5 py-1 text-xs text-[var(--color-fg)] hover:border-[var(--color-brand-500)]"
+                                >
+                                    {suggestion}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <aside className="min-w-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-5 sm:p-7 lg:border-l lg:border-t-0" aria-label="Résumé de la demande">
+                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Résumé</h4>
+                    <dl className="divide-y divide-[var(--color-border-subtle)] text-sm">
+                        <div className="flex justify-between gap-3 py-2"><dt className="text-[var(--color-fg-muted)]">Bénéficiaire</dt><dd className="text-right font-semibold text-[var(--color-fg)]">{beneficiaryName}</dd></div>
+                        <div className="flex justify-between gap-3 py-2"><dt className="text-[var(--color-fg-muted)]">Période</dt><dd className="text-right font-semibold text-[var(--color-fg)]">{activePeriod?.label || 'Non sélectionnée'}</dd></div>
+                        <div className="flex justify-between gap-3 py-2"><dt className="text-[var(--color-fg-muted)]">Nature</dt><dd className="text-right font-semibold text-[var(--color-fg)]">{selectedType?.libelle || 'Non sélectionnée'}</dd></div>
+                        <div className="flex justify-between gap-3 py-2"><dt className="text-[var(--color-fg-muted)]">Versement</dt><dd className="text-right font-semibold text-[var(--color-fg)]">{selectedMode?.label || 'Non sélectionné'}</dd></div>
+                    </dl>
+
+                    <div className="mt-5 border border-[var(--color-brand-200)] bg-[var(--color-brand-50)] p-4">
+                        <p className="text-xs text-[var(--color-fg-muted)]">Montant demandé</p>
+                        <p className="mt-1 text-2xl font-bold text-[var(--color-fg)]">{formatMoneyAr(numMontant)}</p>
+                    </div>
+
+                    {effectiveIdEmploye ? (
+                        <dl className="mt-4 space-y-2 text-xs">
+                            <div className="flex justify-between gap-3"><dt className="text-[var(--color-fg-muted)]">{modeCalculPaie === 'JOURNALIER' ? 'Taux journalier' : modeCalculPaie === 'HORAIRE' ? 'Taux horaire' : 'Salaire de base'}</dt><dd className="font-semibold text-[var(--color-fg)]">{loadingEmpSynthese ? 'Chargement…' : salaireBase > 0 ? formatMoneyAr(salaireBase) : 'Non renseigné'}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-[var(--color-fg-muted)]">Repère 50 %</dt><dd className="font-semibold text-[var(--color-fg)]">{loadingEmpSynthese ? 'Chargement…' : plafondAcompte > 0 ? formatMoneyAr(plafondAcompte) : 'Selon paie acquise'}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-[var(--color-fg-muted)]">Encours</dt><dd className="font-semibold text-[var(--color-fg)]">{loadingEmpSynthese ? 'Chargement…' : formatMoneyAr(encoursAcomptes)}</dd></div>
+                        </dl>
+                    ) : (
+                        <p className="mt-4 text-xs text-[var(--color-fg-muted)]">Salaire de base, repère 50 % et encours après sélection du collaborateur.</p>
+                    )}
+
+                    <h4 className="mb-3 mt-6 text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Circuit de traitement</h4>
+                    <ol className="space-y-3 text-sm">
+                        {['Saisie de la demande', 'Approbation', 'Confirmation du versement', 'Déduction sur bulletin'].map((step, index) => (
+                            <li key={step} className="flex items-center gap-3">
+                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center text-xs font-bold ${index === 0
+                                    ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]'
+                                    : 'bg-[var(--color-border)] text-[var(--color-fg-muted)]'}`}>{index + 1}</span>
+                                <span className={index === 0 ? 'font-semibold text-[var(--color-fg)]' : 'text-[var(--color-fg-muted)]'}>{step}</span>
+                            </li>
                         ))}
-                    </div>
-
-                    <Input
-                        required
-                        placeholder="Ex. Dépense imprévue à couvrir"
-                        value={motif}
-                        onChange={e => setMotif(e.target.value)}
-                    />
-                </div>
-
-                {/* 7. Workflow Timeline rassurant */}
-                <div className="bg-[var(--color-bg-subtle)]/70 border border-[var(--color-border-subtle)] p-2.5 rounded-none">
-                    <span className="text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider font-bold block mb-1">
-                        Circuit de traitement de la demande
-                    </span>
-                    <div className="flex items-center justify-between text-[11px] text-[var(--color-fg-muted)]">
-                        <span className="font-semibold text-[var(--color-brand-700)]">1. Saisie (Enregistrement)</span>
-                        <ArrowRight size={11} className="text-[var(--color-fg-subtle)]" />
-                        <span>2. Approbation</span>
-                        <ArrowRight size={11} className="text-[var(--color-fg-subtle)]" />
-                        <span>3. Mise en paiement</span>
-                        <ArrowRight size={11} className="text-[var(--color-fg-subtle)]" />
-                        <span>4. Déduction bulletin</span>
-                    </div>
-                </div>
-
-                {/* 8. Footer avec bouton d'action */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--color-border-subtle)] pt-3">
-                    <span className="text-[11px] text-[var(--color-fg-muted)]">
-                        {!isMontantValide
-                            ? 'Veuillez saisir un montant supérieur à 0 Ar.'
-                            : !hasMotif
-                                ? 'Veuillez renseigner un motif pour soumettre.'
-                                : 'Prêt à être transmis pour approbation.'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={onClose}>
-                            Annuler
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            size="sm"
-                            disabled={!canSubmit}
-                            iconLeft={<Sparkles size={14} />}
-                        >
-                            {submitting ? 'Enregistrement…' : 'Enregistrer la demande'}
-                        </Button>
-                    </div>
-                </div>
+                    </ol>
+                </aside>
             </form>
         </Modal>
     );

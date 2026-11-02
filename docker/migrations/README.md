@@ -27,3 +27,5 @@ Règles de livraison :
 Les migrations de version majeure PostgreSQL (15 vers 16, etc.) sont une opération distincte. Ne jamais simplement changer l'image tout en conservant le même répertoire de données.
 
 Le parcours Windows natif utilise aussi ces fichiers via `scripts/windows-native/migrate-grh.ps1` et la même table `public.galaxam_schema_history`. Son script de mise à jour effectue la sauvegarde, arrête GRH, applique les migrations absentes, puis déploie le nouveau backend et le frontend. Tester la migration sur une copie de la base avant cette étape.
+
+La migration `0006_remove_advance_percentage_cap.sql` retire le paramètre historique de plafond de 10 % des avances exceptionnelles. Le schéma initial canonique reste figé ; la migration s'applique après celui-ci sur une base neuve comme sur une base existante.

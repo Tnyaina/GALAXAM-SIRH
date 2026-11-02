@@ -765,7 +765,7 @@ export default function PeriodeEmployeeImportPreview({
                                                             className="opacity-30"
                                                         />
                                                     </td>
-                                                    <td colSpan={5} className="px-2 py-1.5 text-[11px] text-[var(--color-fg-muted)] italic">
+                                                    <td colSpan={5} className="px-2 py-1.5 text-[11px] text-[var(--color-fg-muted)] ">
                                                         {fmtDayLabel(line.date)} — non travaillé
                                                     </td>
                                                     <td className="px-2 py-1.5 text-right">

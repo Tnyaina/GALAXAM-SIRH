@@ -4,7 +4,7 @@ import ManualVariableValueFields from '../ManualVariableValueFields';
 import { manualMethod, manualValuePayload } from '../../utils/manualVariableCalculation';
 import { summarizeNetDeductions } from '../../utils/netDeductions';
 import { rubriquesPaieAffichables } from '../../utils/payrollPresentation';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { Fragment, useState, useEffect, useCallback, useRef } from 'react';
 import { 
     SlidersHorizontal, 
     Plus, 
@@ -15,7 +15,9 @@ import {
     Eye,
     Info,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    ChevronDown,
+    ChevronRight
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -74,6 +76,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [collapsedEmployees, setCollapsedEmployees] = useState(() => new Set());
 
     // Modales de confirmation (Approuver & Supprimer)
     const [approvingVariable, setApprovingVariable] = useState(null);
@@ -413,6 +416,19 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     };
 
     const formatAr = (val) => formatMoneyAr(val);
+    const openVariableModal = (sens = '') => {
+        setFormError('');
+        setForm(previous => ({ ...previous, typeMouvement: '', sens, montant: '', motif: '' }));
+        setIsModalOpen(true);
+    };
+    const toggleEmployee = (key) => {
+        setCollapsedEmployees(previous => {
+            const next = new Set(previous);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
 
     // Filtrage
     const listVariables = Array.isArray(variables) ? variables : [];
@@ -441,7 +457,20 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             motif.toLowerCase().includes(q);
         return matchSens && matchSearch;
     }).sort((a, b) => Number(b.statut === 'EN_ATTENTE') - Number(a.statut === 'EN_ATTENTE'));
-    const pagedVariables = filteredVariables.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const groupedVariables = Array.from(filteredVariables.reduce((groups, variable) => {
+        const employeeId = variable.idEmploye ?? variable.id_employe;
+        const name = variable.nomComplet || variable.nom_complet || 'Collaborateur';
+        const matricule = variable.matricule || '—';
+        const key = employeeId != null ? `id-${employeeId}` : `matricule-${matricule}-${name}`;
+        if (!groups.has(key)) groups.set(key, { key, name, matricule, items: [] });
+        groups.get(key).items.push(variable);
+        return groups;
+    }, new Map()).values()).map(group => ({
+        ...group,
+        balance: group.items.reduce((sum, item) => ['ANNULE', 'REJETE', 'CANCELLED'].includes(item.statut)
+            ? sum : sum + (item.sens === 'GAIN' ? 1 : -1) * Number(item.montant || 0), 0),
+    })).sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+    const pagedGroups = groupedVariables.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const totalGains = variableSummary.gains;
     const totalRetenues = variableSummary.retenues;
@@ -617,7 +646,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         <Button
                             variant="primary"
                             size="sm"
-                            onClick={() => { setFormError(''); setIsModalOpen(true); }}
+                            onClick={() => openVariableModal()}
                             iconLeft={<Plus size={14} />}
                             className="w-full sm:w-auto justify-center shrink-0"
                             disabled={!canMutate}
@@ -653,35 +682,56 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             {loading ? (
                 <SkeletonTable rows={6} cols={6} />
             ) : filteredVariables.length === 0 ? (
-                <EmptyState
-                    icon={SlidersHorizontal}
-                    title={listVariables.length === 0 ? 'Aucune variable de paie' : 'Aucun résultat pour ces filtres'}
-                    description={listVariables.length === 0
-                        ? 'Ajoutez une prime, une indemnité ou une retenue exceptionnelle pour un salarié de cette campagne. Si aucune variable n’est nécessaire, vous pouvez passer au calcul.'
-                        : 'Modifiez votre recherche ou vos filtres pour retrouver une variable.'}
-                    actionLabel={listVariables.length === 0 && canMutate ? 'Ajouter une variable' : listVariables.length > 0 ? 'Effacer les filtres' : undefined}
-                    onAction={listVariables.length === 0 && canMutate
-                        ? () => { setFormError(''); setIsModalOpen(true); }
-                        : listVariables.length > 0 ? () => { setSearchQuery(''); setFilterSens('ALL'); setShowCancelled(false); setCurrentPage(1); } : undefined}
-                    actionIcon={listVariables.length === 0 && canMutate ? <Plus size={14} /> : undefined}
+                listVariables.length === 0 ? (
+                    <section className="flex flex-col items-center justify-center gap-3 border border-dashed border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-5 py-8 text-center" aria-label="Aucune variable pour cette campagne">
+                        <div className="flex h-10 w-10 items-center justify-center bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]"><Plus size={20} aria-hidden="true" /></div>
+                        <div>
+                            <h3 className="text-sm font-semibold text-[var(--color-fg)]">Aucune variable pour cette campagne</h3>
+                            <p className="mt-1 max-w-md text-xs text-[var(--color-fg-muted)]">Les primes, gains et retenues saisis pour un salarié apparaîtront ici.</p>
+                        </div>
+                        {canMutate && <div className="flex flex-wrap justify-center gap-2">
+                            <Button type="button" size="sm" iconLeft={<Plus size={14} />} onClick={() => openVariableModal()}>Ajouter une variable</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => openVariableModal('RETENUE')}>Ajouter une retenue</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => openVariableModal('GAIN')}>Ajouter un gain</Button>
+                        </div>}
+                    </section>
+                ) : <EmptyState
+                    icon={Search}
+                    title="Aucun résultat pour ces filtres"
+                    description="Modifiez votre recherche ou vos filtres pour retrouver une variable."
+                    actionLabel="Effacer les filtres"
+                    onAction={() => { setSearchQuery(''); setFilterSens('ALL'); setShowCancelled(false); setCurrentPage(1); }}
                 />
             ) : (
                 <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
                 <Table aria-label="Variables de paie" density="compact" className="payroll-variable-table-wrap" tableClassName="payroll-variable-table">
+                    <colgroup><col style={{ width: '30%' }} /><col style={{ width: '24%' }} /><col style={{ width: '13%' }} /><col style={{ width: '13%' }} /><col style={{ width: '20%' }} /></colgroup>
                     <Thead>
                         <Tr>
-                            <Th>Salarié</Th>
                             <Th>Variable</Th>
-                            <Th className="text-right">Montant</Th>
                             <Th>Justification</Th>
+                            <Th className="text-right">Montant</Th>
                             <Th>Statut</Th>
                             <Th className="text-right">Actions</Th>
                         </Tr>
                     </Thead>
                     <Tbody role="rowgroup">
-                        {pagedVariables.map((v, index) => {
+                        {pagedGroups.map(group => <Fragment key={group.key}>
+                            <Tr role="row" className="payroll-variable-group bg-[var(--color-bg-subtle)] hover:bg-[var(--color-bg-subtle)]">
+                                <Td role="cell" colSpan={5} className="!px-3 !py-2.5">
+                                    <button type="button" aria-expanded={!collapsedEmployees.has(group.key)} onClick={() => toggleEmployee(group.key)} className="flex w-full items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]">
+                                        {collapsedEmployees.has(group.key) ? <ChevronRight size={15} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" /> : <ChevronDown size={15} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />}
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--color-brand-600)] text-[var(--color-on-color)] text-[10px] font-bold" aria-hidden="true">{group.name.trim().split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-xs font-semibold text-[var(--color-fg)]">{group.name}</span>
+                                            <span className="block font-data text-[10px] text-[var(--color-fg-muted)]">{group.matricule} · {group.items.length} variable{group.items.length > 1 ? 's' : ''}</span>
+                                        </span>
+                                        <span className={`shrink-0 px-2 py-1 font-data text-[10px] font-semibold ${group.balance > 0 ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)]' : group.balance < 0 ? 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)]' : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)]'}`} title="Somme des montants affichés, avant cotisations et IRSA">Solde saisi : {group.balance > 0 ? '+' : group.balance < 0 ? '−' : ''}{formatAr(Math.abs(group.balance))}</span>
+                                    </button>
+                                </Td>
+                            </Tr>
+                            {!collapsedEmployees.has(group.key) && group.items.map((v, index) => {
                             const idAvance = v.idAvance ?? v.id_avance;
-                            const nomComplet = v.nomComplet || v.nom_complet;
                             const typeLibelle = v.typeLibelle || v.type_libelle || v.typeMouvement || v.type_mouvement;
                             const statInfo = statutLabels[v.statut] || { label: v.statut || 'Enregistré', variant: 'neutral' };
                             const configuredType = typesMouvements.find(type => type.code === v.typeMouvement);
@@ -689,25 +739,21 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             const social = v.cotisable ?? configuredType?.cotisable;
                             return (
                                 <Tr role="row" key={idAvance || index}>
-                                    <Td role="cell" data-label="Salarié" data-mobile-span="full" className="font-semibold text-[var(--color-fg)]">
-                                        <span className="block">{nomComplet || 'Collaborateur'}</span>
-                                        <span className="block font-data font-normal text-[11px] text-[var(--color-fg-muted)]">{v.matricule || '—'}</span>
-                                    </Td>
                                     <Td role="cell" data-label="Variable et régime" data-mobile-span="full">
                                         <span className="font-medium text-[var(--color-fg)] block">
                                             {typeLibelle || 'Variable'}
                                         </span>
-                                        <span className="block text-[11px] text-[var(--color-fg-muted)]">{regimeLabel(v.sens, taxable, social)}</span>
-                                    </Td>
-                                    <Td role="cell" data-label="Montant" className="text-right font-data font-bold whitespace-nowrap">
-                                        <span className={v.sens === 'GAIN' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
-                                            {v.sens === 'GAIN' ? '+' : '-'}{formatAr(v.montant)}
-                                        </span>
+                                        <span className="mt-0.5 block text-[11px] text-[var(--color-fg-muted)]"><span className={`mr-1 border px-1 py-0.5 text-[9px] font-bold ${v.sens === 'GAIN' ? 'border-[var(--color-success-500)]/30 text-[var(--color-success-700)]' : 'border-[var(--color-danger-500)]/30 text-[var(--color-danger-700)]'}`}>{v.sens === 'GAIN' ? 'GAIN' : 'RETENUE'}</span>{regimeLabel(v.sens, taxable, social)}</span>
                                     </Td>
                                     <Td role="cell" data-label="Justification" data-mobile-span="full" className="text-[var(--color-fg-muted)] max-w-xs whitespace-normal">
                                         <span className="block">{v.motif || '—'}</span>
                                         {v.typeMouvement === 'NOTE_DE_FRAIS' && <span className="block text-[11px]">{v.justificatifPresent ? `Pièce : ${v.justificatifNom}` : 'Pièce à joindre avant approbation'}</span>}
                                         {(v.dateDemande || v.date_demande) && <span className="block text-[11px] text-[var(--color-fg-subtle)]">Saisie le {fmtDate(v.dateDemande || v.date_demande)}</span>}
+                                    </Td>
+                                    <Td role="cell" data-label="Montant" className="text-right font-data font-bold whitespace-nowrap">
+                                        <span className={v.sens === 'GAIN' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
+                                            {v.sens === 'GAIN' ? '+' : '−'}{formatAr(v.montant)}
+                                        </span>
                                     </Td>
                                     <Td role="cell" data-label="Statut">
                                         <Badge variant={statInfo.variant} size="xs" dot>
@@ -752,10 +798,11 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                     </Td>
                                 </Tr>
                             );
-                        })}
+                            })}
+                        </Fragment>)}
                     </Tbody>
                 </Table>
-                <Pagination currentPage={currentPage} totalItems={filteredVariables.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50]} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
+                <Pagination currentPage={currentPage} totalItems={groupedVariables.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50]} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
                 </div>
             )}
 

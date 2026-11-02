@@ -13,15 +13,10 @@ import java.util.List;
 
 /**
  * Entité de gestion des mouvements de trésorerie mensuels (Acomptes du 15, Avances spéciales, CALL PERSO).
- * Les plafonds exécutés sur bulletin sont résolus dans la configuration légale datée.
+ * Les avances sont remboursées selon leur solde dû et le net disponible du bulletin.
  */
 public class PaieAvanceAcompte extends ClassMere {
 
-    /**
-     * Ratios historiques utilisés par les méthodes utilitaires de cette entité.
-     * Le moteur de paie utilise les pourcentages datés de PaieConfigLegale.
-     */
-    public static final BigDecimal RATIO_AVANCE_EMPLOYEUR_MAX = new BigDecimal("0.10");
     public static final BigDecimal RATIO_QUOTITE_CESSIBLE_MAX = new BigDecimal("0.3333");
 
     private Integer idAvance;
@@ -233,27 +228,6 @@ public class PaieAvanceAcompte extends ClassMere {
             return BigDecimal.ZERO;
         }
         return netDisponible.divide(new BigDecimal("3"), 2, RoundingMode.HALF_UP);
-    }
-
-    /**
-     * Contrôle utilitaire du ratio historique de 10 % pour une avance employeur.
-     */
-    public static boolean isAvanceEmployeurRespectee(BigDecimal netDisponible, BigDecimal montantAvance) {
-        if (netDisponible == null || netDisponible.compareTo(BigDecimal.ZERO) <= 0) {
-            return false;
-        }
-        if (montantAvance == null || montantAvance.compareTo(BigDecimal.ZERO) <= 0) {
-            return true;
-        }
-        BigDecimal plafondAvance = netDisponible.multiply(RATIO_AVANCE_EMPLOYEUR_MAX).setScale(2, RoundingMode.HALF_UP);
-        return montantAvance.compareTo(plafondAvance) <= 0;
-    }
-
-    public static BigDecimal calculerAvanceEmployeurMax(BigDecimal netDisponible) {
-        if (netDisponible == null || netDisponible.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
-        }
-        return netDisponible.multiply(RATIO_AVANCE_EMPLOYEUR_MAX).setScale(2, RoundingMode.HALF_UP);
     }
 
     public static List<PaieAvanceAcompte> listerParPeriode(Integer idPeriode, Connection c) throws Exception {

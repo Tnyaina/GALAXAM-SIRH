@@ -96,7 +96,6 @@ public class PayrollCalculationInput {
     private int nbEnfantsEligibles = 0;
     private BigDecimal smeNational;
     private BigDecimal plafondCotisationMensuel;
-    private BigDecimal plafondAvanceEmployeur = new BigDecimal("0.10");
     private BigDecimal quotiteCessible = new BigDecimal("0.33333333");
     private BigDecimal minimumPerceptionIrsa;
     private BigDecimal deductionParEnfant;
@@ -682,8 +681,6 @@ public class PayrollCalculationInput {
     public void setSmeNational(BigDecimal smeNational) { this.smeNational = smeNational; }
     public BigDecimal getPlafondCotisationMensuel() { return plafondCotisationMensuel; }
     public void setPlafondCotisationMensuel(BigDecimal plafondCotisationMensuel) { this.plafondCotisationMensuel = plafondCotisationMensuel; }
-    public BigDecimal getPlafondAvanceEmployeur() { return plafondAvanceEmployeur; }
-    public void setPlafondAvanceEmployeur(BigDecimal plafondAvanceEmployeur) { this.plafondAvanceEmployeur = plafondAvanceEmployeur; }
     public BigDecimal getQuotiteCessible() { return quotiteCessible; }
     public void setQuotiteCessible(BigDecimal quotiteCessible) { this.quotiteCessible = quotiteCessible; }
 
