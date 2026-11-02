@@ -27,9 +27,9 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
 
     // Assiduité & jours
     private int nbJoursOuvrables;
-    private int nbJoursPresents;
+    private double nbJoursPresents;
     private int nbJoursAbsence;
-    private int nbJoursConge;
+    private double nbJoursConge;
     private int nbJoursFerieChome;
     private int nbJoursFerieTravaille;
     private int nbJoursDimancheTravaille;
@@ -286,11 +286,11 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
         this.nbJoursOuvrables = nbJoursOuvrables;
     }
 
-    public int getNbJoursPresents() {
+    public double getNbJoursPresents() {
         return nbJoursPresents;
     }
 
-    public void setNbJoursPresents(int nbJoursPresents) {
+    public void setNbJoursPresents(double nbJoursPresents) {
         this.nbJoursPresents = nbJoursPresents;
     }
 
@@ -302,11 +302,11 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
         this.nbJoursAbsence = nbJoursAbsence;
     }
 
-    public int getNbJoursConge() {
+    public double getNbJoursConge() {
         return nbJoursConge;
     }
 
-    public void setNbJoursConge(int nbJoursConge) {
+    public void setNbJoursConge(double nbJoursConge) {
         this.nbJoursConge = nbJoursConge;
     }
 

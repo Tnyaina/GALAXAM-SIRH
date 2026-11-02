@@ -44,7 +44,7 @@ public class DossierSortieDTO {
     private BigDecimal totalHeuresPointage;
     private BigDecimal joursSousContrat;
     private Integer joursOuvresPeriode;
-    private Integer joursCongesPeriode;
+    private java.math.BigDecimal joursCongesPeriode;
     private BigDecimal heuresAbsenceRetenues;
 
     // Données de congés en lecture seule
@@ -179,8 +179,8 @@ public class DossierSortieDTO {
     public Integer getJoursOuvresPeriode() { return joursOuvresPeriode; }
     public void setJoursOuvresPeriode(Integer joursOuvresPeriode) { this.joursOuvresPeriode = joursOuvresPeriode; }
 
-    public Integer getJoursCongesPeriode() { return joursCongesPeriode; }
-    public void setJoursCongesPeriode(Integer joursCongesPeriode) { this.joursCongesPeriode = joursCongesPeriode; }
+    public java.math.BigDecimal getJoursCongesPeriode() { return joursCongesPeriode; }
+    public void setJoursCongesPeriode(java.math.BigDecimal joursCongesPeriode) { this.joursCongesPeriode = joursCongesPeriode; }
 
     public BigDecimal getHeuresAbsenceRetenues() { return heuresAbsenceRetenues; }
     public void setHeuresAbsenceRetenues(BigDecimal heuresAbsenceRetenues) { this.heuresAbsenceRetenues = heuresAbsenceRetenues; }

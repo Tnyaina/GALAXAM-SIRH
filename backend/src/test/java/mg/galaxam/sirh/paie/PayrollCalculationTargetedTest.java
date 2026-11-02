@@ -85,6 +85,29 @@ public class PayrollCalculationTargetedTest {
     }
 
     @Test
+    @DisplayName("La prime de performance tient compte d'une demi-journée et du malus combiné")
+    void performancePrimeUsesFractionalPresenceAndCombinedPenalty() {
+        PayrollCalculationInput input = buildStandardInput(new BigDecimal("1000000.00"));
+        input.setPrimePerformanceBase(new BigDecimal("200000.00"));
+        input.setNbJoursOuvrables(new BigDecimal("20"));
+        input.setNbJoursPresents(new BigDecimal("19.5"));
+        input.setNbJoursConges(new BigDecimal("0.5"));
+        input.setRegleMalusPerformanceActive(true);
+        input.setSeuilRetardMalusPerformanceMinutes(70);
+        input.setSeuilCongesMalusPerformanceJours(new BigDecimal("1.0"));
+        input.setTauxMalusPerformance(new BigDecimal("0.25"));
+        input.setMinutesRetard(71);
+
+        assertEquals(0, new BigDecimal("195000.00").compareTo(
+                engine.calculer(input).getMontantLigneSalariale("PRIME_PERFORMANCE")));
+
+        input.setNbJoursPresents(new BigDecimal("18.5"));
+        input.setNbJoursConges(new BigDecimal("1.5"));
+        assertEquals(0, new BigDecimal("138750.00").compareTo(
+                engine.calculer(input).getMontantLigneSalariale("PRIME_PERFORMANCE")));
+    }
+
+    @Test
     @DisplayName("L'exonération HS est désactivée par défaut et appliquée uniquement si activée")
     void testExonerationHsDesactiveeEtActiveeSelonConfiguration() {
         for (String[] cas : List.of(

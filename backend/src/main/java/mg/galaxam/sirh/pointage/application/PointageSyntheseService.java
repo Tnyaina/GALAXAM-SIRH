@@ -79,6 +79,7 @@ public class PointageSyntheseService {
 
     static String appliquerStatutCongeValide(String statutCourant, double heuresTravaillees,
             boolean remunere, boolean demiJournee) {
+        if (remunere && demiJournee) return "DEMI_JOURNEE";
         boolean absenceOuAnomalie = "ABSENCE_NON_JUSTIFIEE".equals(statutCourant)
                 || "ABSENCE_JUSTIFIEE".equals(statutCourant) || "ANOMALIE_SAISIE".equals(statutCourant);
         boolean demiJourneeNonRemuneree = !remunere && demiJournee && "DEMI_JOURNEE".equals(statutCourant);
@@ -583,8 +584,8 @@ public class PointageSyntheseService {
                         "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ? " +
                         "ORDER BY p.date_pointage";
 
-        int presents = 0;
-        int conges = 0;
+        double presents = 0;
+        double conges = 0;
         int absences = 0;
         int feriesChomes = 0;
         int feriesTravailles = 0;
@@ -681,7 +682,7 @@ public class PointageSyntheseService {
                     if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) || "RETARD".equals(stCode)) {
                         presents++;
                     } else if ("DEMI_JOURNEE".equals(stCode)) {
-                        presents++;
+                        if (workedMinutes > 0) presents += 0.5;
                         if (congeValide != null && congeValide.estDemi()) conges += 0.5;
                     } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
                         presents++;
@@ -1107,9 +1108,9 @@ public class PointageSyntheseService {
                 try (ResultSet rs = frozen.executeQuery()) {
                     if (rs.next()) {
                         dto.setNbJoursOuvrables(rs.getInt("nb_jours_ouvrables"));
-                        dto.setNbJoursPresents(rs.getInt("nb_jours_presents"));
+                        dto.setNbJoursPresents(rs.getDouble("nb_jours_presents"));
                         dto.setNbJoursAbsence(rs.getInt("nb_jours_absence"));
-                        dto.setNbJoursConge(rs.getInt("nb_jours_conge"));
+                        dto.setNbJoursConge(rs.getDouble("nb_jours_conge"));
                         dto.setNbJoursFerieChome(rs.getInt("nb_jours_ferie_chome"));
                         dto.setNbJoursFerieTravaille(rs.getInt("nb_jours_ferie_travaille"));
                         dto.setTotalHeuresTravaillees(nullToZero(rs.getBigDecimal("total_heures_travaillees")).doubleValue());
@@ -1808,9 +1809,9 @@ public class PointageSyntheseService {
                 ps.setInt(5, dto.getIdEmploye());
                 ps.setInt(6, idPeriode);
                 ps.setInt(7, dto.getNbJoursOuvrables());
-                ps.setInt(8, dto.getNbJoursPresents());
+                ps.setBigDecimal(8, BigDecimal.valueOf(dto.getNbJoursPresents()));
                 ps.setInt(9, dto.getNbJoursAbsence());
-                ps.setInt(10, dto.getNbJoursConge());
+                ps.setBigDecimal(10, BigDecimal.valueOf(dto.getNbJoursConge()));
                 ps.setInt(11, dto.getNbJoursFerieChome());
                 ps.setInt(12, dto.getNbJoursFerieTravaille());
                 ps.setBigDecimal(13, BigDecimal.valueOf(dto.getTotalHeuresTravaillees()));

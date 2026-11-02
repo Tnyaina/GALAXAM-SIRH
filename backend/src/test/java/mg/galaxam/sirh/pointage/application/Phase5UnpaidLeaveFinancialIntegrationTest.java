@@ -33,6 +33,14 @@ class Phase5UnpaidLeaveFinancialIntegrationTest {
                               BigDecimal expectedNetPay, BigDecimal observedNetPay) {}
 
     @Test
+    void paidHalfDayLeaveWithWorkedHoursRemainsAHalfDay() {
+        assertEquals("DEMI_JOURNEE", PointageSyntheseService.appliquerStatutCongeValide(
+                "PRESENT", 4.0, true, true));
+        assertEquals(0.5, PointageSyntheseService.joursCongePourAttendu(
+                AttendanceEngine.Result.Status.HALF_DAY, true, true, true));
+    }
+
+    @Test
     @EnabledIfEnvironmentVariable(
             named = "GALAXAM_PHASE5_FINANCE_DB_URL",
             matches = "jdbc:postgresql://127\\.0\\.0\\.1:15452/galaxam_ecc_phase5_finance")
@@ -71,6 +79,8 @@ class Phase5UnpaidLeaveFinancialIntegrationTest {
                     "ABSENCE_JUSTIFIEE", 0, false, false));
             assertEquals("ABSENCE_JUSTIFIEE", PointageSyntheseService.appliquerStatutCongeValide(
                     "DEMI_JOURNEE", 4.0, false, true));
+            assertEquals("DEMI_JOURNEE", PointageSyntheseService.appliquerStatutCongeValide(
+                    "PRESENT", 4.0, true, true));
 
             try (var insert = connection.prepareStatement("INSERT INTO phase5_finance_inputs VALUES (?, ?, ?, ?)")) {
                 addFixture(insert, "NO_ABSENCE", noAbsence, "0.00", false);

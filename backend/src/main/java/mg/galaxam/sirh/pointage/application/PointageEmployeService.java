@@ -870,10 +870,10 @@ public class PointageEmployeService {
                     .mapToDouble(PointageTronconSemaineDTO::getSeuilHeuresTroncon)
                     .sum();
         }
-        int nbCongesVal = synDto != null ? synDto.getNbJoursConge() : 0;
+        double nbCongesVal = synDto != null ? synDto.getNbJoursConge() : 0;
         int nbFerieChomeVal = synDto != null ? synDto.getNbJoursFerieChome() : 0;
         if (totalObjectifHeures <= 0.0 && synDto != null) {
-            int joursEffectifs = Math.max(0, totalJoursOuvrables - nbCongesVal);
+            double joursEffectifs = Math.max(0, totalJoursOuvrables - nbCongesVal);
             totalObjectifHeures = joursEffectifs * (dureeJourMins / 60.0);
         }
 
@@ -881,12 +881,13 @@ public class PointageEmployeService {
         int objM = (int) Math.round((totalObjectifHeures - objH) * 60);
         String heuresObjectifStr = String.format("%02dh%02d", objH, objM);
 
-        int nbJoursAEffectuer = Math.max(0, totalJoursOuvrables - nbCongesVal);
+        double nbJoursAEffectuer = Math.max(0, totalJoursOuvrables - nbCongesVal);
         String joursPrevusStr;
         if (synDto == null) {
             joursPrevusStr = "0 prévu (inactif sur la période)";
         } else if (nbCongesVal > 0) {
-            joursPrevusStr = String.format("%d prévus (+%d j congé)", nbJoursAEffectuer, nbCongesVal);
+            joursPrevusStr = BigDecimal.valueOf(nbJoursAEffectuer).stripTrailingZeros().toPlainString()
+                    + " prévus (+" + BigDecimal.valueOf(nbCongesVal).stripTrailingZeros().toPlainString() + " j congé)";
         } else {
             joursPrevusStr = String.format("%d prévus", totalJoursOuvrables);
         }
@@ -947,7 +948,8 @@ public class PointageEmployeService {
         Map<String, String> kpis = new LinkedHashMap<>();
         kpis.put("statutEmployePeriode", synDto != null ? "ACTIF" : "INACTIF");
         regles.put("statutEmployePeriode", synDto != null ? "ACTIF" : "INACTIF");
-        kpis.put("joursTravailles", ((synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles) + " j");
+        kpis.put("joursTravailles", BigDecimal.valueOf((synDto != null && synDto.getNbJoursPresents() > 0)
+                ? synDto.getNbJoursPresents() : totalJoursTravailles).stripTrailingZeros().toPlainString() + " j");
         kpis.put("joursPrevus", joursPrevusStr);
         kpis.put("heuresRealisees", String.format("%02dh%02d", (int) Math.floor(heuresRealisees), (int) Math.round((heuresRealisees - Math.floor(heuresRealisees)) * 60)));
         kpis.put("heuresObjectif", heuresObjectifStr);
@@ -1022,9 +1024,9 @@ public class PointageEmployeService {
                     "Configuration d'indemnité absente : MONTANT_REPAS_MIDI.");
         }
         kpis.put("tarifRepas", String.format("%,.0f Ar", tarifRepasMidi).replace(',', ' '));
-        int nbPresentsVal = (synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles;
-        kpis.put("nbJoursPresents", String.valueOf(nbPresentsVal));
-        kpis.put("nbJoursConges", String.valueOf(nbCongesVal));
+        double nbPresentsVal = (synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles;
+        kpis.put("nbJoursPresents", BigDecimal.valueOf(nbPresentsVal).stripTrailingZeros().toPlainString());
+        kpis.put("nbJoursConges", BigDecimal.valueOf(nbCongesVal).stripTrailingZeros().toPlainString());
         kpis.put("nbJoursFerieChome", String.valueOf(nbFerieChomeVal));
         kpis.put("nbJoursOuvrables", String.valueOf(totalJoursOuvrables));
 

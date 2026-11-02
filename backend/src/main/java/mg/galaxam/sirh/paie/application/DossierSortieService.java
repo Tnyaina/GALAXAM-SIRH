@@ -1076,7 +1076,7 @@ public class DossierSortieService {
                     if (rs.next()) {
                         dto.setPointageGele(true);
                         dto.setJoursOuvresPeriode(rs.getInt("nb_jours_ouvrables"));
-                        dto.setJoursCongesPeriode(rs.getInt("nb_jours_conge"));
+                        dto.setJoursCongesPeriode(rs.getBigDecimal("nb_jours_conge"));
                         int minFin = rs.getInt("min_abs_fin");
                         BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
                         if (minFin > 0) {
@@ -1109,7 +1109,7 @@ public class DossierSortieService {
                     dto.setJoursPointageReels(new BigDecimal(rs.getInt("jours_travailles_reels")));
                     dto.setTotalHeuresPointage(rs.getBigDecimal("total_heures"));
                     if (dto.getJoursCongesPeriode() == null) {
-                        dto.setJoursCongesPeriode(rs.getInt("jours_conges"));
+                        dto.setJoursCongesPeriode(rs.getBigDecimal("jours_conges"));
                     }
                 } else {
                     dto.setSourcePointage("ESTIMATION_CALENDAIRE");
@@ -1135,7 +1135,7 @@ public class DossierSortieService {
             dto.setHeuresAbsenceRetenues(BigDecimal.ZERO);
         }
         if (dto.getJoursCongesPeriode() == null) {
-            dto.setJoursCongesPeriode(0);
+            dto.setJoursCongesPeriode(BigDecimal.ZERO);
         }
     }
 
