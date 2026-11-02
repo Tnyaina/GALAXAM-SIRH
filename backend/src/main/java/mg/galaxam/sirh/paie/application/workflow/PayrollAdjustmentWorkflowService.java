@@ -6,6 +6,7 @@ import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.Payroll
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -131,6 +132,9 @@ public class PayrollAdjustmentWorkflowService {
                     throw new SirhBusinessException(transition.errorCode(), transition.blockingMessage());
                 }
                 if (command == PayrollAdjustmentCommand.APPROVE) {
+                    if ("AVANCE_SPECIALE".equalsIgnoreCase(entity.getTypeMouvement())) {
+                        verifierPlafondAvance(c, entity);
+                    }
                     java.time.LocalDate dateDecision = dateAccord != null ? dateAccord : mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today();
                     if (dateDecision.isAfter(mg.galaxam.sirh.paie.domain.PayrollBusinessTime.today())) {
                         throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
@@ -210,6 +214,39 @@ public class PayrollAdjustmentWorkflowService {
                 throw ex;
             }
         }
+    }
+
+    private void verifierPlafondAvance(Connection c, PaieAvanceAcompte avance) throws Exception {
+        // Le verrou salarié sérialise deux approbations simultanées pour le même encours.
+        try (PreparedStatement lock = c.prepareStatement("SELECT id_employe FROM employe WHERE id_employe=? FOR UPDATE")) {
+            lock.setInt(1, avance.getIdEmploye());
+            try (ResultSet rs = lock.executeQuery()) { if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Salarié introuvable."); }
+        }
+        BigDecimal salaire = null;
+        try (PreparedStatement ps = c.prepareStatement("SELECT ac.salaire_base FROM employe_affectation_carriere ac "
+                + "JOIN periode_paie p ON p.id_periode_paie=? WHERE ac.id_employe=? "
+                + "AND ac.date_debut<=p.date_fin AND (ac.date_fin IS NULL OR ac.date_fin>=p.date_debut) "
+                + "ORDER BY ac.date_debut DESC, ac.id_affectation DESC LIMIT 1")) {
+            ps.setInt(1, avance.getIdPeriodePaie()); ps.setInt(2, avance.getIdEmploye());
+            try (ResultSet rs = ps.executeQuery()) { if (rs.next()) salaire = rs.getBigDecimal(1); }
+        }
+        if (salaire == null || salaire.signum() <= 0)
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Salaire de base introuvable pour contrôler le plafond d'avance.");
+        BigDecimal pourcentage;
+        try (PreparedStatement ps = c.prepareStatement("SELECT plafond_salaire_base_pct FROM paie_avance_regle WHERE id=1")) {
+            try (ResultSet rs = ps.executeQuery()) { if (!rs.next()) throw new IllegalStateException("Paramètre d'avance absent."); pourcentage = rs.getBigDecimal(1); }
+        }
+        BigDecimal encours = BigDecimal.ZERO;
+        try (PreparedStatement ps = c.prepareStatement("SELECT COALESCE(SUM(solde_restant),0) FROM paie_avance_acompte "
+                + "WHERE id_employe=? AND id_avance<>? AND type_mouvement='AVANCE_SPECIALE' "
+                + "AND statut IN ('APPROUVE','IMPUTE_PAIE')")) {
+            ps.setInt(1, avance.getIdEmploye()); ps.setInt(2, avance.getIdAvance());
+            try (ResultSet rs = ps.executeQuery()) { if (rs.next()) encours = rs.getBigDecimal(1); }
+        }
+        BigDecimal plafond = salaire.multiply(pourcentage).movePointLeft(2);
+        if (encours.add(avance.getMontantInitial()).compareTo(plafond) > 0)
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "L'encours d'avances après approbation dépasserait " + pourcentage + " % du salaire de base (" + plafond + " Ar).");
     }
 
     // =========================================================================

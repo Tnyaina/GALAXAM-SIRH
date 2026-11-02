@@ -188,6 +188,11 @@ export const paieService = {
         return response.data;
     },
     syntheseAcomptesAvances: async () => (await apiClient.get('paie/ajustements/acomptes-avances/synthese')).data,
+    getRegleAvances: async () => (await apiClient.get('paie/avances/regle')).data,
+    modifierRegleAvances: async payload => (await apiClient.put('paie/avances/regle', payload)).data,
+    listerRetenuesAvances: async idPeriode => (await apiClient.get('paie/avances/retenues', { params: { idPeriode } })).data,
+    choisirRetenueAvance: async (idAvance, idPeriode, payload) =>
+        (await apiClient.put(`paie/avances/${idAvance}/retenues/${idPeriode}`, payload)).data,
     listerImputationsAcompteAvance: async (id) => (await apiClient.get(`paie/ajustements/${id}/imputations`)).data,
     listerModesReglement: async () => (await apiClient.get('paie/ajustements/modes-reglement')).data,
     listerTousModesPaiement: async () => (await apiClient.get('paie/ajustements/modes-paiement')).data,

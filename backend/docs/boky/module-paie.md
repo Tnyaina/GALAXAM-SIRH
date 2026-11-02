@@ -297,7 +297,7 @@ L'impôt est calculé par `PayrollTaxCalculations` sur l'assiette imposable nett
 #### RG-PAIE-07 : Priorité et quotité d'imputation des acomptes et avances
 Les retenues de trésorerie sur le salaire net s'exécutent selon un ordre de priorité strict :
 1. **Acompte de quinzaine** : priorité absolue sur le net disponible (créance sur salaire déjà acquis).
-2. **Avance spéciale / exceptionnelle** : prélevée après l'acompte, à hauteur du solde restant dû et du net encore disponible. Aucun plafond de 10 % n'est appliqué. Le montant prélevé est débité de `paie_avance_acompte.solde_restant` et tracé dans `paie_mouvement_imputation`.
+2. **Avance spéciale / exceptionnelle** : à l'approbation, l'encours approuvé ajouté à la nouvelle demande est limité par `paie_avance_regle.plafond_salaire_base_pct` (100 % du salaire de base par défaut). Chaque paie propose `montant_initial / nombre_mensualites`, plafonné au solde restant. La DAF peut fixer une retenue différente, y compris le solde entier, pour cette seule campagne avec motif. La retenue réelle est limitée au net disponible après acompte ; elle est tracée dans `paie_mouvement_imputation` et le reliquat demeure dû.
 
 #### RG-PAIE-08 : Sécurisation des règlements et preuve binaire (ancien identifiant SP84)
 Tout paiement de bulletin mensuel confirmé exige une pièce justificative binaire authentique ($\le 5\text{ Mo}$, formats PDF/PNG/JPEG) contrôlée par signature MIME et stockée dans la même transaction. Le reste à payer est calculé dynamiquement sous verrou pessimiste du bulletin (`FOR UPDATE`) :
@@ -350,13 +350,13 @@ L’acompte de quinzaine correspond à une partie du salaire déjà acquis et ve
 
 ### Avance exceptionnelle
 
-L’avance exceptionnelle est un mouvement de catégorie `AVANCE` avec suivi du solde. Son parcours est similaire à l’acompte, mais le montant restant est recouvré au fil des bulletins. La demande contient salarié, période, type, montant demandé, motif et mode de règlement. Dans le workflow actuel, l’approbation accepte ou rejette la demande sans modifier son montant ; un utilisateur autorisé consigne ensuite date réelle, mode actif et référence du versement. Cette confirmation enregistre un paiement exécuté ; elle ne lance pas un virement bancaire.
+L’avance exceptionnelle est un mouvement de catégorie `AVANCE` avec suivi du solde. La demande contient salarié, période, type, montant demandé, nombre de mensualités, motif et mode de règlement. L’approbation accepte ou rejette la demande sans modifier son montant et vérifie le plafond configurable de l'encours. Un utilisateur autorisé consigne ensuite date réelle, mode actif et référence du versement. Cette confirmation enregistre un paiement exécuté ; elle ne lance pas un virement bancaire.
 
-Au calcul, les acomptes sont imputés avant les avances spéciales. Aucun plafond en pourcentage n'est appliqué à l'avance : la retenue est limitée au plus petit montant entre le solde restant dû et le net disponible après l'acompte et les avances précédentes du bulletin. Le montant retenu est inscrit dans `paie_mouvement_imputation`, ajouté à `montant_impute` et soustrait de `solde_restant`. Le reliquat est proposé sur les périodes paie éligibles suivantes jusqu’au solde nul. L’écran suit les états « à approuver », « à verser », « versement historique à vérifier », « versé à imputer », « remboursement en cours », « soldé », « rejeté » et « annulé ».
+Au calcul, les acomptes sont imputés avant les avances spéciales. Le plafond de création ne limite pas la retenue mensuelle : celle-ci est le minimum entre l'échéance ou le choix DAF, le solde dû et le net disponible après acomptes et avances précédentes. Le montant réellement retenu est inscrit dans `paie_mouvement_imputation`, ajouté à `montant_impute` et soustrait de `solde_restant`. Un net insuffisant prolonge le remboursement ; aucune retenue fictive n'est enregistrée. L’écran suit les états « à approuver », « à verser », « versement historique à vérifier », « versé à imputer », « remboursement en cours », « soldé », « rejeté » et « annulé ».
 
 Le montant saisi est aujourd'hui le montant demandé et, après approbation et confirmation du versement, le principal à rembourser. Si la DAF accorde un montant différent de celui demandé, le workflow actuel ne permet pas de le distinguer : il faut corriger la demande avant approbation ou créer une évolution séparant montant demandé, montant accordé et montant effectivement versé.
 
-Un dossier déjà versé ne peut pas être annulé par la commande ordinaire. Les dossiers historiques dont les retenues n’ont pas de preuve fiable de versement sont marqués à vérifier. Aucun champ d’échéancier personnalisé d’avance n’est disponible dans le formulaire actuel.
+Un dossier déjà versé ne peut pas être annulé par la commande ordinaire. Les dossiers historiques dont les retenues n’ont pas de preuve fiable de versement sont marqués à vérifier. Les avances historiques migrées conservent une seule mensualité par défaut ; un choix exceptionnel de retenue est lié à une seule période et audité.
 
 ### Prêts d’entreprise (Assainissement Octobre 2026)
 
@@ -731,7 +731,7 @@ La liste ci-dessus donne les points d’entrée principaux. Pour le détail exac
 ## 15. Limites et décisions métier ouvertes
 
 1. **Prêts d’entreprise (Assainissement)** : les tables et structures de code liées aux prêts ont été formellement purgées en octobre 2026. Les retenues sur salaire se concentrent exclusivement sur les acomptes et avances d'entreprise (`paie_avance_acompte`).
-2. **Échéancier des avances** : le formulaire d’avance ne capture pas une modalité par échéance négociée ; le prélèvement est calculé automatiquement à chaque paie selon configuration et capacité disponible.
+2. **Échéancier des avances** : le formulaire capture le nombre de mensualités. L'étape Variables de paie affiche l'échéance prévue et autorise la DAF à saisir un autre montant ou à solder l'avance pour cette campagne avec justification. Recalculer le bulletin pour voir la retenue effective et le net final.
 3. **Règlements financiers** : le journal mensuel exige une preuve jointe pour chaque versement confirmé ; le STC, les acomptes et les prestataires conservent leurs parcours de preuve distincts. Aucun de ces parcours ne transfère les fonds depuis l'application. Un fichier de virement préparé ou transmis ne prouve pas l'exécution.
 4. **Portée juridique du reçu STC** : le document émis est un projet informatif reflétant la situation des versements à la date d'édition. Il ne comporte aucune mention de décharge unilatérale automatique, aucun délai de forclusion forcé et ne se substitue pas à la vérification juridique de l'accord de rupture.
 5. **Exports officiels** : les modèles nécessitent revue DAF et vérification du format et des portails actuels. Ne pas utiliser « certifié », « conforme » ou « officiellement accepté » sans preuve de recette externe datée.

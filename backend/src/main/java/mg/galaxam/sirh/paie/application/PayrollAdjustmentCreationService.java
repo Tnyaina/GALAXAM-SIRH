@@ -134,6 +134,11 @@ public class PayrollAdjustmentCreationService {
                 if (cutoverAmount != null) resolvedAmount = cutoverAmount;
                 if(resolvedAmount==null || resolvedAmount.signum()<=0)
                     throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Le montant doit être positif.");
+                boolean isAvance = "AVANCE".equals(typeMvt.getCategorie());
+                int mensualites = req.getNombreMensualites() == null ? 1 : req.getNombreMensualites();
+                if (mensualites < 1 || mensualites > 120 || (!isAvance && mensualites != 1))
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Le nombre de mensualités doit être compris entre 1 et 120 pour une avance.");
                 PaieAvanceAcompte entity = new PaieAvanceAcompte();
                 entity.setIdEmploye(req.getIdEmploye());
                 entity.setIdPeriodePaie(req.getIdPeriodePaie());
@@ -145,6 +150,7 @@ public class PayrollAdjustmentCreationService {
                 entity.setMontantInitial(resolvedAmount);
                 entity.setMontantImpute(java.math.BigDecimal.ZERO);
                 entity.setSoldeRestant(resolvedAmount);
+                entity.setNombreMensualites(mensualites);
                 entity.setProvenance(typeMvt.getProvenanceDefaut());
                 entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande()
                         : new java.sql.Date(System.currentTimeMillis()));

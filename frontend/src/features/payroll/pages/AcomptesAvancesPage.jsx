@@ -44,7 +44,7 @@ const ETATS = {
 
 export default function AcomptesAvancesPage() {
     const navigate = useNavigate();
-    const { hasPermission } = useAuth();
+    const { hasPermission, hasRole } = useAuth();
     const toast = useToast();
     const canWrite = hasPermission('PAIE_WRITE');
     const [dossiers, setDossiers] = useState([]);
@@ -71,6 +71,8 @@ export default function AcomptesAvancesPage() {
     const [decisionFormError, setDecisionFormError] = useState(null);
     const [decisionReasonError, setDecisionReasonError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [regleAvances, setRegleAvances] = useState(null);
+    const [plafondSaisi, setPlafondSaisi] = useState('');
 
     // Modal de saisie de nouvelle demande
     const [isDemandeModalOpen, setIsDemandeModalOpen] = useState(false);
@@ -80,14 +82,17 @@ export default function AcomptesAvancesPage() {
     const charger = useCallback(async () => {
         setLoading(true); setError(null);
         try {
-            const [liste, resume, modesResult, periodesResult] = await Promise.all([
+            const [liste, resume, modesResult, periodesResult, regleResult] = await Promise.all([
                 paieService.listerAjustements(null, null, 'ACOMPTE_AVANCE').catch(() => []),
                 paieService.syntheseAcomptesAvances().catch(() => null),
                 paieService.listerModesReglement().catch(() => DEFAULT_MODES),
                 periodePaieService.getAllPeriodes().catch(() => []),
+                paieService.getRegleAvances().catch(() => null),
             ]);
             setDossiers(Array.isArray(liste) ? liste : []);
             setSynthese(resume);
+            setRegleAvances(regleResult);
+            if (regleResult?.plafondSalaireBasePct != null) setPlafondSaisi(String(regleResult.plafondSalaireBasePct));
             const modesList = Array.isArray(modesResult) && modesResult.length > 0 ? modesResult : DEFAULT_MODES;
             setModes(modesList);
             const rawPeriodes = Array.isArray(periodesResult) ? periodesResult : (periodesResult?.content || []);
@@ -203,6 +208,25 @@ export default function AcomptesAvancesPage() {
             icon={Banknote} breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Acomptes et avances' }]} />
         {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
         {synthese?.aVerifier > 0 && <Alert type="warning" message={`${synthese.aVerifier} dossier(s) historique(s) ont des retenues sans confirmation de versement fiable. Vérifiez les pièces avant toute nouvelle action.`} />}
+        {regleAvances && <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3" aria-label="Plafond des avances">
+            <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-52 flex-1">
+                    <h2 className="text-sm font-semibold text-[var(--color-fg)]">Plafond des avances</h2>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Encours approuvé + nouvelle avance, en % du salaire de base. Vérifié à l’approbation.</p>
+                </div>
+                {hasRole?.('ROLE_ADMIN') ? <>
+                    <Input type="number" min="0" max="500" step="0.01" aria-label="Plafond des avances en pourcentage"
+                        value={plafondSaisi} onChange={event => setPlafondSaisi(event.target.value)} className="w-28" />
+                    <Button size="sm" variant="outline" disabled={submitting || plafondSaisi === String(regleAvances.plafondSalaireBasePct)}
+                        onClick={async () => {
+                            setSubmitting(true);
+                            try { const saved = await paieService.modifierRegleAvances({ plafondSalaireBasePct: Number(plafondSaisi) }); setRegleAvances(saved); toast.success('Plafond enregistré.'); }
+                            catch (err) { toast.error(getErrorMessage(err, 'Plafond non enregistré.')); }
+                            finally { setSubmitting(false); }
+                        }}>Enregistrer</Button>
+                </> : <strong className="font-data text-sm">{regleAvances.plafondSalaireBasePct} %</strong>}
+            </div>
+        </section>}
         <div className="flex flex-wrap justify-between items-center gap-2">
             <p className="text-xs text-[var(--color-fg-muted)]">La fiche salarié ou cette interface permet d’enregistrer une demande. Seul un versement confirmé peut être retenu sur le bulletin.</p>
             <div className="flex flex-wrap gap-2 items-center">
@@ -288,6 +312,7 @@ export default function AcomptesAvancesPage() {
                     <span>Mode / référence</span><strong className="text-right">{selected.dateVersementConfirme ? `${selected.modeReglement} · ${selected.referenceVersement}` : '—'}</strong>
                     <span>Déjà retenu</span><strong className="text-right">{formatMoneyAr(selected.montantImpute)}</strong>
                     <span>Reste dû</span><strong className="text-right">{formatMoneyAr(selected.soldeRestant)}</strong>
+                    {selected.isAvance && <><span>Remboursement prévu</span><strong className="text-right">{selected.nombreMensualites} mensualité(s)</strong></>}
                 </div>
                 <p className="text-xs text-[var(--color-fg-muted)]">Motif : {selected.motif}</p>
                 {canWrite && <div className="flex flex-wrap gap-2">

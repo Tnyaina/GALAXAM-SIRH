@@ -1278,7 +1278,7 @@ export default function ReglementationFiscaleTab() {
                                 <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
                                 valorisation selon le TCONGE individuel
                             </p>
-                            <p>• <strong>Retenues sur salaire</strong> : avances exceptionnelles sans plafond en pourcentage, limitées au solde dû et au net disponible après acomptes. La quotité cessible de <strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong> est un paramètre séparé.</p>
+                            <p>• <strong>Avances</strong> : le plafond de l’encours se règle dans « Acomptes et avances » (100 % du salaire de base par défaut). La retenue mensuelle dépend de l’échéancier, du solde dû et du net disponible. La quotité cessible de <strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong> est un paramètre séparé.</p>
                         </>
                     ) : (
                         <p className=" text-[var(--color-warning-600)]">Aucun exercice fiscal actif — initialisez le premier exercice ci-dessous.</p>

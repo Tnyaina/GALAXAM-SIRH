@@ -176,6 +176,7 @@ public class PaieAjustementController {
                         map.put("montantInitial", rs.getBigDecimal("montant_initial"));
                         map.put("montantImpute", rs.getBigDecimal("montant_impute"));
                         map.put("soldeRestant", rs.getBigDecimal("solde_restant"));
+                        map.put("nombreMensualites", rs.getInt("nombre_mensualites"));
                         map.put("provenance", rs.getString("provenance"));
                         map.put("dateDemande", rs.getDate("date_demande"));
                         map.put("datePaiement", rs.getDate("date_paiement"));

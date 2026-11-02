@@ -15,6 +15,7 @@ public class PaieAjustementRequest {
     private String sens; // 'GAIN' ou 'RETENUE'
 
     private BigDecimal montant;
+    private Integer nombreMensualites;
     private BigDecimal quantiteSaisie;
     private BigDecimal tauxSaisi;
 
@@ -45,6 +46,8 @@ public class PaieAjustementRequest {
     public void setTauxSaisi(BigDecimal v) { tauxSaisi=v; }
     public BigDecimal getMontant() { return montant; }
     public void setMontant(BigDecimal montant) { this.montant = montant; }
+    public Integer getNombreMensualites() { return nombreMensualites; }
+    public void setNombreMensualites(Integer nombreMensualites) { this.nombreMensualites = nombreMensualites; }
 
     public Date getDateDemande() { return dateDemande; }
     public void setDateDemande(Date dateDemande) { this.dateDemande = dateDemande; }

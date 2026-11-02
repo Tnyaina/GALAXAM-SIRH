@@ -35,6 +35,7 @@ public class PaieAvanceAcompte extends ClassMere {
     private BigDecimal montantInitial;
     private BigDecimal montantImpute = BigDecimal.ZERO;
     private BigDecimal soldeRestant;
+    private Integer nombreMensualites = 1;
     private String provenance = "VARIABLE_DAF";
     private Date dateDemande;
     private Date dateAccord;
@@ -68,8 +69,8 @@ public class PaieAvanceAcompte extends ClassMere {
         String sql = "INSERT INTO paie_avance_acompte (" +
                 "id_employe, id_periode_paie, type_mouvement, sens, montant, montant_initial, montant_impute, solde_restant, provenance, " +
                 "date_demande, date_accord, date_paiement, mode_reglement, motif, " +
-                "statut, id_bulletin, cree_par, approuve_par, id_type_mouvement, quantite_saisie, taux_saisi" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
+                "statut, id_bulletin, cree_par, approuve_par, id_type_mouvement, quantite_saisie, taux_saisi, nombre_mensualites" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             int p = 1;
@@ -96,6 +97,7 @@ public class PaieAvanceAcompte extends ClassMere {
             if (approuvePar != null) ps.setInt(p++, approuvePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (idTypeMouvement != null) ps.setInt(p++, idTypeMouvement); else ps.setNull(p++, java.sql.Types.INTEGER);
             ps.setBigDecimal(p++,quantiteSaisie); ps.setBigDecimal(p++,tauxSaisi);
+            ps.setInt(p++, nombreMensualites != null ? nombreMensualites : 1);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -258,6 +260,7 @@ public class PaieAvanceAcompte extends ClassMere {
         a.setMontantInitial(rs.getBigDecimal("montant_initial"));
         a.setMontantImpute(rs.getBigDecimal("montant_impute"));
         a.setSoldeRestant(rs.getBigDecimal("solde_restant"));
+        a.setNombreMensualites(rs.getInt("nombre_mensualites"));
         a.setQuantiteSaisie(rs.getBigDecimal("quantite_saisie")); a.setTauxSaisi(rs.getBigDecimal("taux_saisi"));
         a.setProvenance(rs.getString("provenance"));
         a.setDateDemande(rs.getDate("date_demande"));
@@ -315,6 +318,8 @@ public class PaieAvanceAcompte extends ClassMere {
     public void setMontantImpute(BigDecimal montantImpute) { this.montantImpute = montantImpute; }
     public BigDecimal getSoldeRestant() { return soldeRestant; }
     public void setSoldeRestant(BigDecimal soldeRestant) { this.soldeRestant = soldeRestant; }
+    public Integer getNombreMensualites() { return nombreMensualites; }
+    public void setNombreMensualites(Integer nombreMensualites) { this.nombreMensualites = nombreMensualites; }
     public String getProvenance() { return provenance; }
     public void setProvenance(String provenance) { this.provenance = provenance; }
 

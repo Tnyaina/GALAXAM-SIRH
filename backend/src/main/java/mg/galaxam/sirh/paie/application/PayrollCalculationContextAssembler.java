@@ -386,7 +386,7 @@ final class PayrollCalculationContextAssembler {
 
     private void chargerMouvements(PayrollCalculationInput in, Integer idEmploye, Integer idPeriodePaie, boolean simulation, Connection c) throws Exception {
         // 7. Variables de paie, Primes, Extras et Retenues (paie_avance_acompte & ref_type_mouvement_paie)
-        String sqlMouvements = "SELECT paa.*, " +
+        String sqlMouvements = "SELECT paa.*, choix.montant AS retenue_choisie, " +
                 "COALESCE(rtmp.code, paa.type_mouvement) AS code_effectif, " +
                 "COALESCE(rtmp.sens, paa.sens) AS sens_effectif, " +
                 "rtmp.libelle AS libelle_type, " +
@@ -402,6 +402,7 @@ final class PayrollCalculationContextAssembler {
                 "EXISTS (SELECT 1 FROM paie_mouvement_justificatif pj WHERE pj.id_avance = paa.id_avance) " +
                 "AS justificatif_present " +
                 "FROM paie_avance_acompte paa " +
+                "LEFT JOIN paie_avance_retenue_choix choix ON choix.id_avance=paa.id_avance AND choix.id_periode_paie=? " +
                 "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
                 "JOIN periode_paie periode_cible ON periode_cible.id_periode_paie = ? " +
                 "LEFT JOIN paie_rubrique linked ON linked.id_rubrique=rtmp.id_rubrique " +
@@ -426,12 +427,18 @@ final class PayrollCalculationContextAssembler {
 
         try (PreparedStatement ps = c.prepareStatement(sqlMouvements)) {
             ps.setInt(1, idPeriodePaie);
-            ps.setInt(2, idEmploye);
+            ps.setInt(2, idPeriodePaie);
+            ps.setInt(3, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String sens = rs.getString("sens_effectif");
                     String codeType = rs.getString("code_effectif");
                     BigDecimal montant = rs.getBigDecimal("solde_restant");
+                    if ("AVANCE".equals(rs.getString("categorie_type"))) {
+                        BigDecimal choix = rs.getBigDecimal("retenue_choisie");
+                        montant = mg.galaxam.sirh.paie.domain.engine.AdvanceRepaymentPolicy.retenueDemandee(
+                                rs.getBigDecimal("montant_initial"), rs.getInt("nombre_mensualites"), montant, choix);
+                    }
                     String motif = rs.getString("motif");
                     int idAvance = rs.getInt("id_avance");
                     if (!mouvementsVus.add(idAvance))

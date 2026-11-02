@@ -75,9 +75,11 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
     const [typesError, setTypesError] = useState(null);
 
     const [modes, setModes] = useState(FALLBACK_MODES);
+    const [plafondAvancesPct, setPlafondAvancesPct] = useState(null);
     const [modeReglement, setModeReglement] = useState('');
 
     const [montant, setMontant] = useState('');
+    const [nombreMensualites, setNombreMensualites] = useState('1');
     const [motif, setMotif] = useState('');
     const [dateDemande, setDateDemande] = useState(getTodayDateString());
     const [submitting, setSubmitting] = useState(false);
@@ -89,6 +91,12 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
     const salaireMensuel = modeCalculPaie === 'MENSUEL';
     const plafondAcompte = salaireMensuel && salaireBase > 0 ? Math.round(salaireBase * 0.5) : 0;
     const encoursAcomptes = (effectiveSynthese?.acomptesRestants || 0) + (effectiveSynthese?.avancesRestantes || 0);
+    const plafondAvances = plafondAvancesPct != null && salaireMensuel ? Number(salaireBase) * Number(plafondAvancesPct) / 100 : null;
+    const capaciteAvance = plafondAvances != null ? Math.max(0, plafondAvances - Number(effectiveSynthese?.avancesRestantes || 0)) : null;
+
+    useEffect(() => {
+        paieService.getRegleAvances().then(result => setPlafondAvancesPct(result?.plafondSalaireBasePct ?? null)).catch(() => setPlafondAvancesPct(null));
+    }, []);
 
     // Chargement dynamique des types de mouvements autorisés pour la période sélectionnée
     useEffect(() => {
@@ -169,12 +177,15 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
     const workflowDenialReason = workflowAction?.allowed === false ? workflowAction.reason : null;
 
     const numMontant = Number(montant) || 0;
+    const isAvance = types.find(type => type.code === typeCode)?.categorie === 'AVANCE';
+    const nombreMensualitesValide = !isAvance || (Number.isInteger(Number(nombreMensualites)) && Number(nombreMensualites) >= 1 && Number(nombreMensualites) <= 120);
     const isMontantValide = numMontant > 0;
+    const isPlafondAvanceValide = !isAvance || capaciteAvance == null || numMontant <= capaciteAvance;
     const hasMotif = Boolean(motif.trim());
 
     // La soumission ne dépend que des champs obligatoires et de l'autorisation workflow backend
     const canSubmit = isVariableAllowed && !loadingPeriod && !loadingTypes && !submitting
-        && Boolean(effectiveIdEmploye) && Boolean(selectedPeriodeId) && Boolean(typeCode) && isMontantValide && hasMotif;
+        && Boolean(effectiveIdEmploye) && Boolean(selectedPeriodeId) && Boolean(typeCode) && isMontantValide && hasMotif && nombreMensualitesValide && isPlafondAvanceValide;
 
     // Raccourcis de calcul ergonomiques (purement indicatifs, aucune règle bloquante)
     const quickAmounts = useMemo(() => {
@@ -206,6 +217,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                 idPeriodePaie: Number(selectedPeriodeId),
                 typeMouvement: typeCode,
                 montant: numMontant,
+                nombreMensualites: isAvance ? Number(nombreMensualites) : 1,
                 motif: motif.trim(),
                 modeReglement,
                 dateDemande,
@@ -219,7 +231,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
         }
     };
 
-    const isDirty = Boolean((!idEmploye && selectedEmpId) || montant || motif || modeReglement);
+    const isDirty = Boolean((!idEmploye && selectedEmpId) || montant || motif || modeReglement || nombreMensualites !== '1');
     useUnsavedChanges(isDirty);
 
     const selectedType = types.find(type => type.code === typeCode);
@@ -229,6 +241,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
         || (effectiveIdEmploye ? 'Collaborateur sélectionné' : 'Non sélectionné');
     const footerMessage = !isMontantValide
         ? 'Saisissez un montant supérieur à 0 Ar.'
+        : !isPlafondAvanceValide ? 'L’avance dépasserait le plafond disponible.'
         : !hasMotif
             ? 'Renseignez un motif pour enregistrer.'
             : !effectiveIdEmploye
@@ -339,10 +352,23 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                             <p className="mt-2 text-xs text-[var(--color-fg-muted)]">
                                 {selectedType.categorie === 'ACOMPTE'
                                     ? (selectedType.description || 'Acompte versé puis imputé sur la période ciblée.')
-                                    : 'Remboursement sans plafond en pourcentage, selon le solde dû et le net disponible.'}
+                                    : 'Plafond sur l’encours et mensualités contrôlés à l’approbation.'}
                             </p>
                         )}
                     </fieldset>
+
+                    {isAvance && <div className="grid gap-4 sm:grid-cols-2">
+                        <Input label="Nombre de mensualités" type="number" min="1" max="120" step="1" required
+                            value={nombreMensualites} onChange={event => setNombreMensualites(event.target.value)} />
+                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2 text-xs">
+                            <span className="block text-[var(--color-fg-muted)]">Échéance prévue</span>
+                            <strong className="text-sm text-[var(--color-fg)]">{nombreMensualitesValide ? formatMoneyAr(Math.ceil(numMontant * 100 / Number(nombreMensualites)) / 100) : '—'}</strong>
+                            <span className="block text-[var(--color-fg-muted)]">Modifiable pour chaque paie par la DAF.</span>
+                        </div>
+                    </div>}
+                    {isAvance && plafondAvancesPct != null && salaireMensuel && <p className="text-xs text-[var(--color-fg-muted)]">
+                        Plafond : {plafondAvancesPct} % du salaire de base · encore disponible : {formatMoneyAr(capaciteAvance)}.
+                    </p>}
 
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="min-w-0">

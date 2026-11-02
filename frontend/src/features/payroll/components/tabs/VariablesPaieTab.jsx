@@ -40,6 +40,7 @@ import { fmtDate } from '@/utils/dateUtils';
 import { isManualPayrollVariable } from '@/features/payroll/utils/variableTypes';
 import { useAuth } from '@/context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import AdvanceRepaymentPanel from './AdvanceRepaymentPanel';
 
 
 export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', periodStatus = '', onVariableChanged, onPendingCountChange }) {
@@ -625,6 +626,8 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 <summary className="font-semibold text-[var(--color-fg)] cursor-pointer">Quelles variables saisir ici ?</summary>
                 <p className="mt-2">Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes et retenues exceptionnelles justifiées. Le régime fiscal et social provient du type configuré.</p>
             </details>
+            <AdvanceRepaymentPanel idPeriode={idPeriodeActive} canMutate={canMutate}
+                onChanged={() => { chargerDonnees({ silent: true }); onVariableChanged?.(); }} />
 
             {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
             {!canMutate && idPeriodeActive && <Alert type="info" message={disabledExplanation || 'La période est en lecture seule.'} />}

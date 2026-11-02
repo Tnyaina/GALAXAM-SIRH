@@ -29,3 +29,5 @@ Les migrations de version majeure PostgreSQL (15 vers 16, etc.) sont une opérat
 Le parcours Windows natif utilise aussi ces fichiers via `scripts/windows-native/migrate-grh.ps1` et la même table `public.galaxam_schema_history`. Son script de mise à jour effectue la sauvegarde, arrête GRH, applique les migrations absentes, puis déploie le nouveau backend et le frontend. Tester la migration sur une copie de la base avant cette étape.
 
 La migration `0006_remove_advance_percentage_cap.sql` retire le paramètre historique de plafond de 10 % des avances exceptionnelles. Le schéma initial canonique reste figé ; la migration s'applique après celui-ci sur une base neuve comme sur une base existante.
+
+La migration `0007_advance_repayment_plan.sql` ajoute le plafond configurable de l'encours d'avances à l'approbation (100 % du salaire de base par défaut), le nombre de mensualités et le choix motivé d'une retenue pour une campagne. Les avances préexistantes gardent une mensualité par défaut.
