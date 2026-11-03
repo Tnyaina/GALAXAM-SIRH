@@ -4,7 +4,7 @@ import {
     Eye, ChevronDown, ChevronRight,
     Filter, X as IconX,
 } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
@@ -12,6 +12,7 @@ import Input from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
+import DataSectionHeader from '@/components/ui/data-display/DataSectionHeader';
 import Alert from '@/components/ui/feedback/Alert';
 import InfoDisclosure from '@/components/ui/feedback/InfoDisclosure';
 import FormError from '@/components/ui/feedback/FormError';
@@ -70,18 +71,13 @@ function PeriodeGroupHeader({ code, items, isOpen, onToggle }) {
         ['REMBOURSEMENT_EN_COURS', 'VERSE_A_IMPUTER'].includes(d.etatDossier)).length;
 
     return (
-        <tr
-            role="row"
-            className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] cursor-pointer select-none hover:bg-[var(--color-brand-50)]"
-            onClick={onToggle}
-            aria-expanded={isOpen}
-        >
-            <td colSpan={9} className="py-1.5 px-3">
-                <div className="flex flex-wrap items-center gap-3">
+        <tr role="row" className="bg-[var(--color-bg-subtle)] border-y border-[var(--color-border)]">
+            <td colSpan={9} className="py-2 px-4">
+                <button type="button" onClick={onToggle} aria-expanded={isOpen} className="flex min-h-11 w-full flex-wrap items-center gap-3 text-left hover:text-[var(--color-brand-700)] focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]">
                     <span className="text-[var(--color-fg-muted)] text-[11px] shrink-0">
                         {isOpen ? <ChevronDown size={13} className="inline mr-0.5" /> : <ChevronRight size={13} className="inline mr-0.5" />}
                     </span>
-                    <span className="font-bold text-xs text-[var(--color-fg)] tracking-wide">
+                    <span className="font-bold text-sm text-[var(--color-fg)]">
                         Période&nbsp;{code}
                     </span>
                     <span className="text-[11px] text-[var(--color-fg-muted)]">
@@ -100,7 +96,7 @@ function PeriodeGroupHeader({ code, items, isOpen, onToggle }) {
                             <Badge variant="primary" size="xs">{nbRecouvrement} en recouvrement</Badge>
                         )}
                     </div>
-                </div>
+                </button>
             </td>
         </tr>
     );
@@ -110,6 +106,7 @@ function PeriodeGroupHeader({ code, items, isOpen, onToggle }) {
 
 export default function AcomptesAvancesPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { hasPermission, hasRole } = useAuth();
     const toast = useToast();
     const canWrite = hasPermission('PAIE_WRITE');
@@ -136,7 +133,7 @@ export default function AcomptesAvancesPage() {
     const [pageSize, setPageSize] = useState(10);
 
     /* Sélection / actions */
-    const [selectedId, setSelectedId]     = useState(null);
+    const [selectedId, setSelectedId]     = useState(() => Number(location.state?.openAdvanceId) || null);
     const [imputations, setImputations]   = useState([]);
     const [imputationError, setImputationError] = useState(null);
     const [decision, setDecision]         = useState(null);
@@ -249,8 +246,11 @@ export default function AcomptesAvancesPage() {
         return [...map.entries()].sort(([a], [b]) => b.localeCompare(a));
     }, [visible, groupByPeriode]);
 
+    const defaultOpenPeriod = groupedByPeriode?.some(([code]) => code === activePeriod?.code)
+        ? activePeriod.code : groupedByPeriode?.[0]?.[0];
+    const isPeriodeOpen = code => openPeriodes[code] ?? code === defaultOpenPeriod;
     const togglePeriode = (code) =>
-        setOpenPeriodes(prev => ({ ...prev, [code]: !prev[code] }));
+        setOpenPeriodes(prev => ({ ...prev, [code]: !(prev[code] ?? code === defaultOpenPeriod) }));
 
     /* ── Pagination des dossiers ou des périodes selon la vue ───────────── */
     const totalItems  = visible.length;
@@ -346,10 +346,10 @@ export default function AcomptesAvancesPage() {
         const periodeCode = getPeriodeCode(item);
 
         return (
-            <Tr key={item.idAvance} className="group hover:bg-[var(--color-surface-hover)]">
+            <Tr key={item.idAvance} className="group border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] [&>td]:!py-3.5 [&>td]:align-middle">
                 <Td>
-                    <span className="font-semibold text-xs">{item.nomComplet}</span>
-                    <span className="block text-[11px] text-[var(--color-fg-muted)] font-data">{item.matricule}</span>
+                    <span className="font-semibold text-sm">{item.nomComplet}</span>
+                    <span className="block mt-0.5 text-xs text-[var(--color-fg-muted)] font-data">{item.matricule}</span>
                 </Td>
                 <Td>
                     <span className="inline-block px-1.5 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
@@ -362,7 +362,7 @@ export default function AcomptesAvancesPage() {
                         <span className="font-data text-xs text-[var(--color-fg-muted)]">{periodeCode}</span>
                     </Td>
                 )}
-                <Td className="font-data text-xs">{formatMoneyAr(item.montantInitial)}</Td>
+                <Td className="font-data text-sm">{formatMoneyAr(item.montantInitial)}</Td>
                 <Td className="text-xs">
                     {item.dateVersementConfirme
                         ? <span className="text-[var(--color-success-700)] font-semibold">{fmtDate(item.dateVersementConfirme)}</span>
@@ -383,7 +383,7 @@ export default function AcomptesAvancesPage() {
                         </div>
                     ) : <span className="font-data text-xs text-[var(--color-fg-muted)]">0 Ar</span>}
                 </Td>
-                <Td className="text-right font-data text-xs font-bold">
+                <Td className="text-right font-data text-sm font-semibold">
                     {item.soldeRestant > 0
                         ? <span className="text-[var(--color-fg)]">{formatMoneyAr(item.soldeRestant)}</span>
                         : <span className="text-[var(--color-fg-muted)]">0 Ar</span>}
@@ -542,18 +542,20 @@ export default function AcomptesAvancesPage() {
 
             {/* Tableau principal */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
+                <DataSectionHeader
+                    title="Dossiers d'avances et d'acomptes"
+                    description={groupByPeriode
+                        ? 'Dossiers regroupés par période ; la période courante est ouverte. Les états distinguent décision, versement et imputation sur la paie.'
+                        : 'Tous les dossiers sont affichés à plat. Utilisez les filtres pour isoler une étape du traitement.'}
+                    count={visible.length}
+                    countLabel={`dossier${visible.length > 1 ? 's' : ''}`}
+                    tone={(synthese?.aApprouver || 0) > 0 ? 'warning' : 'brand'}
+                />
 
                 {/* Barre de filtres */}
                 <div className="p-3 border-b border-[var(--color-border-subtle)] space-y-2">
                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-sm font-bold text-[var(--color-fg)]">
-                                Dossiers
-                            </h2>
-                            <span className="text-[11px] text-[var(--color-fg-muted)] font-data">
-                                {visible.length} au total
-                            </span>
-                        </div>
+                        <p className="text-xs font-semibold text-[var(--color-fg-muted)]">Rechercher ou filtrer les dossiers</p>
                         <div className="flex flex-wrap gap-2 items-center">
                             {/* Recherche */}
                             <div className="w-full sm:w-56">
@@ -681,11 +683,11 @@ export default function AcomptesAvancesPage() {
                                             <PeriodeGroupHeader
                                                 code={code}
                                                 items={items}
-                                                isOpen={openPeriodes[code] === true}
+                                                isOpen={isPeriodeOpen(code)}
                                                 onToggle={() => togglePeriode(code)}
                                             />
-                                            {openPeriodes[code] === true && items.slice(0, groupRowsShown[code] || ROWS_PER_GROUP).map(item => renderRow(item))}
-                                            {openPeriodes[code] === true && items.length > (groupRowsShown[code] || ROWS_PER_GROUP) && (
+                                            {isPeriodeOpen(code) && items.slice(0, groupRowsShown[code] || ROWS_PER_GROUP).map(item => renderRow(item))}
+                                            {isPeriodeOpen(code) && items.length > (groupRowsShown[code] || ROWS_PER_GROUP) && (
                                                 <Tr>
                                                     <Td colSpan={8} className="text-center">
                                                         <Button type="button" variant="ghost" size="sm" onClick={() => setGroupRowsShown(prev => ({ ...prev, [code]: (prev[code] || ROWS_PER_GROUP) + ROWS_PER_GROUP }))}>

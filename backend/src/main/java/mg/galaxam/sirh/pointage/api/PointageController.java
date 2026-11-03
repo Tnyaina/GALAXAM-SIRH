@@ -94,6 +94,7 @@ public class PointageController {
             @RequestParam(required = false) Integer idSite,
             @RequestParam(required = false) String search,
             @RequestParam(required = false, defaultValue = "ALL") String filtre,
+            @RequestParam(required = false) String categorie,
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "25") int size
     ) throws Exception {
@@ -123,7 +124,7 @@ public class PointageController {
             return ResponseEntity.ok(resp);
         }
         Map<String, Object> data = pointageSyntheseService.getSynthesePeriodePaginee(
-                idPeriodePaie, idSite, search, filtre, page, size);
+                idPeriodePaie, idSite, search, filtre, categorie, page, size);
         return ResponseEntity.ok(data);
     }
 

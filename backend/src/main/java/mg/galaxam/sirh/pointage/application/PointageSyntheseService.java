@@ -351,10 +351,10 @@ public class PointageSyntheseService {
     }
 
     public Map<String, Object> getSynthesePeriodePaginee(
-            int idPeriode, Integer idSite, String search, String filtre, int page, int size
+            int idPeriode, Integer idSite, String search, String filtre, String categorie, int page, int size
     ) throws SQLException {
         try (Connection c = dataSource.getConnection()) {
-            return getSynthesePeriodePaginee(idPeriode, idSite, search, filtre, page, size, c);
+            return getSynthesePeriodePaginee(idPeriode, idSite, search, filtre, categorie, page, size, c);
         }
     }
 
@@ -1437,7 +1437,7 @@ public class PointageSyntheseService {
     }
 
     public Map<String, Object> getSynthesePeriodePaginee(
-            int idPeriode, Integer idSite, String search, String filtre, int page, int size, Connection c
+            int idPeriode, Integer idSite, String search, String filtre, String categorie, int page, int size, Connection c
     ) throws SQLException {
         Map<String, Object> resp = new HashMap<>();
         if (idPeriode <= 0) {
@@ -1459,6 +1459,10 @@ public class PointageSyntheseService {
 
         // Weekly values are calculated from pointage_jour and never read from a persisted week table.
         List<PointageSyntheseMensuelleDTO> periodValues = getSynthesePeriode(idPeriode, idSite, c);
+        resp.put("categories", periodValues.stream()
+                .map(PointageSyntheseMensuelleDTO::getCodeCategorie)
+                .filter(code -> code != null && !code.isBlank())
+                .distinct().sorted().toList());
         Set<Integer> employeesWithHs = new HashSet<>();
         Set<Integer> employeesWithCompensation = new HashSet<>();
         double totalHs30 = 0;
@@ -1592,6 +1596,11 @@ public class PointageSyntheseService {
             filterParams.add(pattern);
             filterParams.add(pattern);
             filterParams.add(pattern);
+        }
+
+        if (categorie != null && !categorie.isBlank()) {
+            whereFilter.append("AND cp.code = ? ");
+            filterParams.add(categorie.trim());
         }
 
         if ("HS".equalsIgnoreCase(filtre)) {

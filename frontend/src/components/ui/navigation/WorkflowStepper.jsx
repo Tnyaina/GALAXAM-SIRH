@@ -34,8 +34,8 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                 onClick={() => isClickable && onStepClick(step.id)}
                                 title={isLocked ? (step.lockReason || 'Acces restreint') : step.label}
                                 className={`workflow-step-button
-                                    flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold
-                                    border whitespace-nowrap transition-all
+                                    flex min-h-10 items-center gap-2 px-3 py-1.5 text-xs font-semibold
+                                    border whitespace-nowrap transition-colors
                                     ${isLocked
                                         ? 'opacity-40 cursor-not-allowed border-transparent text-[var(--color-fg-muted)]'
                                         : isClickable
@@ -51,6 +51,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                                 : 'bg-transparent border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--color-border)] hover:text-[var(--color-fg)]'
                                     }
                                 `}
+                                aria-current={isActive ? 'step' : undefined}
                             >
                                 {/* Icone de statut */}
                                 {isDone && !isActive ? (

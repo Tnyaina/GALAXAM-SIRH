@@ -14,5 +14,6 @@ class AdvanceRepaymentPolicyTest {
         assertEquals(new BigDecimal("1000000.00"), AdvanceRepaymentPolicy.retenueDemandee(initial, 2, remaining, initial));
         assertEquals(new BigDecimal("200000.00"), AdvanceRepaymentPolicy.retenueDemandee(initial, 2,
                 new BigDecimal("200000.00"), null));
+        assertEquals(BigDecimal.ZERO, AdvanceRepaymentPolicy.retenueDemandee(initial, 2, remaining, BigDecimal.ZERO));
     }
 }

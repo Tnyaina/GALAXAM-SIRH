@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Search, RotateCcw, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Search, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Input from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
@@ -23,6 +23,7 @@ export default function EmployeFilterBar({
     onResetFilters,
     totalFound = 0,
 }) {
+    const [showMoreFilters, setShowMoreFilters] = useState(Boolean(siteFilter || departementFilter || serviceFilter));
     // Données dérivées : services compatibles, libellés et options de filtres.
     const filteredServices = useMemo(() => {
         if (!serviceFilter && !departementFilter) return services;
@@ -94,7 +95,7 @@ export default function EmployeFilterBar({
     // Rendu
     return (
         <div className="p-3 sm:p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3 font-sans shadow-2xs">
-            {/* Ligne principale : Recherche à gauche, espace libre, filtres alignés à droite */}
+            {/* Recherche et statut sont les contrôles utilisés au quotidien. */}
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
                 {/* 1. Recherche globale avec bouton clear (à gauche) */}
                 <div className="relative w-full lg:w-72 xl:w-80 shrink-0">
@@ -102,7 +103,8 @@ export default function EmployeFilterBar({
                         type="text"
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder="Recherche (nom, matricule)..."
+                        label="Rechercher un collaborateur"
+                        placeholder="Nom ou matricule"
                         iconLeft={<Search size={14} />}
                         className="py-1.5 pl-8 pr-7 text-xs"
                     />
@@ -119,7 +121,7 @@ export default function EmployeFilterBar({
                     )}
                 </div>
 
-                {/* 2. Filtres déplacés vers la droite avec espacement */}
+                {/* Les critères organisationnels sont disponibles à la demande. */}
                 <div className="flex flex-1 flex-wrap items-center justify-start lg:justify-end gap-2.5">
                     {/* Filtre Statut */}
                     <div className="w-full sm:w-auto min-w-[150px]">
@@ -127,17 +129,27 @@ export default function EmployeFilterBar({
                             value={statusFilter}
                             onChange={(val) => onStatusFilterChange(val || 'ALL')}
                             options={statusOptions}
+                            aria-label="Filtrer par statut"
                             placeholder="Statut : Tous"
                             className="text-xs w-full"
                         />
                     </div>
 
+                    <Button type="button" variant="outline" size="sm" iconLeft={<SlidersHorizontal size={16} />} aria-expanded={showMoreFilters} aria-controls="employee-more-filters" onClick={() => setShowMoreFilters(value => !value)}>
+                        {showMoreFilters ? 'Masquer les filtres' : 'Plus de filtres'}
+                        {(siteFilter || departementFilter || serviceFilter) ? ' · actifs' : ''}
+                    </Button>
+                </div>
+            </div>
+
+            {showMoreFilters && <div id="employee-more-filters" className="flex flex-wrap items-center gap-2.5 border-t border-[var(--color-border-subtle)] pt-3">
                     {/* Filtre Site */}
                     <div className="w-full sm:w-auto min-w-[180px]">
                         <SearchSelect
                             value={siteFilter}
                             onChange={(val) => onSiteFilterChange(val || '')}
                             options={siteOptions}
+                            aria-label="Filtrer par site"
                             placeholder="Site : Tous les sites"
                             className="text-xs w-full"
                         />
@@ -152,6 +164,7 @@ export default function EmployeFilterBar({
                                 onServiceFilterChange('');
                             }}
                             options={deptOptions}
+                            aria-label="Filtrer par département"
                             placeholder="Département : Tous"
                             className="text-xs w-full"
                         />
@@ -163,12 +176,12 @@ export default function EmployeFilterBar({
                             value={serviceFilter}
                             onChange={(val) => onServiceFilterChange(val || '')}
                             options={serviceOptions}
+                            aria-label="Filtrer par service"
                             placeholder="Service : Tous"
                             className="text-xs w-full"
                         />
                     </div>
-                </div>
-            </div>
+            </div>}
 
             {/* Barre de synthèse & Badges de filtres actifs amovibles */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--color-border-subtle)] text-xs">
@@ -193,7 +206,7 @@ export default function EmployeFilterBar({
                                     type="button"
                                     onClick={() => onSearchChange('')}
                                     className="hover:text-[var(--color-danger-500)] ml-0.5 cursor-pointer"
-                                    title="Retirer le filtre"
+                                    aria-label="Retirer le filtre de recherche"
                                 >
                                     <X size={10} />
                                 </button>
@@ -207,7 +220,7 @@ export default function EmployeFilterBar({
                                     type="button"
                                     onClick={() => onStatusFilterChange('ALL')}
                                     className="hover:text-[var(--color-danger-500)] ml-0.5 cursor-pointer"
-                                    title="Retirer le filtre"
+                                    aria-label="Retirer le filtre de statut"
                                 >
                                     <X size={10} />
                                 </button>
@@ -221,7 +234,7 @@ export default function EmployeFilterBar({
                                     type="button"
                                     onClick={() => onSiteFilterChange('')}
                                     className="hover:text-[var(--color-danger-500)] ml-0.5 cursor-pointer"
-                                    title="Retirer le filtre"
+                                    aria-label="Retirer le filtre de site"
                                 >
                                     <X size={10} />
                                 </button>
@@ -238,7 +251,7 @@ export default function EmployeFilterBar({
                                         onServiceFilterChange('');
                                     }}
                                     className="hover:text-[var(--color-danger-500)] ml-0.5 cursor-pointer"
-                                    title="Retirer le filtre"
+                                    aria-label="Retirer le filtre de département"
                                 >
                                     <X size={10} />
                                 </button>
@@ -252,7 +265,7 @@ export default function EmployeFilterBar({
                                     type="button"
                                     onClick={() => onServiceFilterChange('')}
                                     className="hover:text-[var(--color-danger-500)] ml-0.5 cursor-pointer"
-                                    title="Retirer le filtre"
+                                    aria-label="Retirer le filtre de service"
                                 >
                                     <X size={10} />
                                 </button>

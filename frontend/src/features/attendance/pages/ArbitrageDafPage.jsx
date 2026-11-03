@@ -67,11 +67,13 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
     const [alertFilter, setAlertFilter] = useState('ALL');
+    const [categoryFilter, setCategoryFilter] = useState('');
+    const [availableCategories, setAvailableCategories] = useState([]);
 
     // Pagination serveur & Lazy loading
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    const queryKey = JSON.stringify([selectedPeriode, selectedSite, debouncedSearch.trim(), alertFilter, currentPage, pageSize]);
+    const queryKey = JSON.stringify([selectedPeriode, selectedSite, debouncedSearch.trim(), alertFilter, categoryFilter, currentPage, pageSize]);
     const hasCurrentData = loadedQuery === queryKey;
     const [totalElements, setTotalElements] = useState(0);
     const [serverKpis, setServerKpis] = useState(null);
@@ -160,6 +162,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     idSite: siteParam,
                     search: debouncedSearch.trim() || undefined,
                     filtre: alertFilter !== 'ALL' ? alertFilter : undefined,
+                    categorie: categoryFilter || undefined,
                     page: currentPage,
                     size: pageSize
                 });
@@ -168,7 +171,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             if (resSynthese?.totalElements !== undefined) setTotalElements(resSynthese.totalElements);
             if (resSynthese?.kpis) setServerKpis(resSynthese.kpis);
             if (resSynthese?.alertCounts) setServerAlertCounts(resSynthese.alertCounts);
-            setLoadedQuery(JSON.stringify([selectedPeriode, selectedSite, debouncedSearch.trim(), alertFilter, currentPage, pageSize]));
+            setAvailableCategories(resSynthese?.categories || []);
+            setLoadedQuery(JSON.stringify([selectedPeriode, selectedSite, debouncedSearch.trim(), alertFilter, categoryFilter, currentPage, pageSize]));
         } catch (err) {
             if (sequence !== loadSequence.current) return;
             if (!silent) {
@@ -184,7 +188,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             // The latest request still owns the loading state and must settle it.
             if (sequence === loadSequence.current) setLoading(false);
         }
-    }, [selectedPeriode, selectedSite, debouncedSearch, alertFilter, currentPage, pageSize]);
+    }, [selectedPeriode, selectedSite, debouncedSearch, alertFilter, categoryFilter, currentPage, pageSize]);
 
     const refreshPeriodData = useCallback(async () => {
         loadData({ silent: true });
@@ -890,6 +894,21 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         </div>
 
                         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                            {viewMode === 'synthese' && (
+                                <div className="w-44">
+                                    <SearchSelect
+                                        aria-label="Filtrer par catégorie professionnelle"
+                                        value={categoryFilter}
+                                        onChange={(value) => { setCategoryFilter(value || ''); setCurrentPage(1); }}
+                                        options={[
+                                            { value: '', label: 'Toutes catégories' },
+                                            ...availableCategories.map(code => ({ value: code, label: code }))
+                                        ]}
+                                        placeholder="Toutes catégories"
+                                        className="text-xs"
+                                    />
+                                </div>
+                            )}
                             {/* Recherche salarié dans la table */}
                             <div className="w-48 sm:w-56">
                                 <Input
@@ -959,16 +978,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         ) : (
                             <div className="space-y-0 overflow-x-auto">
                                 <div className="px-3 py-1 border-b border-[var(--color-border-subtle)]">
-                                    <InfoDisclosure label="Comprendre le calcul du solde" message="Solde final = excédents − déficits + ajustements. Les retards sont déjà pris en compte dans ce calcul ; congés et indemnités sont présentés séparément." />
+                                    <InfoDisclosure label="Comprendre le calcul" message="Le solde horaire décrit l'écart de temps ; il ne correspond pas nécessairement à une somme payée. La colonne Effet sur la paie montre les heures supplémentaires et retenues calculées. Les cadres ne perçoivent pas d'heures supplémentaires. Les retards sont déjà pris en compte dans le solde." />
                                 </div>
 
                                 <Table density="comfortable" bordered={false}>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-[190px] max-w-[210px]">Collaborateur</Th>
-                                            <Th className="text-center min-w-[125px]">Solde final</Th>
-                                            <Th className="min-w-[230px]">Calcul du solde</Th>
                                             <Th className="min-w-[170px]">Effet sur la paie</Th>
+                                            <Th className="text-center min-w-[125px]">Solde horaire</Th>
+                                            <Th className="min-w-[230px]">Calcul du solde</Th>
                                             <Th className="min-w-[180px]">Autres repères</Th>
                                             <Th className="text-center min-w-[210px]">Actions</Th>
                                         </Tr>
@@ -988,7 +1007,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             const absenceMins = Math.max(0, Number(row.minutesAbsenceFinale ?? Math.round((row.heuresAbsenceRetenues || 0) * 60)));
                                             const signedDuration = (mins) => `${mins < 0 ? '−' : mins > 0 ? '+' : ''}${formatHeuresMinutes(Math.abs(mins) / 60)}`;
                                             return (
-                                                <Tr key={row.idEmploye || row.matricule} className={soldeMins < 0 ? 'border-l-[3px] border-l-[var(--color-danger-500)] bg-[var(--color-danger-500)]/[0.025]' : soldeMins > 0 ? 'border-l-[3px] border-l-[var(--color-success-500)] bg-[var(--color-success-500)]/[0.025]' : 'border-l-[3px] border-l-[var(--color-border-subtle)]'}>
+                                                <Tr key={row.idEmploye || row.matricule} className={absenceMins > 0 ? 'border-l-[3px] border-l-[var(--color-danger-500)]' : hs30Mins > 0 || hs50Mins > 0 ? 'border-l-[3px] border-l-[var(--color-success-500)]' : 'border-l-[3px] border-l-[var(--color-border-subtle)]'}>
                                                     <Td className="w-[190px] max-w-[210px]">
                                                         <div className="font-semibold text-sm text-[var(--color-fg)] truncate" title={`${row.nom} ${row.prenom}`}>
                                                             <button
@@ -1009,10 +1028,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             )}
                                                         </div>
                                                     </Td>
+                                                    <Td className="text-sm leading-5 bg-[var(--color-bg-subtle)]/60">
+                                                        {absenceMins > 0 && <span className="block font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]">Retenue −{formatHeuresMinutes(absenceMins / 60)}</span>}
+                                                        {hs30Mins > 0 && <span className="block font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">HS 30 % +{formatHeuresMinutes(hs30Mins / 60)}</span>}
+                                                        {hs50Mins > 0 && <span className="block font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">HS 50 % +{formatHeuresMinutes(hs50Mins / 60)}</span>}
+                                                        {absenceMins === 0 && hs30Mins === 0 && hs50Mins === 0 && <span className="text-[var(--color-fg-muted)]">Aucun effet horaire{row.estCadre && soldeMins > 0 ? ' · cadre sans HS' : ''}</span>}
+                                                    </Td>
                                                     <Td className="text-center">
                                                         <button type="button" onClick={() => setSelectedEmployeForSolde(row)}
-                                                            className={`inline-flex flex-col items-center min-w-[90px] px-2.5 py-1.5 text-base font-bold tabular-nums border hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] ${soldeMins < 0 ? 'border-[var(--color-danger-500)]/25 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : soldeMins > 0 ? 'border-[var(--color-success-500)]/25 bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : 'border-[var(--color-border-subtle)] text-[var(--color-fg)]'}`}
-                                                            aria-label={`Solde final de ${row.nom} ${row.prenom} : ${signedDuration(soldeMins)}. Voir le calcul`}>
+                                                            className="inline-flex flex-col items-center min-w-[90px] px-2.5 py-1.5 text-sm font-semibold tabular-nums border border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)]"
+                                                            aria-label={`Solde horaire de ${row.nom} ${row.prenom} : ${signedDuration(soldeMins)}. Voir le calcul`}>
                                                             <span>{signedDuration(soldeMins)}</span>
                                                             <span className="text-[11px] font-normal text-[var(--color-fg-muted)]">{soldeMins < 0 ? 'Déficit' : soldeMins > 0 ? 'Excédent' : 'Équilibré'}</span>
                                                         </button>
@@ -1021,12 +1046,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         <span className="block">Déficit {deficitMins ? `−${formatHeuresMinutes(deficitMins / 60)}` : '—'}</span>
                                                         <span className="block">Excédents {excedentMins ? `+${formatHeuresMinutes(excedentMins / 60)}` : '—'}</span>
                                                         {ajustementMins !== 0 && <span className="block">Ajustement {signedDuration(ajustementMins)}</span>}
-                                                    </Td>
-                                                    <Td className="text-xs leading-5">
-                                                        {absenceMins > 0 && <span className="block font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]">Retenue −{formatHeuresMinutes(absenceMins / 60)}</span>}
-                                                        {hs30Mins > 0 && <span className="block font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">HS 30 % +{formatHeuresMinutes(hs30Mins / 60)}</span>}
-                                                        {hs50Mins > 0 && <span className="block font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">HS 50 % +{formatHeuresMinutes(hs50Mins / 60)}</span>}
-                                                        {absenceMins === 0 && hs30Mins === 0 && hs50Mins === 0 && <span className="text-[var(--color-fg-muted)]">Aucun effet horaire</span>}
                                                     </Td>
                                                     <Td className="text-xs leading-5 text-[var(--color-fg-muted)]">
                                                         {(row.nbJoursConge || 0) > 0 && <span className="block">Congés : {row.nbJoursConge} j</span>}

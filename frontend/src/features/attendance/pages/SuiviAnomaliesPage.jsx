@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
+import DataSectionHeader from '@/components/ui/data-display/DataSectionHeader';
 import { fmtDate } from '@/utils/dateUtils';
 import organisationService from '@/features/organization/api/organisationService';
 import { periodePaieService, pointageSyntheseService } from '@/features/attendance/api/attendanceApi';
@@ -246,7 +247,6 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
     // Anomalies bloquantes pour la transmission DAF
     const nbBloquantes = Number(stats?.bloquantes || 0);
-    const blockingAnomalies = useMemo(() => (anomalies || []).filter(ano => ano.bloquantTransmission === true && ano.statutAnomalie !== 'done'), [anomalies]);
     const showBlockingAnomalies = () => {
         setFilterBlocking(true);
         setFilterStatutTraitement('TODO');
@@ -539,49 +539,25 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 </div>
             </div>
 
-            {/* Les repères prioritaires avant le détail et les filtres. */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <StatCard
-                    title="À traiter"
-                    value={(Number(kpis?.anomaliesActives) || 0) + (isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0))}
-                    subtext="Journées sans statut et anomalies actives"
-                    icon={<AlertTriangle size={17} />}
-                    color={(Number(kpis?.anomaliesActives) || 0) + (preflight?.journeesManquantes?.length || 0) > 0 ? 'warning' : 'neutral'}
-                />
+            {/* Deux compteurs distincts : journées absentes et anomalies constatées. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <StatCard
                     title="Journées sans statut"
                     value={isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length ?? '—')}
-                    subtext="Bloquant · jours ouvrables à compléter avant transmission"
+                    subtext="Jours ouvrables à compléter"
                     icon={<Calendar size={17} />}
-                    color={(isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0)) > 0 ? 'danger' : 'success'}
+                    color={(isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0)) > 0 ? 'warning' : 'success'}
                 />
                 <StatCard
                     title="Anomalies bloquantes"
                     value={nbBloquantes}
                     subtext={nbBloquantes > 0 ? 'Voir les salariés et journées concernés' : 'Aucune anomalie bloquante'}
                     icon={<Shield size={17} />}
-                    color={nbBloquantes > 0 ? 'danger' : 'success'}
+                    color={nbBloquantes > 0 ? 'warning' : 'success'}
                     active={filterBlocking}
                     onClick={nbBloquantes > 0 ? showBlockingAnomalies : undefined}
                 />
             </div>
-
-            {blockingAnomalies.length > 0 && (
-                <section className="border border-[var(--color-danger-500)]/30 bg-[var(--color-danger-500)]/5 p-3 text-sm" aria-label="Anomalies bloquantes à régulariser">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <strong className="text-[var(--color-danger-700)]">Transmission bloquée · {blockingAnomalies.length} pointage{blockingAnomalies.length > 1 ? 's' : ''} à régulariser</strong>
-                        <Button type="button" variant="outline" size="sm" onClick={showBlockingAnomalies}>Afficher dans la liste</Button>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {blockingAnomalies.map(ano => (
-                            <Link key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`} to={employeeDayUrl(ano.idEmploye, ano.datePointage)}
-                                className="border border-[var(--color-danger-500)]/30 bg-[var(--color-surface)] px-2 py-1 text-xs font-semibold text-[var(--color-fg)] hover:text-[var(--color-brand-600)] hover:underline">
-                                {ano.nom} {ano.prenom} · {ano.matricule} · {fmtDate(ano.datePointage)} · {getAnomalyTypeLabel(ano)} →
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-            )}
 
             {/* Les journées absentes du pointage ne figurent pas dans la liste des anomalies enregistrées. */}
             {filterStatutTraitement !== 'DONE' && (missingDays.length > 0 || preflightError) && (
@@ -602,7 +578,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         <span className="flex min-w-0 flex-1 flex-col items-start text-left normal-case tracking-normal">
                             <span id="missing-days-title" className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                                 Journées ouvrables sans statut · {missingDays.length}
-                                {missingDays.length > 0 && <Badge variant="danger">Bloquant · priorité haute</Badge>}
+                                {missingDays.length > 0 && <Badge variant="warning">À compléter</Badge>}
                             </span>
                             {!isMissingDaysCollapsed && (
                                 <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-[var(--color-fg-muted)]">
@@ -617,7 +593,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 <div className="max-h-72 overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
                                     {missingDays.map(day => (
                                         <div key={`${day.idEmploye}-${day.date}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs">
-                                            <div><strong>{day.nom} {day.prenom}</strong> <span className="text-[var(--color-fg-muted)]">· {day.matricule} · {fmtDate(day.date)}</span> <Badge variant="danger">Bloquant</Badge></div>
+                                            <div><strong>{day.nom} {day.prenom}</strong> <span className="text-[var(--color-fg-muted)]">· {day.matricule} · {fmtDate(day.date)}</span></div>
                                             <Link to={employeeDayUrl(day.idEmploye, day.date)} className="font-semibold text-[var(--color-brand-600)] hover:underline">Ouvrir la journée →</Link>
                                         </div>
                                     ))}
@@ -766,23 +742,21 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             {/* ---------- SECTION ANOMALIES DE POINTAGE ---------- */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden" id="anomalies">
                 {/* Header & Filtres */}
-                <div className="p-3 border-b border-[var(--color-border-subtle)] space-y-2">
-                    <div>
-                        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-                            <Shield size={14} className="text-[var(--color-brand-500)]" />
-                            Pointages à vérifier et régularisations
-                        </h2>
-                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                            {filteredAnomalies.length} anomalie{filteredAnomalies.length > 1 ? 's' : ''} · {anomalyGroups.length} collaborateur{anomalyGroups.length > 1 ? 's' : ''}
-                            {nbBloquantes > 0 && ` — dont ${nbBloquantes} bloquante(s) avant transmission`}
-                        </p>
+                <DataSectionHeader
+                    title="Pointages à vérifier et régularisations"
+                    description={`${anomalyGroups.length} collaborateur${anomalyGroups.length > 1 ? 's' : ''} concerné${anomalyGroups.length > 1 ? 's' : ''}. Chaque ligne mène à la journée et à sa régularisation.`}
+                    count={filteredAnomalies.length}
+                    countLabel={`anomalie${filteredAnomalies.length > 1 ? 's' : ''}`}
+                    tone="brand"
+                >
                         {filterBlocking && <Button type="button" variant="ghost" size="xs" onClick={() => { setFilterBlocking(false); setCurrentPage(1); }}>Filtre : bloquantes · Effacer</Button>}
                         {hasActiveAnomalyFilters && (
                             <Button type="button" variant="ghost" size="xs" onClick={resetAnomalyFilters}>
                                 Réinitialiser les filtres
                             </Button>
                         )}
-                    </div>
+                </DataSectionHeader>
+                <div className="p-3 border-b border-[var(--color-border-subtle)] space-y-2">
 
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                         <Input
@@ -943,9 +917,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                         return (
                                         <Fragment key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`}>
                                         {employeeKey !== previousKey && (
-                                            <Tr className="bg-[var(--color-bg-subtle)] border-t-2 border-[var(--color-border-subtle)]">
-                                                <Td colSpan={8} className="!py-2 text-xs font-semibold text-[var(--color-fg)]">
-                                                    {group?.name || 'Collaborateur'} <span className="ml-1 font-data font-normal text-[var(--color-fg-muted)]">{group?.matricule || ''} · {group?.items.length || 0} anomalie{group?.items.length > 1 ? 's' : ''}</span>
+                                            <Tr className="bg-[var(--color-bg-subtle)] border-t-2 border-t-[var(--color-brand-500)]">
+                                                <Td colSpan={8} className="!py-2.5 !px-3 text-sm font-bold text-[var(--color-fg)]">
+                                                    {group?.name || 'Collaborateur'} <span className="ml-1 font-data text-xs font-normal text-[var(--color-fg-muted)]">{group?.matricule || ''} · {group?.items.length || 0} anomalie{group?.items.length > 1 ? 's' : ''}</span>
                                                 </Td>
                                             </Tr>
                                         )}

@@ -30,7 +30,7 @@ function lotLabel(lot) {
   return lot.origine || 'Origine non précisée';
 }
 
-export default function DroitsLotsPanel({ situation, movements = [], loading = false, error = null, movementsError = null, onRetry, onVoirDemande }) {
+export default function DroitsLotsPanel({ situation, movements = [], loading = false, error = null, movementsError = null, onRetry, onVoirDemande, headerAction = null }) {
   const [selectedId, setSelectedId] = useState(null);
   const sourceMovements = useMemo(() => new Map((Array.isArray(movements) ? movements : []).map((item) => [Number(item.idMouvement), item])), [movements]);
   const rows = useMemo(() => {
@@ -80,37 +80,36 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
     <div className="space-y-4">
       {error && <Alert type="error" title="Actualisation des lots impossible" message={error} actionLabel="Réessayer" onAction={onRetry} />}
       {movementsError && <Alert type="warning" title="Registre incomplet" message={`Les mouvements sources ne sont pas disponibles : ${movementsError}. Les lots restants restent affichés, mais leur détail d'origine peut être incomplet.`} actionLabel="Réessayer" onAction={onRetry} />}
-      <Card padding bordered className="space-y-3">
-        <div className="flex flex-wrap justify-between items-start gap-3">
+      <Card bordered className="overflow-hidden" shadow="none">
+        <div className="flex flex-wrap justify-between items-center gap-3 border-b border-[var(--color-border-subtle)] px-5 py-4 sm:px-6 sm:py-5">
           <div>
-            <h4 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2"><Layers3 size={16} /> Droits et lots valorisés</h4>
-            <p className="text-xs text-[var(--color-fg-muted)] mt-1">Ordre FIFO : reprise, ajustements, puis acquisitions les plus anciennes.</p>
+            <h4 className="text-base font-bold text-[var(--color-fg)] flex items-center gap-2"><Layers3 size={18} /> Droits et lots valorisés</h4>
+            <p className="text-sm text-[var(--color-fg-muted)] mt-1">Les lots sont consommés dans l'ordre FIFO : reprise, ajustements, puis acquisitions les plus anciennes.</p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wide text-[var(--color-fg-muted)]">Stock disponible</p>
-            <p className="text-sm font-bold text-[var(--color-fg)]">{formatDays(number(situation.soldeJours))} · {fmtMoney(number(situation.soldeValorisation))}</p>
-          </div>
+          {headerAction}
         </div>
         {number(situation.joursSansLot) > 0 && <Alert type="warning" message={`${formatDays(number(situation.joursSansLot))} sans imputation à un lot valorisé. Ce volume n'est pas ventilé artificiellement.`} />}
         {rows.length === 0 ? (
           <EmptyState icon={Archive} title="Aucun lot disponible" description="Aucun lot restant ni mouvement source relié à une imputation n'est exposé pour ce collaborateur." bordered={false} />
         ) : (
           <div className="overflow-x-auto">
-            <Table bordered={false} aria-label="Synthèse chronologique des lots de congés">
+            <Table bordered={false} rowHover={false} aria-label="Synthèse chronologique des lots de congés" tableClassName="[&_th]:px-5 [&_th]:py-3 [&_td]:px-5 [&_td]:py-4 sm:[&_th]:px-6 sm:[&_td]:px-6">
               <Thead><Tr><Th>Lot</Th><Th>Origine</Th><Th className="text-right">Jours restants</Th><Th className="text-right">Taux du lot</Th><Th className="text-right">Valeur restante</Th><Th>Détail</Th></Tr></Thead>
               <Tbody>
                 {rows.map((lot, index) => (
                   <Tr key={lot.idSource} selected={selectedId === lot.idSource}>
-                    <Td><div className="flex items-center gap-2"><span className="text-xs font-semibold text-[var(--color-fg)]">{index + 1}. {lotLabel(lot)}</span>{isOpening(lot) && !lot.source?.dateOrigineLot && <Badge variant="info" size="xs">Global</Badge>}</div></Td>
-                    <Td className="text-xs">{isOpening(lot) && !lot.source?.dateOrigineLot ? <span className="text-[var(--color-fg-muted)]">Origine non détaillée</span> : (
+                    <Td><div className="flex items-center gap-2"><span className="text-sm font-semibold text-[var(--color-fg)]">{index + 1}. {lotLabel(lot)}</span>{isOpening(lot) && !lot.source?.dateOrigineLot && <Badge variant="info" size="xs">Global</Badge>}</div></Td>
+                    <Td>{isOpening(lot) && !lot.source?.dateOrigineLot ? <span className="text-[var(--color-fg-muted)]">Origine non détaillée</span> : (
                       <span className="block">
                         {lot.dateAcquisition && <span className="block font-semibold text-[var(--color-fg)]">Exercice {String(lot.dateAcquisition).slice(0, 4)}</span>}
                         {!isOpening(lot) && <span className="text-[var(--color-fg-muted)]">Acquis le {formatDate(lot.dateAcquisition)}</span>}
                       </span>
                     )}</Td>
-                    <Td className="text-right"><strong className="font-mono text-xs">{formatDays(lot.remainingDays)}</strong><span className="block text-[10px] text-[var(--color-fg-muted)]">sur {formatDays(lot.initialDays)} {isOpening(lot) ? 'repris' : 'initiaux'}</span></Td>
-                    <Td className="text-right text-xs">{lot.unitRate == null ? '—' : `${formatLeaveRateAr(lot.unitRate)} / j`}</Td>
-                    <Td className="text-right text-xs font-semibold">{fmtMoney(lot.remainingValue)}</Td>
+                    <Td className="text-right"><strong className="font-data text-sm">{formatDays(lot.remainingDays)}</strong><span className="block text-xs text-[var(--color-fg-muted)]">sur {formatDays(lot.initialDays)} {isOpening(lot) ? 'repris' : 'initiaux'}</span></Td>
+                    <Td className="text-right">{lot.unitRate == null
+                      ? <span className="text-[var(--color-fg-muted)]">Non individualisé</span>
+                      : `${formatLeaveRateAr(lot.unitRate)} / j`}</Td>
+                    <Td className="text-right font-semibold">{fmtMoney(lot.remainingValue)}</Td>
                     <Td><Button variant="ghost" size="xs" aria-label={`${selectedId === lot.idSource ? 'Masquer' : 'Voir'} l’historique du lot ${lotLabel(lot)} #${lot.idSource}`} aria-expanded={selectedId === lot.idSource} onClick={() => setSelectedId(selectedId === lot.idSource ? null : lot.idSource)} iconLeft={<ChevronDown size={13} className={selectedId === lot.idSource ? 'rotate-180' : ''} />}>{selectedId === lot.idSource ? 'Masquer' : 'Historique'}</Button></Td>
                   </Tr>
                 ))}
@@ -149,7 +148,7 @@ export default function DroitsLotsPanel({ situation, movements = [], loading = f
             <div className="mt-2 space-y-1 text-[var(--color-fg-muted)]">
               <p>Valeur initiale : {fmtMoney(selected.initialValue)} · mouvement #{selected.idSource}{selected.source?.dateMouvement ? ` du ${formatDate(selected.source.dateMouvement)}` : ''}</p>
               {selected.source ? <p>Référence : {selected.source.commentaire || 'Aucune précision'}{selected.source.createdBy ? ` · enregistré par ${selected.source.createdBy}` : ''}</p> : <p>Mouvement source indisponible dans le registre chargé.</p>}
-              {isOpening(selected) && !selected.source?.dateOrigineLot && <p>Cette reprise globale ne précise pas l’exercice d’origine des jours.</p>}
+              {isOpening(selected) && !selected.source?.dateOrigineLot && <p>Cette reprise globale ne précise ni l’exercice d’origine des jours ni un taux historique individuel. La valeur affichée est le montant total repris.</p>}
             </div>
           </details>
         </section>

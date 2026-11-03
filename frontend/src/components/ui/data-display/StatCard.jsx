@@ -84,10 +84,10 @@ export default function StatCard({
         <>
             <div className="flex items-start justify-between gap-2.5 mb-1">
                 <div className="min-w-0">
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${style.label || 'text-[var(--color-fg-muted)]'} truncate`}>
+                    <p className={`text-xs font-bold uppercase tracking-wide ${style.label || 'text-[var(--color-fg-muted)]'}`}>
                         {title}
                     </p>
-                    <p className={`text-lg sm:text-xl font-extrabold font-data mt-0.5 ${style.text || 'text-[var(--color-fg)]'}`}>
+                    <p className={`text-xl sm:text-2xl font-extrabold font-data tabular-nums mt-0.5 ${style.text || 'text-[var(--color-fg)]'}`}>
                         {value ?? 0}
                     </p>
                 </div>
@@ -105,7 +105,7 @@ export default function StatCard({
                     {changeLabel && <span className="text-[var(--color-fg-subtle)] font-normal ml-1">{changeLabel}</span>}
                 </div>
             ) : subtext ? (
-                <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1 font-medium leading-tight truncate">
+                <p className="text-xs text-[var(--color-fg-muted)] mt-1 font-medium leading-snug">
                     {subtext}
                 </p>
             ) : null}

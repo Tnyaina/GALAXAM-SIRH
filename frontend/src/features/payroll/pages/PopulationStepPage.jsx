@@ -236,7 +236,7 @@ export default function PopulationStepPage() {
                         const variant = DECISION_VARIANTS[dec] || 'default';
                         const label = DECISION_LABELS[dec] || dec;
                         return (
-                            <Tr key={p.idEmploye || p.employeeId || idx}>
+                            <Tr key={p.idEmploye || p.employeeId || idx} className="border-b border-[var(--color-border-subtle)] [&>td]:!py-3">
                                 <Td>
                                     <PayrollEmployeeCell
                                         name={p.employeeName || p.nomPrenom}
@@ -245,15 +245,15 @@ export default function PopulationStepPage() {
                                     />
                                 </Td>
                                 <Td>
-                                    <div className="text-xs font-medium text-[var(--color-fg)]">{p.typeContrat || 'Contrat non renseigné'}</div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                    <div className="text-sm font-medium text-[var(--color-fg)]">{p.typeContrat || 'Contrat non renseigné'}</div>
+                                    <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
                                         {[p.contractNumber, p.nomSite || 'Site non renseigné'].filter(Boolean).join(' · ')}
                                     </div>
                                 </Td>
                                 <Td className="text-center">
                                     <Badge variant={variant} size="xs">{label}</Badge>
                                 </Td>
-                                <Td className="text-[11px] text-[var(--color-fg-muted)] max-w-xs">
+                                <Td className="text-xs text-[var(--color-fg-muted)] max-w-xs">
                                     {getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}
                                 </Td>
                             </Tr>

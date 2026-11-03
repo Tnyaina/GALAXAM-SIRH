@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ShieldCheck, AlertTriangle, XCircle, ExternalLink } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIssuePanel';
+import NextAction from '@/components/ui/feedback/NextAction';
 import Button from '@/components/ui/forms/Button';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
@@ -82,6 +83,7 @@ export default function PreparationStepPage() {
     ].includes(issue?.code));
     const nbBlockers = checklistItems.filter(i => i.status === 'BLOCKING').length + preparationIssues.length;
     const cannotContinue = !readinessLoaded || Boolean(readinessError) || nbBlockers > 0;
+    const firstBlockingCheck = checklistItems.find(item => item.status === 'BLOCKING');
 
     // Rendu
     return (
@@ -101,6 +103,13 @@ export default function PreparationStepPage() {
             }}
         >
             <div className="space-y-4 pb-4">
+                {readinessLoaded && <NextAction
+                    tone={cannotContinue ? 'warning' : 'success'}
+                    title={readinessError ? 'Recharger les contrôles de préparation' : firstBlockingCheck ? `Résoudre : ${firstBlockingCheck.label}` : cannotContinue ? 'Résoudre les prérequis de préparation' : 'Préparation terminée'}
+                    description={readinessError || firstBlockingCheck?.summary || (cannotContinue ? 'Consultez les prérequis bloquants ci-dessous.' : undefined)}
+                    actionLabel={firstBlockingCheck?.action?.label || (!cannotContinue ? 'Continuer vers la population' : undefined)}
+                    onAction={firstBlockingCheck?.action?.onClick || (!cannotContinue ? () => navigate(`/paie/periodes/${numericPeriodId}/population`) : undefined)}
+                />}
                 <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex items-center justify-between gap-4 flex-wrap" aria-label="État de préparation">
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">

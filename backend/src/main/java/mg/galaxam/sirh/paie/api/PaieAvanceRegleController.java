@@ -105,9 +105,9 @@ public class PaieAvanceRegleController {
     public ResponseEntity<?> choisirRetenue(@PathVariable int idAvance, @PathVariable int idPeriode,
             @RequestBody RetenueChoix request, Authentication auth) throws Exception {
         periods.requirePayrollAction(idPeriode, PayrollAction.ADD_VARIABLE, PayrollPeriodUserContext.from(auth));
-        if (request.montant() == null || request.montant().signum() <= 0
+        if (request.montant() == null || request.montant().signum() < 0
                 || request.motif() == null || request.motif().trim().length() < 3)
-            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Montant positif et motif de trois caractères requis.");
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, "Montant non négatif et motif de trois caractères requis.");
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {

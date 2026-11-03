@@ -13,6 +13,12 @@ public final class PointageAllowancePolicy {
         return eligibleDay && configuredByDefault && !excluded;
     }
 
+    /** Un repos non travaillé ne reçoit aucune indemnité proposée automatiquement. */
+    public static boolean eligibleForDefault(String status, boolean holiday, String leaveType) {
+        return !holiday && !"FULL_DAY".equalsIgnoreCase(leaveType)
+                && !"REPOS".equalsIgnoreCase(status);
+    }
+
     /** Une décision enregistrée, y compris un refus explicite, prime toujours sur le défaut. */
     public static boolean resolve(Boolean recordedDecision, boolean defaultDecision) {
         return recordedDecision != null ? recordedDecision : defaultDecision;

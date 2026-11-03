@@ -1318,7 +1318,8 @@ public class PointageService {
                                             .filter(item -> !Boolean.TRUE.equals(item.get("beneficie")))
                                             .findFirst().orElse(null);
                                     boolean estExclu = derogation != null;
-                                    boolean eligibleDay = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour);
+                                    boolean eligibleDay = PointageAllowancePolicy.eligibleForDefault(
+                                            dto.getCodeStatut(), isFerie, typeCongeJour);
                                     boolean acc = PointageAllowancePolicy.resolve(null,
                                             PointageAllowancePolicy.defaultGranted(eligibleDay, cocheParDefaut, estExclu));
 
@@ -1382,7 +1383,8 @@ public class PointageService {
                                 boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
                                 boolean cocheParDefaut = !Boolean.FALSE.equals(sInd.get("cocheParDefaut"));
                                 boolean estExclu = exclusionsIndemnites.contains(idInd);
-                                boolean eligibleDay = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour);
+                                boolean eligibleDay = PointageAllowancePolicy.eligibleForDefault(
+                                        dto.getCodeStatut(), isFerie, typeCongeJour);
                                 boolean acc = PointageAllowancePolicy.resolve(null,
                                         PointageAllowancePolicy.defaultGranted(eligibleDay, cocheParDefaut, estExclu));
 

@@ -9,6 +9,7 @@ import HasPermission from '@/features/auth/components/HasPermission';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import { canAccessRoleGatedRoute } from '@/utils/sidebarUtils';
+import { visibleOperationalActions } from '@/features/dashboard/components/operationalQueue';
 
 export default function DashboardPage() {
     // Hook métier
@@ -26,6 +27,7 @@ export default function DashboardPage() {
     const congesQuinzaine = data?.congesQuinzaine || [];
     const demandesCongeAValider = data?.demandesCongeAValider || [];
     const actionsATraiter = data?.actionsATraiter || [];
+    const visibleActions = visibleOperationalActions(actionsATraiter, hasPermission);
 
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
     const modules = [
@@ -55,7 +57,7 @@ export default function DashboardPage() {
                 {loading ? Array.from({ length: 4 }).map((_, index) => <SkeletonStatCard key={index} />) : (
                     <>
                         <StatCard title="Effectif actif" value={kpis?.totalEffectifActif ?? '—'} subtext={`${kpis?.nouvellesEmbauchesMois ?? 0} arrivée(s) ce mois`} icon={<Users size={18} />} color="brand" />
-                        <StatCard title="Actions à traiter" value={actionsATraiter.reduce((sum, action) => sum + (Number(action.count) || 0), 0)} subtext={actionsATraiter.length > 0 ? 'Ouvrir les priorités opérationnelles' : 'Aucune action en attente'} icon={<ClipboardCheck size={18} />} color={actionsATraiter.length > 0 ? 'warning' : 'brand'} />
+                        <StatCard title="Actions à traiter" value={visibleActions.reduce((sum, action) => sum + (Number(action.count) || 0), 0)} subtext={visibleActions.length > 0 ? 'Voir les décisions, anomalies et échéances' : 'Aucune action en attente'} icon={<ClipboardCheck size={18} />} color={visibleActions.length > 0 ? 'warning' : 'brand'} />
                         <StatCard title="Absents ce jour" value={absentsAujourdhui.length} subtext="Congés validés en cours" icon={<UserCheck size={18} />} color={absentsAujourdhui.length > 0 ? 'info' : 'brand'} />
                         <StatCard title="Échéances à 30 jours" value={kpis?.contratsExpirant30j ?? '—'} subtext={`${kpis?.essaisEnCours ?? 0} période(s) d’essai en cours`} icon={<Clock size={18} />} color={kpis?.contratsExpirant30j > 0 ? 'warning' : 'brand'} />
                     </>

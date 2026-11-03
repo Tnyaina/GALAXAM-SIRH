@@ -4,6 +4,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import DataSectionHeader from '@/components/ui/data-display/DataSectionHeader';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { fmtDate } from '@/utils/dateUtils';
 
@@ -22,7 +23,17 @@ export default function ValidationTable({
   onOpenDetail
 }) {
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs">
+      <DataSectionHeader
+        title={activeStatut === 'EN_ATTENTE' ? 'Demandes à examiner' : 'Demandes de congé'}
+        description={activeStatut === 'EN_ATTENTE'
+          ? 'Ouvrez une demande pour vérifier les dates, le solde et les justificatifs avant de décider.'
+          : 'Chaque dossier conserve son type, sa période, sa durée et sa décision.'}
+        count={displayTotal}
+        countLabel={`demande${displayTotal > 1 ? 's' : ''}`}
+        tone={activeStatut === 'EN_ATTENTE' && displayTotal > 0 ? 'warning' : 'brand'}
+      />
+      <div className="p-4 sm:p-5 space-y-4">
       {demandes.length === 0 ? (
         <div className="p-8">
           <EmptyState
@@ -43,11 +54,11 @@ export default function ValidationTable({
         </div>
       ) : (
         <>
-        <div className="md:hidden divide-y divide-[var(--color-border-subtle)]">
+        <div className="md:hidden space-y-2">
           {demandes.map((d) => {
             const employeName = `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé ${d.idEmploye}`;
             const aDecider = canValidate && d.availableActions?.APPROVE?.allowed === true;
-            return <article key={d.idDemandeConge} className="py-3 space-y-2.5">
+            return <article key={d.idDemandeConge} className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 space-y-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-[var(--color-fg)] truncate">{employeName}</p>
@@ -207,6 +218,7 @@ export default function ValidationTable({
           className="bg-transparent border-t-0 pt-1"
         />
       )}
+      </div>
     </div>
   );
 }

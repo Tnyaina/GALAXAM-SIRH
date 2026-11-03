@@ -24,6 +24,7 @@ import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign'
 import { fmtDate } from '@/features/dashboard/utils/dashboardUtils';
 import { fmtRelative } from '@/utils/dateUtils';
 import { ExpandableList, SkeletonListRows } from './WidgetPrimitives';
+import { groupOperationalActions, visibleOperationalActions } from '@/features/dashboard/components/operationalQueue';
 
 /**
  * AbsentsWidget — Liste des salariés actuellement absents ou en congé ce jour.
@@ -241,7 +242,8 @@ const queueIcons = {
  */
 export function OperationalQueueWidget({ loading, actions = [], className = '' }) {
     const { hasPermission } = useAuth();
-    const items = actions.filter((item) => !item.requiredAuthority || hasPermission(item.requiredAuthority));
+    const items = visibleOperationalActions(actions, hasPermission);
+    const groups = groupOperationalActions(items);
     const totalActions = items.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
 
     return (
@@ -267,15 +269,23 @@ export function OperationalQueueWidget({ loading, actions = [], className = '' }
                         />
                     </div>
                 )}
-                {!loading &&
-                    items.map((item) => {
+                {!loading && groups.map(group => (
+                    <section key={group.id} className="mb-4 last:mb-0" aria-labelledby={`operational-${group.id}`}>
+                        <div className="mb-1 flex items-baseline justify-between gap-3 border-b border-[var(--color-border-subtle)] pb-2">
+                            <div>
+                                <h3 id={`operational-${group.id}`} className="ui-section-title">{group.label}</h3>
+                                <p className="ui-supporting-text">{group.description}</p>
+                            </div>
+                            <span className="ui-count" aria-label={`${group.items.reduce((sum, item) => sum + (Number(item.count) || 0), 0)} éléments`}>{group.items.reduce((sum, item) => sum + (Number(item.count) || 0), 0)}</span>
+                        </div>
+                        {group.items.map((item) => {
                         const Icon = queueIcons[item.code] || ShieldAlert;
                         const danger = item.isDanger ?? (item.severity === 'DANGER');
                         return (
                             <Link
                                 key={item.code}
                                 to={item.destination}
-                                className="group flex items-center gap-3 border-b last:border-b-0 border-[var(--color-border-subtle)] py-3 first:pt-0 last:pb-0 hover:bg-[var(--color-bg-subtle)] transition-colors"
+                                className="group flex min-h-12 items-center gap-3 border-b last:border-b-0 border-[var(--color-border-subtle)] py-3 hover:bg-[var(--color-bg-subtle)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
                             >
                                 <span
                                     className={`p-2 rounded-none ${
@@ -287,8 +297,8 @@ export function OperationalQueueWidget({ loading, actions = [], className = '' }
                                     <Icon size={16} />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-xs font-bold text-[var(--color-fg)]">{item.label}</span>
-                                    <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                    <span className="block text-sm font-semibold text-[var(--color-fg)]">{item.label}</span>
+                                    <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
                                         {item.description}
                                     </span>
                                 </span>
@@ -301,7 +311,9 @@ export function OperationalQueueWidget({ loading, actions = [], className = '' }
                                 />
                             </Link>
                         );
-                    })}
+                        })}
+                    </section>
+                ))}
             </CardBody>
         </Card>
     );

@@ -17,17 +17,19 @@ import {
     AlertCircle,
     CheckCircle2,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    Upload,
+    Banknote
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
-import MoneyInput from '@/components/ui/forms/MoneyInput';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import ActionMenu from '@/components/ui/overlays/ActionMenu';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Badge from '@/components/ui/data-display/Badge';
-import StatCard from '@/components/ui/data-display/StatCard';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -43,7 +45,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import AdvanceRepaymentPanel from './AdvanceRepaymentPanel';
 
 
-export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', periodStatus = '', onVariableChanged, onPendingCountChange }) {
+export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMutate = false, mutationDisabledReason = '', periodStatus = '', onVariableChanged, onPendingCountChange }) {
     const { hasRole, hasPermission } = useAuth();
     const toast = useToast();
     const navigate = useNavigate();
@@ -62,6 +64,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         : mutationDisabledReason;
     // État local : variables, filtres, formulaire et retours d'action.
     const [variables, setVariables] = useState([]);
+    const [advanceRepayments, setAdvanceRepayments] = useState([]);
     const [variableSummary, setVariableSummary] = useState({ count: 0, activeCount: 0, cancelledCount: 0, pendingCount: 0, gains: 0, retenues: 0 });
     const [loading, setLoading] = useState(true);
     const [refreshError, setRefreshError] = useState(false);
@@ -73,6 +76,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const [eligibleEmployees, setEligibleEmployees] = useState([]);
     const [populationError, setPopulationError] = useState('');
     const [filterSens, setFilterSens] = useState('ALL');
+    const [onlyPending, setOnlyPending] = useState(false);
     const [showCancelled, setShowCancelled] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -434,6 +438,10 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     // Filtrage
     const listVariables = Array.isArray(variables) ? variables : [];
     const cancelledCount = variableSummary.cancelledCount;
+    const activeVariables = listVariables.filter(variable => showCancelled || variable.statut !== 'ANNULE');
+    const gainCount = activeVariables.filter(variable => variable.sens === 'GAIN').length;
+    const retenueCount = activeVariables.filter(variable => variable.sens === 'RETENUE').length;
+    const pendingVariablesCount = activeVariables.filter(variable => variable.statut === 'EN_ATTENTE').length;
     // Un même type peut être saisi plusieurs fois (ex. deux primes exceptionnelles).
     // Le système ne le bloque donc pas : il force une vérification consciente.
     const possibleDuplicate = Boolean(form.idEmploye && form.typeMouvement && listVariables.some((variable) => {
@@ -445,6 +453,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     }));
     const filteredVariables = listVariables.filter(v => {
         if (!showCancelled && v.statut === 'ANNULE') return false;
+        if (onlyPending && v.statut !== 'EN_ATTENTE') return false;
         const matchSens = filterSens === 'ALL' || v.sens === filterSens;
         const q = searchQuery.toLowerCase();
         const nomComplet = v.nomComplet || v.nom_complet || '';
@@ -468,13 +477,38 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         return groups;
     }, new Map()).values()).map(group => ({
         ...group,
-        balance: group.items.reduce((sum, item) => ['ANNULE', 'REJETE', 'CANCELLED'].includes(item.statut)
+        balance: group.items.reduce((sum, item) => ['ANNULE', 'REJETE', 'CANCELLED'].includes(item.statut) || item.typeMouvement === 'AVANCE_SPECIALE'
             ? sum : sum + (item.sens === 'GAIN' ? 1 : -1) * Number(item.montant || 0), 0),
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
-    const pagedGroups = groupedVariables.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const employeeGroups = new Map(groupedVariables.map(group => [group.key, { ...group, advances: [] }]));
+    const query = searchQuery.trim().toLocaleLowerCase('fr');
+    if (!onlyPending && filterSens !== 'GAIN') {
+        advanceRepayments.forEach(advance => {
+            const employeeId = advance.idEmploye ?? advance.id_employe;
+            const name = advance.nomComplet || advance.nom_complet || 'Collaborateur';
+            const matricule = advance.matricule || '—';
+            const searchable = `${name} ${matricule} avance remboursement retenue automatique`.toLocaleLowerCase('fr');
+            if (query && !searchable.includes(query)) return;
+            const key = employeeId != null ? `id-${employeeId}` : `matricule-${matricule}-${name}`;
+            if (!employeeGroups.has(key)) employeeGroups.set(key, { key, name, matricule, items: [], advances: [], balance: 0 });
+            const group = employeeGroups.get(key);
+            group.advances.push(advance);
+            group.balance -= Number(advance.retenueChoisie ?? advance.echeancePrevue ?? 0);
+        });
+    }
+    const visibleGroups = Array.from(employeeGroups.values())
+        .filter(group => group.items.length > 0 || group.advances.length > 0)
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+    const pagedGroups = visibleGroups.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const visibleAdvanceCount = visibleGroups.reduce((count, group) => count + group.advances.length, 0);
 
     const totalGains = variableSummary.gains;
-    const totalRetenues = variableSummary.retenues;
+    // Le montant accordé d'une avance est un dossier de trésorerie. Seule son
+    // échéance entre dans les retenues prévues pour la paie de cette période.
+    const totalRetenues = activeVariables
+        .filter(variable => variable.sens === 'RETENUE' && variable.typeMouvement !== 'AVANCE_SPECIALE')
+        .reduce((sum, variable) => sum + Number(variable.montant || 0), 0)
+        + advanceRepayments.reduce((sum, advance) => sum + Number(advance.retenueChoisie ?? advance.echeancePrevue ?? 0), 0);
     const pendingCount = variableSummary.pendingCount;
 
     useEffect(() => {
@@ -595,38 +629,23 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     // Rendu
     return (
         <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    title="Variables"
-                    value={listVariables.length}
-                    subtext="Éléments enregistrés"
-                    color="brand"
-                />
-                <StatCard
-                    title="À approuver"
-                    value={pendingCount}
-                    subtext={pendingCount > 0 ? "En attente d'approbation" : listVariables.length === 0 ? 'Aucune saisie' : 'Aucune en attente'}
-                    color={pendingCount > 0 ? "warning" : "neutral"}
-                />
-                <StatCard
-                    title="Gains déclarés"
-                    value={`+${formatAr(totalGains)}`}
-                    subtext="Primes et indemnités"
-                    color="success"
-                />
-                <StatCard
-                    title="Retenues déclarées"
-                    value={`−${formatAr(totalRetenues)}`}
-                    subtext="Acomptes et déductions"
-                    color="danger"
-                />
+            <div className="grid grid-cols-2 divide-x divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] bg-[var(--color-surface)] sm:grid-cols-4 sm:divide-y-0">
+                {[
+                    { label: 'À approuver', value: pendingCount ?? '—', tone: pendingCount > 0 ? 'warning' : 'normal' },
+                    { label: 'Variables', value: listVariables.filter(item => item.statut !== 'ANNULE').length, tone: 'normal' },
+                    { label: 'Gains', value: '+' + formatAr(totalGains), tone: 'gain' },
+                    { label: 'Retenues prévues', value: '−' + formatAr(totalRetenues), tone: 'retenue' },
+                ].map(metric => <div key={metric.label} className="flex min-h-16 items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-xs font-medium text-[var(--color-fg-muted)]">{metric.label}</span>
+                    <strong className={`font-data text-base font-bold tabular-nums ${metric.tone === 'warning' ? 'text-[var(--color-warning-700)]' : metric.tone === 'gain' ? 'text-[var(--color-success-700)]' : metric.tone === 'retenue' ? 'text-[var(--color-danger-700)]' : 'text-[var(--color-fg)]'}`}>{metric.value}</strong>
+                </div>)}
             </div>
 
             <details className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2 text-xs text-[var(--color-fg-muted)]">
                 <summary className="font-semibold text-[var(--color-fg)] cursor-pointer">Quelles variables saisir ici ?</summary>
                 <p className="mt-2">Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes et retenues exceptionnelles justifiées. Le régime fiscal et social provient du type configuré.</p>
             </details>
-            <AdvanceRepaymentPanel idPeriode={idPeriodeActive} canMutate={canMutate}
+            <AdvanceRepaymentPanel idPeriode={idPeriodeActive} onItemsChange={setAdvanceRepayments}
                 onChanged={() => { chargerDonnees({ silent: true }); onVariableChanged?.(); }} />
 
             {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
@@ -637,7 +656,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="text-sm font-semibold text-[var(--color-fg)]">Variables de la campagne</h3>
-                        <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">Recherchez un salarié ou filtrez les gains et retenues.</p>
+                        <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">Saisie et gestion des éléments de paie de la campagne.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/paie/configuration?vue=types', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
@@ -659,33 +678,13 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         </Button>
                     </div>
                 </div>
-                <div className="mt-3 grid grid-cols-1 gap-2 border-t border-[var(--color-border-subtle)] pt-3 sm:grid-cols-[minmax(14rem,1fr)_14rem]">
-                    <Input
-                        type="search"
-                        placeholder="Nom, matricule ou motif…"
-                        value={searchQuery}
-                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                        iconLeft={<Search size={14} />}
-                        aria-label="Rechercher une variable de paie"
-                    />
-                    <SearchSelect
-                        value={filterSens}
-                        onChange={(val) => { setFilterSens(val); setCurrentPage(1); }}
-                        options={[
-                            { value: 'ALL', label: 'Tous les éléments' },
-                            { value: 'GAIN', label: 'Primes et gains' },
-                            { value: 'RETENUE', label: 'Acomptes et retenues' },
-                        ]}
-                        aria-label="Filtrer par sens"
-                    />
-                </div>
             </section>}
 
             {/* Table des variables */}
             {loading ? (
                 <SkeletonTable rows={6} cols={6} />
-            ) : filteredVariables.length === 0 ? (
-                listVariables.length === 0 ? (
+            ) : visibleGroups.length === 0 ? (
+                listVariables.length === 0 && advanceRepayments.length === 0 ? (
                     <section className="flex flex-col items-center justify-center gap-3 border border-dashed border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-5 py-8 text-center" aria-label="Aucune variable pour cette campagne">
                         <div className="flex h-10 w-10 items-center justify-center bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]"><Plus size={20} aria-hidden="true" /></div>
                         <div>
@@ -703,13 +702,45 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     title="Aucun résultat pour ces filtres"
                     description="Modifiez votre recherche ou vos filtres pour retrouver une variable."
                     actionLabel="Effacer les filtres"
-                    onAction={() => { setSearchQuery(''); setFilterSens('ALL'); setShowCancelled(false); setCurrentPage(1); }}
+                    onAction={() => { setSearchQuery(''); setFilterSens('ALL'); setOnlyPending(false); setShowCancelled(false); setCurrentPage(1); }}
                 />
             ) : (
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-                <Table aria-label="Variables de paie" density="compact" className="payroll-variable-table-wrap" tableClassName="payroll-variable-table">
+                <div className="payroll-evp-section border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                <div className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-4 sm:px-6">
+                    <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <h2 className="text-lg font-bold text-[var(--color-fg)]">Variables par salarié</h2>
+                        <span className="text-sm text-[var(--color-fg-muted)]">{visibleGroups.length} salarié{visibleGroups.length > 1 ? 's' : ''} · {filteredVariables.length} variable{filteredVariables.length > 1 ? 's' : ''}{visibleAdvanceCount > 0 ? ` · ${visibleAdvanceCount} remboursement${visibleAdvanceCount > 1 ? 's' : ''}` : ''}</span>
+                    </div>
+                    <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+                        <Input
+                            type="search"
+                            placeholder="Rechercher un nom, un matricule ou un motif..."
+                            value={searchQuery}
+                            onChange={event => { setSearchQuery(event.target.value); setCurrentPage(1); }}
+                            iconLeft={<Search size={14} />}
+                            aria-label="Rechercher une variable de paie"
+                            className="min-w-0 flex-1"
+                        />
+                        <div className="flex flex-wrap items-center gap-2 lg:shrink-0" role="group" aria-label="Filtrer les variables">
+                            {[
+                                { label: 'Toutes', count: activeVariables.length, sens: 'ALL', pending: false },
+                                { label: 'Gains', count: gainCount, sens: 'GAIN', pending: false },
+                                { label: 'Retenues', count: retenueCount, sens: 'RETENUE', pending: false },
+                                { label: 'À décider', count: pendingVariablesCount, sens: 'ALL', pending: true },
+                            ].map(tab => {
+                                const isActive = tab.pending ? onlyPending : !onlyPending && filterSens === tab.sens;
+                                return <button key={tab.label} type="button" aria-pressed={isActive}
+                                    onClick={() => { setOnlyPending(tab.pending); setFilterSens(tab.sens); setCurrentPage(1); }}
+                                    className={`inline-flex min-h-10 items-center gap-2 border px-3 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] ${isActive ? 'border-[var(--color-brand-800)] bg-[var(--color-brand-800)] text-[var(--color-on-color)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'}`}>
+                                    {tab.label}<span className={isActive ? 'opacity-90' : 'font-data'}>{tab.count}</span>
+                                </button>;
+                            })}
+                        </div>
+                    </div>
+                </div>
+                <Table aria-label="Variables de paie" density="comfortable" className="payroll-variable-table-wrap" tableClassName="payroll-variable-table">
                     <colgroup><col style={{ width: '30%' }} /><col style={{ width: '24%' }} /><col style={{ width: '13%' }} /><col style={{ width: '13%' }} /><col style={{ width: '20%' }} /></colgroup>
-                    <Thead>
+                    <Thead className="!bg-[var(--color-surface)]">
                         <Tr>
                             <Th>Variable</Th>
                             <Th>Justification</Th>
@@ -720,16 +751,16 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     </Thead>
                     <Tbody role="rowgroup">
                         {pagedGroups.map(group => <Fragment key={group.key}>
-                            <Tr role="row" className="payroll-variable-group bg-[var(--color-bg-subtle)] hover:bg-[var(--color-bg-subtle)]">
-                                <Td role="cell" colSpan={5} className="!px-3 !py-2.5">
-                                    <button type="button" aria-expanded={!collapsedEmployees.has(group.key)} onClick={() => toggleEmployee(group.key)} className="flex w-full items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]">
+                            <Tr role="row" className="payroll-variable-group bg-[var(--color-bg-subtle)] border-b border-b-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]">
+                                <Td role="cell" colSpan={5} className="!px-4 !py-3.5">
+                                    <button type="button" aria-expanded={!collapsedEmployees.has(group.key)} onClick={() => toggleEmployee(group.key)} className="flex min-h-10 w-full items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]">
                                         {collapsedEmployees.has(group.key) ? <ChevronRight size={15} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" /> : <ChevronDown size={15} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />}
                                         <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--color-brand-600)] text-[var(--color-on-color)] text-[10px] font-bold" aria-hidden="true">{group.name.trim().split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
                                         <span className="min-w-0 flex-1">
-                                            <span className="block truncate text-xs font-semibold text-[var(--color-fg)]">{group.name}</span>
-                                            <span className="block font-data text-[10px] text-[var(--color-fg-muted)]">{group.matricule} · {group.items.length} variable{group.items.length > 1 ? 's' : ''}</span>
+                                            <span className="block truncate text-sm font-bold text-[var(--color-fg)]">{group.name}</span>
+                                            <span className="block font-data text-xs text-[var(--color-fg-muted)]">{group.matricule} · {group.items.length} variable{group.items.length > 1 ? 's' : ''}{group.advances.length > 0 ? ` dont ${group.advances.length} avance${group.advances.length > 1 ? 's' : ''} à rembourser` : ''}</span>
                                         </span>
-                                        <span className={`shrink-0 px-2 py-1 font-data text-[10px] font-semibold ${group.balance > 0 ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)]' : group.balance < 0 ? 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)]' : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)]'}`} title="Somme des montants affichés, avant cotisations et IRSA">Solde saisi : {group.balance > 0 ? '+' : group.balance < 0 ? '−' : ''}{formatAr(Math.abs(group.balance))}</span>
+                                        <span className="shrink-0 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-2 py-1 font-data text-xs font-semibold text-[var(--color-fg)]" title="Variables et échéances prévues, hors montant initial de l’avance ; la retenue réelle dépend du net disponible">Effet prévu : {group.balance > 0 ? '+' : group.balance < 0 ? '−' : ''}{formatAr(Math.abs(group.balance))}</span>
                                     </button>
                                 </Td>
                             </Tr>
@@ -738,78 +769,119 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             const typeLibelle = v.typeLibelle || v.type_libelle || v.typeMouvement || v.type_mouvement;
                             const statInfo = statutLabels[v.statut] || { label: v.statut || 'Enregistré', variant: 'neutral' };
                             const configuredType = typesMouvements.find(type => type.code === v.typeMouvement);
+                            const isAdvanceDossier = v.typeMouvement === 'AVANCE_SPECIALE';
+                            const advancePaymentPending = isAdvanceDossier && !v.versementConfirmeAt && !v.versement_confirme_at && v.statut === 'APPROUVE';
+                            const paidAfterPeriod = isAdvanceDossier && Boolean(v.versementConfirmeAt || v.versement_confirme_at)
+                                && Boolean(periodEndDate) && Boolean(v.datePaiement || v.date_paiement)
+                                && String(v.datePaiement || v.date_paiement).slice(0, 10) > String(periodEndDate).slice(0, 10);
+                            const linkedRepayment = isAdvanceDossier ? group.advances.find(advance => Number(advance.idAvance) === Number(idAvance)) : null;
+                            const repaymentAmount = linkedRepayment ? Number(linkedRepayment.retenueChoisie ?? linkedRepayment.echeancePrevue ?? 0) : 0;
+                            const repaymentAdjusted = Boolean(linkedRepayment?.motifChoix?.trim());
                             const taxable = v.imposable ?? configuredType?.imposable;
                             const social = v.cotisable ?? configuredType?.cotisable;
+                            const secondaryActions = [
+                                ...(v.typeMouvement === 'NOTE_DE_FRAIS' && v.justificatifPresent && idAvance
+                                    ? [{ label: 'Voir le justificatif', icon: <Eye size={14} />, onClick: () => handleVoirJustificatifFrais(v), section: 'Justificatif' }]
+                                    : []),
+                                ...(v.workflowActions?.DELETE && isManualPayrollVariable(v) && idAvance
+                                    ? [{ label: 'Supprimer la variable', icon: <Trash2 size={14} />, onClick: () => setDeletingVariable(v), danger: true, section: 'Gestion' }]
+                                    : []),
+                                ...(v.workflowActions?.CANCEL && isManualPayrollVariable(v) && idAvance
+                                    ? [{ label: 'Annuler la variable', icon: <Trash2 size={14} />, onClick: () => { setCancelingVariable(v); setCancelReason(''); setCancelError(''); }, danger: true, section: 'Gestion' }]
+                                    : []),
+                            ];
                             return (
-                                <Tr role="row" key={idAvance || index}>
-                                    <Td role="cell" data-label="Variable et régime" data-mobile-span="full">
+                                <Tr role="row" key={idAvance || index} className="border-b border-[var(--color-border-subtle)] [&>td]:!py-3">
+                                    <Td role="cell" data-label="Variable et régime" data-mobile-span="full" className="payroll-variable-indent !pl-12">
                                         <span className="font-medium text-[var(--color-fg)] block">
-                                            {typeLibelle || 'Variable'}
+                                            {linkedRepayment ? 'Avance exceptionnelle sur salaire' : typeLibelle || 'Variable'}
                                         </span>
-                                        <span className="mt-0.5 block text-[11px] text-[var(--color-fg-muted)]"><span className={`mr-1 border px-1 py-0.5 text-[9px] font-bold ${v.sens === 'GAIN' ? 'border-[var(--color-success-500)]/30 text-[var(--color-success-700)]' : 'border-[var(--color-danger-500)]/30 text-[var(--color-danger-700)]'}`}>{v.sens === 'GAIN' ? 'GAIN' : 'RETENUE'}</span>{regimeLabel(v.sens, taxable, social)}</span>
+                                        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-fg-muted)]"><span className={`inline-flex px-2 py-0.5 text-[10px] font-semibold ${isAdvanceDossier ? 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)]' : v.sens === 'GAIN' ? 'bg-[var(--color-success-50)] text-[var(--color-success-700)]' : 'bg-[var(--color-danger-50)] text-[var(--color-danger-700)]'}`}>{linkedRepayment ? 'Remboursement d’avance' : isAdvanceDossier ? 'Dossier d’avance' : v.sens === 'GAIN' ? 'Gain' : 'Retenue'}</span>{linkedRepayment ? 'Retenue de cette paie' : advancePaymentPending ? 'Versement à confirmer avant toute retenue' : paidAfterPeriod ? `Versée le ${fmtDate(v.datePaiement || v.date_paiement)}, après la fin de période (${fmtDate(periodEndDate)}) : retenue sur une période ultérieure` : isAdvanceDossier ? 'Aucune échéance sur cette paie' : regimeLabel(v.sens, taxable, social)}</span>
                                     </Td>
                                     <Td role="cell" data-label="Justification" data-mobile-span="full" className="text-[var(--color-fg-muted)] max-w-xs whitespace-normal">
                                         <span className="block">{v.motif || '—'}</span>
+                                        {linkedRepayment && <span className="block text-[11px]">Dossier approuvé · Reste dû : {formatAr(linkedRepayment.soldeRestant)}</span>}
                                         {v.typeMouvement === 'NOTE_DE_FRAIS' && <span className="block text-[11px]">{v.justificatifPresent ? `Pièce : ${v.justificatifNom}` : 'Pièce à joindre avant approbation'}</span>}
                                         {(v.dateDemande || v.date_demande) && <span className="block text-[11px] text-[var(--color-fg-subtle)]">Saisie le {fmtDate(v.dateDemande || v.date_demande)}</span>}
                                     </Td>
                                     <Td role="cell" data-label="Montant" className="text-right font-data font-bold whitespace-nowrap">
-                                        <span className={v.sens === 'GAIN' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
-                                            {v.sens === 'GAIN' ? '+' : '−'}{formatAr(v.montant)}
+                                        <span className={isAdvanceDossier && !linkedRepayment ? 'text-[var(--color-fg)] text-sm' : v.sens === 'GAIN' ? 'text-[var(--color-success-700)] text-sm' : 'text-[var(--color-danger-700)] text-sm'}>
+                                            {linkedRepayment ? repaymentAmount > 0 ? '−' : '' : isAdvanceDossier ? '' : v.sens === 'GAIN' ? '+' : '−'}{formatAr(linkedRepayment ? repaymentAmount : v.montant)}
                                         </span>
+                                        {linkedRepayment && <span className="block text-[10px] font-normal text-[var(--color-fg-muted)]">{repaymentAdjusted ? 'Échéance ajustée' : 'Échéance automatique'}</span>}
+                                        {isAdvanceDossier && !linkedRepayment && <span className="block text-[10px] font-normal text-[var(--color-fg-muted)]">Montant de l’avance, hors retenue</span>}
                                     </Td>
                                     <Td role="cell" data-label="Statut">
-                                        <Badge variant={statInfo.variant} size="xs" dot>
-                                            {statInfo.label}
-                                        </Badge>
+                                        {linkedRepayment ? <Badge variant={repaymentAmount === 0 ? 'neutral' : repaymentAdjusted ? 'warning' : 'info'} size="xs" dot>{repaymentAmount === 0 ? 'Reportée' : repaymentAdjusted ? 'Ajustée' : 'Automatique'}</Badge>
+                                            : advancePaymentPending ? <Badge variant="warning" size="xs" dot>À verser</Badge>
+                                                : paidAfterPeriod ? <Badge variant="neutral" size="xs" dot>Hors période</Badge>
+                                            : <Badge variant={statInfo.variant} size="xs" dot>{statInfo.label}</Badge>}
                                     </Td>
                                     <Td role="cell" data-label="Actions" data-mobile-span="full" className="text-right whitespace-nowrap">
                                         <div className="inline-flex items-center justify-end gap-1.5">
+                                            {linkedRepayment && canMutate && <Button type="button" variant="outline" size="xs" onClick={linkedRepayment.ouvrirAjustement}>{repaymentAdjusted ? 'Modifier' : 'Ajuster'}</Button>}
+                                            {isAdvanceDossier && !linkedRepayment && <Button type="button" variant="outline" size="xs" onClick={() => navigate('/paie/acomptes-avances', { state: { openAdvanceId: idAvance } })}>Voir le dossier</Button>}
                                             {v.workflowActions?.APPROVE && idAvance && (
                                                 <Button
-                                                    variant="outline"
+                                                    variant="primary"
                                                     size="xs"
-                                                    iconLeft={<CheckCircle2 size={13} className="text-[var(--color-brand-600)]" />}
+                                                    iconLeft={<CheckCircle2 size={13} />}
                                                     onClick={() => setApprovingVariable(v)}
                                                     disabled={v.typeMouvement === 'NOTE_DE_FRAIS' && !v.justificatifPresent}
-                                                    className="text-[var(--color-brand-600)] border-[var(--color-brand-300)] hover:bg-[var(--color-brand-50)] dark:border-[var(--color-brand-700)] dark:hover:bg-[var(--color-brand-900)]/30"
                                                 >
                                                     Approuver
                                                 </Button>
                                             )}
-                                            {v.typeMouvement === 'NOTE_DE_FRAIS' && v.justificatifPresent && idAvance && <Button variant="outline" size="xs" onClick={() => handleVoirJustificatifFrais(v)}>Voir la pièce</Button>}
-                                            {canMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label className="cursor-pointer text-xs font-semibold text-[var(--color-brand-600)]">{v.justificatifPresent ? 'Remplacer la pièce' : 'Joindre une pièce'}<SharedInput plain type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="sr-only" onChange={event => { handleJustificatifFrais(v, event.target.files?.[0]); event.target.value = ''; }} /></label>}
-                                            {v.workflowActions?.DELETE && isManualPayrollVariable(v) && idAvance && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="xs"
-                                                    iconLeft={<Trash2 size={13} />}
-                                                    onClick={() => setDeletingVariable(v)}
-                                                    className="text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)] dark:hover:bg-[var(--color-danger-950)]/40"
-                                                >
-                                                    Supprimer
-                                                </Button>
-                                            )}
-                                            {v.workflowActions?.CANCEL && isManualPayrollVariable(v) && idAvance && (
-                                                <Button variant="ghost" size="xs" iconLeft={<Trash2 size={13} />}
-                                                    onClick={() => { setCancelingVariable(v); setCancelReason(''); setCancelError(''); }}
-                                                    className="text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)]">
-                                                    Annuler la variable
-                                                </Button>
-                                            )}
+                                            {canMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label title={v.justificatifPresent ? 'Remplacer le justificatif' : 'Joindre un justificatif'} className="ui-button-size-xs inline-flex cursor-pointer items-center justify-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-border-subtle)]">
+                                                <Upload size={14} aria-hidden="true" /><span className="sr-only">{v.justificatifPresent ? 'Remplacer le justificatif' : 'Joindre un justificatif'}</span>
+                                                <SharedInput plain type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="sr-only" onChange={event => { handleJustificatifFrais(v, event.target.files?.[0]); event.target.value = ''; }} />
+                                            </label>}
+                                            {secondaryActions.length > 0 && <ActionMenu label={`Autres actions pour ${typeLibelle || 'la variable'} de ${group.name}`} triggerClassName="bg-[var(--color-bg-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-border-subtle)]" items={secondaryActions} />}
                                         </div>
                                     </Td>
                                 </Tr>
                             );
                             })}
+                            {!collapsedEmployees.has(group.key) && group.advances.filter(advance => !group.items.some(variable => Number(variable.idAvance ?? variable.id_avance) === Number(advance.idAvance))).map(advance => {
+                                const hasChoice = Boolean(advance.motifChoix?.trim());
+                                const chosen = Number(advance.retenueChoisie);
+                                const isDeferred = hasChoice && chosen === 0;
+                                const isCustom = hasChoice && chosen !== 0 && chosen !== Number(advance.echeancePrevue);
+                                const currentAmount = hasChoice ? chosen : Number(advance.echeancePrevue);
+                                return <Tr role="row" key={`remboursement-${advance.idAvance}`} className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] [&>td]:!py-3">
+                                    <Td role="cell" data-label="Remboursement" data-mobile-span="full" className="payroll-variable-indent !pl-12">
+                                        <span className="flex items-center gap-2 font-semibold text-[var(--color-fg)]"><Banknote size={15} className="shrink-0 text-[var(--color-info-700)]" aria-hidden="true" />Remboursement d’avance</span>
+                                        <span className="mt-1 block text-[11px] text-[var(--color-fg-muted)]">{hasChoice ? 'Ajustement enregistré pour cette paie' : 'Retenue automatique au calcul de la paie'}</span>
+                                    </Td>
+                                    <Td role="cell" data-label="Échéance et solde" data-mobile-span="full" className="max-w-xs whitespace-normal text-[var(--color-fg-muted)]">
+                                        Échéance prévue : {formatAr(advance.echeancePrevue)} · Reste dû : {formatAr(advance.soldeRestant)}
+                                    </Td>
+                                    <Td role="cell" data-label="Montant" className="whitespace-nowrap text-right font-data font-bold">
+                                        <span className="text-sm text-[var(--color-danger-700)]">{currentAmount > 0 ? '−' : ''}{formatAr(currentAmount)}</span>
+                                    </Td>
+                                    <Td role="cell" data-label="Statut">
+                                        <Badge variant={isDeferred ? 'neutral' : isCustom ? 'warning' : 'info'} size="xs" dot>
+                                            {isDeferred ? 'Reportée' : isCustom ? 'Montant ajusté' : 'Automatique'}
+                                        </Badge>
+                                    </Td>
+                                    <Td role="cell" data-label="Action" data-mobile-span="full" className="text-right whitespace-nowrap">
+                                        {canMutate && <div className="inline-flex flex-col items-end gap-0.5">
+                                            <Button type="button" variant="outline" size="xs" onClick={advance.ouvrirAjustement}>
+                                                {hasChoice ? 'Modifier' : 'Ajuster'}
+                                            </Button>
+                                            <span className="text-[10px] text-[var(--color-fg-muted)]">Facultatif</span>
+                                        </div>}
+                                    </Td>
+                                </Tr>;
+                            })}
                         </Fragment>)}
                     </Tbody>
                 </Table>
-                <Pagination currentPage={currentPage} totalItems={groupedVariables.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50]} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
+                <Pagination currentPage={currentPage} totalItems={visibleGroups.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50]} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
                 </div>
             )}
 
-            <section className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-brand-500)] bg-[var(--color-bg-subtle)] px-3 py-2.5" aria-live="polite">
+            {(loading || refreshError || pendingCount > 0) && <section className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-brand-500)] bg-[var(--color-bg-subtle)] px-3 py-2.5" aria-live="polite">
                 <div>
                     <h3 className="text-xs font-bold text-[var(--color-fg)]">Avant le calcul réel</h3>
                     <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
@@ -821,7 +893,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 <Badge variant={loading || refreshError ? 'neutral' : pendingCount > 0 ? 'warning' : 'success'} size="sm">
                     {loading ? 'Vérification' : refreshError ? 'À vérifier' : pendingCount > 0 ? `${pendingCount} à approuver` : 'Prêt'}
                 </Badge>
-            </section>
+            </section>}
 
             {/* Modale d'ajout de variable */}
             <Modal

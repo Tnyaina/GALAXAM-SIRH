@@ -9,7 +9,6 @@ import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
-import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import Button from '@/components/ui/forms/Button';
@@ -157,24 +156,6 @@ export default function GestionCongesPage() {
         </div>
       )}
 
-      {canReadGlobal && <section aria-label="Étapes annuelles des droits à congé" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3">
-        <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[
-            ['1', 'Acquisitions mensuelles', 'Après chaque clôture de paie'],
-            ['2', 'Clôture de la période', 'Calcul du TCONGE à partir des cumuls'],
-            ['3', 'Activation datée par la DAF', 'Le nouveau taux s’applique à sa date d’effet'],
-          ].map(([number, title, description]) => (
-            <li key={number} className="flex min-w-0 items-start gap-2">
-              <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center border border-[var(--color-border)] bg-[var(--color-bg-subtle)] text-[10px] font-semibold text-[var(--color-fg-muted)]">{number}</span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-[var(--color-fg)]">{title}</p>
-                <p className="text-[11px] text-[var(--color-fg-muted)]">{description}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>}
-
       {/* Barre d'onglets sobre de premier niveau */}
       {canReadGlobal && <Tabs
         tabs={tabsList}
@@ -183,6 +164,15 @@ export default function GestionCongesPage() {
         variant="underline"
         showScrollHint
       />}
+
+      {canReadGlobal && activeTab === 'periodes' && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-border-subtle)] px-1 py-2 text-xs text-[var(--color-fg-muted)]" aria-label="Comment fonctionne le taux de congé">
+        <span className="font-medium">Comment ça marche :</span>
+        <span><strong className="text-[var(--color-fg)]">1</strong> Acquisitions mensuelles après la clôture de paie</span>
+        <span aria-hidden="true">›</span>
+        <span><strong className="text-[var(--color-fg)]">2</strong> Clôture annuelle : calcul du TCONGE</span>
+        <span aria-hidden="true">›</span>
+        <span><strong className="text-[var(--color-fg)]">3</strong> Activation datée par la DAF</span>
+      </div>}
 
       {canReadGlobal && <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés" size="lg">
         <div className="space-y-4">
@@ -238,22 +228,12 @@ export default function GestionCongesPage() {
               <div role="status" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
                 <Loading size="sm" label="Vérification des activations TCONGE en attente…" />
               </div>
-            ) : pendingRatesStatus === 'success' && periodesEnAttente.length === 0 ? (
-              <>
-                <EmptyState title="Aucune activation TCONGE en attente"
-                  description="Aucun taux calculé ne nécessite actuellement une activation DAF." />
-                <PeriodesReferenceTab
-                  initialIdEmploye={Number(searchParams.get('employe')) || null}
-                  canValidate={hasPermission('CONGE_VALIDATE')}
-                  periodesEnAttente={periodesEnAttente}
-                  onReload={loadGlobalData}
-                />
-              </>
             ) : (
               <PeriodesReferenceTab
               initialIdEmploye={Number(searchParams.get('employe')) || null}
               canValidate={hasPermission('CONGE_VALIDATE')}
               periodesEnAttente={periodesEnAttente}
+              pendingStatus={pendingRatesStatus}
               onReload={loadGlobalData}
               />
             )

@@ -16,6 +16,7 @@ export default function EmployeSearchSelect({
   placeholder = 'Rechercher par nom, prénom ou matricule…',
   className = '',
   disabled = false,
+  focusOnMount = false,
 }) {
   const [selectedEmployeObj, setSelectedEmployeObj] = useState(null);
   const [empSearchQuery, setEmpSearchQuery] = useState('');
@@ -27,6 +28,11 @@ export default function EmployeSearchSelect({
   const [loadingList, setLoadingList] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (focusOnMount && !disabled) searchInputRef.current?.focus();
+  }, [focusOnMount, disabled]);
 
   // Debounce de 300ms sur la frappe utilisateur (évite de surcharger l'API)
   const debouncedQuery = useDebounce(empSearchQuery, 300);
@@ -219,6 +225,7 @@ export default function EmployeSearchSelect({
           <div className="relative flex items-center">
             <Search className="w-4 h-4 absolute left-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
             <input
+              ref={searchInputRef}
               id={fieldId}
               type="text"
               disabled={disabled}

@@ -21,9 +21,10 @@ test('le pointage expose les libellés des cellules et une disposition mobile sa
 });
 
 test('les variables de paie présentent les informations et actions dans une grille mobile étiquetée', () => {
-  for (const label of ['Salarié', 'Variable et régime', 'Montant', 'Justification', 'Statut', 'Actions']) {
+  for (const label of ['Variable et régime', 'Montant', 'Justification', 'Statut', 'Actions']) {
     assert.ok(payrollVariablesView.includes(`data-label="${label}"`), `Libellé manquant : ${label}`);
   }
+  assert.match(payrollVariablesView, /payroll-variable-group[\s\S]*?aria-expanded/);
   assert.match(payrollVariablesView, /payroll-variable-table-wrap/);
   assert.match(globalStyles, /\.payroll-variable-table tbody tr\[role="row"\][\s\S]*?display:\s*grid/);
   assert.match(globalStyles, /\.payroll-variable-table td\[data-label="Actions"\] > div[\s\S]*?flex-wrap:\s*wrap/);

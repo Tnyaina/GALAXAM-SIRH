@@ -19,8 +19,8 @@ export default function PayrollIssuePanel({ severity = 'INFO', title, message, s
             <div className="flex items-start gap-3">
                 <Icon size={16} className="mt-0.5 shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-[var(--color-fg)]">{title || config.label}</p>
-                    {message && <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">{message}</p>}
+                    <p className="text-sm font-bold text-[var(--color-fg)]">{title || config.label}</p>
+                    {message && <p className="mt-1 text-xs leading-relaxed text-[var(--color-fg-muted)]">{message}</p>}
                     {(source || code) && (
                         <p className="mt-1 text-[10px] text-[var(--color-fg-subtle)]">
                             {source && <>Source : {source}</>}

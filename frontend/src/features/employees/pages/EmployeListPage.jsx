@@ -345,6 +345,25 @@ export default function EmployeListPage() {
                 </Alert>
             )}
 
+            {/* Barre de filtres serveur */}
+            <EmployeFilterBar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                siteFilter={siteFilter}
+                onSiteFilterChange={setSiteFilter}
+                departementFilter={departementFilter}
+                onDepartementFilterChange={setDepartementFilter}
+                serviceFilter={serviceFilter}
+                onServiceFilterChange={setServiceFilter}
+                sites={sites}
+                departements={departements}
+                services={services}
+                onResetFilters={handleResetFilters}
+                totalFound={totalElements}
+            />
+
             {/* Indicateurs interactifs de statut */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <StatCard 
@@ -375,25 +394,6 @@ export default function EmployeListPage() {
                     onClick={() => setStatusFilter('INACTIVE')} 
                 />
             </div>
-
-            {/* Barre de filtres serveur */}
-            <EmployeFilterBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
-                siteFilter={siteFilter}
-                onSiteFilterChange={setSiteFilter}
-                departementFilter={departementFilter}
-                onDepartementFilterChange={setDepartementFilter}
-                serviceFilter={serviceFilter}
-                onServiceFilterChange={setServiceFilter}
-                sites={sites}
-                departements={departements}
-                services={services}
-                onResetFilters={handleResetFilters}
-                totalFound={totalElements}
-            />
 
             {/* Tableau paginé côté serveur */}
             <Card className="flex flex-col overflow-hidden p-0" shadow="sm">

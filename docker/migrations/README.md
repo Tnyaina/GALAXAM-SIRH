@@ -33,3 +33,5 @@ La migration `0006_remove_advance_percentage_cap.sql` retire le paramètre histo
 La migration `0007_advance_repayment_plan.sql` ajoute le plafond configurable de l'encours d'avances à l'approbation (100 % du salaire de base par défaut), le nombre de mensualités et le choix motivé d'une retenue pour une campagne. Les avances préexistantes gardent une mensualité par défaut.
 
 La migration `0008_fractional_attendance_days.sql` conserve les demi-journées de présence et de congé dans le snapshot de pointage. Le calcul de la prime de performance utilise ainsi 0,5 jour présent pour une demi-journée travaillée ; le nombre de jours de congé reste décimal pour les contrôles et le malus.
+
+La migration `0009_allow_deferred_advance_repayment.sql` autorise un choix explicite de retenue de 0 Ar pour reporter le remboursement d'une avance sur une seule campagne, avec un motif obligatoire. Le solde dû reste inchangé.

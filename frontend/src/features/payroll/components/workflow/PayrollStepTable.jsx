@@ -99,7 +99,7 @@ export default function PayrollStepTable({
                     <SkeletonTable rows={skeletonRows} cols={colSpan} bordered={false} />
                 </div>
             ) : (
-                <Table bordered={false} density="compact" rowHover aria-label={ariaLabel}>
+                <Table bordered={false} density="comfortable" rowHover aria-label={ariaLabel}>
                     <Thead>
                         <Tr>
                             {columns.map((col, idx) => {
@@ -147,7 +147,7 @@ export default function PayrollStepTable({
 export function PayrollEmployeeCell({ name, matricule, subtitle }) {
     return (
         <div className="py-0.5">
-            <div className="font-semibold text-[var(--color-fg)] text-xs leading-snug">
+            <div className="font-semibold text-[var(--color-fg)] text-sm leading-snug">
                 {name || '–'}
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[var(--color-fg-muted)]">

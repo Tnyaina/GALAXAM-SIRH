@@ -149,7 +149,7 @@ const attendanceApi = {
         exportPdf: (idEmploye, params = {}) => exportDocument(idEmploye, 'pdf', params)
     },
     summary: {
-        getPeriod: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite: cleanSite(idSite), search, filtre, page, size } })).data,
+        getPeriod: async ({ idPeriodePaie, idSite, search, filtre, categorie, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite: cleanSite(idSite), search, filtre, categorie, page, size } })).data,
         getWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.get('/pointages/synthese/semaines', { params: { idPeriodePaie, idSite: cleanSite(idSite) } })).data,
         getPreflight: async ({ idPeriodePaie }) => {
             const data = (await apiClient.get('/pointages/synthese/preflight', { params: { idPeriodePaie } })).data;

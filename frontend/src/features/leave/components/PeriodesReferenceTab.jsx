@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CalendarRange, FileSpreadsheet, RefreshCw, SlidersHorizontal, ShieldAlert } from 'lucide-react';
+import { CalendarRange, FileSpreadsheet, RefreshCw, SlidersHorizontal, ShieldAlert, Search, CheckCircle2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
@@ -10,9 +10,11 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
 import Loading from '@/components/ui/feedback/Loading';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Pagination from '@/components/ui/navigation/Pagination';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { useToast } from '@/components/ui/feedback/Toast';
 import congeService from '@/features/leave/api/congeService';
+import employeService from '@/features/employees/api/employeService';
 import { formatMoneyAr, formatLeaveRateAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
 import InitialisationSoldeModal from '@/features/leave/components/InitialisationSoldeModal';
@@ -42,10 +44,14 @@ export default function PeriodesReferenceTab({
   initialIdEmploye = null,
   canValidate = false,
   periodesEnAttente = [],
+  pendingStatus = 'success',
   onReload = null
 }) {
   const toast = useToast();
   const [employeId, setEmployeId] = useState(initialIdEmploye);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [currentSituation, setCurrentSituation] = useState(null);
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(!initialIdEmploye);
   const [periodes, setPeriodes] = useState([]);
   const [showCutoverModal, setShowCutoverModal] = useState(false);
   const [stock, setStock] = useState(null);
@@ -68,6 +74,13 @@ export default function PeriodesReferenceTab({
   const [activationError, setActivationError] = useState(null);
   const [confirmation, setConfirmation] = useState(false);
   const [guideVisible, setGuideVisible] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState('');
+  const [pendingPage, setPendingPage] = useState(1);
+  const pendingMatches = periodesEnAttente.filter((item) =>
+    `${item.prenom} ${item.nom} ${item.matricule} ${item.dateFin}`.toLocaleLowerCase('fr')
+      .includes(pendingSearch.trim().toLocaleLowerCase('fr')));
+  const pendingPageItems = pendingMatches.slice((pendingPage - 1) * 10, pendingPage * 10);
+  useEffect(() => { setPendingPage(1); }, [periodesEnAttente.length]);
   const referencesAnciennesOuvertes = periodes.filter((periode) =>
     periode.statut === 'OUVERTE' && periode.dateFin
       && periode.dateFin < new Date().toLocaleDateString('sv-SE'));
@@ -80,15 +93,15 @@ export default function PeriodesReferenceTab({
     let active = true;
     setSituationDate(null);
     setActivationError(null);
-    congeService.getSituationEmploye(employeId, activation.dateEffet)
+    congeService.getSituationEmploye(activation.periode.idEmploye, activation.dateEffet)
       .then((situation) => { if (active) setSituationDate(situation); })
       .catch((err) => { if (active) setActivationError(getErrorMessage(err, 'Taux applicable indisponible à cette date.')); });
     return () => { active = false; };
-  }, [activation?.dateEffet, activation?.periode, employeId]);
+  }, [activation?.dateEffet, activation?.periode]);
 
   const chargerCycles = useCallback(async (id) => {
     if (!id) {
-      setPeriodes([]); setStock(null); setStockError(null);
+      setPeriodes([]); setStock(null); setStockError(null); setCurrentSituation(null);
       setMouvements([]); setMouvementsError(null);
       return;
     }
@@ -97,14 +110,16 @@ export default function PeriodesReferenceTab({
     setStockError(null);
     setMouvementsError(null);
     try {
-      const [cycles, lots, mouvementResult] = await Promise.allSettled([
+      const [cycles, lots, mouvementResult, situationResult] = await Promise.allSettled([
         congeService.getPeriodesReferenceEmploye(id),
         congeService.getValorisationLots(id),
         congeService.getMouvementsEmploye(id),
+        congeService.getSituationEmploye(id),
       ]);
       if (cycles.status === 'rejected') throw cycles.reason;
       setPeriodes(Array.isArray(cycles.value) ? cycles.value : []);
       setStock(lots.status === 'fulfilled' ? lots.value : null);
+      setCurrentSituation(situationResult.status === 'fulfilled' ? situationResult.value : null);
       if (lots.status === 'rejected') setStockError(getErrorMessage(lots.reason, 'La situation des lots est indisponible.'));
       setMouvements(mouvementResult.status === 'fulfilled' && Array.isArray(mouvementResult.value)
         ? mouvementResult.value : []);
@@ -120,6 +135,14 @@ export default function PeriodesReferenceTab({
 
   useEffect(() => { setEmployeId(initialIdEmploye); }, [initialIdEmploye]);
   useEffect(() => { chargerCycles(employeId); }, [employeId, chargerCycles]);
+  useEffect(() => {
+    if (!employeId || selectedEmployee && Number(selectedEmployee.idEmploye ?? selectedEmployee.id_employe) === Number(employeId)) return undefined;
+    let active = true;
+    employeService.getEmployeFicheDetail(employeId).then((result) => {
+      if (active) setSelectedEmployee(result?.employe || result);
+    }).catch(() => { if (active) setSelectedEmployee(null); });
+    return () => { active = false; };
+  }, [employeId, selectedEmployee]);
 
   const chargerMois = async (periode) => {
     setPeriodeControle(periode);
@@ -168,6 +191,9 @@ export default function PeriodesReferenceTab({
   };
 
   const ouvrirActivation = (periode) => {
+    setEmployeId(periode.idEmploye);
+    if (periode.nom) setSelectedEmployee(periode);
+    setEmployeePickerOpen(false);
     setActivation({ periode, dateEffet: premiereDateActivation(periode) });
     setConfirmation(false);
     setActivationError(null);
@@ -192,61 +218,51 @@ export default function PeriodesReferenceTab({
   };
 
   return <div className="space-y-4">
+    {pendingStatus === 'success' && periodesEnAttente.length === 0 && <div role="status" className="flex flex-wrap items-center gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3 text-sm">
+      <CheckCircle2 size={18} className="shrink-0 text-[var(--color-success-700)]" aria-hidden="true" />
+      <strong className="text-[var(--color-fg)]">Aucun taux à activer actuellement</strong>
+      <span className="text-[var(--color-fg-muted)]">Après la clôture annuelle des droits, les salariés concernés apparaîtront ici.</span>
+    </div>}
     {periodesEnAttente && periodesEnAttente.length > 0 && (
-      <div className="border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-warning-500)] bg-[var(--color-surface)] p-4 space-y-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-bold text-[var(--color-fg)] flex items-center gap-2">
-            <ShieldAlert size={16} className="text-[var(--color-warning-500)] shrink-0" />
-            {periodesEnAttente.length} cycle{periodesEnAttente.length > 1 ? 's' : ''} annuel{periodesEnAttente.length > 1 ? 's' : ''} clôturé{periodesEnAttente.length > 1 ? 's' : ''} en attente d'activation DAF
-          </span>
-          <span className="text-xs text-[var(--color-fg-muted)]">Sélectionnez un collaborateur pour activer son taux</span>
+      <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]" aria-label="Taux de congé prêts à activer">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border-subtle)] px-4 py-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><ShieldAlert size={16} className="text-[var(--color-warning-700)]" />{periodesEnAttente.length} taux prêt{periodesEnAttente.length > 1 ? 's' : ''} à activer</h2>
+            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Vérifiez la date d’effet de chaque salarié avant de confirmer. Aucune activation automatique.</p>
+          </div>
+          <Input type="search" iconLeft={<Search size={14} />} value={pendingSearch} onChange={(event) => { setPendingSearch(event.target.value); setPendingPage(1); }} placeholder="Nom ou matricule…" aria-label="Rechercher un taux à activer" className="w-full sm:w-64" />
         </div>
-        <div className="flex flex-wrap gap-2 pt-1">
-          {periodesEnAttente.map((item) => (
-            <button
-              key={item.idPeriodeReference}
-              type="button"
-              aria-pressed={employeId === item.idEmploye}
-              onClick={() => {
-                setEmployeId(item.idEmploye);
-                chargerCycles(item.idEmploye);
-              }}
-              className={`px-3 py-1.5 text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
-                employeId === item.idEmploye
-                  ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-xs'
-                  : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:border-[var(--color-brand-500)]'
-              }`}
-            >
-              <span className="font-semibold">{item.prenom} {item.nom}</span>
-              {item.matricule && <span className="opacity-75">({item.matricule})</span>}
-              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
-                {item.dateDebut.slice(0, 4)} · TCONGE calculé {formatLeaveRateAr(item.tauxCalculeCloture)}/j
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+        {pendingPageItems.length > 0 ? <div className="divide-y divide-[var(--color-border-subtle)]">{pendingPageItems.map((item) =>
+          <div key={item.idPeriodeReference} className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <div className="min-w-40 flex-1"><p className="text-sm font-semibold text-[var(--color-fg)]">{item.prenom} {item.nom}</p><p className="text-xs text-[var(--color-fg-muted)]">{item.matricule} · Cycle terminé le {dateFr(item.dateFin)}</p></div>
+            <div className="text-sm"><span className="text-xs text-[var(--color-fg-muted)]">Nouveau taux</span><strong className="block font-data">{formatLeaveRateAr(item.tauxCalculeCloture)} / jour</strong></div>
+            <div className="text-xs text-[var(--color-fg-muted)]">Dès le {dateFr(premiereDateActivation(item))}</div>
+            {canValidate ? <Button size="sm" variant="primary" onClick={() => ouvrirActivation(item)}>Vérifier et activer</Button>
+              : <Button size="sm" variant="outline" onClick={() => setEmployeId(item.idEmploye)}>Voir le dossier</Button>}
+          </div>)}</div> : <p className="px-4 py-5 text-sm text-[var(--color-fg-muted)]">Aucun salarié ne correspond à cette recherche.</p>}
+        {pendingMatches.length > 10 && <Pagination currentPage={pendingPage} totalItems={pendingMatches.length} pageSize={10} onPageChange={setPendingPage} />}
+      </section>
     )}
 
     <Card padding bordered>
-      <div className="flex flex-wrap items-end gap-3 justify-between">
-        <div className="flex-1 min-w-56 max-w-xl">
-          <EmployeSearchSelect label="Collaborateur" value={employeId}
-            placeholder="Rechercher par nom ou matricule…"
-            onChange={(id) => setEmployeId(id ? Number(id) : null)} />
+      <div className="flex flex-wrap items-center gap-3">
+        {employeId && !employeePickerOpen && <>
+          <span className="grid h-10 w-10 shrink-0 place-items-center bg-[var(--color-brand-600)] text-sm font-bold text-[var(--color-on-color)]" aria-hidden="true">{(selectedEmployee?.prenom || selectedEmployee?.nom || 'S').slice(0, 1).toUpperCase()}</span>
+          <div className="min-w-0 flex-1"><h2 className="text-base font-bold text-[var(--color-fg)]">{[selectedEmployee?.prenom, selectedEmployee?.nom].filter(Boolean).join(' ') || `Salarié #${employeId}`}</h2><p className="text-xs text-[var(--color-fg-muted)]">Matricule : {selectedEmployee?.matricule || '—'}</p></div>
+          <Button variant="outline" size="sm" onClick={() => setEmployeePickerOpen(true)}>Changer de salarié</Button>
+        </>}
+        {(!employeId || employeePickerOpen) && <div className="min-w-60 flex-1 max-w-xl"><EmployeSearchSelect label="Collaborateur" value={employeePickerOpen ? null : employeId}
+          focusOnMount={Boolean(employeId && employeePickerOpen)}
+          placeholder="Rechercher par nom ou matricule…"
+          onChange={(id, employee) => { if (id) { setEmployeId(Number(id)); setSelectedEmployee(employee); setEmployeePickerOpen(false); } }} /></div>}
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" aria-expanded={guideVisible} onClick={() => setGuideVisible((visible) => !visible)}>{guideVisible ? 'Masquer l’explication' : 'Explication du calcul'}</Button>
+          {employeId && <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />}
+            onClick={() => chargerCycles(employeId)} disabled={loading}>Actualiser</Button>}
         </div>
-        {employeId && <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />}
-          onClick={() => chargerCycles(employeId)} disabled={loading}>Actualiser</Button>}
       </div>
+      {guideVisible && <Alert type="info" className="mt-3 py-2 px-2.5" message="La clôture de paie crée la référence annuelle et valorise les droits acquis. À la clôture du cycle, elle calcule un taux moyen ; la DAF l'active séparément avec une date d'effet explicite. Les anciens lots gardent leur valorisation et sont consommés en FIFO." />}
     </Card>
-
-    <div>
-      <Button type="button" variant="outline" size="xs" aria-expanded={guideVisible}
-        onClick={() => setGuideVisible((visible) => !visible)}>
-        {guideVisible ? 'Masquer le guide' : 'Explication du calcul des droits'}
-      </Button>
-      {guideVisible && <Alert type="info" className="mt-2 py-2 px-2.5" message="La clôture de paie crée la référence annuelle et valorise les droits acquis. À la clôture du cycle, elle calcule un taux moyen ; la DAF l'active séparément avec une date d'effet explicite. Les anciens lots gardent leur valorisation et sont consommés en FIFO." />}
-    </div>
     {error && <Alert type="error" message={error} />}
     {referencesAnciennesOuvertes.length > 0 && <Alert type="warning" className="py-2 px-2.5" message={
       `Cycle antérieur encore ouvert (${referencesAnciennesOuvertes.map((periode) => `${dateFr(periode.dateDebut)} → ${dateFr(periode.dateFin)}`).join(', ')}). Vérifiez la clôture de la paie de décembre et les acquisitions de ce cycle avant d'activer un nouveau taux. La référence de l'année suivante peut être créée séparément.`
@@ -256,6 +272,14 @@ export default function PeriodesReferenceTab({
       description="Consultez ses acquisitions annuelles et leurs valorisations." />
       : loading ? <SkeletonTable rows={4} columns={5} />
       : <>
+        <div className="grid grid-cols-2 divide-x divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] bg-[var(--color-surface)] lg:grid-cols-4 lg:divide-y-0">
+          {[
+            { label: 'Stock disponible', value: stock ? `${jours(stock.soldeJours)} j · ${formatMoneyAr(stock.soldeValorisation)}` : 'Indisponible', detail: 'Droits utilisables aujourd’hui' },
+            { label: 'TCONGE applicable', value: currentSituation?.tauxApplicable?.montant != null ? `${formatLeaveRateAr(currentSituation.tauxApplicable.montant)} / j` : 'À vérifier', detail: currentSituation?.tauxApplicable?.dateEffet ? `Depuis le ${dateFr(currentSituation.tauxApplicable.dateEffet)}` : 'Aucun taux actif trouvé' },
+            { label: `Acquis en ${periodes[0]?.dateDebut?.slice(0, 4) || 'année courante'}`, value: `${jours(periodes[0]?.cumulDroitsCourant)} j`, detail: `Valeur : ${formatMoneyAr(periodes[0]?.cumulValorisationCourante || 0)} · cumul annuel` },
+            { label: `Période ${periodes[0]?.dateDebut?.slice(0, 4) || 'annuelle'}`, value: statutReference(periodes[0]?.statut).libelle, detail: periodes[0] ? `${dateFr(periodes[0].dateDebut)} → ${dateFr(periodes[0].dateFin)}` : 'Aucune période créée' },
+          ].map((metric) => <div key={metric.label} className="min-w-0 px-4 py-3"><p className="text-xs text-[var(--color-fg-muted)]">{metric.label}</p><strong className="mt-1 block font-data text-base font-bold text-[var(--color-fg)]">{metric.value}</strong><p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">{metric.detail}</p></div>)}
+        </div>
         <DroitsLotsPanel
           situation={stock}
           movements={mouvements}
@@ -263,20 +287,13 @@ export default function PeriodesReferenceTab({
           error={stockError}
           movementsError={mouvementsError}
           onRetry={() => chargerCycles(employeId)}
+          headerAction={canValidate ? <Button variant="outline" size="sm" iconLeft={<SlidersHorizontal size={14} />} onClick={() => setShowCutoverModal(true)}>Reprendre l’historique</Button> : null}
         />
-        {canValidate && (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" iconLeft={<SlidersHorizontal size={14} />}
-              onClick={() => setShowCutoverModal(true)}>
-              Reprendre l'historique
-            </Button>
-          </div>
-        )}
-        <Card padding bordered>
-        <CardHeader className="pb-3 border-b border-[var(--color-border-subtle)]">
-          <CardTitle className="text-sm">Références et acquisitions</CardTitle>
-          <p className="text-xs text-[var(--color-fg-muted)]">
-            Les cumuls ci-dessous représentent les droits acquis pendant chaque année, pas le solde disponible toutes années confondues.
+        <Card bordered className="overflow-hidden" shadow="none">
+        <CardHeader className="px-5 py-4 sm:px-6 sm:py-5">
+          <CardTitle size="lg">Acquisitions par période</CardTitle>
+          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+            Droits acquis pendant chaque année, pas le solde disponible toutes années confondues.
           </p>
         </CardHeader>
         <CardBody className="p-0">
@@ -300,35 +317,29 @@ export default function PeriodesReferenceTab({
             <p className="mb-2 text-xs text-[var(--color-fg-muted)] sm:hidden">
               Faites défiler le tableau horizontalement pour consulter les autres colonnes.
             </p>
-            <Table aria-label="Périodes de référence et cumuls des congés">
+            <Table bordered={false} rowHover={false} aria-label="Périodes de référence et cumuls des congés" tableClassName="[&_th]:px-5 [&_th]:py-3 [&_td]:px-5 [&_td]:py-5 sm:[&_th]:px-6 sm:[&_td]:px-6">
             <Thead><Tr><Th>Période et état</Th><Th>Acquisitions de l'année</Th>
-              <Th>TCONGE calculé et applicable</Th><Th>Contrôles et actions</Th></Tr></Thead>
+              <Th>TCONGE calculé et applicable</Th><Th>Contrôles</Th></Tr></Thead>
             <Tbody>{periodes.map((periode) => {
               const ouverte = periode.statut === 'OUVERTE';
               const statut = statutReference(periode.statut);
               return <Tr key={periode.idPeriodeReference}>
                 <Td>
                   <div className="space-y-1.5">
-                    <p className="font-medium">{dateFr(periode.dateDebut)} → {dateFr(periode.dateFin)}</p>
-                    <Badge variant={statut.variant}>{statut.libelle}</Badge>
+                    <p className="text-base font-semibold">{dateFr(periode.dateDebut)} → {dateFr(periode.dateFin)}</p>
+                    <Badge variant={statut.variant} size="xs">{statut.libelle}</Badge>
                   </div>
                 </Td>
                 <Td>
-                  <dl className="space-y-1 text-xs">
-                    <div><dt className="inline text-[var(--color-fg-muted)]">Droits acquis : </dt><dd className="inline font-semibold">{jours(ouverte ? periode.cumulDroitsCourant : periode.cumulDroitsCloture)} j</dd></div>
-                    <div><dt className="inline text-[var(--color-fg-muted)]">Valeur acquise : </dt><dd className="inline font-semibold">{formatMoneyAr(ouverte ? periode.cumulValorisationCourante : periode.cumulValorisationCloture)}</dd></div>
-                  </dl>
-                  <p className="mt-1 text-[10px] text-[var(--color-fg-subtle)]">Cumul annuel, distinct du stock disponible.</p>
+                  <strong className="block font-data text-base">{jours(ouverte ? periode.cumulDroitsCourant : periode.cumulDroitsCloture)} j</strong>
+                  <span className="block text-sm text-[var(--color-fg-muted)]">Valeur acquise : {formatMoneyAr(ouverte ? periode.cumulValorisationCourante : periode.cumulValorisationCloture)}</span>
                 </Td>
                 <Td>
-                  <dl className="space-y-1 text-xs">
-                    <div><dt className="inline text-[var(--color-fg-muted)]">Calculé à la clôture : </dt><dd className="inline font-semibold">{ouverte ? 'Après clôture' : Number(periode.tauxCalculeCloture) > 0 ? `${formatLeaveRateAr(periode.tauxCalculeCloture)} / j` : '—'}</dd></div>
-                    <div><dt className="inline text-[var(--color-fg-muted)]">Applicable : </dt><dd className="inline font-semibold">{periode.dateEffetActivation ? `${formatLeaveRateAr(periode.tauxActive)} / j` : 'Aucun'}</dd></div>
-                  </dl>
+                  <strong className="block font-data text-base">{periode.dateEffetActivation ? `${formatLeaveRateAr(periode.tauxActive)} / j` : ouverte ? 'Taux calculé après clôture' : 'À activer'}</strong>
                   {periode.dateEffetActivation
-                    ? <p className="mt-1 text-[10px] text-[var(--color-fg-muted)]">Depuis le {dateFr(periode.dateEffetActivation)}</p>
+                    ? <p className="text-sm text-[var(--color-fg-muted)]">Applicable depuis le {dateFr(periode.dateEffetActivation)} · calculé : {formatLeaveRateAr(periode.tauxCalculeCloture)}</p>
                     : !ouverte && Number(periode.tauxCalculeCloture) > 0
-                      ? <div className="mt-2 space-y-1"><Badge variant="warning">En attente d’activation</Badge>
+                      ? <div className="mt-1 space-y-1"><p className="text-xs text-[var(--color-fg-muted)]">Taux calculé : {formatLeaveRateAr(periode.tauxCalculeCloture)} / j</p><Badge variant="warning">En attente d’activation</Badge>
                         {canValidate
                           ? <div><Button size="xs" variant="primary" onClick={() => ouvrirActivation(periode)}>Activer le TCONGE</Button></div>
                           : <p className="text-[10px] text-[var(--color-fg-muted)]">Activation réservée à un utilisateur autorisé.</p>}</div>

@@ -7,6 +7,7 @@ import WorkflowStepper from '@/components/ui/navigation/WorkflowStepper';
 import { useAuth } from '@/context/AuthContext';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import { getTodayDateString } from '@/utils/dateUtils';
+import WorkflowFocus from '@/components/ui/navigation/WorkflowFocus';
 import organisationService from '@/features/organization/api/organisationService';
 
 // Lazy-loading des etapes du cockpit
@@ -87,6 +88,26 @@ export default function GestionPointagesPage() {
             status: frozen ? 'done' : activeStep === 'arbitrage' ? 'active' : 'pending'
         }
     ], [activeStep, anomaliesCount, isDaf, submitted, frozen]);
+
+    const stepFocus = {
+        saisie: {
+            title: 'Saisir la période',
+            description: 'Renseignez les journées travaillées et signalez les absences ou congés. Les écarts apparaîtront ensuite dans « À traiter ».',
+            links: hasPermission('CONGE_READ') ? [{ label: 'Demandes de congé', href: '/conges?tab=demandes' }] : [],
+        },
+        suivi: {
+            title: 'Corriger avant transmission',
+            description: 'Traitez les journées sans statut et les anomalies bloquantes. Une absence liée à un congé se vérifie aussi dans les demandes de congé.',
+            links: hasPermission('CONGE_READ') ? [{ label: 'Vérifier les congés', href: '/conges?tab=demandes' }] : [],
+        },
+        arbitrage: {
+            title: isDaf ? 'Contrôler et valider la période' : 'Vérifier la synthèse et transmettre',
+            description: isDaf
+                ? 'Examinez les écarts et la synthèse avant validation. La paie utilisera le pointage validé.'
+                : 'Vérifiez les cumuls et les points bloquants avant la transmission à la DAF.',
+            links: hasPermission('PAIE_READ') ? [{ label: 'Voir la préparation de paie', href: '/paie' }] : [],
+        },
+    }[activeStep];
 
     // Effets
     useEffect(() => {
@@ -239,6 +260,7 @@ export default function GestionPointagesPage() {
                 onStepClick={(stepId) => handleStepChange(stepId)}
                 activePeriode={activePeriode}
             />
+            <WorkflowFocus {...stepFocus} />
 
             {error && (
                 <div className="my-3">

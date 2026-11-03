@@ -204,6 +204,7 @@ export default function GestionPaiePage() {
                     <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
                         <VariablesPaieTab
                             idPeriodeActive={activePeriod?.id}
+                            periodEndDate={activePeriod?.endDate || activePeriod?.dateFin}
                             canMutate={addVariableCapability?.allowed === true}
                             mutationDisabledReason={(addVariableCapability?.reasonCodes || []).join(', ') || 'La période est en lecture seule.'}
                             periodStatus={activePeriod?.statutCode || activePeriod?.statut || activePeriod?.state}

@@ -82,7 +82,7 @@ export function Th({ children, sortable, sorted, onSort, sortLabel, scope = 'col
   return (
     <th
       scope={scope}
-      className={`${density === 'compact' ? 'px-2 py-1.5 text-[9px]' : 'px-3 py-2 text-[10px]'} font-bold uppercase tracking-wider text-[var(--color-fg-muted)] whitespace-nowrap
+      className={`${density === 'compact' ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-xs'} font-bold uppercase tracking-wide text-[var(--color-fg-muted)] whitespace-nowrap
         ${!isCentered && !isRight ? 'text-left' : ''}
         ${className}
       `}
@@ -95,7 +95,7 @@ export function Th({ children, sortable, sorted, onSort, sortLabel, scope = 'col
           onClick={onSort}
           aria-label={sortLabel ? `Trier par ${sortLabel}` : undefined}
           disabled={!onSort}
-          className={`inline-flex w-full items-center gap-1.5 ${justifyClass} text-left font-[inherit] text-inherit transition-colors duration-[var(--duration-fast)] hover:text-[var(--color-fg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-default`}
+          className={`inline-flex min-h-8 w-full items-center gap-1.5 ${justifyClass} text-left font-[inherit] text-inherit transition-colors duration-[var(--duration-fast)] hover:text-[var(--color-fg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-default`}
         >
           {children}
           {sorted === 'asc' ? <ChevronUp size={13} aria-hidden="true" /> : sorted === 'desc' ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronsUpDown size={13} className="text-[var(--color-fg-subtle)]" aria-hidden="true" />}
@@ -165,7 +165,7 @@ export function Td({ children, muted = false, isData = false, className = '', ..
   const { density } = useContext(TableContext);
   return (
     <td
-      className={`${density === 'compact' ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'} ${muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
+      className={`${density === 'compact' ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'} ${muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
         } ${isData ? 'font-data' : ''} ${className}`}
       {...props}
     >

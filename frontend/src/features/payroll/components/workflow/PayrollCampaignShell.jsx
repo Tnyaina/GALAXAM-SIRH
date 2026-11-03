@@ -209,8 +209,8 @@ export default function PayrollCampaignShell({
 
             {/* 6. Navigation de l'étape. */}
             {(prevStep || primaryAction || nextStep || footerCenter) && (
-            <nav aria-label="Navigation de la campagne" className="mt-auto border-t border-[var(--color-border-subtle)] pt-4 pb-1">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <nav aria-label="Navigation de la campagne" className="mt-6 mb-6 border-t border-[var(--color-border-subtle)] pt-5 pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-2">
                         {prevStep && (
                             <Button variant="outline" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate(prevStep.destination)}>
@@ -219,7 +219,7 @@ export default function PayrollCampaignShell({
                         )}
                     </div>
                     {footerCenter && <div className="text-xs text-[var(--color-fg-muted)] text-center hidden md:block">{footerCenter}</div>}
-                    <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex flex-wrap items-center gap-3">
                         {primaryAction && (
                             <Button variant={primaryAction.variant || 'primary'} size="sm" loading={primaryAction.loading} disabled={primaryAction.disabled} iconLeft={primaryAction.icon} onClick={primaryAction.onClick} title={primaryAction.disabledReason}>
                                 {primaryAction.label}
