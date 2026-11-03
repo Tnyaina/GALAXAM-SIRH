@@ -57,6 +57,7 @@ export default function UserManagementTab() {
     });
 
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [deactivateMotif, setDeactivateMotif] = useState('');
 
     const loadData = async () => {
@@ -92,6 +93,7 @@ export default function UserManagementTab() {
             idRole: ''
         });
         setShowPassword(false);
+        setShowConfirmPassword(false);
         setModalError(null);
         setFieldErrors({});
         setShowUserModal(true);
@@ -107,6 +109,7 @@ export default function UserManagementTab() {
             idRole: String(user.idRole)
         });
         setShowPassword(false);
+        setShowConfirmPassword(false);
         setModalError(null);
         setFieldErrors({});
         setShowUserModal(true);
@@ -417,6 +420,7 @@ export default function UserManagementTab() {
                                     className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer inline-flex items-center justify-center transition-colors"
                                     title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                                     aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                                    aria-pressed={showPassword}
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -424,7 +428,7 @@ export default function UserManagementTab() {
                         />
                         <Input
                             label="Confirmer le mot de passe"
-                            type={showPassword ? "text" : "password"}
+                            type={showConfirmPassword ? "text" : "password"}
                             autoComplete="new-password"
                             required={!selectedUser && !!formData.motDePasse}
                             value={formData.confirmPassword}
@@ -434,6 +438,18 @@ export default function UserManagementTab() {
                                 if (fieldErrors.confirmPassword) setFieldErrors(prev => ({ ...prev, confirmPassword: undefined }));
                             }}
                             placeholder="Répétez le mot de passe"
+                            iconRight={
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword((visible) => !visible)}
+                                    className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer inline-flex items-center justify-center transition-colors"
+                                    title={showConfirmPassword ? "Masquer la confirmation du mot de passe" : "Afficher la confirmation du mot de passe"}
+                                    aria-label={showConfirmPassword ? "Masquer la confirmation du mot de passe" : "Afficher la confirmation du mot de passe"}
+                                    aria-pressed={showConfirmPassword}
+                                >
+                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            }
                         />
                     </div>
                     <SearchSelect

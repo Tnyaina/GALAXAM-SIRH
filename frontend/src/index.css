@@ -7,6 +7,12 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter/wght.css";
 
+/* Garder les contrôles de visibilité fournis par l'application cohérents dans Edge. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
 /* Tailles communes des boutons : les composants choisissent un niveau, sans
    redéfinir hauteur, largeur, espacement ou taille de texte localement. */
 @layer components {
