@@ -28,7 +28,6 @@ export default function FilialesSitesTab() {
     const setActiveSubTab = (newSubTab) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('tab', 'filiales');
             next.set('subtab', newSubTab);
             return next;
         });

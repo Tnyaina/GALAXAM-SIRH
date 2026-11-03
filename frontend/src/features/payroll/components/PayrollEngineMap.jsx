@@ -1,7 +1,8 @@
 import SharedButton from '@/components/ui/forms/Button';
 import { Checkbox as SharedCheckbox } from '@/components/ui/forms/Input';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import {
     ArrowRight, ChevronDown, HelpCircle,
     Plus, Search, Settings2, X
@@ -48,13 +49,13 @@ function categorizeType(item) {
 
 export default function PayrollEngineMap() {
     const navigate = useNavigate();
-    const [params, setParams] = useSearchParams();
+    const [params, setParams] = useReadableTabs('paieConfiguration');
     const { hasPermission, hasRole } = useAuth();
     const toast = useToast();
     const canWriteRubrique = hasRole ? hasRole('ROLE_ADMIN') : hasPermission('ROLE_ADMIN');
     const canWriteType = canWriteRubrique || hasPermission('PAIE_WRITE');
 
-    const mode = params.get('mode') === 'types' || params.get('vue') === 'types'
+    const mode = params.get('vue') === 'types'
         ? 'types'
         : 'rubriques';
 
@@ -246,8 +247,8 @@ export default function PayrollEngineMap() {
     const changeMode = next => {
         setParams(previous => {
             const updated = new URLSearchParams(previous);
-            updated.delete('vue');
-            updated.set('mode', next);
+            updated.delete('mode');
+            updated.set('vue', next);
             return updated;
         });
         setQuery('');
@@ -1044,11 +1045,11 @@ export default function PayrollEngineMap() {
                                             size="sm"
                                             onClick={() => navigate(detailItem.item.parametrageUrl)}
                                         >
-                                            {detailItem.item.parametrageUrl.includes('parametres_globaux')
+                                            {detailItem.item.parametrageUrl.includes('/regles')
                                                 ? 'Paramètres globaux'
-                                                : detailItem.item.parametrageUrl.includes('reglementation_fiscale')
+                                                : detailItem.item.parametrageUrl.includes('/fiscalite')
                                                     ? 'Réglementation fiscale'
-                                                    : detailItem.item.parametrageUrl.includes('cotisations_irsa')
+                                                    : detailItem.item.parametrageUrl.includes('/cotisations')
                                                         ? 'Barème cotisations'
                                                         : 'Paramétrage dédié'}
                                         </Button>

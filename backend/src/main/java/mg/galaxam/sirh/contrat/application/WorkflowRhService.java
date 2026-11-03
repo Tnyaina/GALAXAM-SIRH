@@ -149,7 +149,7 @@ public class WorkflowRhService {
         creerNotif(c, null, "BROUILLON_CREE", "HAUTE",
                 "Nouveau brouillon d'embauche - " + empNomBrouillon,
                 "Un brouillon d'embauche initiale pour " + empNomBrouillon + " a ete cree et attend votre validation.",
-                "/employes/" + idEmploye + "?tab=carriere&wf=" + workflow.getIdWorkflow(), idEmploye);
+                "/employes/" + idEmploye + "/carriere?wf=" + workflow.getIdWorkflow(), idEmploye);
 
         return WorkflowRhCPL.rechercherParId(workflow.getIdWorkflow(), c);
     }
@@ -249,7 +249,7 @@ public class WorkflowRhService {
                 "Mouvement RH validé : " + typeEvNomValide + " - " + empNomValide,
                 "Le mouvement RH (" + typeEvNomValide + ") pour " + empNomValide
                         + " a ete valide et confirme avec succes.",
-                "/employes/" + workflow.getIdEmploye() + "?tab=carriere&wf=" + idWorkflow, workflow.getIdEmploye());
+                "/employes/" + workflow.getIdEmploye() + "/carriere?wf=" + idWorkflow, workflow.getIdEmploye());
 
         return WorkflowRhCPL.rechercherParId(idWorkflow, c);
     }
@@ -621,7 +621,7 @@ public class WorkflowRhService {
                 "Nouveau brouillon : " + typeEvNomTrans + " - " + empNomTrans,
                 "Un brouillon de type " + typeEvNomTrans + " pour " + empNomTrans
                         + " a ete cree et attend votre validation.",
-                "/employes/" + idEmploye + "?tab=carriere&wf=" + workflow.getIdWorkflow(), idEmploye);
+                "/employes/" + idEmploye + "/carriere?wf=" + workflow.getIdWorkflow(), idEmploye);
 
         return WorkflowRhCPL.rechercherParId(workflow.getIdWorkflow(), c);
     }
@@ -1187,7 +1187,7 @@ public class WorkflowRhService {
                 "Brouillon de mouvement rejeté - " + empNomAnnule,
                 "Le brouillon de mouvement pour " + empNomAnnule
                         + " a été rejeté ou annulé.",
-                "/employes/" + workflow.getIdEmploye() + "?tab=carriere", workflow.getIdEmploye());
+                "/employes/" + workflow.getIdEmploye() + "/carriere", workflow.getIdEmploye());
 
         return WorkflowRhCPL.rechercherParId(idWorkflow, c);
     }
@@ -1232,7 +1232,7 @@ public class WorkflowRhService {
         creerNotif(c, null, "MOUVEMENT_APPLIQUE", "HAUTE",
                 "Planification de mouvement annulée - " + empNomPlanif,
                 "Le mouvement RH planifié pour " + empNomPlanif + " a été annulé.",
-                "/employes/" + workflow.getIdEmploye() + "?tab=carriere", workflow.getIdEmploye());
+                "/employes/" + workflow.getIdEmploye() + "/carriere", workflow.getIdEmploye());
 
         return WorkflowRhCPL.rechercherParId(idWorkflow, c);
     }
@@ -1410,7 +1410,7 @@ public class WorkflowRhService {
                             "Le mouvement RH de type " + typeEv + " pour " + nomPrenom
                                     + " est désormais actif (sa date d'effet au "
                                     + (dateEffet != null ? dateEffet.toString() : "") + " a ete atteinte).",
-                            "/employes/" + wf.getIdEmploye() + "?tab=carriere", wf.getIdEmploye());
+                            "/employes/" + wf.getIdEmploye() + "/carriere", wf.getIdEmploye());
 
                     c.commit();
                 } catch (Exception exWf) {

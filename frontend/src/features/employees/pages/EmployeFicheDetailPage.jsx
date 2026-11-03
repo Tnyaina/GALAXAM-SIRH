@@ -53,7 +53,7 @@ export default function EmployeFicheDetailPage() {
     const [isSummaryOpen, setIsSummaryOpen] = useState(false);
     const toast = useToast();
 
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     // Données dérivées
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
@@ -63,19 +63,13 @@ export default function EmployeFicheDetailPage() {
     const canReadPaie = hasPermission('PAIE_READ');
     const canReadDocuments = hasPermission('EMPLOYE_READ') && canReadPaie;
     const canWritePaie = hasPermission('PAIE_WRITE');
-    const tabFromUrl = section || searchParams.get('tab');
+    const tabFromUrl = section;
 
     // Actions
     const handleTabChange = (tabId) => {
-        if (section) {
-            navigate(`/employes/${id}/${tabId}`);
-            return;
-        }
-        setSearchParams(prev => {
-            const next = new URLSearchParams(prev);
-            next.set('tab', tabId);
-            return next;
-        });
+        const next = new URLSearchParams(searchParams);
+        next.delete('tab');
+        navigate(`/employes/${id}/${tabId}${next.size ? `?${next}` : ''}`);
     };
 
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });

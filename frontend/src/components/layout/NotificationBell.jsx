@@ -140,14 +140,14 @@ export default function NotificationBell() {
         
         // Redirection de secours si ancien lien /supervision
         if (link === '/supervision' || link?.startsWith('/supervision')) {
-            link = notif.idEmployeConcerne ? `/employes/${notif.idEmployeConcerne}?tab=carriere` : '/carrieres';
+            link = notif.idEmployeConcerne ? `/employes/${notif.idEmployeConcerne}/carriere` : '/carrieres';
         } else if (!link || link === '/conges') {
             // Si aucun lien précis n'est fourni ou s'il s'agit du lien générique /conges
             const titreMsg = ((notif.titre || '') + ' ' + (notif.message || '')).toLowerCase();
             if (titreMsg.includes('expiration') || titreMsg.includes('solde')) {
-                link = '/conges?tab=planning';
+                link = '/conges/planning';
             } else if (titreMsg.includes('demande') || titreMsg.includes('validation')) {
-                link = '/conges?tab=demandes';
+                link = '/conges/demandes';
             } else {
                 link = '/conges';
             }

@@ -34,7 +34,7 @@ export default function DashboardPage() {
         { icon: Building2, title: 'Organisation', text: 'Sites, structures et paramètres', to: '/admin/organisation', visible: hasPermission('ORGANISATION_WRITE') && canAccessRoleGatedRoute('/admin/organisation', user) },
         { icon: Users, title: 'Employés', text: `${kpis?.totalEffectifActif ?? 0} actif(s) · ${kpis?.contratsExpirant30j ?? 0} échéance(s)`, to: '/employes', visible: hasPermission('EMPLOYE_READ') },
         { icon: CalendarDays, title: 'Congés & absences', text: `${absentsAujourdhui.length} absent(s) · ${demandesCongeAValider.length} à valider`, to: '/conges', visible: hasPermission('CONGE_READ') },
-        { icon: Clock3, title: 'Pointage', text: 'Saisie, anomalies et validation', to: '/pointages?tab=suivi', visible: hasPermission('POINTAGE_READ') },
+        { icon: Clock3, title: 'Pointage', text: 'Saisie, anomalies et validation', to: '/pointages/suivi', visible: hasPermission('POINTAGE_READ') },
         { icon: WalletCards, title: 'Paie', text: 'Cycle, variables et bulletins', to: '/paie', visible: hasPermission('PAIE_READ') },
     ].filter((module) => module.visible);
 

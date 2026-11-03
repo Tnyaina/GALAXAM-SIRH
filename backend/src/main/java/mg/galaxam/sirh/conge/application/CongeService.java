@@ -880,7 +880,7 @@ public class CongeService {
                     "Bascule Automatique Arrêt Maladie (> 30j)",
                     "L'arrêt maladie continu (" + totalJoursOrigine
                             + "j) a été automatiquement scindé : 30 jours en maintien de salaire et la suite en Maladie Sans Solde (CNaPS).",
-                    "/conges/demandes/employe/" + d.getIdEmploye(),
+                    "/conges/demandes",
                     d.getIdEmploye());
         } else {
             d.controler(c);
@@ -1175,7 +1175,7 @@ public class CongeService {
             if (alerte.isActive()
                     && projete.compareTo(BigDecimal.valueOf(seuil)) <= 0) {
                 NotificationRhService.creer(c, "SOLDE_CONGE_FAIBLE", "NORMALE", "Solde de congé faible",
-                        "Le solde disponible est de " + projete + " jour(s).", "/conges/soldes", d.getIdEmploye());
+                        "Le solde disponible est de " + projete + " jour(s).", "/conges/droits", d.getIdEmploye());
             }
         }
         if (type.getIdPoolCongeAnnuel() != null) {
@@ -1185,7 +1185,7 @@ public class CongeService {
                     d.getDateDebut().toLocalDate().getYear(), c);
             if (plafond != null && engage.compareTo(plafond) >= 0) {
                 NotificationRhService.creer(c, "POOL_EXCEPTIONNEL_EPUISE", "HAUTE", "Quota annuel atteint",
-                        "Le quota annuel de " + plafond + " jours est atteint.", "/conges/soldes", d.getIdEmploye());
+                        "Le quota annuel de " + plafond + " jours est atteint.", "/conges/droits", d.getIdEmploye());
             }
         }
         RefStatutDemandeConge valide = RefStatutDemandeConge.rechercherParCode("VALIDE", c);

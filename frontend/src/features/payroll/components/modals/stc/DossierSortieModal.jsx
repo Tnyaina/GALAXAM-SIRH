@@ -804,7 +804,7 @@ export default function DossierSortieModal({
                                 const src = getBadgeSource(item.sourceNorme);
                                 const IconComp = st.icon;
                                 const cibleModule = item.lienModule === 'carriere' && dossier?.idEmploye && hasPermission('EMPLOYE_READ')
-                                    ? `/employes/${dossier.idEmploye}?tab=carriere`
+                                    ? `/employes/${dossier.idEmploye}/carriere`
                                     : item.lienModule === 'conges' && hasPermission('CONGE_READ')
                                         ? '/conges'
                                         : item.lienModule === 'pointage' && hasPermission('POINTAGE_READ') && ['ROLE_ADMIN', 'ROLE_AGENT_POINTAGE'].includes(user?.role)

@@ -130,7 +130,7 @@ export default function ControleStepPage() {
                             variant="outline"
                             size="sm"
                             className="mt-3"
-                            onClick={() => navigate(currentStepDestination || '/pointages?tab=saisie')}
+                            onClick={() => navigate(currentStepDestination || '/pointages/saisie')}
                         >
                             Aller à l’étape disponible
                         </Button>

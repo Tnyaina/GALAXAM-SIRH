@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Shield, Users, Menu } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -11,7 +11,7 @@ const RolesAndPermissionsTab = lazy(() => import('@/features/administration/comp
 const MenuManagementTab = lazy(() => import('@/features/administration/components/security/MenuManagementTab'));
 
 export default function SecuriteAdminPanel() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useReadableTabs('securite');
     const requestedTab = searchParams.get('tab') || 'users';
 
     const handleTabChange = (tabKey) => {

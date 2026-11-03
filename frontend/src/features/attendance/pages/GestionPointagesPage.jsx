@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense, useState, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import SEO from '@/components/system/SEO';
@@ -32,7 +32,7 @@ const normalizePointageStep = (tab) => {
  */
 export default function GestionPointagesPage() {
     // Contexte et navigation
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useReadableTabs('pointages');
     const { hasPermission } = useAuth();
 
     // État local
@@ -93,12 +93,12 @@ export default function GestionPointagesPage() {
         saisie: {
             title: 'Saisir la période',
             description: 'Renseignez les journées travaillées et signalez les absences ou congés. Les écarts apparaîtront ensuite dans « À traiter ».',
-            links: hasPermission('CONGE_READ') ? [{ label: 'Demandes de congé', href: '/conges?tab=demandes' }] : [],
+            links: hasPermission('CONGE_READ') ? [{ label: 'Demandes de congé', href: '/conges/demandes' }] : [],
         },
         suivi: {
             title: 'Corriger avant transmission',
             description: 'Traitez les journées sans statut et les anomalies bloquantes. Une absence liée à un congé se vérifie aussi dans les demandes de congé.',
-            links: hasPermission('CONGE_READ') ? [{ label: 'Vérifier les congés', href: '/conges?tab=demandes' }] : [],
+            links: hasPermission('CONGE_READ') ? [{ label: 'Vérifier les congés', href: '/conges/demandes' }] : [],
         },
         arbitrage: {
             title: isDaf ? 'Contrôler et valider la période' : 'Vérifier la synthèse et transmettre',

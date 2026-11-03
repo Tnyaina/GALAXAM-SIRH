@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import { Archive, ArrowRight, CalendarDays, Download, FileSpreadsheet, FileText, FolderOpen } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -39,7 +40,7 @@ export default function DeclarationsSortiesPage() {
     const [downloadError, setDownloadError] = useState('');
     const [catalog, setCatalog] = useState(null);
     const [catalogError, setCatalogError] = useState('');
-    const [params, setParams] = useSearchParams();
+    const [params, setParams] = useReadableTabs('declarations');
     const requestedPeriodId = Number(params.get('periodId')) || null;
     const { periodes, context, selectedPeriodeId } = usePayrollCampaign(requestedPeriodId);
     const activeTab = TABS.some(tab => tab.id === params.get('vue')) ? params.get('vue') : 'mensuel';

@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BookType, FileText, Award, FileCheck } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -11,7 +11,7 @@ const DocumentTypeManagementTab = lazy(() => import('@/features/administration/c
 const ReferentielsRhTab = lazy(() => import('@/features/organization/components/tabs/ReferentielsRhTab'));
 
 export default function ReferentielsRhAdminPanel() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useReadableTabs('referentiels');
     const requestedTab = searchParams.get('tab') || 'carriere';
 
     const handleTabChange = (tabKey) => {

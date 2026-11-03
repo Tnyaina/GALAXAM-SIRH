@@ -303,7 +303,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                 size="sm"
                 onClick={() => {
                   setMenuActionsOpen(false);
-                  navigate(`/conges?tab=periodes&employe=${idEmploye}`);
+                  navigate(`/conges/droits?employe=${idEmploye}`);
                 }}
                 iconLeft={<CalendarDays size={14} />}
                 className="justify-start text-xs rounded-none"
@@ -354,7 +354,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
         consommationPool={consommationPool}
         consommationError={sourceErrors.pool}
         employe={employe}
-        onOpenPeriodesModal={() => navigate(`/conges?tab=periodes&employe=${idEmploye}`)}
+        onOpenPeriodesModal={() => navigate(`/conges/droits?employe=${idEmploye}`)}
       />
 
       <Suspense fallback={null}>

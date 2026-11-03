@@ -81,7 +81,7 @@ public class DashboardService {
                         + "ON s.id_statut_demande_conge = d.id_statut_demande_conge WHERE s.code = 'EN_ATTENTE'")
                 : ((Number) kpis.get("demandesCongeEnAttente")).intValue();
         addActionIfPositive(actions, pendingLeaves,
-                "CONGES_A_VALIDER", "Demandes de congé à décider", "Congés & absences", "/conges?tab=demandes", "CONGE_VALIDATE", "WARNING");
+                "CONGES_A_VALIDER", "Demandes de congé à décider", "Congés & absences", "/conges/demandes", "CONGE_VALIDATE", "WARNING");
         int pendingWorkflows = kpis == null
                 ? count(c, "SELECT COUNT(*) FROM workflow_rh w JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
                         + "WHERE s.code = 'BROUILLON'")
@@ -94,7 +94,7 @@ public class DashboardService {
                         + "(SELECT pp.id_periode_paie FROM periode_paie pp ORDER BY "
                         + "CASE WHEN CURRENT_DATE BETWEEN pp.date_debut AND pp.date_fin THEN 0 ELSE 1 END, pp.date_fin DESC LIMIT 1) "
                         + "AND s.code IN ('ANOMALIE_SAISIE', 'ABSENCE_NON_JUSTIFIEE')"),
-                "ANOMALIES_POINTAGE", "Anomalies de pointage", "À régulariser avant validation de la période", "/pointages?tab=anomalies", "POINTAGE_READ", "DANGER");
+                "ANOMALIES_POINTAGE", "Anomalies de pointage", "À régulariser avant validation de la période", "/pointages/suivi", "POINTAGE_READ", "DANGER");
         addActionIfPositive(actions, count(c,
                 "SELECT COUNT(*) FROM contrat_travail ct JOIN ref_statut_rh s ON s.id_statut_rh = ct.id_statut_rh "
                         + "WHERE s.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'"),

@@ -71,7 +71,7 @@ export default function SoldesTable({
                 <Td className="font-bold text-[var(--color-fg)]">
                   {item.idEmploye && canViewEmploye ? (
                     <Link
-                      to={`/employes/${item.idEmploye}?tab=conges`}
+                      to={`/employes/${item.idEmploye}/conges`}
                       className="hover:text-[var(--color-brand-600)] hover:underline inline-flex items-center gap-1.5 text-[var(--color-fg)]"
                       title={`Consulter le dossier congé de ${item.employe}`}
                     >

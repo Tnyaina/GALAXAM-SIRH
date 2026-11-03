@@ -502,7 +502,7 @@ export default function SoldesGantt({
                       <div className="min-w-0 flex-1">
                         {canViewEmploye ? (
                           <Link
-                            to={`/employes/${row.idEmploye}?tab=conges`}
+                            to={`/employes/${row.idEmploye}/conges`}
                             className="font-bold text-xs text-[var(--color-fg)] hover:text-[var(--color-brand-600)] truncate block transition-colors leading-snug"
                             title={`Dossier de ${row.employe}`}
                           >

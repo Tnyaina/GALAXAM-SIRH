@@ -128,7 +128,7 @@ export default function DashboardHeader({
     const routePeriode = (periodeId, destinationWorkflow = null) => {
         if (!periodeId) return null;
         if (peutAccederPaie) return destinationWorkflow || `/paie?periodId=${periodeId}`;
-        if (peutAccederPointage) return `/pointages?tab=suivi&periode=${periodeId}`;
+        if (peutAccederPointage) return `/pointages/suivi?periode=${periodeId}`;
         return null;
     };
 
@@ -139,7 +139,7 @@ export default function DashboardHeader({
         if (periodContext?.nextStep?.destination) return periodContext.nextStep.destination;
         // Priorité 2 : action EDIT_POINTAGE disponible selon backend
         const actions = periodContext?.availableActions || activePeriode?.availableActions || {};
-        if (actions.EDIT_POINTAGE?.allowed === true) return `/pointages?tab=saisie&periode=${activePeriodeId}`;
+        if (actions.EDIT_POINTAGE?.allowed === true) return `/pointages/saisie?periode=${activePeriodeId}`;
         // Priorité 3 : vue de suivi de la période
         return routePeriode(activePeriodeId);
     })();

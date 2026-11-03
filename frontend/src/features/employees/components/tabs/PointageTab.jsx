@@ -382,7 +382,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     {actions.TEAM_ENTRY && (
                         <>
                             <Link
-                                to={`/pointages?tab=saisie&mode=employe&employe=${idEmploye}${selectedPeriodeId ? `&periode=${selectedPeriodeId}` : ''}`}
+                                to={`/pointages/saisie?mode=employe&employe=${idEmploye}${selectedPeriodeId ? `&periode=${selectedPeriodeId}` : ''}`}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--color-on-color)] bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] border border-[var(--color-brand-600)] transition-colors shadow-xs"
                                 title="Ouvrir la grille de saisie pour ce collaborateur"
                             >
@@ -390,7 +390,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <ExternalLink size={13} />
                             </Link>
                             <Link
-                                to="/pointages?tab=saisie"
+                                to="/pointages/saisie"
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 transition-colors"
                                 title="Ouvrir le module de saisie quotidienne pour toute l'équipe"
                             >
@@ -491,7 +491,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     title="Aucune période de paie active"
                     description="Aucune période de paie n'englobe actuellement la date sélectionnée. Créez ou ouvrez une période dans le module Paie pour démarrer la saisie et le calcul des présences."
                     actionLabel="Gérer les périodes de paie"
-                    onAction={() => navigate('/paie?tab=periodes')}
+                    onAction={() => navigate('/paie/cycles')}
                     actionIcon={<ExternalLink size={14} />}
                     className="my-4 py-12"
                 />

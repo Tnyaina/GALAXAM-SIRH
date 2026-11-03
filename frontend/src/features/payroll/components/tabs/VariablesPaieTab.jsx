@@ -659,7 +659,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                         <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">Saisie et gestion des éléments de paie de la campagne.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/paie/configuration?vue=types', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
+                        {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/paie/configuration/types', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
                             Catalogue des types
                         </Button>}
                         {cancelledCount > 0 && <Button variant="ghost" size="sm" onClick={() => { setShowCancelled(value => !value); setCurrentPage(1); }}>

@@ -76,7 +76,6 @@ export default function CalendrierFerieTab() {
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('tab', 'calendrier');
             next.set('subtab', newSubTab);
             return next;
         });

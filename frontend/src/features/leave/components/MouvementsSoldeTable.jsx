@@ -678,7 +678,7 @@ export default function MouvementsSoldeTable({
                 )}
                 {Number(correctionResult.regularisationAExaminer) > 0 && (
                   <Link
-                    to="/paie?tab=periodes"
+                    to="/paie/cycles"
                     className="inline-block mt-2 border border-[var(--color-border)] px-3 py-1.5 text-xs font-bold text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors"
                   >
                     Campagnes de paie →

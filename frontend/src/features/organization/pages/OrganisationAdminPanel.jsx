@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Building2, Layers, Briefcase } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -11,7 +11,7 @@ const DepartementsServicesTab = lazy(() => import('@/features/organization/compo
 const FonctionsTab = lazy(() => import('@/features/organization/components/tabs/FonctionsTab'));
 
 export default function OrganisationAdminPanel() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useReadableTabs('organisation');
     const requestedTab = searchParams.get('tab') || 'filiales';
 
     const handleTabChange = (tabKey) => {

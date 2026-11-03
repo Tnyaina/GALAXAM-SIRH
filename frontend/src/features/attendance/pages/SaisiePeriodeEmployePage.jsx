@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Users, User, Save } from 'lucide-react';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -35,6 +35,7 @@ export default function SaisiePeriodeEmployePage({
     const { hasPermission } = useAuth();
     const canCorrectTime = hasPermission('POINTAGE_VALIDATE');
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
 
     // ── 1. Période & Sites ────────────────────────────────────────────────────
     const [periodesList, setPeriodesList] = useState(() => propPeriodesList || []);
@@ -293,14 +294,11 @@ export default function SaisiePeriodeEmployePage({
                 return next;
             });
         } else if (nav.type === 'tab') {
-            setSearchParams(prev => {
-                const next = new URLSearchParams(prev);
-                next.set('tab', 'saisie');
-                next.delete('mode');
-                return next;
-            });
+            const next = new URLSearchParams(searchParams);
+            next.delete('mode');
+            navigate(`/pointages/saisie${next.size ? `?${next}` : ''}`);
         }
-    }, [setSearchParams]);
+    }, [navigate, searchParams, setSearchParams]);
 
     const requestNav = useCallback((nav) => {
         if (dirtyCount > 0) {

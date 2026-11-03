@@ -194,7 +194,7 @@ public class EmployeService {
                     "Nouvel employé - " + emp.getNom() + " " + emp.getPrenom(),
                     "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom()
                         + " a été créée. Pensez à ajouter un contrat et les documents obligatoires.",
-                    "/employes/" + empId + "?tab=documents",
+                    "/employes/" + empId + "/documents",
                     empId);
 
                 c.commit();

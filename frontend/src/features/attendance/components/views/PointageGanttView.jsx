@@ -201,7 +201,7 @@ export default function PointageGanttView({
                                             <button
                                                 type="button"
                                                 className="text-left cursor-pointer hover:text-[var(--color-brand-600)] transition-colors"
-                                                onClick={() => navigate(`/employes/${emp.idEmploye}?tab=pointage`)}
+                                                onClick={() => navigate(`/employes/${emp.idEmploye}/pointage`)}
                                                 title="Voir la fiche employe"
                                             >
                                                 <div className="font-semibold text-[11.5px] text-[var(--color-fg)] truncate max-w-[160px]">

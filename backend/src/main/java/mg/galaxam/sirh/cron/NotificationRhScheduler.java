@@ -160,24 +160,24 @@ public class NotificationRhScheduler {
                         "Contrat CDD échu non régularisé - " + nomPrenom,
                         "Le contrat " + typeContrat + " N°" + (numero != null ? numero : "?") +
                         " de " + nomPrenom + " est arrivé à échéance depuis " + joursEchus + " jour(s) (le " + dateFin + ") sans clôture ni renouvellement validé.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 } else if (jours == 0) {
                     insererNotification(c, null, "CONTRAT_EXPIRE_J", "CRITIQUE",
                         "Contrat expirant AUJOURD'HUI - " + nomPrenom,
                         "Le contrat " + typeContrat + " N°" + (numero != null ? numero : "?") +
                         " de " + nomPrenom + " arrive à échéance ce soir à minuit. Une action est requise.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 } else if (jours <= 7) {
                     insererNotification(c, null, "CONTRAT_EXPIRE_7J", "HAUTE",
                         "Contrat expirant dans " + jours + " jour(s) - " + nomPrenom,
                         "Le contrat " + typeContrat + " N°" + (numero != null ? numero : "?") +
                         " de " + nomPrenom + " expire dans " + jours + " jour(s). Prévoir le renouvellement ou la clôture.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 } else {
                     insererNotification(c, null, "CONTRAT_EXPIRE_30J", "NORMALE",
                         "Contrat expirant dans " + jours + " jours - " + nomPrenom,
                         "Le contrat de " + nomPrenom + " expire dans " + jours + " jours.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 }
             }
             }
@@ -217,27 +217,27 @@ public class NotificationRhScheduler {
                     insererNotification(c, null, "ESSAI_ECHU_SANS_DECISION", "CRITIQUE",
                         "Période d'essai échue sans décision - " + nomPrenom,
                         "La période d'essai de " + nomPrenom + " a pris fin depuis " + joursEchus + " jour(s) (le " + dateFinEssai + ") sans décision formelle.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 } else if (jours == 0) {
                     insererNotification(c, null, "ESSAI_EXPIRE_J", "CRITIQUE",
                         "Fin de periode d'essai AUJOURD'HUI - " + nomPrenom,
                         "La période d'essai de " + nomPrenom + " se termine ce soir. Décision requise : Confirmer ou Rompre l'essai.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 } else if (jours <= 7) {
                     insererNotification(c, null, "ESSAI_EXPIRE_7J", "HAUTE",
                         "Fin d'essai dans " + jours + " jour(s) - " + nomPrenom,
                         "La période d'essai de " + nomPrenom + " se termine dans " + jours + " jour(s). Anticipez la décision.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 } else if (jours <= 15) {
                     insererNotification(c, null, "ESSAI_EXPIRE_15J", "NORMALE",
                         "Fin d'essai dans " + jours + " jours - " + nomPrenom,
                         "La période d'essai de " + nomPrenom + " se termine dans " + jours + " jours.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 } else {
                     insererNotification(c, null, "ESSAI_EXPIRE_30J", "NORMALE",
                         "Fin d'essai dans " + jours + " jours - " + nomPrenom,
                         "La période d'essai de " + nomPrenom + " se termine dans " + jours + " jours.",
-                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                        "/employes/" + idEmploye + "/carriere", idEmploye);
                 }
             }
             }
@@ -272,7 +272,7 @@ public class NotificationRhScheduler {
                     insererNotification(c, null, "BROUILLON_EN_ATTENTE", "HAUTE",
                         "Brouillon en attente depuis " + jours + "j - " + nomPrenom,
                         "Le brouillon " + typeEv + " pour " + nomPrenom + " n'a pas encore été validé ou annulé (créé il y a " + jours + " jour(s)).",
-                        "/employes/" + idEmploye + "?tab=carriere&wf=" + idWorkflow, idEmploye);
+                        "/employes/" + idEmploye + "/carriere?wf=" + idWorkflow, idEmploye);
                 }
             }
         }
@@ -305,7 +305,7 @@ public class NotificationRhScheduler {
                     insererNotification(c, null, "CONGE_EN_ATTENTE", "HAUTE",
                         "Demande de conge en attente depuis " + jours + "j - " + nomPrenom,
                         "La demande de congé (" + typeConge + ") pour " + nomPrenom + " n'a pas encore été validée (soumise il y a " + jours + " jour(s)).",
-                        "/conges?tab=demandes", idEmploye);
+                        "/conges/demandes", idEmploye);
                 }
             }
         }
@@ -333,7 +333,7 @@ public class NotificationRhScheduler {
                 insererNotification(c, null, "DOCUMENTS_MANQUANTS", "NORMALE",
                     "Documents obligatoires manquants (" + nb + ") - " + nomPrenom,
                     "Le dossier de " + nomPrenom + " comporte " + nb + " document(s) obligatoire(s) non fourni(s).",
-                    "/employes/" + idEmploye + "?tab=documents", idEmploye);
+                    "/employes/" + idEmploye + "/documents", idEmploye);
             }
         }
     }
@@ -356,7 +356,7 @@ public class NotificationRhScheduler {
                 insererNotification(c, null, "SOLDE_CONGE_NEGATIF", "HAUTE",
                     "Solde de congé négatif (" + solde + "j) - " + nomPrenom,
                     "Le solde de congés de " + nomPrenom + " est négatif (" + solde + " jours). Régularisation nécessaire.",
-                    "/employes/" + idEmploye + "?tab=conges", idEmploye);
+                    "/employes/" + idEmploye + "/conges", idEmploye);
             }
         }
     }
@@ -377,7 +377,7 @@ public class NotificationRhScheduler {
                 insererNotification(c, null, "RETOUR_CONGE_J", "INFO",
                     "Dernier jour de congé aujourd'hui - " + nomPrenom,
                     nomPrenom + " termine ses congés aujourd'hui et reprendra le travail dès demain.",
-                    "/employes/" + idEmploye + "?tab=conges", idEmploye);
+                    "/employes/" + idEmploye + "/conges", idEmploye);
             }
         }
     }
@@ -402,7 +402,7 @@ public class NotificationRhScheduler {
                 insererNotification(c, null, "MALADIE_PLAFOND_EPISODE_ATTEINT", "HAUTE",
                     "Arrêt Maladie > 30 jours (Bascule) - " + nomPrenom,
                     nomPrenom + " est en arrêt maladie prolongé (" + nbJours + " jours). Rappel: au-delà de 30 jours continus, maintien de salaire suspendu (CNaPS).",
-                    "/employes/" + idEmploye + "?tab=conges", idEmploye);
+                    "/employes/" + idEmploye + "/conges", idEmploye);
             }
         }
     }
@@ -421,7 +421,7 @@ public class NotificationRhScheduler {
             insererNotification(c, null, "CONGE_EXPIRATION_PROCHE", "HAUTE",
                 "Droits de congé à examiner - " + nomPrenom,
                 String.format("%.2f", entry.getValue()) + " jours de congé approchent du délai d'examen configuré. Vérifiez la planification avec le salarié ; aucun retrait automatique n'est effectué.",
-                "/employes/" + idEmploye + "?tab=conges", idEmploye);
+                "/employes/" + idEmploye + "/conges", idEmploye);
         }
     }
 
@@ -446,7 +446,7 @@ public class NotificationRhScheduler {
                 insererNotification(c, null, "ROLE_AGENT_POINTAGE", "POINTAGE_MANQUANT", "HAUTE",
                     "Anomalies de pointage en attente - " + codePeriode,
                     "La période " + libellePeriode + " comporte " + nbAnomalies + " anomalie(s) de pointage non résolue(s) avant la clôture de paie.",
-                    "/pointages/anomalies", null);
+                    "/pointages/suivi", null);
             }
         }
     }

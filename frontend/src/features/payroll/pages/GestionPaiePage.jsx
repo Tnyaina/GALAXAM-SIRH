@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import {
     CalendarRange, FileText,
     SlidersHorizontal, ChevronRight, Users, Clock3, UserMinus
@@ -36,7 +37,7 @@ const VariablesPaieTab = lazy(() => import('@/features/payroll/components/tabs/V
  */
 export default function GestionPaiePage() {
     // Contexte, navigation et hook métier
-    const [searchParams] = useSearchParams();
+    const [searchParams] = useReadableTabs('paie');
     const location = useLocation();
     const navigate = useNavigate();
     const rawTab = searchParams.get('tab') || 'centre';
@@ -81,14 +82,7 @@ export default function GestionPaiePage() {
 
     // Effets
     useEffect(() => {
-        if (rawTab === 'validation') {
-            const targetId = activePeriod?.id || requestedPeriodId;
-            const dest = targetId ? `/paie/periodes/${targetId}/validation` : '/paie';
-            navigate(dest, { replace: true });
-        } else if (rawTab === 'bulletins') {
-            const suffix = requestedPeriodId ? `/paie/periodes/${requestedPeriodId}/controle` : '/paie';
-            navigate(suffix, { replace: true });
-        } else if (rawTab === 'variables' && activePeriod?.id) {
+        if (rawTab === 'variables' && activePeriod?.id) {
             navigate(`/paie/periodes/${activePeriod.id}/variables`, { replace: true });
         }
     }, [rawTab, navigate, requestedPeriodId, activePeriod?.id]);
@@ -331,7 +325,7 @@ export default function GestionPaiePage() {
                             <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={() => navigate('/paie?tab=periodes&action=create')}
+                                onClick={() => navigate('/paie/cycles?action=create')}
                                 iconLeft={<CalendarRange size={14} />}
                             >
                                 Créer la période suggérée
@@ -426,7 +420,7 @@ export default function GestionPaiePage() {
                 <h3 className="text-sm font-bold text-[var(--color-fg)]">Autres espaces de paie</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                     {[
-                        { label: 'Campagnes et historique', path: '/paie?tab=periodes', icon: CalendarRange },
+                        { label: 'Campagnes et historique', path: '/paie/cycles', icon: CalendarRange },
                         { label: 'Acomptes et avances', path: '/paie/acomptes-avances', icon: SlidersHorizontal },
                         { label: 'Dossiers de sortie & STC', path: '/paie/dossiers-sortie', icon: UserMinus },
                         { label: 'Documents et exports', path: '/paie/declarations', icon: FileText },

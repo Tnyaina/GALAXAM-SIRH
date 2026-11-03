@@ -148,7 +148,6 @@ export default function RolesAndPermissionsTab() {
     const setRightTab = (newSubTab) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('tab', 'roles');
             next.set('subtab', newSubTab);
             return next;
         });

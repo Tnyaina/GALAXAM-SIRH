@@ -90,7 +90,7 @@ const ActiviteRow = memo(function ActiviteRow({ ev }) {
 
     return (
         <Link
-            to={`/employes/${ev.idEmploye}?tab=${ev.sourceType === 'CONGE' ? 'conges' : 'carriere'}`}
+            to={`/employes/${ev.idEmploye}/${ev.sourceType === 'CONGE' ? 'conges' : 'carriere'}`}
             className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] group transition-colors"
         >
             <Avatar name={ev.nomPrenom} size="sm" shape="square" />
@@ -153,7 +153,7 @@ const AlerteRow = memo(function AlerteRow({ alerte }) {
 
     return (
         <Link
-            to={`/employes/${alerte.idEmploye}?tab=carriere`}
+            to={`/employes/${alerte.idEmploye}/carriere`}
             className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] group transition-colors"
         >
             <div
@@ -467,7 +467,7 @@ export function PlanningQuinzaineWidget({ loading, absences = [], sites = [], cl
                                 </div>
                             )}
                             <Link
-                                to="/conges?tab=soldes"
+                                to="/conges/planning"
                                 className="text-xs font-bold text-[var(--color-brand-600)] hover:underline flex items-center gap-1"
                             >
                                 Planning <ArrowRight size={12} />
@@ -483,7 +483,7 @@ export function PlanningQuinzaineWidget({ loading, absences = [], sites = [], cl
                         compact
                         description="Aucun départ en congé programmé sur la quinzaine."
                         actionLabel="Consulter le planning"
-                        onAction={() => { window.location.href = '/conges?tab=soldes'; }}
+                        onAction={() => { window.location.href = '/conges/planning'; }}
                     />
                 )}
                 {!loading && hasAbsences && (

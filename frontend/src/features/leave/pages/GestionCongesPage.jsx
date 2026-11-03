@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import { CalendarDays, FileSpreadsheet } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
@@ -30,7 +30,7 @@ export default function GestionCongesPage() {
   const canReadGlobal = hasPermission('CONGE_READ');
   const canValidate = hasPermission('CONGE_VALIDATE');
   // Contexte et navigation
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useReadableTabs('conges');
 
   // État local
   const [nbEnAttente, setNbEnAttente] = useState(null);
@@ -54,6 +54,14 @@ export default function GestionCongesPage() {
   const activeTab = canReadGlobal
     ? (['demandes', 'periodes'].includes(tabFromUrl) ? tabFromUrl : 'planning')
     : 'mes-demandes';
+  useEffect(() => {
+    if (tabFromUrl === activeTab) return;
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.set('tab', activeTab);
+      return next;
+    }, { replace: true });
+  }, [tabFromUrl, activeTab, setSearchParams]);
   const nbTauxAActiver = pendingRatesStatus === 'success' ? periodesEnAttente.length : null;
   const tabsList = canReadGlobal ? [
     { id: 'planning', label: 'Planning des absences' },

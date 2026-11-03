@@ -176,7 +176,7 @@ function SupervisionMouvementsTab() {
                 </dl>
                 {selected.motif && <p><strong>Motif :</strong> {selected.motif}</p>}
                 {selected.isAnnule && selected.commentaire && <Alert type="warning" message={selected.commentaire} />}
-                <Button onClick={() => navigate(`/employes/${selected.idEmploye}?tab=carriere&wf=${selected.idWorkflow}`)}>
+                <Button onClick={() => navigate(`/employes/${selected.idEmploye}/carriere?wf=${selected.idWorkflow}`)}>
                     Ouvrir la carrière
                 </Button>
             </div>}

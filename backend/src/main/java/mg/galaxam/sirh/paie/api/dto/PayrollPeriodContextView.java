@@ -71,7 +71,7 @@ public record PayrollPeriodContextView(
      * Étape de navigation suivante calculée par le backend.
      *
      * @param code        identifiant sémantique de l'étape (ex : "SAISIE", "VALIDATION", "COCKPIT")
-     * @param destination URL absolue de destination (ex : "/pointages?tab=saisie")
+     * @param destination URL absolue de destination (ex : "/pointages/saisie")
      */
     public record NextStep(String code, String destination) {}
 

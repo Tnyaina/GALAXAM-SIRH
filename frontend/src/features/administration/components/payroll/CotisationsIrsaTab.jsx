@@ -509,7 +509,6 @@ export default function CotisationsIrsaTab() {
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('tab', 'cotisations_irsa');
             next.set('subtab', newSubTab);
             return next;
         });

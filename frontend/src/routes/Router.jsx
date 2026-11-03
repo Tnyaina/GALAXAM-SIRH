@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { HelpCircle, ServerCrash, ShieldAlert, WifiOff, Wrench } from "lucide-react";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
@@ -103,18 +103,6 @@ function ActiveCampaignRedirect() {
     return <Navigate to={`/paie/periodes/${targetPeriod.id}/${step}`} replace />;
 }
 
-/** Préserve les bookmarks historiques sans les laisser tomber sur un écran vide. */
-function LegacyPayrollRedirect() {
-    const { periodId, step } = useParams();
-    const canonicalStep = {
-        preparation: 'preparation', population: 'population', variables: 'variables',
-        calcul: 'calcul', calculation: 'calcul', controle: 'controle', control: 'controle',
-        validation: 'validation', sorties: 'sorties', outputs: 'sorties', overview: 'preparation',
-        results: 'controle',
-    }[step?.toLowerCase()] || 'preparation';
-    return <Navigate to={`/paie/periodes/${periodId}/${canonicalStep}`} replace />;
-}
-
 // =========================================================================
 // Composant Principal Router
 // =========================================================================
@@ -146,7 +134,10 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute allowAuthenticated requiredPermission="CONGE_READ" />}>
                         <Route path="/conges" element={<GestionCongesPage />} />
-                        <Route path="/conges/*" element={<GestionCongesPage />} />
+                        <Route path="/conges/planning" element={<GestionCongesPage />} />
+                        <Route path="/conges/demandes" element={<GestionCongesPage />} />
+                        <Route path="/conges/droits" element={<GestionCongesPage />} />
+                        <Route path="/conges/mes-demandes" element={<GestionCongesPage />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
@@ -154,19 +145,10 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute requiredPermission="POINTAGE_READ" allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
                         <Route path="/pointages" element={<GestionPointagesPage />} />
-                        <Route path="/pointages/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
-                        <Route path="/pointages/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
-                        <Route path="/pointages/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
-                        <Route path="/pointages/validation" element={<Navigate to="/pointages?tab=validation" replace />} />
-                        <Route path="/pointages/arbitrage" element={<Navigate to="/pointages?tab=validation" replace />} />
-
-                        {/* Alias singuliers de compatibilité (/pointage/*) */}
-                        <Route path="/pointage" element={<Navigate to="/pointages" replace />} />
-                        <Route path="/pointage/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
-                        <Route path="/pointage/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
-                        <Route path="/pointage/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
-                        <Route path="/pointage/validation" element={<Navigate to="/pointages?tab=validation" replace />} />
-                        <Route path="/pointage/arbitrage" element={<Navigate to="/pointages?tab=validation" replace />} />
+                        <Route path="/pointages/saisie" element={<GestionPointagesPage />} />
+                        <Route path="/pointages/saisie-employe" element={<GestionPointagesPage />} />
+                        <Route path="/pointages/suivi" element={<GestionPointagesPage />} />
+                        <Route path="/pointages/arbitrage" element={<GestionPointagesPage />} />
                     </Route>
 
 
@@ -182,15 +164,17 @@ export default function Router() {
                     <Route element={<ProtectedRoute requiredPermission="PAIE_READ" />}>
                         {/* Page d'accueil paie : Centre de paie opérationnel */}
                         <Route path="/paie" element={<GestionPaiePage />} />
+                        <Route path="/paie/centre" element={<GestionPaiePage />} />
+                        <Route path="/paie/cycles" element={<GestionPaiePage />} />
+                        <Route path="/paie/variables" element={<GestionPaiePage />} />
                         <Route path="/paie/prestataires" element={<PrestatairesPage />} />
                         <Route path="/paie/campagne" element={<ActiveCampaignRedirect />} />
                         <Route path="/paie/periodes" element={<ActiveCampaignRedirect />} />
                         <Route path="/paie/acomptes-avances" element={<AcomptesAvancesPage />} />
                         <Route path="/paie/declarations" element={<DeclarationsSortiesPage />} />
+                        <Route path="/paie/declarations/:vue" element={<DeclarationsSortiesPage />} />
                         <Route path="/paie/configuration" element={<PayrollConfigurationPage />} />
-                        <Route path="/paie/sorties" element={<DeclarationsSortiesPage />} />
-                        {/* L'historique est une vue du registre unique des cycles, pas une seconde source de vérité. */}
-                        <Route path="/paie/historique" element={<Navigate to="/paie?tab=periodes" replace />} />
+                        <Route path="/paie/configuration/:vue" element={<PayrollConfigurationPage />} />
 
                         {/* Sprint 2B & Sprint UX 2 — Pages d'étapes de campagne sous Shell invariant */}
                         <Route path="/paie/periodes/:periodId/preparation"  element={<PreparationStepPage />} />
@@ -202,12 +186,6 @@ export default function Router() {
                         <Route path="/paie/periodes/:periodId/validation"   element={<ValidationStepPage />} />
                         <Route path="/paie/periodes/:periodId/sorties"      element={<SortiesStepPage />} />
                         <Route path="/paie/periodes/:periodId/reglements"  element={<ReglementsBulletinsPage />} />
-                        <Route path="/paie/periodes/:periodId/calculation"  element={<Navigate to="calcul" replace />} />
-                        <Route path="/paie/periodes/:periodId/outputs"      element={<Navigate to="sorties" replace />} />
-
-                        {/* Redirections de compatibilité (anciennes URLs) */}
-                        <Route path="/paie/periods/:periodId/:step/:employeeId" element={<LegacyPayrollRedirect />} />
-                        <Route path="/paie/periods/:periodId/:step" element={<LegacyPayrollRedirect />} />
                     </Route>
 
                     <Route element={<ProtectedRoute />}>
@@ -224,14 +202,14 @@ export default function Router() {
                         <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
                         <Route path="/employes/:id/:section" element={<EmployeFicheDetailPage />} />
                         <Route path="/carrieres" element={<CarrieresSupervisionPage />} />
+                        <Route path="/carrieres/:tab" element={<CarrieresSupervisionPage />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
                     {/* Organisation : permission d'écriture métier         */}
                     <Route element={<ProtectedRoute requiredPermission="ORGANISATION_WRITE" />}>
                         <Route path="/admin/organisation" element={<OrganisationAdminPanel />} />
-                        <Route path="/parametres" element={<Navigate to="/admin/organisation" replace />} />
-                        <Route path="/parametres/organisation" element={<Navigate to="/admin/organisation" replace />} />
+                        <Route path="/admin/organisation/:tab" element={<OrganisationAdminPanel />} />
                     </Route>
 
                     {/* Module Admin (Rôle ROLE_ADMIN requis)               */}
@@ -239,13 +217,22 @@ export default function Router() {
                     <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
                         <Route path="/admin" element={<Navigate to="/admin/securite" replace />} />
                         <Route path="/admin/securite" element={<SecuriteAdminPanel />} />
+                        <Route path="/admin/securite/:tab" element={<SecuriteAdminPanel />} />
                         <Route path="/admin/referentiels-rh" element={<ReferentielsRhAdminPanel />} />
+                        <Route path="/admin/referentiels-rh/:tab" element={<ReferentielsRhAdminPanel />} />
                         <Route path="/admin/parametres" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/paie/fiscalite" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/paie/cotisations" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/paie/regles" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/paie/indemnites" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/paie/paiements" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/general/constantes" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/general/contrats" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/conges/constantes" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/conges/acquisition" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/pointage/constantes" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/calendrier" element={<ParametresModulesPanel />} />
 
-                        {/* Alias et redirections de compatibilité pour /parametres */}
-                        <Route path="/parametres/referentiels" element={<Navigate to="/admin/referentiels-rh" replace />} />
-                        <Route path="/parametres/securite" element={<Navigate to="/admin/securite" replace />} />
-                        <Route path="/parametres/modules" element={<Navigate to="/admin/parametres" replace />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}

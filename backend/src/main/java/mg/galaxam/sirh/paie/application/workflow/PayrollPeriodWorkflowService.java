@@ -242,8 +242,8 @@ public class PayrollPeriodWorkflowService {
      *
      * <p>Matrice :
      * <ul>
-     *   <li>EDIT_POINTAGE disponible → /pointages?tab=saisie (RH en saisie)</li>
-     *   <li>SUBMIT disponible → /pointages?tab=validation (Agent en cours de clôture)</li>
+     *   <li>EDIT_POINTAGE disponible → /pointages/saisie (RH en saisie)</li>
+     *   <li>SUBMIT disponible → /pointages/arbitrage (Agent en cours de clôture)</li>
      *   <li>APPROVE disponible → validation Pointage</li>
      *   <li>Pointage figé → préparation Paie</li>
      *   <li>Paie validée / clôturée → sorties de Paie</li>
@@ -254,13 +254,13 @@ public class PayrollPeriodWorkflowService {
             int periodId, String state, Map<String, ActionCapability> actions, String currentStep) {
         if (actions == null || actions.isEmpty()) return null;
         if (actions.getOrDefault("EDIT_POINTAGE", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("SAISIE", "/pointages?tab=saisie&periode=" + periodId);
+            return new PayrollPeriodContextView.NextStep("SAISIE", "/pointages/saisie?periode=" + periodId);
         }
         if (actions.getOrDefault("SUBMIT", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("TRANSMISSION", "/pointages?tab=validation&periode=" + periodId);
+            return new PayrollPeriodContextView.NextStep("TRANSMISSION", "/pointages/arbitrage?periode=" + periodId);
         }
         if (actions.getOrDefault("APPROVE", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("VALIDATION_POINTAGE", "/pointages?tab=validation&periode=" + periodId);
+            return new PayrollPeriodContextView.NextStep("VALIDATION_POINTAGE", "/pointages/arbitrage?periode=" + periodId);
         }
         if ("PAIE_VALIDEE".equals(state) && "CALCULATION".equals(currentStep)
                 && actions.getOrDefault("CALCULATE", ActionCapability.denied("NA")).allowed()) {
@@ -287,7 +287,7 @@ public class PayrollPeriodWorkflowService {
         if ("PAIE_VALIDEE".equals(state)) {
             return new PayrollPeriodContextView.NextStep("CALCULATION", "/paie/periodes/" + periodId + "/calcul");
         }
-        return new PayrollPeriodContextView.NextStep("POINTAGE", "/pointages?tab=saisie");
+        return new PayrollPeriodContextView.NextStep("POINTAGE", "/pointages/saisie");
     }
 
     /**
@@ -365,13 +365,13 @@ public class PayrollPeriodWorkflowService {
                 : pointageInValidation ? "COMPLETED"
                 : "EN_COURS".equals(state) ? "CURRENT" : "AVAILABLE";
         steps.add(new PayrollCampaignStep("POINTAGE", "Pointage — Saisie", pointageState,
-                "/pointages?tab=saisie", noIssues, noIssues));
+                "/pointages/saisie", noIssues, noIssues));
 
         String pointageValidationState = pointageComplete ? "COMPLETED"
                 : pointageInValidation ? "CURRENT"
                 : "BROUILLON".equals(state) ? "BLOCKED" : "AVAILABLE";
         steps.add(new PayrollCampaignStep("VALIDATION_POINTAGE", "Validation Pointage", pointageValidationState,
-                "/pointages?tab=validation",
+                "/pointages/arbitrage",
                 "BROUILLON".equals(state) ? List.of("Ouvrez d’abord la période à la saisie.") : noIssues,
                 noIssues));
 
@@ -780,19 +780,19 @@ public class PayrollPeriodWorkflowService {
                     connection, "ROLE_ADMIN", "PERIODE_POINTAGE_A_VALIDER", "NORMALE",
                     "Période transmise pour validation - " + period.label(),
                     "La synthèse de pointage est prête pour contrôle.",
-                    "/pointages?tab=validation", null);
+                    "/pointages/arbitrage", null);
         } else if (command == PayrollPeriodCommand.REJECT) {
             NotificationRhService.creerPourRole(
                     connection, "ROLE_AGENT_POINTAGE", "PERIODE_POINTAGE_REJETEE", "HAUTE",
                     "Période renvoyée pour correction - " + period.label(),
                     "Corrections demandées : " + request.getMotif().trim(),
-                    "/pointages?tab=suivi", null);
+                    "/pointages/suivi", null);
         } else if (command == PayrollPeriodCommand.APPROVE) {
             NotificationRhService.creerPourRole(
                     connection, "ROLE_AGENT_POINTAGE", "PERIODE_POINTAGE_VALIDEE", "INFO",
                     "Période validée - " + period.label(),
                     "La synthèse de pointage a été figée et transmise à la paie.",
-                    "/pointages?tab=validation", null);
+                    "/pointages/suivi", null);
         }
     }
 

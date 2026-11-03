@@ -490,7 +490,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                             onClick={() => {
                                 setSearchParams(prev => {
                                     const next = new URLSearchParams(prev);
-                                    next.set('tab', 'saisie');
                                     next.set('mode', 'employe');
                                     return next;
                                 });
@@ -519,7 +518,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                     statusCounts={statusCounts}
                     onAutoFillStandard={handleAutoFill}
                     onAutoDeducePauses={handleAutoPauses}
-                    onAddConge={canReadConge ? () => navigate('/conges?tab=demandes') : null}
+                    onAddConge={canReadConge ? () => navigate('/conges/demandes') : null}
                     isReadOnly={isReadOnly || isFuture}
                     onSave={handleRequestSave}
                     saving={saving}
@@ -568,7 +567,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                                 <Button
                                     size="xs"
                                     variant="primary"
-                                    onClick={() => navigate(`/paie?tab=periodes&action=create&targetDate=${selectedDate}`)}
+                                    onClick={() => navigate(`/paie/cycles?action=create&targetDate=${selectedDate}`)}
                                     icon={<Sparkles size={13} className="text-[var(--color-warning-300)]" />}
                                     className="shrink-0"
                                 >

@@ -254,7 +254,7 @@ export default function PointageGridTable({
                                             <div className="min-w-0 flex-1">
                                                 <p className="font-semibold text-[var(--color-fg)] leading-tight truncate">
                                                     <Link
-                                                        to={`/pointages?tab=saisie&mode=employe&employe=${row.idEmploye}`}
+                                                        to={`/pointages/saisie?mode=employe&employe=${row.idEmploye}`}
                                                         className="hover:text-[var(--color-brand-600)] hover:underline"
                                                         title={`Saisir la période de ${row.nom} ${row.prenom}`}
                                                     >

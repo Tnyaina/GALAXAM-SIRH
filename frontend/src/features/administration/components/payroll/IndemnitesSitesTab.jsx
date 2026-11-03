@@ -32,7 +32,6 @@ export default function IndemnitesSitesTab() {
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('tab', 'indemnites_sites');
             next.set('subtab', newSubTab);
             return next;
         });

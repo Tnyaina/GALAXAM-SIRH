@@ -6,7 +6,7 @@ test('la route Organisation exige ORGANISATION_WRITE ou ROLE_ADMIN', () => {
   const user = { role: 'ROLE_RH', permissions: ['ORGANISATION_READ'] };
 
   assert.equal(canAccessRoleGatedRoute('/admin/organisation', user), false);
-  assert.equal(canAccessRoleGatedRoute('/parametres/organisation', user), false);
+  assert.equal(canAccessRoleGatedRoute('/admin/organisation/filiales', user), false);
   assert.equal(canAccessRoleGatedRoute('/admin/organisation', { role: 'ROLE_RH', permissions: ['ORGANISATION_WRITE'] }), true);
   assert.equal(canAccessRoleGatedRoute('/employes', user), true);
   assert.equal(canAccessRoleGatedRoute('/admin/organisation', { role: 'ROLE_ADMIN' }), true);

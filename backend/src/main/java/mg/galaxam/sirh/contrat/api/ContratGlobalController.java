@@ -397,7 +397,7 @@ public class ContratGlobalController {
                     a.put("description", rs.getString("nom_prenom") + " (#" + rs.getString("matricule")
                             + ") — " + rs.getString("type_ev") + " non finalisé.");
                     a.put("actionLabel", "Finaliser le dossier");
-                    a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
+                    a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "/carriere");
                     alertes.add(a);
                 }
             }
@@ -454,7 +454,7 @@ public class ContratGlobalController {
                                         + ") — période d'essai du " + rs.getString("type_ct") + " expire le "
                                         + rs.getDate("date_fin_essai") + " (dans " + jours + " jours).");
                         a.put("actionLabel", "Confirmer la titularisation");
-                        a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
+                        a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "/carriere");
                         alertes.add(a);
                     }
                 }
@@ -491,7 +491,7 @@ public class ContratGlobalController {
                                         + rs.getString("type_ct") + " expire le " + rs.getDate("date_fin") + " (dans "
                                         + jours + " jours).");
                         a.put("actionLabel", "Préparer le renouvellement");
-                        a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
+                        a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "/carriere");
                         alertes.add(a);
                     }
                 }

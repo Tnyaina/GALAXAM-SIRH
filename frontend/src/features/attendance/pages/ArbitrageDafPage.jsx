@@ -673,7 +673,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <Button key={`${jour.idEmploye}-${jour.date}`} type="button" variant="outline" size="xs"
                                     className="text-[var(--color-fg)]"
                                     title={`${jour.nom} ${jour.prenom} — journée du ${jour.date} sans pointage`}
-                                    onClick={() => navigate(`/pointages?tab=saisie&mode=employe&periode=${selectedPeriode}&employe=${jour.idEmploye}&date=${jour.date}${jour.idSite ? `&site=${jour.idSite}` : ''}`)}>
+                                    onClick={() => navigate(`/pointages/saisie?mode=employe&periode=${selectedPeriode}&employe=${jour.idEmploye}&date=${jour.date}${jour.idSite ? `&site=${jour.idSite}` : ''}`)}>
                                     {jour.matricule} · {jour.date}
                                 </Button>
                             ))}</div>
@@ -684,7 +684,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <div className="flex flex-wrap gap-2">{preflight.vacationsChevauchantes.map((vacation) => (
                                 <Button key={vacation.idPointage} type="button" variant="outline" size="xs"
                                     className="border-[var(--color-warning-300)] text-[var(--color-fg)]"
-                                    onClick={() => navigate(`/pointages?tab=saisie&date=${vacation.datePointage}`)}>
+                                    onClick={() => navigate(`/pointages/saisie?date=${vacation.datePointage}`)}>
                                     Pointage #{vacation.idPointage} · {vacation.datePointage} → {vacation.dateSuivante}
                                 </Button>
                             ))}</div>
@@ -1065,7 +1065,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             </Button>
                                                             {isDaf && (
                                                                 <button type="button" disabled={isPeriodLocked}
-                                                                    onClick={() => navigate(`/pointages?tab=saisie-employe&periode=${selectedPeriode}&employe=${row.idEmploye}`)}
+                                                                    onClick={() => navigate(`/pointages/saisie-employe?periode=${selectedPeriode}&employe=${row.idEmploye}`)}
                                                                     className={`w-7 h-7 inline-flex items-center justify-center border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'}`}
                                                                     title="Corriger le temps des journées sélectionnées"
                                                                     aria-label={`Corriger le temps journalier de ${row.prenom || ''} ${row.nom || ''}`.trim()}>

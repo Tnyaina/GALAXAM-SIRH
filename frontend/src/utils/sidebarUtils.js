@@ -13,11 +13,10 @@ export const normalizePath = (p) => {
 /** Les interfaces d'administration sont réservées au rôle que protège Router.jsx. */
 export const canAccessRoleGatedRoute = (href, user) => {
     const path = normalizePath(href);
-    if (path === '/admin/organisation' || path === '/parametres' || path === '/parametres/organisation') {
+    if (path === '/admin/organisation' || path.startsWith('/admin/organisation/')) {
         return user?.role === 'ROLE_ADMIN' || user?.permissions?.includes('ORGANISATION_WRITE') === true;
     }
-    const isAdminRoute = path === '/admin' || path.startsWith('/admin/')
-        || path === '/parametres' || path.startsWith('/parametres/');
+    const isAdminRoute = path === '/admin' || path.startsWith('/admin/');
     return !isAdminRoute || user?.role === 'ROLE_ADMIN';
 };
 
@@ -72,7 +71,7 @@ export const evaluateMatch = (item, location) => {
     const currentParams = new URLSearchParams(currentSearch);
     const targetParams = new URLSearchParams(targetQueryString || '');
 
-    const hasTargetQuery = Boolean(targetQueryString && targetParams.toString());
+    const hasTargetQuery = Boolean(targetParams.toString());
     const hasCurrentQuery = Boolean(currentSearch && currentParams.toString());
 
     // Vérification de la correspondance des query params du target

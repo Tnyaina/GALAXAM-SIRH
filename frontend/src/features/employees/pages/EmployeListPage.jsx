@@ -221,7 +221,7 @@ export default function EmployeListPage() {
                 loadStats();
                 const newEmpId = created?.idEmploye || created?.employe?.idEmploye;
                 if (newEmpId) {
-                    navigate(`/employes/${newEmpId}?tab=carriere&action=new_contract`);
+                    navigate(`/employes/${newEmpId}/carriere?action=new_contract`);
                 } else {
                     loadEmployes();
                 }

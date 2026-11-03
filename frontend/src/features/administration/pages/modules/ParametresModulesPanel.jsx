@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, CreditCard } from 'lucide-react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -23,7 +23,7 @@ const MODULES = [
 ];
 
 export default function ParametresModulesPanel() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useReadableTabs('parametres');
 
     // Niveau 1: Module
     const requestedModule = searchParams.get('module');
@@ -45,13 +45,13 @@ export default function ParametresModulesPanel() {
         else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
 
         if (moduleId === 'calendrier') defaultTab = 'calendrier';
-        setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('module', moduleId); next.set('tab', previous.get(`${moduleId}_tab`) || defaultTab); next.delete('subtab'); return next; });
+        setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('module', moduleId); next.set('tab', defaultTab); next.delete('subtab'); return next; });
     };
 
     const handleTabChange = (tabKey) => {
         setSearchParams(previous => {
             const next = new URLSearchParams(previous);
-            next.set('module', activeModule); next.set('tab', tabKey); next.set(`${activeModule}_tab`, tabKey);
+            next.set('module', activeModule); next.set('tab', tabKey);
             next.delete('subtab');
             return next;
         });
@@ -96,17 +96,7 @@ export default function ParametresModulesPanel() {
         ? pointageTabs
         : activeModule === 'calendrier' ? [{ id: 'calendrier', label: 'Calendrier & jours fériés', icon: <Calendar size={16} /> }] : generalTabs;
 
-    const canonicalTab = { majorations: 'reglementation_fiscale', majorations_params: 'reglementation_fiscale', parametres_globaux: 'parametres_globaux_paie', tolerance_pointage: 'parametres_globaux_pointage' }[requestedTab] || requestedTab;
-    const activeTab = currentTabs.some(tab => tab.id === canonicalTab) ? canonicalTab : currentTabs[0].id;
-
-    const legacyConfigurationTab = {
-        rubriques_variables: 'rubriques', types_variables: 'types', regles_calcul: 'regles',
-    }[requestedTab];
-    if (activeModule === 'paie' && legacyConfigurationTab) {
-        const next = new URLSearchParams(searchParams);
-        next.delete('module'); next.delete('tab'); next.set('vue', legacyConfigurationTab);
-        return <Navigate to={`/paie/configuration?${next.toString()}`} replace />;
-    }
+    const activeTab = currentTabs.some(tab => tab.id === requestedTab) ? requestedTab : currentTabs[0].id;
 
     return (
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full space-y-3 lg:space-y-4">
@@ -130,7 +120,7 @@ export default function ParametresModulesPanel() {
             >
                     <AdministrationSettingsView
                         groups={activeModule === 'paie' ? paieGroups : [{ id: activeModule, label: 'Configuration', items: currentTabs }]}
-                        activeId={activeTab === 'majorations_params' || activeTab === 'majorations' ? 'reglementation_fiscale' : activeTab === 'parametres_globaux' ? 'parametres_globaux_paie' : activeTab}
+                        activeId={activeTab}
                         onChange={handleTabChange}
                     >
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
@@ -145,15 +135,13 @@ export default function ParametresModulesPanel() {
                         {activeModule === 'paie' && (
                             <>
                                 {activeTab === 'reglementation_fiscale' && <ReglementationFiscaleTab />}
-                                {(activeTab === 'parametres_globaux_paie' || activeTab === 'parametres_globaux') && (
+                                {activeTab === 'parametres_globaux_paie' && (
                                     <ParametresGlobauxTab fixedCategory="PAIE" />
                                 )}
                                 {activeTab === 'modes_paiement' && <ModesPaiementTab />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                                 {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
-                                {/* Compatibilité ascendante : les anciens onglets 'majorations' et 'majorations_params' redirigent vers reglementation */}
-                                {(activeTab === 'majorations' || activeTab === 'majorations_params') && <ReglementationFiscaleTab />}
                             </>
                         )}
 
@@ -167,7 +155,7 @@ export default function ParametresModulesPanel() {
                         {activeModule === 'calendrier' && <CalendrierFerieTab />}
                         {activeModule === 'pointage' && (
                             <>
-                                {(activeTab === 'parametres_globaux_pointage' || activeTab === 'tolerance_pointage') && (
+                                {activeTab === 'parametres_globaux_pointage' && (
                                     <ParametresGlobauxTab fixedCategory="POINTAGE" />
                                 )}
                             </>

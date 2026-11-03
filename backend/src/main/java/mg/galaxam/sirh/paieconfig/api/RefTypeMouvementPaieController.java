@@ -183,13 +183,13 @@ public class RefTypeMouvementPaieController {
                 String target=switch(calculator) {
                     case "CONGES_ET_RUPTURE" -> {
                         if ("RETENUE_CONGE".equals(code) || "INDEMNITE_CONGE".equals(code) || "DEDUCTION_CONGE_BASE".equals(code) || "INDEMNITE_CONGE_PAYE".equals(code)) {
-                            yield "/admin/parametres?module=paie&tab=parametres_globaux_paie";
+                            yield "/admin/parametres/paie/regles";
                         }
-                        yield "/admin/parametres?module=conges&tab=regles_acquisition";
+                        yield "/admin/parametres/conges/acquisition";
                     }
-                    case "PRIMES_METIER" -> "/admin/parametres?module=paie&tab=parametres_globaux_paie";
-                    case "COTISATIONS" -> "/admin/parametres?module=paie&tab=cotisations_irsa";
-                    case "FISCALITE", "HEURES_MAJOREES" -> "/admin/parametres?module=paie&tab=reglementation_fiscale";
+                    case "PRIMES_METIER" -> "/admin/parametres/paie/regles";
+                    case "COTISATIONS" -> "/admin/parametres/paie/cotisations";
+                    case "FISCALITE", "HEURES_MAJOREES" -> "/admin/parametres/paie/fiscalite";
                     default -> null;
                 };
                 r.put("parametrageUrl",target);

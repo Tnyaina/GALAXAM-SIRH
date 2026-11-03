@@ -221,7 +221,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         .sort((a, b) => String(a.date).localeCompare(String(b.date))),
     [preflight, isSiteFiltered, selectedSiteId, searchQuery]);
 
-    const employeeDayUrl = (idEmploye, date) => `/pointages?tab=saisie&mode=employe&periode=${selectedPeriodeId}&employe=${idEmploye}&date=${date}`;
+    const employeeDayUrl = (idEmploye, date) => `/pointages/saisie?mode=employe&periode=${selectedPeriodeId}&employe=${idEmploye}&date=${date}`;
 
     const otherIncompleteSites = useMemo(() => {
         return sitesWithMissingDays.filter(s => String(s.idSite || s.id) !== String(selectedSiteId));
@@ -949,7 +949,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                     <div>
                                                         <div className="font-bold text-[12px] text-[var(--color-fg)]">
                                                             <Link
-                                                                to={`/employes/${ano.idEmploye}?tab=pointage`}
+                                                                to={`/employes/${ano.idEmploye}/pointage`}
                                                                 className="hover:text-[var(--color-brand-600)] hover:underline transition-colors"
                                                                 title={`Consulter le détail pointage de ${ano.nom} ${ano.prenom}`}
                                                             >

@@ -26,7 +26,6 @@ export default function ReferentielsRhTab() {
     const setActiveSection = (newSubTab) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('tab', 'rh');
             next.set('subtab', newSubTab);
             return next;
         });

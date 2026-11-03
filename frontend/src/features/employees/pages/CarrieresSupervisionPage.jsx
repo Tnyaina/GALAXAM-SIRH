@@ -1,7 +1,8 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
 import { Briefcase, RefreshCw, Download, FileText, TrendingUp, Clock, AlertTriangle, FileCheck, CalendarClock, FileEdit } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useReadableTabs } from '@/hooks/useReadableTabs';
 import contratService from '@/features/employees/api/contratService';
 import organisationService from '@/features/organization/api/organisationService';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -27,9 +28,9 @@ const VALID_MAIN_TABS = ['contrats', 'mouvements'];
 
 export default function CarrieresSupervisionPage() {
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useReadableTabs('carrieres');
 
-    // Onglet principal synchronisé avec l'URL (?tab=contrats | ?tab=mouvements)
+    // Onglet principal synchronisé avec le chemin /carrieres/:tab.
     const tabFromUrl = searchParams.get('tab');
     const activeMainTab = VALID_MAIN_TABS.includes(tabFromUrl) ? tabFromUrl : 'contrats';
 
@@ -307,7 +308,7 @@ export default function CarrieresSupervisionPage() {
                 }
             />
 
-            {/* Navigation par Onglets avec persistance URL (?tab=contrats | ?tab=mouvements) */}
+            {/* Navigation par onglets avec chemin lisible. */}
             <Tabs
                 tabs={tabsList}
                 activeTab={activeMainTab}
@@ -435,7 +436,7 @@ export default function CarrieresSupervisionPage() {
                                     isCollapsed={!expandedGroups.has(group.key)}
                                     onToggleCollapse={() => toggleGroupCollapse(group.key)}
                                     onOpenCompare={handleOpenCompare}
-                                    onNavigateCarriere={(idEmp) => navigate(`/employes/${idEmp}?tab=carriere`)}
+                                    onNavigateCarriere={(idEmp) => navigate(`/employes/${idEmp}/carriere`)}
                                 />
                             ))}
                         </div>
@@ -477,7 +478,7 @@ export default function CarrieresSupervisionPage() {
                         isOpen={compareModalOpen}
                         onClose={() => setCompareModalOpen(false)}
                         employeeGroup={selectedEmployeeToCompare}
-                        onNavigateCarriere={(idEmp) => navigate(`/employes/${idEmp}?tab=carriere`)}
+                        onNavigateCarriere={(idEmp) => navigate(`/employes/${idEmp}/carriere`)}
                     />
                 </div>
             )}
