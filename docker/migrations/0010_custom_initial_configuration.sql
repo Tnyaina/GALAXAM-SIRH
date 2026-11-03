@@ -2,7 +2,7 @@
 -- Ces DDL restent figes ; les installations existantes recoivent les memes changements ici.
 
 DELETE FROM ref_menu
-WHERE id_menu IN ('PAIE_PRESTATAIRES', 'PAIE_DOSSIERS_SORTIE');
+WHERE id_menu IN ('PAIE_PRESTATAIRES');
 
 UPDATE parametre_global
 SET description = 'Début du travail de nuit'
