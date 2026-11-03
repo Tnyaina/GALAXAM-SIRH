@@ -2,7 +2,7 @@
 -- Ces DDL restent figes ; les installations existantes recoivent les memes changements ici.
 
 DELETE FROM ref_menu
-WHERE id_menu IN ('PAIE_PRESTATAIRES', 'PAIE_DOSSIERS_SORTIE');
+WHERE id_menu IN ('PAIE_PRESTATAIRES');
 
 UPDATE parametre_global
 SET description = 'Début du travail de nuit'
@@ -27,5 +27,5 @@ SELECT setval(
 );
 
 INSERT INTO ref_site (id_site, code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, plancher_arrivee_actif, heure_entree_minimale_valorisee) VALUES
-(3, 'TNR-6E', '6e Etage - Antananarivo - Siège', 1, TRUE, '08:00', '12:30', '13:30', '17:00', FALSE, '07:30');
+(3, 'TNR-6E', '6e Etage - Antananarivo - Siège', 2, TRUE, '08:00', '12:30', '13:30', '17:00', FALSE, '07:30');
 SELECT setval('ref_site_id_site_seq', (SELECT GREATEST(MAX(id_site), 3) FROM ref_site));
