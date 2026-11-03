@@ -25,3 +25,7 @@ SELECT setval(
     COALESCE((SELECT MAX(id_periode_paie) FROM periode_paie), 1),
     EXISTS (SELECT 1 FROM periode_paie)
 );
+
+INSERT INTO ref_site (id_site, code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, plancher_arrivee_actif, heure_entree_minimale_valorisee) VALUES
+(3, 'TNR-6E', '6e Etage - Antananarivo - Siège', 1, TRUE, '08:00', '12:30', '13:30', '17:00', FALSE, '07:30');
+SELECT setval('ref_site_id_site_seq', (SELECT GREATEST(MAX(id_site), 3) FROM ref_site));
