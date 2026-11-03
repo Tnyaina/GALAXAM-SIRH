@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    AlertTriangle,
     ArrowLeft,
     BadgeCheck,
     Building2,
     Calculator,
     CalendarCheck,
-    CheckCircle2,
     Clock,
     Coins,
     ExternalLink,
@@ -20,7 +18,6 @@ import {
     ShieldCheck,
     User,
     Wallet,
-    XCircle
 } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -110,6 +107,7 @@ export default function DossierSortieModal({
                 setDossier(data);
                 if (!initialViewRef.current) {
                     setActiveTab(!data.idDossierSortie ? 'synthese' : data.idStc ? 'suivi'
+                        : String(data.dateDepart || '').slice(0, 10) > getTodayDateString() ? 'decompte'
                         : data.referenceSimulation ? 'decompte'
                             : data.checklist?.some(item => item.niveau === 'BLOQUANT' && item.statut === 'NON_CONFORME')
                                 ? 'checklist' : 'synthese');
@@ -293,34 +291,8 @@ export default function DossierSortieModal({
 
 
 
-    // Helpers d'affichage
-    const getBadgeSeverity = (niveau) => {
-        switch (niveau) {
-            case 'BLOQUANT': return 'danger';
-            case 'AVERTISSEMENT': return 'warning';
-            default: return 'info';
-        }
-    };
-
-    const getBadgeStatut = (statut) => {
-        switch (statut) {
-            case 'CONFORME': return { label: 'Conforme', variant: 'success', icon: CheckCircle2 };
-            case 'A_VERIFIER': return { label: 'À vérifier', variant: 'warning', icon: AlertTriangle };
-            case 'NON_CONFORME': return { label: 'Non conforme', variant: 'danger', icon: XCircle };
-            default: return { label: statut, variant: 'default', icon: Info };
-        }
-    };
-
-    const getBadgeSource = (source) => {
-        switch (source) {
-            case 'LEGAL_MADAGASCAR_2024': return { label: 'Cadre légal malgache', variant: 'info' };
-            case 'REGLE_INTERNE_GALAXAM': return { label: 'Procédure GALAXAM', variant: 'primary' };
-            case 'TECHNIQUE_SI': return { label: 'Cohérence système', variant: 'neutral' };
-            default: return { label: source, variant: 'neutral' };
-        }
-    };
-
     const nbBloquants = dossier?.checklist?.filter(c => c.niveau === 'BLOQUANT' && c.statut === 'NON_CONFORME').length || 0;
+    const departFutur = Boolean(dateDepart && dateDepart > getTodayDateString());
     const bulletinValide = ['VALIDE', 'CLOTURE'].includes(dossier?.statutBulletinMensuel);
     const bulletinEnAttente = Boolean(dossier?.idBulletinMensuel) && !bulletinValide;
     const hasUnsavedPreparation = Boolean(dossier) && !dossier.idStc && (
@@ -333,23 +305,25 @@ export default function DossierSortieModal({
         ))
     );
     const prochaineEtape = !dossier?.idDossierSortie
-        ? 'Vérifiez la date de départ et le contrat, puis sauvegardez le dossier pour lancer une simulation.'
+        ? 'Indiquez la date de départ, puis enregistrez pour préparer une estimation.'
         : dossier?.idStc
-            ? 'Le STC est scellé. Consultez le suivi pour les règlements, la clôture administrative et les documents disponibles.'
+            ? 'Le document final est prêt. Retrouvez les paiements et les documents dans le suivi.'
+            : departFutur
+                ? 'Le départ est à venir : préparez une estimation maintenant. Le document final sera disponible à partir du jour du départ, après vérification des données.'
             : nbBloquants > 0
-                ? `Examinez la checklist : ${nbBloquants} point(s) bloquant(s) restent à résoudre avant le scellement.`
+                ? `${nbBloquants} point(s) restent à régler. Ouvrez « À vérifier » pour savoir quoi faire.`
                 : simulationNeedsRefresh
                     ? 'La préparation a changé. Relancez la simulation avant tout scellement.'
                 : simulationResult || dossier?.referenceSimulation
-                    ? 'Contrôlez le décompte simulé et ses rubriques avant de sceller le STC.'
-                    : 'La préparation est enregistrée. Lancez la simulation, puis contrôlez le décompte.';
-    const prochaineSection = !dossier?.idDossierSortie ? 'synthese' : dossier?.idStc ? 'suivi' : nbBloquants > 0 ? 'checklist' : 'decompte';
+                    ? 'Vérifiez le montant estimé et son détail avant de confirmer le document final.'
+                    : 'Le dossier est enregistré. Calculez une estimation, puis vérifiez le détail.';
+    const prochaineSection = !dossier?.idDossierSortie ? 'synthese' : dossier?.idStc ? 'suivi' : departFutur ? 'decompte' : nbBloquants > 0 ? 'checklist' : 'decompte';
     const dossierTabs = [
-        { id: 'synthese', label: 'Situation', icon: FileSpreadsheet },
-        { id: 'checklist', label: 'Points à traiter', icon: ShieldAlert, ...(nbBloquants > 0 ? { count: nbBloquants } : {}) },
-        { id: 'paie-finale', label: 'Paie finale', icon: Calculator },
-        { id: 'decompte', label: 'Calcul STC', icon: Calculator },
-        { id: 'suivi', label: 'Suivi et documents', icon: FileText },
+        { id: 'synthese', label: '1. Départ', icon: FileSpreadsheet },
+        { id: 'checklist', label: '2. À vérifier', icon: ShieldAlert, ...(nbBloquants > 0 ? { count: nbBloquants } : {}) },
+        { id: 'paie-finale', label: '3. Dernier salaire', icon: Calculator },
+        { id: 'decompte', label: '4. Estimation', icon: Calculator },
+        { id: 'suivi', label: '5. Documents', icon: FileText },
     ];
     const DossierShell = pageMode ? DossierSortieWorkspaceShell : Modal;
 
@@ -366,7 +340,7 @@ export default function DossierSortieModal({
             footer={pageMode && dossier?.idStc ? null :
                 <div className="w-full space-y-4">
                     {/* 1. Bandeau de statut / prérequis inspiré du Centre de Paie */}
-                    {(!pageMode || !dossier?.idStc) && <section className={`flex flex-wrap items-center justify-between gap-3 border px-3.5 py-2.5 ${
+                    {!pageMode && <section className={`flex flex-wrap items-center justify-between gap-3 border px-3.5 py-2.5 ${
                         dossier?.idStc
                             ? 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'
                             : (simulationResult?.referenceSimulation || dossier?.referenceSimulation)
@@ -380,7 +354,7 @@ export default function DossierSortieModal({
                                 {dossier?.idStc
                                     ? 'STC scellé & archivé'
                                     : (simulationResult?.referenceSimulation || dossier?.referenceSimulation)
-                                        ? 'Simulation STC calculée — Prête pour le scellement'
+                                        ? departFutur ? 'Estimation disponible — départ à venir' : 'Estimation disponible — à confirmer'
                                         : dossier?.pretAValider
                                             ? 'Avant le calcul STC'
                                             : 'Préparation du dossier de sortie'}
@@ -389,7 +363,7 @@ export default function DossierSortieModal({
                                 {dossier?.idStc
                                     ? `Dossier de sortie scellé #${dossier.idStc}. Les montants et décomptes sont définitivement scellés.`
                                     : (simulationResult?.referenceSimulation || dossier?.referenceSimulation)
-                                        ? `Décompte simulé vérifié (${simulationResult?.referenceSimulation || dossier?.referenceSimulation}). Contrôlez les rubriques ci-dessus avant de sceller.`
+                                        ? departFutur ? 'Montant provisoire. Le document final sera confirmé après le départ.' : 'Vérifiez le détail avant de confirmer le document final.'
                                         : dossier?.pretAValider
                                             ? 'Checklist conforme. Vous pouvez enregistrer le dossier et lancer la simulation.'
                                             : `${nbBloquants} point(s) bloquant(s) restent à résoudre avant de pouvoir calculer.`}
@@ -419,29 +393,30 @@ export default function DossierSortieModal({
                                     !dossier.idDossierSortie || hasUnsavedPreparation ? (
                                         <Button variant="primary" size="sm" onClick={handleSauvegarder} loading={saving}
                                             disabled={simulating || sealing} iconLeft={<Save size={15} />}>
-                                            Sauvegarder le dossier
+                                            Enregistrer le départ
                                         </Button>
                                     ) : bulletinEnAttente ? (
                                         <Button variant="primary" size="sm" onClick={() => setActiveTab('synthese')}>
                                             Vérifier les données de paie
                                         </Button>
-                                    ) : nbBloquants > 0 ? (
+                                    ) : nbBloquants > 0 && !departFutur ? (
                                         <Button variant="primary" size="sm" onClick={() => setActiveTab('checklist')}>
-                                            Voir les points bloquants
+                                            Voir ce qui reste à faire
                                         </Button>
                                     ) : simulationNeedsRefresh || !dossier.referenceSimulation ? (
                                         <Button variant="primary" size="sm" onClick={handleSimulerStc} loading={simulating}
                                             disabled={saving || sealing} iconLeft={<Calculator size={15} />}>
-                                            {simulationNeedsRefresh ? 'Actualiser la simulation' : 'Simuler le STC'}
+                                            {simulationNeedsRefresh ? 'Mettre à jour l’estimation' : 'Calculer une estimation'}
                                         </Button>
                                     ) : activeTab !== 'decompte' ? (
                                         <Button variant="primary" size="sm" onClick={() => setActiveTab('decompte')}>
-                                            Examiner le décompte
+                                            Voir le montant estimé
                                         </Button>
                                     ) : (
                                         <Button variant="primary" size="sm" onClick={() => setConfirmScellement(true)} loading={sealing}
+                                            disabled={departFutur || nbBloquants > 0}
                                             iconLeft={<ShieldCheck size={15} />}>
-                                            Valider et sceller
+                                            Confirmer le document final
                                         </Button>
                                     )
                                 )}
@@ -477,7 +452,7 @@ export default function DossierSortieModal({
                                 </div>
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="text-sm font-bold text-[var(--color-fg)]">{dossier.idStc ? 'STC scellé' : 'Prochaine étape'}</h2>
+                                        <h2 className="text-sm font-bold text-[var(--color-fg)]">{dossier.idStc ? 'Bulletin STC disponible' : departFutur ? 'Estimation du départ' : 'Préparer le bulletin STC'}</h2>
                                         {dossier.idStc && <Badge variant="success" size="xs">Validé</Badge>}
                                     </div>
                                     <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-fg-muted)]">
@@ -485,15 +460,18 @@ export default function DossierSortieModal({
                                     </p>
                                 </div>
                             </div>
-                            {dossier.idDossierSortie && <Button type="button" variant="primary" size="sm" onClick={() => setActiveTab(prochaineSection)} className="shrink-0 self-start sm:self-center">
-                                {prochaineSection === 'checklist' ? 'Voir les points' : prochaineSection === 'suivi' ? 'Suivi et documents' : 'Voir le calcul'}
-                            </Button>}
+                            {dossier.idBulletinStc ? <Button type="button" variant="primary" size="sm"
+                                onClick={async () => { try { await dossierSortieService.telechargerBulletinStc(dossier.idBulletinStc); } catch (err) { setErrorMsg(getErrorMessage(err, 'Téléchargement du bulletin impossible.')); } }}
+                                className="shrink-0 self-start sm:self-center">Télécharger le bulletin PDF</Button>
+                                : dossier.idDossierSortie && <Button type="button" variant="primary" size="sm" onClick={() => setActiveTab(prochaineSection)} className="shrink-0 self-start sm:self-center">
+                                    {prochaineSection === 'checklist' ? 'Voir les points' : 'Voir l’estimation'}
+                                </Button>}
                         </CardBody>
-                        {(dossier.idStc || (!simulationNeedsRefresh && simulationResult?.decompte)) && (
+                        {(dossier.idStc || simulationResult?.decompte || dossier.montantEstimeStc != null) && (
                             <CardFooter role="status" aria-label="Récapitulatif financier" className="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">{dossier.idStc ? 'Net scellé' : 'Net simulé · provisoire'}</p>
-                                    <p className="font-data text-xl font-bold text-[var(--color-fg)]">{formatMoneyAr(dossier.idStc ? dossier.netAPayerStc : simulationResult.decompte.netAPayerStc)}</p>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">{dossier.idStc ? 'Net à payer' : simulationNeedsRefresh ? 'Dernière estimation · à mettre à jour' : 'Montant estimé · provisoire'}</p>
+                                    <p className="font-data text-xl font-bold text-[var(--color-fg)]">{formatMoneyAr(dossier.idStc ? dossier.netAPayerStc : simulationResult?.decompte?.netAPayerStc ?? dossier.montantEstimeStc)}</p>
                                 </div>
                                 {dossier.idStc && <div className="sm:text-right">
                                     <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Reste à payer</p>
@@ -503,27 +481,6 @@ export default function DossierSortieModal({
                         )}
                     </Card>
                 )}
-
-                {!loading && dossier && !dossier.idStc && (
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Avancement de la préparation financière">
-                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Pointage</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{dossier.pointageGele ? 'Gelé' : 'À vérifier'}</p>
-                            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{dossier.pointageGele ? 'Données de la période figées.' : 'Données encore susceptibles de changer.'}</p>
-                        </div>
-                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Bulletin mensuel</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{bulletinValide ? 'Validé' : bulletinEnAttente ? 'À valider' : 'Non calculé'}</p>
-                            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{bulletinValide ? 'Rapproché lors du calcul STC.' : bulletinEnAttente ? 'La simulation attend sa validation.' : 'Le STC peut être estimé sans ce bulletin.'}</p>
-                        </div>
-                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Dossier STC</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{simulationNeedsRefresh ? 'À recalculer' : simulationResult || dossier.referenceSimulation ? 'Simulation disponible' : 'À simuler'}</p>
-                            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Le montant reste provisoire avant scellement.</p>
-                        </div>
-                    </div>
-                )}
-
                 {!loading && dossier && !dossier.idStc && (bulletinEnAttente || (!bulletinValide && dossier.pointageGele)) && (
                     <Alert
                         type="warning"
@@ -570,7 +527,7 @@ export default function DossierSortieModal({
                                 }
                                 size="md"
                             >
-                                {dossier?.statutDossier || 'EN_PREPARATION'}
+                                    {dossier?.idStc ? 'Document final confirmé' : departFutur ? 'Départ à venir' : dossier?.referenceSimulation ? 'Estimation calculée' : 'En préparation'}
                             </Badge>
                         </div>
                     </div>
@@ -790,89 +747,41 @@ export default function DossierSortieModal({
 
                 {/* CONTENU ONGLET 2 : Checklist dynamique */}
                 {activeTab === 'checklist' && (
-                    <div id="panel-checklist" role="tabpanel" aria-labelledby="tab-checklist" className="space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)] px-1">
-                            <span>Contrôles du départ · les points à traiter apparaissent en priorité.</span>
-                            <span className="font-medium text-[var(--color-fg)]">
-                                {dossier?.checklist?.filter(c => c.statut === 'CONFORME').length || 0} / {dossier?.checklist?.length || 0} conformes
-                            </span>
-                        </div>
-
-                        <div className="space-y-2">
-                            {[...(dossier?.checklist || [])].sort((a, b) => (a.statut === 'CONFORME') - (b.statut === 'CONFORME')).map((item, idx) => {
-                                const st = getBadgeStatut(item.statut);
-                                const src = getBadgeSource(item.sourceNorme);
-                                const IconComp = st.icon;
+                    <div id="panel-checklist" role="tabpanel" aria-labelledby="tab-checklist" className="space-y-5">
+                        {(() => {
+                            const checks = dossier?.checklist || [];
+                            const done = checks.filter(item => item.statut === 'CONFORME');
+                            const later = checks.filter(item => departFutur && (item.code === 'L-01_DATE_DEPART' || item.titre?.includes('Certificat de travail')));
+                            const todo = checks.filter(item => item.statut !== 'CONFORME' && !later.includes(item));
+                            const renderAction = (item) => {
                                 const cibleModule = item.lienModule === 'carriere' && dossier?.idEmploye && hasPermission('EMPLOYE_READ')
                                     ? `/employes/${dossier.idEmploye}/carriere`
-                                    : item.lienModule === 'conges' && hasPermission('CONGE_READ')
-                                        ? '/conges'
-                                        : item.lienModule === 'pointage' && hasPermission('POINTAGE_READ') && ['ROLE_ADMIN', 'ROLE_AGENT_POINTAGE'].includes(user?.role)
-                                            ? '/pointages'
-                                            : null;
-
-                                return (
-                                    <div
-                                        key={item.code || idx}
-                                        className={`px-3 py-2.5 border flex flex-col sm:flex-row sm:items-start justify-between gap-2 ${
-                                            item.statut === 'NON_CONFORME' && item.niveau === 'BLOQUANT'
-                                                ? 'bg-[var(--color-surface)] border-[var(--color-danger-500)] border-l-4'
-                                                : item.statut !== 'CONFORME'
-                                                    ? 'bg-[var(--color-surface)] border-[var(--color-warning-500)] border-l-4'
-                                                    : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)]'
-                                        }`}
-                                    >
-                                        <div className="flex items-start gap-2.5 min-w-0">
-                                            <IconComp size={18} className={`shrink-0 mt-0.5 ${
-                                                st.variant === 'danger' ? 'text-[var(--color-danger-600)]' :
-                                                st.variant === 'warning' ? 'text-[var(--color-warning-600)]' : 'text-[var(--color-success-600)]'
-                                            }`} />
-                                            <div>
-                                                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                                    <h4 className="text-xs font-bold text-[var(--color-fg)]">
-                                                        {item.titre}
-                                                    </h4>
-                                                    {item.statut !== 'CONFORME' && <>
-                                                        <Badge variant={src.variant} size="xs">{src.label}</Badge>
-                                                        <Badge variant={getBadgeSeverity(item.niveau)} size="xs">{item.niveau}</Badge>
-                                                    </>}
-                                                </div>
-                                                <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                                                    {item.message}
-                                                </p>
-                                                {item.statut !== 'CONFORME' && item.actionRecommandee && (
-                                                    <p className="text-[11px] text-[var(--color-fg)] font-medium mt-1">
-                                                        → Action recommandée : {item.actionRecommandee}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex sm:flex-col items-end justify-between sm:justify-start gap-2 shrink-0">
-                                            <Badge variant={st.variant} size="sm">
-                                                {st.label}
-                                            </Badge>
-                                            {item.lienModule === 'documents' && (
-                                                <button type="button" onClick={() => setActiveTab('suivi')}
-                                                    className="text-[11px] font-semibold text-[var(--color-fg)] hover:underline">
-                                                    Voir les documents
-                                                </button>
-                                            )}
-                                            {cibleModule && (
-                                                <a
-                                                    href={cibleModule}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-[11px] font-semibold text-[var(--color-fg)] hover:underline inline-flex items-center gap-1"
-                                                >
-                                                    Ouvrir le module <ExternalLink size={12} />
-                                                </a>
-                                            )}
-                                        </div>
+                                    : item.lienModule === 'conges' && hasPermission('CONGE_READ') ? '/conges'
+                                    : item.lienModule === 'pointage' && hasPermission('POINTAGE_READ') && ['ROLE_ADMIN', 'ROLE_AGENT_POINTAGE'].includes(user?.role) ? '/pointages'
+                                    : null;
+                                return <article key={item.code} className="flex flex-col gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0 space-y-1">
+                                        <h4 className="text-sm font-semibold text-[var(--color-fg)]">{item.titre}</h4>
+                                        <p className="text-sm leading-relaxed text-[var(--color-fg-muted)]">{item.actionRecommandee || item.message}</p>
+                                        {item.actionRecommandee && <p className="text-xs text-[var(--color-fg-subtle)]">{item.message?.replace('(null)', '(non renseignée)')}</p>}
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    {item.lienModule === 'documents' && <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab('suivi')} className="shrink-0 self-start">Voir les documents</Button>}
+                                    {cibleModule && <a href={cibleModule} target="_blank" rel="noopener noreferrer" className="shrink-0 self-start text-sm font-semibold text-[var(--color-brand-700)] hover:underline inline-flex items-center gap-1">Ouvrir la page <ExternalLink size={14} /></a>}
+                                </article>;
+                            };
+                            return <>
+                                <div className="border-b border-[var(--color-border-subtle)] pb-3">
+                                    <h3 className="text-base font-bold text-[var(--color-fg)]">Ce qu’il reste à faire</h3>
+                                    <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{todo.length ? `${todo.length} point${todo.length > 1 ? 's' : ''} à examiner avant le bulletin final.` : 'Aucune action immédiate. Vous pouvez poursuivre la préparation.'}</p>
+                                </div>
+                                {todo.length > 0 && <div className="space-y-2">{todo.map(renderAction)}</div>}
+                                {later.length > 0 && <p className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3 text-sm text-[var(--color-fg-muted)]">À la date du départ : confirmez le document final. L’estimation reste disponible d’ici là.</p>}
+                                <details className="border-t border-[var(--color-border-subtle)] pt-3">
+                                    <summary className="cursor-pointer text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]">{done.length} vérifications déjà effectuées</summary>
+                                    <ul className="mt-3 space-y-2 pl-5 text-sm text-[var(--color-fg-muted)] list-disc">{done.map(item => <li key={item.code}>{item.titre}</li>)}</ul>
+                                </details>
+                            </>;
+                        })()}
                     </div>
                 )}
 
@@ -880,7 +789,7 @@ export default function DossierSortieModal({
                 {/* CONTENU ONGLET 4 : Décompte & Scellement STC */}
                 {activeTab === 'decompte' && (
                     <div id="panel-decompte" role="tabpanel" aria-labelledby="tab-decompte" className="space-y-4">
-                        {simulationNeedsRefresh && <Alert type="warning" title="Simulation à actualiser" message="Le décompte détaillé n'est plus affichable après rechargement ou la préparation a changé. Relancez la simulation pour contrôler les rubriques avant le scellement." />}
+                        {simulationNeedsRefresh && <Alert type="warning" title="Estimation à mettre à jour" message="Le détail doit être recalculé après le rechargement de la page ou une modification du dossier. Cliquez sur « Mettre à jour l’estimation »." />}
                         {/* En-tête de la simulation & Référence d'intégrité */}
                         <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -891,7 +800,7 @@ export default function DossierSortieModal({
                                             Décompte financier Solde de Tout Compte (STC)
                                         </h4>
                                         <p className="text-xs text-[var(--color-fg-muted)]">
-                                            Simulation à vérifier avant le scellement du résultat financier.
+                                            {departFutur ? 'Montant provisoire : vous pourrez confirmer le document après le départ.' : 'Vérifiez le montant et les rubriques avant la confirmation finale.'}
                                         </p>
                                     </div>
                                 </div>
@@ -909,7 +818,7 @@ export default function DossierSortieModal({
                                             disabled={!canWrite || sealing || bulletinEnAttente}
                                             iconLeft={<Calculator size={14} />}
                                         >
-                                            {simulationResult || dossier?.referenceSimulation ? 'Recalculer la simulation' : (!dossier?.idDossierSortie ? 'Enregistrer et calculer la simulation STC' : 'Calculer la simulation STC')}
+                                            {simulationResult || dossier?.referenceSimulation ? 'Mettre à jour l’estimation' : (!dossier?.idDossierSortie ? 'Enregistrer et calculer l’estimation' : 'Calculer une estimation')}
                                         </Button>
                                     )}
                                 </div>
@@ -937,7 +846,7 @@ export default function DossierSortieModal({
                                     <span>
                                         {!dossier?.idDossierSortie
                                             ? <>Dossier préparatoire non encore scellé. Cliquez sur <strong>« Enregistrer et calculer la simulation STC »</strong> pour persister le dossier et générer le décompte.</>
-                                            : <>Aucune simulation active. Cliquez sur <strong>« Calculer la simulation STC »</strong> pour générer l'empreinte vérifiable et le décompte chiffré.</>}
+                                            : <>Aucune estimation disponible. Cliquez sur <strong>« Calculer une estimation »</strong> pour voir le montant et son détail.</>}
                                     </span>
                                 </div>
                             )}
@@ -1255,7 +1164,10 @@ export default function DossierSortieModal({
                                     )}
 
                                     {/* Zone de scellement transactionnel si non scellé */}
-                                    {dossier?.statutDossier !== 'VALIDE' && dossier?.statutDossier !== 'CLOTURE' ? (
+                                    {departFutur ? (
+                                        <Alert type="info" title="Estimation uniquement"
+                                            message="Le montant affiché est provisoire. Revenez à partir du jour du départ pour vérifier les données et confirmer le document final." />
+                                    ) : dossier?.statutDossier !== 'VALIDE' && dossier?.statutDossier !== 'CLOTURE' ? (
                                         <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-success-500)]/40 shadow-sm space-y-3">
                                             <div className="flex items-start gap-3">
                                                 <div className="p-2 bg-[var(--color-success-100)] text-[var(--color-success-700)] shrink-0">

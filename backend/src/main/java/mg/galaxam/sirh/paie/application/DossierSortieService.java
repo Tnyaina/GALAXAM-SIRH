@@ -850,6 +850,10 @@ public class DossierSortieService {
         dto.setRecuStcRemis(Boolean.TRUE.equals(entity.getRecuStcRemis()));
         dto.setDateRemiseRecu(entity.getDateRemiseRecu());
         dto.setIdStc(entity.getIdStc());
+        if (entity.getIdStc() != null) {
+            PaieStc stc = PaieStc.trouverParId(entity.getIdStc(), c);
+            if (stc != null) dto.setIdBulletinStc(stc.getIdBulletin());
+        }
         dto.setCreePar(entity.getCreePar());
         dto.setCloturePar(entity.getCloturePar());
         dto.setDateCloture(entity.getDateCloture());
@@ -863,6 +867,15 @@ public class DossierSortieService {
         dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setVersion(entity.getVersion() != null ? entity.getVersion() : 1);
         dto.setReferenceSimulation(entity.getReferenceSimulation());
+        if (entity.getSnapshotSimulation() != null) {
+            try {
+                Map<String, Object> snapshot = objectMapper.readValue(entity.getSnapshotSimulation(),
+                        new TypeReference<Map<String, Object>>() {});
+                if (snapshot.get("netAPayerStc") != null) {
+                    dto.setMontantEstimeStc(new BigDecimal(snapshot.get("netAPayerStc").toString()));
+                }
+            } catch (Exception ignored) { /* Une ancienne simulation illisible doit être recalculée. */ }
+        }
 
         if (entity.getDonneesPreparation() != null && !entity.getDonneesPreparation().isBlank()) {
             try {

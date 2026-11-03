@@ -174,6 +174,17 @@ export const dossierSortieService = {
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
+    telechargerBulletinStc: async (idBulletin) => {
+        const response = await apiClient.get(`paie/bulletin/${idBulletin}/document/pdf`, { responseType: 'blob' });
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `bulletin-stc-${idBulletin}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
 };
 
 export default dossierSortieService;

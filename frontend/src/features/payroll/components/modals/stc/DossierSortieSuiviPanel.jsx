@@ -132,6 +132,16 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
 
     return <div className="space-y-5 text-sm">
         {error && <Alert type="error" message={error} />}
+        {dossier?.idBulletinStc && <section className="flex flex-col gap-3 border border-[var(--color-brand-500)]/40 bg-[var(--color-brand-100)]/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h3 className="text-base font-bold text-[var(--color-fg)]">Bulletin de paie du départ</h3>
+                <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Le bulletin STC final est disponible en PDF.</p>
+            </div>
+            <Button type="button" variant="primary" disabled={busy}
+                onClick={() => run(() => dossierSortieService.telechargerBulletinStc(dossier.idBulletinStc), 'Téléchargement du bulletin impossible.')}>
+                <Download size={16} /> Télécharger le bulletin PDF
+            </Button>
+        </section>}
         <div className="grid gap-3 sm:grid-cols-3" aria-label="États distincts du départ">
             <Card shadow="none" className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Contrat</p>

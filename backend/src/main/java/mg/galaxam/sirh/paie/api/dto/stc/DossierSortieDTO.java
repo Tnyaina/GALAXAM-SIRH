@@ -55,6 +55,8 @@ public class DossierSortieDTO {
 
     // Données de paie & trésorerie en lecture seule
     private Integer idBulletinMensuel;
+    private Integer idBulletinStc;
+    private BigDecimal montantEstimeStc;
     private String statutBulletinMensuel;
     private BigDecimal netBulletinMensuel;
     private BigDecimal montantBulletinDejaPaye;
@@ -199,6 +201,10 @@ public class DossierSortieDTO {
 
     public Integer getIdBulletinMensuel() { return idBulletinMensuel; }
     public void setIdBulletinMensuel(Integer idBulletinMensuel) { this.idBulletinMensuel = idBulletinMensuel; }
+    public Integer getIdBulletinStc() { return idBulletinStc; }
+    public void setIdBulletinStc(Integer idBulletinStc) { this.idBulletinStc = idBulletinStc; }
+    public BigDecimal getMontantEstimeStc() { return montantEstimeStc; }
+    public void setMontantEstimeStc(BigDecimal montantEstimeStc) { this.montantEstimeStc = montantEstimeStc; }
 
     public String getStatutBulletinMensuel() { return statutBulletinMensuel; }
     public void setStatutBulletinMensuel(String statutBulletinMensuel) { this.statutBulletinMensuel = statutBulletinMensuel; }
