@@ -20,11 +20,11 @@ public class EmployeValidationEngine {
 
     /**
      * Seuil opérationnel du module : la création d'un dossier exige une CIN,
-     * disponible à partir de 16 ans. Ce n'est pas l'âge minimum légal d'accès
+     * disponible à partir de 18 ans. Ce n'est pas l'âge minimum légal d'accès
      * à l'emploi (15 ans, Loi n° 2024-014, art. 147). Le parcours des mineurs,
      * avec autorisation parentale et contrôles spécifiques, n'est pas modélisé.
      */
-    public static final int AGE_MINIMUM_OPERATIONNEL = 16;
+    public static final int AGE_MINIMUM_OPERATIONNEL = 18;
 
     private static final Pattern PATTERN_EMAIL = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     private static final Pattern PATTERN_CIN = Pattern.compile("^[0-9]{12}$");
@@ -53,7 +53,7 @@ public class EmployeValidationEngine {
             erreurs.add("Le sexe est obligatoire (M ou F).");
         }
 
-        // 2. Date de naissance & Âge minimum légal
+        // 2. Date de naissance & seuil opérationnel du parcours CIN
         LocalDate dateNaiss = toLocalDate(req.getDateNaissance());
         if (dateNaiss == null) {
             erreurs.add("La date de naissance est obligatoire.");

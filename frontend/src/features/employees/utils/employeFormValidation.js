@@ -13,7 +13,7 @@ import { validerSatellitesEmploye } from './employeSatelliteValidation.js';
 export const PATTERN_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PATTERN_CIN = /^[0-9]{12}$/;
 export const PATTERN_TELEPHONE = /^[+]?[0-9\s.-]{8,20}$/;
-export const AGE_MINIMUM_LEGAL = 16;
+export const AGE_MINIMUM_LEGAL = 18;
 
 /**
  * Valide le format d'une adresse email.
@@ -66,7 +66,7 @@ export const validerChampsEtape = (stepId, formData, matriculeError = '', option
       } else {
         const age = calculerAge(formData.dateNaissance, today);
         if (age !== null && age < AGE_MINIMUM_LEGAL) {
-          errors.dateNaissance = `Âge minimum légal : ${AGE_MINIMUM_LEGAL} ans (calculé : ${age} ans).`;
+          errors.dateNaissance = `Âge minimum pour ce dossier avec CIN : ${AGE_MINIMUM_LEGAL} ans (calculé : ${age} ans).`;
         }
       }
     }
@@ -98,7 +98,7 @@ export const validerChampsEtape = (stepId, formData, matriculeError = '', option
       } else if (formData.dateNaissance) {
         const ageDelivrance = calculerAge(formData.dateNaissance, dateCin);
         if (ageDelivrance !== null && ageDelivrance < AGE_MINIMUM_LEGAL) {
-          errors.cinDateDelivrance = `Délivré avant l'âge légal de ${AGE_MINIMUM_LEGAL} ans.`;
+          errors.cinDateDelivrance = `CIN délivrée avant ${AGE_MINIMUM_LEGAL} ans.`;
         }
       }
     }

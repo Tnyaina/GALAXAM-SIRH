@@ -115,7 +115,7 @@ export function CiviliteStep({
                 onChange={e => set('dateNaissance', e.target.value)} 
                 onBlur={() => onFieldBlur?.('dateNaissance')}
                 error={fieldErrors.dateNaissance}
-                hint={`Âge minimum légal : ${REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE} ans`}
+                hint={`Âge minimum pour ce dossier avec CIN : ${REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE} ans`}
             />
             
             <AutocompleteInput 

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Date;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import mg.galaxam.sirh.contrat.api.dto.EmployeRequest;
@@ -12,6 +14,26 @@ import org.junit.jupiter.api.Test;
 
 class EmployeValidationEngineSatelliteTest {
     private final EmployeValidationEngine engine = new EmployeValidationEngine();
+
+    @Test
+    void parcoursCinExigeDixHuitAnsRevolus() {
+        LocalDate anniversaire = LocalDate.of(2026, 11, 5);
+        List<String> erreurs = new ArrayList<>();
+        engine.validerAgeLegal(LocalDate.of(2008, 11, 6), anniversaire, EmployeValidationEngine.AGE_MINIMUM_OPERATIONNEL, erreurs);
+        assertTrue(erreurs.stream().anyMatch(message -> message.contains("18 ans")));
+
+        erreurs.clear();
+        engine.validerAgeLegal(LocalDate.of(2008, 11, 5), anniversaire, EmployeValidationEngine.AGE_MINIMUM_OPERATIONNEL, erreurs);
+        assertTrue(erreurs.isEmpty());
+
+        erreurs.clear();
+        engine.validerCinFormatEtDate("123456789012", LocalDate.of(2025, 11, 5), LocalDate.of(2008, 11, 5), erreurs);
+        assertTrue(erreurs.stream().anyMatch(message -> message.contains("18 ans")));
+
+        erreurs.clear();
+        engine.validerCinFormatEtDate("123456789012", anniversaire, LocalDate.of(2008, 11, 5), erreurs);
+        assertTrue(erreurs.isEmpty());
+    }
 
     @Test
     void refuseUnEnfantOuContactNullAvecUnMessageDeValidation() {
