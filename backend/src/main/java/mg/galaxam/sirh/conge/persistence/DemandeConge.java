@@ -176,7 +176,10 @@ public class DemandeConge extends ClassMere {
         // }
 
         // 4. Contrôle d'ancienneté minimale (ancienneté effective cumulée sans les interruptions)
-        if (typeConge.getExigeAncienneteMinMois() != null && typeConge.getExigeAncienneteMinMois() > 0) {
+        int ancienneteMinMois = "ANNUEL".equals(typeConge.getCode())
+                ? getParamGlobalInt("ANCIENNETE_MIN_CONGE_ANNUEL_MOIS", c)
+                : (typeConge.getExigeAncienneteMinMois() != null ? typeConge.getExigeAncienneteMinMois() : 0);
+        if (ancienneteMinMois > 0) {
             ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
             if (contratActif == null || contratActif.getDateDebut() == null) {
                 throw new IllegalArgumentException(
@@ -191,10 +194,10 @@ public class DemandeConge extends ClassMere {
                     ? (String) ancDetaillee.get("ancienneteEffectiveTexte")
                     : (moisAnciennete + " mois");
 
-            if (moisAnciennete < typeConge.getExigeAncienneteMinMois()) {
+            if (moisAnciennete < ancienneteMinMois) {
                 throw new IllegalArgumentException(
                         "L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
-                                typeConge.getExigeAncienneteMinMois() + " mois (" + texteAnciennete
+                                ancienneteMinMois + " mois (" + texteAnciennete
                                 + " constatés).");
             }
         }
@@ -219,7 +222,7 @@ public class DemandeConge extends ClassMere {
             }
         }
 
-        // 5bis. Jouissance du congé payé après douze mois de service effectif (Code du travail 2024, art. 130).
+        // 5bis. Jouissance du congé annuel après l'ancienneté minimale configurée.
         if ("ANNUEL".equals(typeConge.getCode())) {
             String sqlEmbauche = "SELECT MIN(date_debut) AS date_embauche FROM contrat_travail WHERE id_employe = ?";
             try (PreparedStatement psEmb = c.prepareStatement(sqlEmbauche)) {
@@ -231,9 +234,9 @@ public class DemandeConge extends ClassMere {
                             LocalDate hireDate = dEmb.toLocalDate();
                             LocalDate startDate = dateDebut.toLocalDate();
                             long moisService = ChronoUnit.MONTHS.between(hireDate, startDate);
-                            if (moisService < 12) {
+                            if (moisService < ancienneteMinMois) {
                                 throw new IllegalArgumentException("L'employé ne justifie que de " + moisService +
-                                        " mois de service effectif (12 mois requis par l'article 130 du Code du travail 2024).");
+                                        " mois de service effectif (" + ancienneteMinMois + " mois requis pour le congé annuel).");
                             }
                         }
                     }
