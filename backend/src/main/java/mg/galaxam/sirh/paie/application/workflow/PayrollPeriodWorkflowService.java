@@ -508,7 +508,7 @@ public class PayrollPeriodWorkflowService {
                                 + "SELECT 1 FROM mouvement_solde_conge ms WHERE ms.id_demande_conge=dc.id_demande_conge "
                                 + "AND ms.type_mouvement='PRISE'))) "
                                 + "AND dc.date_debut<=periode.date_fin AND dc.date_fin>=periode.date_debut "
-                                + "AND dc.updated_at>COALESCE(b.date_calcul,'1970-01-01'::timestamptz)", periodId);
+                                + "AND dc.updated_at AT TIME ZONE 'UTC'>COALESCE(b.date_calcul,'1970-01-01'::timestamptz)", periodId);
                 String staleSnapshotsSql = "SELECT COUNT(*) FROM bulletin_paie b "
                         + "WHERE b.id_periode_paie = ? AND COALESCE(b.type_bulletin,'MENSUEL') = 'MENSUEL' "
                         + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
@@ -532,6 +532,8 @@ public class PayrollPeriodWorkflowService {
                     try (ResultSet stale = snapshots.executeQuery()) {
                         stale.next();
                         int staleAttendance = stale.getInt(1);
+                        // RH updated_at is TIMESTAMP WITHOUT TIME ZONE; bulletin date_calcul is TIMESTAMPTZ.
+                        // Interpret RH wall-clock values in the business zone, independently of the SQL session zone.
                         int changedEmployment = count(connection,
                                 "SELECT COUNT(*) FROM bulletin_paie b "
                                 + "JOIN periode_paie periode ON periode.id_periode_paie=b.id_periode_paie "
@@ -539,11 +541,11 @@ public class PayrollPeriodWorkflowService {
                                 + "AND COALESCE(b.type_bulletin,'MENSUEL') = 'MENSUEL' "
                                 + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') AND b.date_calcul IS NOT NULL "
                                 + "AND (EXISTS (SELECT 1 FROM employe_affectation_carriere a "
-                                + "WHERE a.id_employe = b.id_employe AND a.updated_at > b.date_calcul "
+                                + "WHERE a.id_employe = b.id_employe AND a.updated_at AT TIME ZONE 'Indian/Antananarivo' > b.date_calcul "
                                 + "AND a.date_debut<=periode.date_fin "
                                 + "AND (a.date_fin IS NULL OR a.date_fin>=periode.date_debut)) "
                                 + "OR EXISTS (SELECT 1 FROM contrat_travail ct "
-                                + "WHERE ct.id_employe = b.id_employe AND ct.updated_at > b.date_calcul "
+                                + "WHERE ct.id_employe = b.id_employe AND ct.updated_at AT TIME ZONE 'Indian/Antananarivo' > b.date_calcul "
                                 + "AND ct.date_debut<=periode.date_fin "
                                 + "AND (ct.date_fin IS NULL OR ct.date_fin>=periode.date_debut)))", periodId);
                         return changedVariables + changedLeaveRequests + staleAttendance + changedEmployment;
