@@ -137,12 +137,12 @@ public class PayrollService {
                 }
                 Timestamp calculatedAt = rs.getTimestamp("date_calcul");
                 if (calculatedAt != null) {
-                    // RH timestamps have no zone, unlike the bulletin calculation instant.
+                    // Both sides are stored as instants, regardless of the SQL session zone.
                     try (PreparedStatement changed = c.prepareStatement(
                             "SELECT EXISTS (SELECT 1 FROM employe_affectation_carriere a "
-                            + "WHERE a.id_employe = ? AND a.updated_at AT TIME ZONE 'Indian/Antananarivo' > ? "
+                            + "WHERE a.id_employe = ? AND a.updated_at > ? "
                             + "AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?)) "
-                            + "OR EXISTS (SELECT 1 FROM contrat_travail ct WHERE ct.id_employe = ? AND ct.updated_at AT TIME ZONE 'Indian/Antananarivo' > ? "
+                            + "OR EXISTS (SELECT 1 FROM contrat_travail ct WHERE ct.id_employe = ? AND ct.updated_at > ? "
                             + "AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?))")) {
                         changed.setInt(1, rs.getInt("id_employe")); changed.setTimestamp(2, calculatedAt);
                         changed.setDate(3, rs.getDate("date_fin")); changed.setDate(4, rs.getDate("date_debut"));
