@@ -16,6 +16,8 @@ import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
+import mg.galaxam.sirh.contrat.application.WorkflowRhService;
+import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest;
 import mg.galaxam.sirh.contrat.domain.AncienneteEngine;
 import mg.galaxam.sirh.paie.api.dto.stc.ChecklistItemDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.ChecklistItemDTO.Niveau;
@@ -60,12 +62,14 @@ public class DossierSortieService {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final StcService stcService;
+    private final WorkflowRhService workflowRhService;
     private final AncienneteEngine ancienneteEngine = new AncienneteEngine();
     private final mg.galaxam.sirh.conge.application.CongeLotValorisationService lotsConges =
             new mg.galaxam.sirh.conge.application.CongeLotValorisationService();
 
-    public DossierSortieService(StcService stcService) {
+    public DossierSortieService(StcService stcService, WorkflowRhService workflowRhService) {
         this.stcService = stcService;
+        this.workflowRhService = workflowRhService;
     }
 
     /**
@@ -125,7 +129,24 @@ public class DossierSortieService {
                     + req.getVersion() + ", version courante : " + entity.getVersion() + "). Veuillez recharger le dossier.");
         }
 
-        entity.setIdContrat(req.getIdContrat());
+        Integer idContrat = req.getIdContrat() != null ? req.getIdContrat() : entity.getIdContrat();
+        if (idContrat == null) {
+            var contexte = new EmploymentContextResolver().resolveContext(req.getIdEmploye(), req.getDateDepart().toLocalDate(), c);
+            if (contexte != null) idContrat = contexte.idContrat();
+        }
+        if (idContrat == null) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "Aucun contrat trouvé à la date de départ. Sélectionnez un contrat valide avant de créer le dossier.");
+        }
+        try (PreparedStatement ps = c.prepareStatement("SELECT 1 FROM contrat_travail WHERE id_contrat = ? AND id_employe = ?")) {
+            ps.setInt(1, idContrat);
+            ps.setInt(2, req.getIdEmploye());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Le contrat sélectionné n'appartient pas au salarié.");
+            }
+        }
+        entity.setIdContrat(idContrat);
         entity.setDateDepart(req.getDateDepart());
         entity.setMotifRupture(req.getMotifRupture() != null ? req.getMotifRupture() : "DEMISSION");
 
@@ -151,7 +172,136 @@ public class DossierSortieService {
         }
 
         entity.enregistrer(c);
+        lierWorkflowRupture(entity, userId, c);
         return assemblerDossierDTO(entity, c);
+    }
+
+    private void lierWorkflowRupture(PaieDossierSortie dossier, Integer userId, Connection c) throws Exception {
+        String codeEvenement = switch (dossier.getMotifRupture()) {
+            case "DEMISSION" -> "DEMISSION";
+            case "LICENCIEMENT", "LICENCIEMENT_SIMPLE", "FAUTE_LOURDE", "LICENCIEMENT_ECONOMIQUE", "CESSATION_ACTIVITE" -> "LICENCIEMENT";
+            case "FIN_CONTRAT" -> "FIN_CONTRAT";
+            case "RUPTURE_ESSAI" -> "RUPTURE_ESSAI";
+            case "RUPTURE_CONVENTIONNELLE" -> "RUPTURE_CONVENTIONNELLE";
+            case "RETRAITE", "DEPART_RETRAITE" -> "DEPART_RETRAITE";
+            default -> throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "Motif de rupture non pris en charge par le workflow RH.");
+        };
+        Integer idWorkflow = null;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT d.id_workflow_rh, w.id_contrat_source, w.date_effet, w.motif, ev.code, s.code AS statut "
+                + "FROM paie_dossier_sortie d LEFT JOIN workflow_rh w ON w.id_workflow = d.id_workflow_rh "
+                + "LEFT JOIN ref_type_evenement_rh ev ON ev.id_type_evenement_rh = w.id_type_evenement_rh "
+                + "LEFT JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh WHERE d.id_dossier_sortie = ? FOR UPDATE OF d")) {
+            ps.setInt(1, dossier.getIdDossierSortie());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int found = rs.getInt("id_workflow_rh");
+                    if (!rs.wasNull()) {
+                        idWorkflow = found;
+                        if (rs.getInt("id_contrat_source") != dossier.getIdContrat()) {
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "Le contrat du dossier diffère de celui de la fin de contrat liée.");
+                        }
+                        if ("ANNULE".equals(rs.getString("statut"))) {
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "La fin de contrat liée a été annulée. Créez un nouveau dossier de sortie.");
+                        }
+                        if (!codeEvenement.equals(rs.getString("code"))) {
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "Le motif du dossier diffère de la fin de contrat liée. Modifiez d'abord le brouillon RH.");
+                        }
+                        if (!dossier.getMotifRupture().equals(codeMotifWorkflow(rs.getString("motif")))) {
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "Le motif précis du dossier diffère du brouillon RH lié. Modifiez la rupture depuis Carrière.");
+                        }
+                        if (!"BROUILLON".equals(rs.getString("statut"))
+                                && (!dossier.getDateDepart().equals(rs.getDate("date_effet"))
+                                || !dossier.getMotifRupture().equals(codeMotifWorkflow(rs.getString("motif"))))) {
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "La fin de contrat est déjà validée : sa date et son motif ne peuvent plus changer.");
+                        }
+                    }
+                }
+            }
+        }
+        if (idWorkflow != null) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE workflow_rh SET date_effet = ?, updated_at = CURRENT_TIMESTAMP "
+                    + "WHERE id_workflow = ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'BROUILLON')")) {
+                ps.setDate(1, dossier.getDateDepart());
+                ps.setInt(2, idWorkflow);
+                ps.executeUpdate();
+            }
+            return;
+        }
+        // Une rupture déjà formalisée depuis Carrière doit être reprise, même si elle est validée.
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT w.id_workflow FROM workflow_rh w "
+                + "JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
+                + "JOIN ref_type_evenement_rh ev ON ev.id_type_evenement_rh = w.id_type_evenement_rh "
+                + "WHERE w.id_employe = ? AND w.id_contrat_source = ? AND w.date_effet = ? "
+                + "AND (w.motif = ? OR w.motif LIKE ?) AND ev.code = ? AND s.code <> 'ANNULE' "
+                + "ORDER BY w.id_workflow DESC LIMIT 1")) {
+            ps.setInt(1, dossier.getIdEmploye());
+            ps.setInt(2, dossier.getIdContrat());
+            ps.setDate(3, dossier.getDateDepart());
+            ps.setString(4, dossier.getMotifRupture());
+            ps.setString(5, "[" + dossier.getMotifRupture() + "]%");
+            ps.setString(6, codeEvenement);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) idWorkflow = rs.getInt(1);
+            }
+        }
+        // Un autre brouillon bloque la création plutôt que de produire deux départs concurrents.
+        if (idWorkflow == null) {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT w.id_workflow, w.id_contrat_source, ev.code, w.date_effet, w.motif FROM workflow_rh w "
+                + "JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
+                + "JOIN ref_type_evenement_rh ev ON ev.id_type_evenement_rh = w.id_type_evenement_rh "
+                + "WHERE w.id_employe = ? AND s.code = 'BROUILLON' ORDER BY w.id_workflow DESC LIMIT 1")) {
+            ps.setInt(1, dossier.getIdEmploye());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    if (rs.getInt("id_contrat_source") != dossier.getIdContrat()
+                            || !codeEvenement.equals(rs.getString("code"))
+                            || !dossier.getDateDepart().equals(rs.getDate("date_effet"))
+                            || !dossier.getMotifRupture().equals(codeMotifWorkflow(rs.getString("motif")))) {
+                        throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                "Un autre brouillon RH existe pour ce salarié. Finalisez-le ou annulez-le avant de créer ce dossier.");
+                    }
+                    idWorkflow = rs.getInt("id_workflow");
+                }
+            }
+        }
+        }
+        if (idWorkflow == null) {
+            TransitionCarriereRequest demande = new TransitionCarriereRequest();
+            demande.setCodeTypeEvenement(codeEvenement);
+            demande.setIdContratSource(dossier.getIdContrat());
+            demande.setDateEffet(dossier.getDateDepart());
+            demande.setMotif(dossier.getMotifRupture());
+            var workflow = workflowRhService.creerBrouillonTransition(dossier.getIdEmploye(), demande, userId, c);
+            if (!dossier.getIdContrat().equals(workflow.getIdContratSource())) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Le contrat retenu par le workflow RH ne correspond pas au dossier de sortie.");
+            }
+            idWorkflow = workflow.getIdWorkflow();
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE paie_dossier_sortie SET id_workflow_rh = ? WHERE id_dossier_sortie = ?")) {
+            ps.setInt(1, idWorkflow);
+            ps.setInt(2, dossier.getIdDossierSortie());
+            ps.executeUpdate();
+        }
+    }
+
+    private static String codeMotifWorkflow(String motif) {
+        if (motif != null && motif.startsWith("[")) {
+            int fin = motif.indexOf(']');
+            if (fin > 1) return motif.substring(1, fin);
+        }
+        return motif;
     }
 
     /**
@@ -591,6 +741,27 @@ public class DossierSortieService {
         DossierSortieDTO currentDto = assemblerDossierDTO(entity, c);
         verifierFraicheurMetier(snapshot, currentDto);
 
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT w.id_contrat_source, w.date_effet, w.motif FROM paie_dossier_sortie d "
+                + "JOIN workflow_rh w ON w.id_workflow = d.id_workflow_rh WHERE d.id_dossier_sortie = ?")) {
+            ps.setInt(1, idDossier);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || rs.getInt("id_contrat_source") != entity.getIdContrat()
+                        || !entity.getDateDepart().equals(rs.getDate("date_effet"))
+                        || !entity.getMotifRupture().equals(codeMotifWorkflow(rs.getString("motif")))) {
+                    throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                            "La fin de contrat liée ne correspond plus au contrat, à la date ou au motif du dossier. Rapprochez les données avant le scellement.");
+                }
+            }
+        }
+
+        if (currentDto.getIdWorkflowRh() == null
+                || !List.of("ACTIF", "PLANIFIE").contains(currentDto.getStatutWorkflowRh())
+                || !List.of("ROMPU", "CLOTURE", "TERMINE").contains(currentDto.getStatutContrat())) {
+            throw new SirhBusinessException(SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                    "Validez la fin de contrat liée et attendez sa date d'effet avant de sceller le STC.");
+        }
+
         // 6. Contrôle bloquant de conformité de la checklist
         boolean aControlesBloquants = currentDto.getChecklist().stream()
                 .anyMatch(it -> it.getNiveau() == Niveau.BLOQUANT && it.getStatut() == StatutCheck.NON_CONFORME);
@@ -840,6 +1011,22 @@ public class DossierSortieService {
     private DossierSortieDTO assemblerDossierDTO(PaieDossierSortie entity, Connection c) throws Exception {
         DossierSortieDTO dto = new DossierSortieDTO();
         dto.setIdDossierSortie(entity.getIdDossierSortie());
+        if (entity.getIdDossierSortie() != null) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT d.id_workflow_rh, s.code AS statut FROM paie_dossier_sortie d "
+                    + "LEFT JOIN workflow_rh w ON w.id_workflow = d.id_workflow_rh "
+                    + "LEFT JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
+                    + "WHERE d.id_dossier_sortie = ?")) {
+                ps.setInt(1, entity.getIdDossierSortie());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        int id = rs.getInt("id_workflow_rh");
+                        if (!rs.wasNull()) dto.setIdWorkflowRh(id);
+                        dto.setStatutWorkflowRh(rs.getString("statut"));
+                    }
+                }
+            }
+        }
         dto.setIdEmploye(entity.getIdEmploye());
         dto.setDateDepart(entity.getDateDepart());
         dto.setMotifRupture(entity.getMotifRupture());
@@ -922,6 +1109,7 @@ public class DossierSortieService {
                 dto.setTauxHoraire(dto.getSalaireBase().divide(diviseur, 4, RoundingMode.HALF_UP));
             }
         }
+        if (entity.getIdContrat() != null) dto.setIdContrat(entity.getIdContrat());
 
         // État administratif du contrat ciblé, distinct de la date de fin et de l'état financier du STC.
         if (entity.getIdContrat() != null) {
@@ -1271,7 +1459,7 @@ public class DossierSortieService {
         // 3. L-03 : Certificat de travail (Art. 50 Code du travail malgache 2024)
         list.add(new ChecklistItemDTO(
                 "L-03_CERTIFICAT_TRAVAIL",
-                "Certificat de travail (Art. 50 Code 2024)",
+                "Certificat de travail",
                 Niveau.INFO,
                 SourceNorme.LEGAL_MADAGASCAR_2024,
                 d.isCertificatDelivre() ? StatutCheck.CONFORME : StatutCheck.A_VERIFIER,

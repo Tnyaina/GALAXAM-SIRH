@@ -56,8 +56,12 @@ const LIBELLES_STATUT = {
 const libelleStatut = (code) => LIBELLES_STATUT[code] || code || 'À vérifier';
 const LIBELLES_MOTIF = {
     DEMISSION: 'Démission',
+    LICENCIEMENT: 'Licenciement',
     LICENCIEMENT_SIMPLE: 'Licenciement',
+    LICENCIEMENT_ECONOMIQUE: 'Licenciement économique',
+    CESSATION_ACTIVITE: 'Cessation d’activité',
     FIN_CONTRAT: 'Fin de contrat',
+    RUPTURE_ESSAI: 'Rupture de période d’essai',
     RUPTURE_CONVENTIONNELLE: 'Rupture conventionnelle',
     RETRAITE: 'Retraite',
     FAUTE_LOURDE: 'Faute lourde',
@@ -77,6 +81,7 @@ export default function DossiersSortiePage() {
 
     // Modale de création d'un nouveau dossier
     const [showNewModal, setShowNewModal] = useState(false);
+    const [creatingDossier, setCreatingDossier] = useState(false);
     const [newEmployeId, setNewEmployeId] = useState('');
     const [newDateDepart, setNewDateDepart] = useState(getTodayDateString());
     const [newMotif, setNewMotif] = useState('DEMISSION');
@@ -126,13 +131,21 @@ export default function DossiersSortiePage() {
         navigate(`/paie/dossiers-sortie/${id}`);
     };
 
-    const handleCreateDossier = () => {
-        if (!newEmployeId) {
-            toast.warning('Veuillez sélectionner un employé.');
-            return;
+    const handleCreateDossier = async () => {
+        if (!newEmployeId || !newDateDepart || !newMotif || creatingDossier) return;
+        setCreatingDossier(true);
+        try {
+            const dossier = await dossierSortieService.sauvegarderDossier({
+                idEmploye: Number(newEmployeId), dateDepart: newDateDepart,
+                motifRupture: newMotif,
+            });
+            setShowNewModal(false);
+            navigate(`/paie/dossiers-sortie/${dossier.idDossierSortie}`);
+        } catch (err) {
+            toast.error(getErrorMessage(err, 'Impossible de créer le dossier et la fin de contrat.'));
+        } finally {
+            setCreatingDossier(false);
         }
-        const params = new URLSearchParams({ employeId: String(newEmployeId), dateDepart: newDateDepart, motif: newMotif });
-        navigate(`/paie/dossiers-sortie/nouveau?${params.toString()}`);
     };
 
     return (
@@ -358,8 +371,8 @@ export default function DossiersSortiePage() {
                         <Button variant="ghost" onClick={() => setShowNewModal(false)}>
                             Annuler
                         </Button>
-                        <Button variant="primary" onClick={handleCreateDossier} disabled={!canWrite || !newEmployeId}>
-                            Continuer vers le dossier
+                        <Button variant="primary" onClick={handleCreateDossier} disabled={!canWrite || !newEmployeId || !newDateDepart || creatingDossier}>
+                            {creatingDossier ? 'Création en cours…' : 'Créer le dossier et le brouillon RH'}
                         </Button>
                     </div>
                 }
@@ -372,7 +385,7 @@ export default function DossiersSortiePage() {
                     </div>
                     <div>
                         <h3 className="text-base font-bold text-[var(--color-fg)]">Qui quitte l’entreprise, et à quelle date ?</h3>
-                        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Vous préparerez ensuite le dossier, sans rompre le contrat ni créer de STC.</p>
+                        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Le dossier créera ou retrouvera une fin de contrat en brouillon. Vous pourrez préparer le STC avant la validation RH.</p>
                     </div>
 
                     <div>
@@ -404,11 +417,12 @@ export default function DossiersSortiePage() {
                         <SearchSelect
                             options={[
                                 { value: 'DEMISSION', label: 'Démission du salarié' },
-                                { value: 'LICENCIEMENT_SIMPLE', label: 'Licenciement simple' },
+                                { value: 'LICENCIEMENT', label: 'Licenciement' },
+                                { value: 'LICENCIEMENT_ECONOMIQUE', label: 'Licenciement économique' },
                                 { value: 'FIN_CONTRAT', label: 'Fin de contrat CDD' },
                                 { value: 'RUPTURE_CONVENTIONNELLE', label: 'Rupture conventionnelle' },
                                 { value: 'RETRAITE', label: 'Départ à la retraite' },
-                                { value: 'FAUTE_LOURDE', label: 'Licenciement pour faute lourde' },
+                                { value: 'RUPTURE_ESSAI', label: 'Rupture de période d’essai' },
                             ]}
                             value={newMotif}
                             onChange={(val) => setNewMotif(val)}
@@ -416,7 +430,7 @@ export default function DossiersSortiePage() {
                     </div>
                     </div>
                     <p className="border-l-2 border-[var(--color-brand-500)] bg-[var(--color-bg-subtle)] px-3 py-2 text-sm text-[var(--color-fg-muted)]">
-                        Ensuite : vérifier le contrat et la paie. La rupture se valide dans Carrière avant le scellement.
+                        Ensuite : préparer le STC et valider la fin de contrat dans le dossier avant le scellement.
                     </p>
                 </div>
             </Modal>

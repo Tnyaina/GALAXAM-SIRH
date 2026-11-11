@@ -45,11 +45,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import AdvanceRepaymentPanel from './AdvanceRepaymentPanel';
 
 
-export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMutate = false, mutationDisabledReason = '', periodStatus = '', onVariableChanged, onPendingCountChange }) {
+export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMutate = false, mutationDisabledReason = '', periodStatus = '', onVariableChanged, onPendingCountChange, embeddedEmployeeId = null }) {
     const { hasRole, hasPermission } = useAuth();
     const toast = useToast();
     const navigate = useNavigate();
     const location = useLocation();
+    const stcEmployeeId = new URLSearchParams(location.search).get('source') === 'stc'
+        ? new URLSearchParams(location.search).get('employeeId') : null;
+    const stcDossierId = stcEmployeeId ? new URLSearchParams(location.search).get('dossierId') : null;
+    const stcPrefillDone = useRef(false);
     const canConfigure = hasRole ? hasRole('ROLE_ADMIN') : hasPermission?.('ROLE_ADMIN');
     const disabledExplanation = periodStatus === 'PAIE_VALIDEE'
         ? 'La paie de cette période est validée : les variables ne peuvent plus être ajoutées ou modifiées.'
@@ -117,7 +121,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
         if (!silent) setLoading(true);
         try {
             const [ajustementsRes, typesRes, summaryRes] = await Promise.all([
-                paieService.listerAjustements(idPeriodeActive || null),
+                paieService.listerAjustements(idPeriodeActive || null, embeddedEmployeeId),
                 paieService.listerTypesMouvements(idPeriodeActive),
                 paieService.resumeAjustements(idPeriodeActive || null),
             ]);
@@ -141,7 +145,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
         } finally {
             if (requestIdRef.current === requestId) setLoading(false);
         }
-    }, [idPeriodeActive, toast]);
+    }, [idPeriodeActive, embeddedEmployeeId, toast]);
 
     // Effet : recharge les variables quand la période active change.
     useEffect(() => {
@@ -164,8 +168,8 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
     useEffect(() => {
         setIsModalOpen(false);
         setJustificatifFrais(null);
-        setForm(previous => ({ ...previous, idEmploye: '' }));
-    }, [idPeriodeActive]);
+        setForm(previous => ({ ...previous, idEmploye: embeddedEmployeeId ? String(embeddedEmployeeId) : '' }));
+    }, [idPeriodeActive, embeddedEmployeeId]);
 
     useEffect(() => {
         let cancelled = false;
@@ -190,6 +194,18 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
             });
         return () => { cancelled = true; };
     }, [idPeriodeActive]);
+
+    useEffect(() => {
+        if (!stcEmployeeId || stcPrefillDone.current || loading || eligibleEmployees.length === 0) return;
+        const employee = eligibleEmployees.find(item => Number(item.idEmploye) === Number(stcEmployeeId));
+        if (!employee) return;
+        stcPrefillDone.current = true;
+        setSearchQuery(employee.matricule || employee.nom);
+        if (canMutate) {
+            setForm(previous => ({ ...previous, idEmploye: String(employee.idEmploye), typeMouvement: '', sens: '', montant: '', motif: '' }));
+            setIsModalOpen(true);
+        }
+    }, [stcEmployeeId, eligibleEmployees, loading, canMutate]);
 
     useEffect(() => {
         let cancelled = false;
@@ -423,7 +439,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
     const formatAr = (val) => formatMoneyAr(val);
     const openVariableModal = (sens = '') => {
         setFormError('');
-        setForm(previous => ({ ...previous, typeMouvement: '', sens, montant: '', motif: '' }));
+        setForm(previous => ({ ...previous, idEmploye: embeddedEmployeeId ? String(embeddedEmployeeId) : previous.idEmploye, typeMouvement: '', sens, montant: '', motif: '' }));
         setIsModalOpen(true);
     };
     const toggleEmployee = (key) => {
@@ -436,8 +452,13 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
     };
 
     // Filtrage
-    const listVariables = Array.isArray(variables) ? variables : [];
-    const cancelledCount = variableSummary.cancelledCount;
+    const listVariables = (Array.isArray(variables) ? variables : []).filter(variable =>
+        !embeddedEmployeeId || Number(variable.idEmploye ?? variable.id_employe) === Number(embeddedEmployeeId));
+    const cancelledCount = embeddedEmployeeId
+        ? listVariables.filter(variable => variable.statut === 'ANNULE').length
+        : variableSummary.cancelledCount;
+    const employeeCanMutate = canMutate && (!embeddedEmployeeId || eligibleEmployees.some(employee =>
+        Number(employee.idEmploye ?? employee.id_employe) === Number(embeddedEmployeeId)));
     const activeVariables = listVariables.filter(variable => showCancelled || variable.statut !== 'ANNULE');
     const gainCount = activeVariables.filter(variable => variable.sens === 'GAIN').length;
     const retenueCount = activeVariables.filter(variable => variable.sens === 'RETENUE').length;
@@ -483,7 +504,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
     const employeeGroups = new Map(groupedVariables.map(group => [group.key, { ...group, advances: [] }]));
     const query = searchQuery.trim().toLocaleLowerCase('fr');
     if (!onlyPending && filterSens !== 'GAIN') {
-        advanceRepayments.forEach(advance => {
+        advanceRepayments.filter(advance => !embeddedEmployeeId || Number(advance.idEmploye ?? advance.id_employe) === Number(embeddedEmployeeId)).forEach(advance => {
             const employeeId = advance.idEmploye ?? advance.id_employe;
             const name = advance.nomComplet || advance.nom_complet || 'Collaborateur';
             const matricule = advance.matricule || '—';
@@ -502,14 +523,16 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
     const pagedGroups = visibleGroups.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const visibleAdvanceCount = visibleGroups.reduce((count, group) => count + group.advances.length, 0);
 
-    const totalGains = variableSummary.gains;
+    const totalGains = embeddedEmployeeId
+        ? activeVariables.filter(variable => variable.sens === 'GAIN').reduce((sum, variable) => sum + Number(variable.montant || 0), 0)
+        : variableSummary.gains;
     // Le montant accordé d'une avance est un dossier de trésorerie. Seule son
     // échéance entre dans les retenues prévues pour la paie de cette période.
     const totalRetenues = activeVariables
         .filter(variable => variable.sens === 'RETENUE' && variable.typeMouvement !== 'AVANCE_SPECIALE')
         .reduce((sum, variable) => sum + Number(variable.montant || 0), 0)
         + advanceRepayments.reduce((sum, advance) => sum + Number(advance.retenueChoisie ?? advance.echeancePrevue ?? 0), 0);
-    const pendingCount = variableSummary.pendingCount;
+    const pendingCount = embeddedEmployeeId ? activeVariables.filter(variable => variable.statut === 'EN_ATTENTE').length : variableSummary.pendingCount;
 
     useEffect(() => {
         if (!loading) {
@@ -629,6 +652,10 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
     // Rendu
     return (
         <div className="space-y-4">
+            {stcEmployeeId && <div className="flex flex-wrap items-center justify-between gap-2 border-l-[3px] border-l-[var(--color-brand-600)] bg-[var(--color-brand-50)] px-3 py-2 text-xs">
+                <span className="text-[var(--color-fg)]">EVP du salarié sortant · {canMutate ? 'Saisissez et faites approuver les variables avant le bulletin final.' : 'Campagne en lecture seule : consultez les variables déjà enregistrées.'}</span>
+                {stcDossierId && <a href={`/paie/dossiers-sortie/${stcDossierId}`} className="font-semibold text-[var(--color-brand-700)] hover:underline">Retour au dossier STC</a>}
+            </div>}
             <div className="grid grid-cols-2 divide-x divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] bg-[var(--color-surface)] sm:grid-cols-4 sm:divide-y-0">
                 {[
                     { label: 'À approuver', value: pendingCount ?? '—', tone: pendingCount > 0 ? 'warning' : 'normal' },
@@ -645,11 +672,11 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                 <summary className="font-semibold text-[var(--color-fg)] cursor-pointer">Quelles variables saisir ici ?</summary>
                 <p className="mt-2">Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes et retenues exceptionnelles justifiées. Le régime fiscal et social provient du type configuré.</p>
             </details>
-            <AdvanceRepaymentPanel idPeriode={idPeriodeActive} onItemsChange={setAdvanceRepayments}
-                onChanged={() => { chargerDonnees({ silent: true }); onVariableChanged?.(); }} />
+            {!embeddedEmployeeId && <AdvanceRepaymentPanel idPeriode={idPeriodeActive} onItemsChange={setAdvanceRepayments}
+                onChanged={() => { chargerDonnees({ silent: true }); onVariableChanged?.(); }} />}
 
             {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
-            {!canMutate && idPeriodeActive && <Alert type="info" message={disabledExplanation || 'La période est en lecture seule.'} />}
+            {!employeeCanMutate && idPeriodeActive && <Alert type="info" message={embeddedEmployeeId && canMutate ? 'Ce salarié ne figure pas dans la population éligible de cette campagne. Vérifiez la période et la population avant toute saisie.' : disabledExplanation || 'La période est en lecture seule.'} />}
 
             {/* L’action principale reste séparée des contrôles de recherche. */}
             {listVariables.length > 0 && <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3" aria-label="Gestion des variables">
@@ -671,8 +698,8 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                             onClick={() => openVariableModal()}
                             iconLeft={<Plus size={14} />}
                             className="w-full sm:w-auto justify-center shrink-0"
-                            disabled={!canMutate}
-                            title={!canMutate ? disabledExplanation : undefined}
+                            disabled={!employeeCanMutate}
+                            title={!employeeCanMutate ? disabledExplanation : undefined}
                         >
                             Ajouter une variable
                         </Button>
@@ -688,10 +715,10 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                     <section className="flex flex-col items-center justify-center gap-3 border border-dashed border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-5 py-8 text-center" aria-label="Aucune variable pour cette campagne">
                         <div className="flex h-10 w-10 items-center justify-center bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]"><Plus size={20} aria-hidden="true" /></div>
                         <div>
-                            <h3 className="text-sm font-semibold text-[var(--color-fg)]">Aucune variable pour cette campagne</h3>
-                            <p className="mt-1 max-w-md text-xs text-[var(--color-fg-muted)]">Les primes, gains et retenues saisis pour un salarié apparaîtront ici.</p>
+                            <h3 className="text-sm font-semibold text-[var(--color-fg)]">{embeddedEmployeeId ? 'Aucune EVP pour ce salarié' : 'Aucune variable pour cette campagne'}</h3>
+                            <p className="mt-1 max-w-md text-xs text-[var(--color-fg-muted)]">Les primes, gains et retenues saisis pour ce salarié apparaîtront ici.</p>
                         </div>
-                        {canMutate && <div className="flex flex-wrap justify-center gap-2">
+                        {employeeCanMutate && <div className="flex flex-wrap justify-center gap-2">
                             <Button type="button" size="sm" iconLeft={<Plus size={14} />} onClick={() => openVariableModal()}>Ajouter une variable</Button>
                             <Button type="button" variant="outline" size="sm" onClick={() => openVariableModal('RETENUE')}>Ajouter une retenue</Button>
                             <Button type="button" variant="outline" size="sm" onClick={() => openVariableModal('GAIN')}>Ajouter un gain</Button>
@@ -712,7 +739,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                         <span className="text-sm text-[var(--color-fg-muted)]">{visibleGroups.length} salarié{visibleGroups.length > 1 ? 's' : ''} · {filteredVariables.length} variable{filteredVariables.length > 1 ? 's' : ''}{visibleAdvanceCount > 0 ? ` · ${visibleAdvanceCount} remboursement${visibleAdvanceCount > 1 ? 's' : ''}` : ''}</span>
                     </div>
                     <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
-                        <Input
+                        {!embeddedEmployeeId && <Input
                             type="search"
                             placeholder="Rechercher un nom, un matricule ou un motif..."
                             value={searchQuery}
@@ -720,7 +747,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                             iconLeft={<Search size={14} />}
                             aria-label="Rechercher une variable de paie"
                             className="min-w-0 flex-1"
-                        />
+                        />}
                         <div className="flex flex-wrap items-center gap-2 lg:shrink-0" role="group" aria-label="Filtrer les variables">
                             {[
                                 { label: 'Toutes', count: activeVariables.length, sens: 'ALL', pending: false },
@@ -819,7 +846,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                                     </Td>
                                     <Td role="cell" data-label="Actions" data-mobile-span="full" className="text-right whitespace-nowrap">
                                         <div className="inline-flex items-center justify-end gap-1.5">
-                                            {linkedRepayment && canMutate && <Button type="button" variant="outline" size="xs" onClick={linkedRepayment.ouvrirAjustement}>{repaymentAdjusted ? 'Modifier' : 'Ajuster'}</Button>}
+                                            {linkedRepayment && employeeCanMutate && <Button type="button" variant="outline" size="xs" onClick={linkedRepayment.ouvrirAjustement}>{repaymentAdjusted ? 'Modifier' : 'Ajuster'}</Button>}
                                             {isAdvanceDossier && !linkedRepayment && <Button type="button" variant="outline" size="xs" onClick={() => navigate('/paie/acomptes-avances', { state: { openAdvanceId: idAvance } })}>Voir le dossier</Button>}
                                             {v.workflowActions?.APPROVE && idAvance && (
                                                 <Button
@@ -832,7 +859,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                                                     Approuver
                                                 </Button>
                                             )}
-                                            {canMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label title={v.justificatifPresent ? 'Remplacer le justificatif' : 'Joindre un justificatif'} className="ui-button-size-xs inline-flex cursor-pointer items-center justify-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-border-subtle)]">
+                                            {employeeCanMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label title={v.justificatifPresent ? 'Remplacer le justificatif' : 'Joindre un justificatif'} className="ui-button-size-xs inline-flex cursor-pointer items-center justify-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-border-subtle)]">
                                                 <Upload size={14} aria-hidden="true" /><span className="sr-only">{v.justificatifPresent ? 'Remplacer le justificatif' : 'Joindre un justificatif'}</span>
                                                 <SharedInput plain type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="sr-only" onChange={event => { handleJustificatifFrais(v, event.target.files?.[0]); event.target.value = ''; }} />
                                             </label>}
@@ -865,7 +892,7 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                                         </Badge>
                                     </Td>
                                     <Td role="cell" data-label="Action" data-mobile-span="full" className="text-right whitespace-nowrap">
-                                        {canMutate && <div className="inline-flex flex-col items-end gap-0.5">
+                                        {employeeCanMutate && <div className="inline-flex flex-col items-end gap-0.5">
                                             <Button type="button" variant="outline" size="xs" onClick={advance.ouvrirAjustement}>
                                                 {hasChoice ? 'Modifier' : 'Ajuster'}
                                             </Button>
@@ -947,12 +974,13 @@ export default function VariablesPaieTab({ idPeriodeActive, periodEndDate, canMu
                                 label="Employé"
                                 required
                                 value={form.idEmploye}
-                                options={eligibleEmployees.map(employee => ({
+                                options={eligibleEmployees.filter(employee => !embeddedEmployeeId || Number(employee.idEmploye ?? employee.id_employe) === Number(embeddedEmployeeId)).map(employee => ({
                                     value: String(employee.idEmploye ?? employee.id_employe),
                                     label: [employee.nom, employee.prenom].filter(Boolean).join(' '),
                                     sublabel: employee.matricule ? `Matricule ${employee.matricule}` : undefined,
                                 }))}
                                 onChange={(employeeId) => handleFormChange('idEmploye', employeeId)}
+                                disabled={Boolean(embeddedEmployeeId)}
                                 placeholder="Rechercher par nom ou matricule…"
                             />
                             {populationError && <p className="mt-2 text-[11px] text-[var(--color-danger-600)]">{populationError}</p>}

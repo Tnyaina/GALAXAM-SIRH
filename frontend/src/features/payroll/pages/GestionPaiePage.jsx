@@ -60,6 +60,7 @@ export default function GestionPaiePage() {
     const currentStepCode = context?.currentStep;
     const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
     const recalcRequired = context?.recalculationRequired === true;
+    const archivedSourcesChanged = payrollClosed && recalcRequired;
     // Les issues comme 'PAYROLL_NOT_CALCULATED' concernent la validation finale des bulletins.
     // À l'étape Préparation / Population / Variables, ce n'est pas un blocage actif de la campagne
     // mais le déroulement normal du workflow (la paie n'a tout simplement pas encore été calculée).
@@ -346,7 +347,8 @@ export default function GestionPaiePage() {
                     </div>
                     {(recalcRequired || activeBlockers.length > 0) && (
                         <div id="payroll-blockers" className="mt-4 space-y-2" aria-live="polite">
-                            {recalcRequired && <Alert type="warning" title="Recalcul requis" message="Le calcul doit être relancé après les dernières modifications des données sources." />}
+                            {archivedSourcesChanged && <Alert type="info" title="Sources modifiées après clôture" message="Des données sources ont changé depuis le calcul. Les bulletins de cette campagne restent archivés et ne peuvent pas être recalculés ici." />}
+                            {recalcRequired && !payrollClosed && <Alert type="warning" title="Recalcul requis" message="Le calcul doit être relancé après les dernières modifications des données sources." />}
                             {(blockersExpanded ? activeBlockers : activeBlockers.slice(0, 2)).map((blocker, idx) => (
                                 <Alert key={blocker.code || idx} type="error" title="Point bloquant"
                                     message={<><span>{blocker.message}</span>{blocker.code === 'POINTAGE_NOT_FROZEN' && <span className="block mt-1 text-[var(--color-fg-muted)]">Terminez la saisie puis validez le pointage.</span>}</>} />
@@ -372,7 +374,8 @@ export default function GestionPaiePage() {
                             <h3 className="text-base font-bold text-[var(--color-fg)]">Résultats de la paie</h3>
                             <p className="text-sm text-[var(--color-fg-muted)] mt-1">{hasCalculatedBulletins ? `Dernier calcul pour ${activePeriod?.code || 'la période sélectionnée'}.` : 'S’affichent après le premier calcul.'}</p>
                         </div>
-                        {recalcRequired && <PayrollIssueBadge severity="WARNING" label="À recalculer" />}
+                        {archivedSourcesChanged && <PayrollIssueBadge severity="INFO" label="Sources modifiées" />}
+                        {recalcRequired && !payrollClosed && <PayrollIssueBadge severity="WARNING" label="À recalculer" />}
                     </div>
                     {!hasCalculatedBulletins && (
                         <div className="mt-4 flex items-center gap-3 border border-dashed border-[var(--color-border-subtle)] p-3 text-sm text-[var(--color-fg-muted)]">
@@ -398,7 +401,7 @@ export default function GestionPaiePage() {
                             <p className="text-xs text-[var(--color-fg-muted)]">Anomalies détectées</p>
                         </div>
                     </div>
-                    {hasCalculatedBulletins && <p className="mt-3 text-xs text-[var(--color-fg-muted)]">{recalcRequired ? 'Montants provisoires : un nouveau calcul est requis.' : 'Montants à confirmer lors de la validation de la campagne.'}</p>}
+                    {hasCalculatedBulletins && <p className="mt-3 text-xs text-[var(--color-fg-muted)]">{payrollClosed ? 'Montants des bulletins archivés lors de la clôture.' : recalcRequired ? 'Montants provisoires : un nouveau calcul est requis.' : 'Montants à confirmer lors de la validation de la campagne.'}</p>}
                 </section>
             </div>
 

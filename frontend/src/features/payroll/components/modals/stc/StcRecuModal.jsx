@@ -203,11 +203,11 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Input type="date" label="Date du règlement" value={dateReglement}
                             onChange={(event) => setDateReglement(event.target.value)} />
-                        <Input label="Référence du règlement" value={referenceReglement}
+                        <Input label="Référence du règlement" placeholder="Ex. VIR-2026-001, n° chèque ou reçu de caisse" value={referenceReglement}
                             onChange={(event) => setReferenceReglement(event.target.value)} />
-                        <MoneyInput label="Montant déjà versé (Ar)" min={0.01} value={montantRegle} onValueChange={value => { setMontantRegle(value); setPartBulletinMensuel(Math.min(Number(value || 0), Number(recu?.soldeBulletinARegler || 0))); }} />
+                        <MoneyInput label="Montant déjà versé (Ar)" placeholder="Ex. 250 000" min={0.01} value={montantRegle} onValueChange={value => { setMontantRegle(value); setPartBulletinMensuel(Math.min(Number(value || 0), Number(recu?.soldeBulletinARegler || 0))); }} />
                         <Select label="Mode de règlement" value={modeReglement} onChange={setModeReglement} options={[{ value: 'VIREMENT', label: 'Virement' }, { value: 'CHEQUE', label: 'Chèque' }, { value: 'ESPECES', label: 'Espèces' }, { value: 'MOBILE_MONEY', label: 'Mobile money' }]} />
-                        {Number(recu?.soldeBulletinARegler || 0) > 0 && <MoneyInput label="Part du bulletin mensuel (Ar)" min={0} max={Math.min(Number(montantRegle || 0), Number(recu.soldeBulletinARegler))} value={partBulletinMensuel} onValueChange={setPartBulletinMensuel} />}
+                        {Number(recu?.soldeBulletinARegler || 0) > 0 && <MoneyInput label="Part du bulletin mensuel (Ar)" placeholder="Ex. 250 000" min={0} max={Math.min(Number(montantRegle || 0), Number(recu.soldeBulletinARegler))} value={partBulletinMensuel} onValueChange={setPartBulletinMensuel} />}
                         <Input label="Preuve réelle du paiement" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={event => setPaymentFile(event.target.files?.[0] || null)} />
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-2">

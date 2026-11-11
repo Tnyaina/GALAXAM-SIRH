@@ -583,14 +583,14 @@ export default function StcPreparationModal({
                                             net {formatMoneyAr(prepData.netBulletinMensuel)}. Seul son solde impayé sera ajouté au STC.
                                         </p>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            <MoneyInput label="Montant déjà payé (Ar)" hint="Vérifiez la preuve de paiement."
+                                            <MoneyInput label="Montant déjà payé (Ar)" placeholder="Ex. 250 000" hint="Vérifiez la preuve de paiement."
                                                 value={form.montantBulletinDejaPaye}
                                                 onValueChange={(value) => handleFormChange('montantBulletinDejaPaye', value)} />
                                             <Input type="date" label="Date du paiement"
                                                 required={Number(form.montantBulletinDejaPaye) > 0}
                                                 value={form.datePaiementBulletin}
                                                 onChange={(event) => handleFormChange('datePaiementBulletin', event.target.value)} />
-                                            <Input label="Référence du paiement"
+                                            <Input label="Référence du paiement" placeholder="Ex. VIR-2026-001 ou reçu de caisse"
                                                 required={Number(form.montantBulletinDejaPaye) > 0}
                                                 value={form.referencePaiementBulletin}
                                                 onChange={(event) => handleFormChange('referencePaiementBulletin', event.target.value)} />
@@ -634,6 +634,7 @@ export default function StcPreparationModal({
                                             <Input
                                                 type="number"
                                                 label="Durée indemnisée (mois)"
+                                                placeholder="Ex. 1"
                                                 min="0"
                                                 max="6"
                                                 step="0.5"
@@ -680,6 +681,7 @@ export default function StcPreparationModal({
                                             {(form.motifRupture === 'LICENCIEMENT_ECONOMIQUE' || form.motifRupture === 'CESSATION_ACTIVITE') && (
                                                 <MoneyInput
                                                     label="Rémunération de référence (Ar)"
+                                                    placeholder="Ex. 500 000"
                                                     hint="Salaire et accessoires, hors remboursements de frais."
                                                     value={form.remunerationReferenceLicenciement}
                                                     onValueChange={(value) => handleFormChange('remunerationReferenceLicenciement', value)}
@@ -688,6 +690,7 @@ export default function StcPreparationModal({
                                         </div>
                                         <Input
                                             label="Référence de la décision et du calcul"
+                                            placeholder="Ex. Décision RH-2026-001 et feuille de calcul"
                                             hint="À renseigner si une indemnité est saisie."
                                             value={form.justificationIndemnites}
                                             onChange={(e) => handleFormChange('justificationIndemnites', e.target.value)}
@@ -784,12 +787,12 @@ export default function StcPreparationModal({
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <Input type="date" label="Date du règlement" value={dateReglement}
                                                 onChange={(e) => setDateReglement(e.target.value)} />
-                                            <Input label="Référence du règlement (virement, chèque ou reçu caisse)"
+                                            <Input label="Référence du règlement (virement, chèque ou reçu caisse)" placeholder="Ex. VIR-2026-001 ou reçu de caisse"
                                                 value={referenceReglement}
                                                 onChange={(e) => setReferenceReglement(e.target.value)} />
-                                            <MoneyInput label="Montant déjà versé (Ar)" min={0.01} value={montantRegle} onValueChange={value => { setMontantRegle(value); setPartBulletinMensuel(Math.min(Number(value || 0), Number(calculResult?.soldeBulletinARegler || 0))); }} />
+                                            <MoneyInput label="Montant déjà versé (Ar)" placeholder="Ex. 250 000" min={0.01} value={montantRegle} onValueChange={value => { setMontantRegle(value); setPartBulletinMensuel(Math.min(Number(value || 0), Number(calculResult?.soldeBulletinARegler || 0))); }} />
                                             <Select label="Mode de règlement" value={modeReglement} onChange={setModeReglement} options={[{ value: 'VIREMENT', label: 'Virement' }, { value: 'CHEQUE', label: 'Chèque' }, { value: 'ESPECES', label: 'Espèces' }, { value: 'MOBILE_MONEY', label: 'Mobile money' }]} />
-                                            {Number(calculResult?.soldeBulletinARegler || 0) > 0 && <MoneyInput label="Part du bulletin mensuel (Ar)" min={0} max={Math.min(Number(montantRegle || 0), Number(calculResult.soldeBulletinARegler))} value={partBulletinMensuel} onValueChange={setPartBulletinMensuel} />}
+                                            {Number(calculResult?.soldeBulletinARegler || 0) > 0 && <MoneyInput label="Part du bulletin mensuel (Ar)" placeholder="Ex. 250 000" min={0} max={Math.min(Number(montantRegle || 0), Number(calculResult.soldeBulletinARegler))} value={partBulletinMensuel} onValueChange={setPartBulletinMensuel} />}
                                             <Input label="Preuve réelle du paiement" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={e => setPaymentFile(e.target.files?.[0] || null)} />
                                         </div>
                                         <div className="flex flex-wrap items-center justify-between gap-2">

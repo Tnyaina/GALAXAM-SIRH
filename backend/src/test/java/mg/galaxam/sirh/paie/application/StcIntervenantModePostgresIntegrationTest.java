@@ -248,10 +248,16 @@ class StcIntervenantModePostgresIntegrationTest {
                     input.setIndemniteCongeLots(new BigDecimal("12000"));
                     input.setAvancesAcomptes(List.of());
                     var calculated = new PayrollExecutionEngine().calculerBulletin(input);
-                    assertEquals(0, new BigDecimal("1").compareTo(calculated.getMontantLigneSalariale("HEURES_SUP_30")
-                            .divide(input.getTauxHoraireEffectif(), 8, java.math.RoundingMode.HALF_UP)));
+                    BigDecimal hs30 = calculated.getMontantLigneSalariale("HEURES_SUP_30");
+                    assertEquals(0, mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy
+                            .amount(input.getTauxHoraireEffectif()).compareTo(hs30),
+                            () -> "mode=" + mode + ", hs30=" + hs30 + ", taux=" + input.getTauxHoraireEffectif());
                     assertEquals(0, new BigDecimal("12000").compareTo(calculated.getMontantLigneSalariale("INDEMNITE_CONGE_PAYE")));
-                    assertEquals(0, BigDecimal.ZERO.compareTo(calculated.getMontantLigneSalariale("DEDUCTION_CONGE_BASE")));
+                    BigDecimal expectedLeaveBaseDeduction = "MENSUEL".equals(mode)
+                            ? mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(input.getTauxJournalierTrentieme())
+                            : BigDecimal.ZERO;
+                    assertEquals(0, expectedLeaveBaseDeduction.compareTo(
+                            calculated.getMontantLigneSalariale("DEDUCTION_CONGE_BASE")));
 
                     finalBulletin(c, employee, period, "PERMANENT", mode);
                     try (PreparedStatement ps = c.prepareStatement("UPDATE bulletin_paie SET total_gains_bruts=?,net_a_payer=? WHERE id_employe=? AND id_periode_paie=?")) {

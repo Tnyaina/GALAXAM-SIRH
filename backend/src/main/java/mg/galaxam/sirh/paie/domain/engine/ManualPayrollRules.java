@@ -44,7 +44,7 @@ public final class ManualPayrollRules {
         }
         BigDecimal result = switch (rounding) {
             case "CENTIME" -> raw.setScale(2, RoundingMode.HALF_UP);
-            case "ARIARY" -> raw.setScale(0, RoundingMode.HALF_UP).setScale(2);
+            case "ARIARY" -> MoneyRoundingPolicy.roundToNearestAriary(raw).setScale(2);
             case "DIZAINE" -> raw.divide(BigDecimal.TEN, 0, RoundingMode.HALF_UP).multiply(BigDecimal.TEN).setScale(2);
             default -> throw new IllegalArgumentException("Politique d’arrondi inconnue : " + rounding);
         };

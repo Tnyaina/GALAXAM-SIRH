@@ -223,20 +223,22 @@ export default function CalculStepPage() {
                     </div>
                 )}
 
-                {/* 1. ÉTAT STALE (CALCUL OBSOLÈTE) */}
+                {/* 1. ÉTAT STALE : une campagne archivée reste consultable sans recalcul */}
                 {isStale && (
-                    <div className="border border-[var(--color-border-subtle)] border-l-2 border-l-[var(--color-warning-500)] bg-[var(--color-surface)] p-4 space-y-3">
+                    <div className={`space-y-2 border border-[var(--color-border-subtle)] border-l-2 bg-[var(--color-surface)] p-3 ${isReadOnly ? 'border-l-[var(--color-brand-600)]' : 'border-l-[var(--color-warning-500)]'}`}>
                         <div className="flex items-start gap-3">
-                            <AlertTriangle size={20} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
+                            <AlertTriangle size={18} className={`mt-0.5 shrink-0 ${isReadOnly ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-warning-600)]'}`} />
                             <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                     <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                        Recalcul requis avant validation
+                                        {isReadOnly ? 'Sources modifiées après archivage' : 'Recalcul requis avant validation'}
                                     </h3>
-                                    <Badge variant="warning" size="xs">Résultats obsolètes</Badge>
+                                    <Badge variant={isReadOnly ? 'info' : 'warning'} size="xs">{isReadOnly ? 'Campagne scellée' : 'Résultats obsolètes'}</Badge>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)] mt-1">
-                                    {recalcReason === 'CALCULATION_INPUTS_CHANGED'
+                                    {isReadOnly
+                                        ? 'Des données sources ont changé depuis le calcul archivé. Les bulletins validés restent consultables ; cette campagne ne peut plus être recalculée.'
+                                        : recalcReason === 'CALCULATION_INPUTS_CHANGED'
                                         ? 'Des modifications ont été apportées aux variables ou aux snapshots de pointage depuis le dernier calcul. Un recalcul complet est requis avant validation.'
                                         : 'Les données sources ont changé depuis le dernier calcul. Un nouveau calcul est nécessaire avant validation.'}
                                 </p>
@@ -261,7 +263,7 @@ export default function CalculStepPage() {
                             </div>
                         )}
 
-                        <div className="flex items-center justify-end gap-2 pt-1">
+                        {!isReadOnly && <div className="flex items-center justify-end gap-2 pt-1">
                             <Button
                                 variant="primary"
                                 size="sm"
@@ -272,7 +274,7 @@ export default function CalculStepPage() {
                             >
                                 Recalculer la paie
                             </Button>
-                        </div>
+                        </div>}
                     </div>
                 )}
 

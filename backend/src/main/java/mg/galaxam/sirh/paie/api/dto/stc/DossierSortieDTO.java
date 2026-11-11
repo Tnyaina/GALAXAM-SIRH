@@ -28,6 +28,8 @@ public class DossierSortieDTO {
     private BigDecimal tauxHoraire;
 
     private Integer idContrat;
+    private Integer idWorkflowRh;
+    private String statutWorkflowRh;
     private String typeContrat;
     private String statutContrat;
     private Date dateDebutContrat;
@@ -142,6 +144,10 @@ public class DossierSortieDTO {
 
     public Integer getIdContrat() { return idContrat; }
     public void setIdContrat(Integer idContrat) { this.idContrat = idContrat; }
+    public Integer getIdWorkflowRh() { return idWorkflowRh; }
+    public void setIdWorkflowRh(Integer idWorkflowRh) { this.idWorkflowRh = idWorkflowRh; }
+    public String getStatutWorkflowRh() { return statutWorkflowRh; }
+    public void setStatutWorkflowRh(String statutWorkflowRh) { this.statutWorkflowRh = statutWorkflowRh; }
 
     public String getTypeContrat() { return typeContrat; }
     public void setTypeContrat(String typeContrat) { this.typeContrat = typeContrat; }

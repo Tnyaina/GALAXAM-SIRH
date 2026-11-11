@@ -35,3 +35,5 @@ La migration `0007_advance_repayment_plan.sql` ajoute le plafond configurable de
 La migration `0008_fractional_attendance_days.sql` conserve les demi-journées de présence et de congé dans le snapshot de pointage. Le calcul de la prime de performance utilise ainsi 0,5 jour présent pour une demi-journée travaillée ; le nombre de jours de congé reste décimal pour les contrôles et le malus.
 
 La migration `0009_allow_deferred_advance_repayment.sql` autorise un choix explicite de retenue de 0 Ar pour reporter le remboursement d'une avance sur une seule campagne, avec un motif obligatoire. Le solde dû reste inchangé.
+
+La migration `0014_lier_dossier_sortie_workflow_rh.sql` ajoute la référence nullable et unique au workflow RH dans le dossier de sortie. Les dossiers historiques restent sans lien jusqu'à leur prochaine préparation ; le code applicatif crée ou retrouve alors la rupture correspondante.

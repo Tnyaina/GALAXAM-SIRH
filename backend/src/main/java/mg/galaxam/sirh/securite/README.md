@@ -14,6 +14,41 @@ authentification, sauf `/auth/register`, réservé à `ROLE_ADMIN`. Les routes
 Voir [la documentation du module](../../../../../../../docs/boky/module-securite-audit.md)
 pour le catalogue détaillé.
 
+## Carte du code pour la soutenance
+
+| Besoin | Point d'entrée à ouvrir | Rôle de la méthode |
+| --- | --- | --- |
+| Définir les accès | `backend/conception/bdd/01_schema_core_securite.sql` | `utilisateur`, `ref_role`, `ref_module`, `role_permission` et `utilisateur_session` constituent le modèle en base. |
+| Protéger les routes | `config/SecurityConfig.securityFilterChain` | Déclare les routes publiques, les routes administrateur et l'authentification requise ailleurs ; installe le filtre JWT. |
+| Se connecter | `api/AuthController.login` | Vérifie les données, le compte et le mot de passe ; crée une session, un access token et un refresh token. |
+| Vérifier le mot de passe | `Utilisateur.verifierMotDePasse` | Compare le mot de passe fourni au hachage BCrypt ; `Utilisateur.controler` contrôle et hache un nouveau mot de passe. |
+| Charger les droits | `CustomUserDetailsService.loadUserByUsername` | Traduit le rôle et les droits par module en autorités Spring telles que `POINTAGE_WRITE`. |
+| Créer et vérifier les JWT | `JwtService.generateAccessToken`, `generateRefreshToken`, `extractValidUsername` | Signe les jetons HS512 et vérifie la signature et l'expiration d'un access token. |
+| Authentifier une requête | `JwtAuthenticationFilter.doFilterInternal` | Lit le Bearer, recharge le compte, vérifie la session `sid`, puis renseigne le contexte Spring Security. |
+| Autoriser une méthode | `@PreAuthorize` dans les contrôleurs, par exemple `pointage/api/PointageController` | Exige une autorité avant l'exécution de l'action. Les services peuvent vérifier en plus les règles du workflow. |
+| Renouveler la session | `api/AuthController.refresh` et `IdleSessionService.rotate` | Vérifie le refresh token et la session en base, remplace le refresh token et émet un nouvel access token. |
+| Suivre l'inactivité | `api/AuthController.recordActivity`, `IdleSessionService.touch`, `isActive` | Une activité explicite actualise `last_activity_at` ; une session inactive est refusée. |
+| Révoquer l'accès | `api/AuthController.logout`, `IdleSessionService.revoke`, `revokeAllForUser` | Révoque une session ou toutes les sessions d'un compte. |
+| Garder une trace | `JournalConnexion.save`, `AuditLog.audit` | Enregistre les connexions et les opérations qui appellent explicitement l'audit. |
+
+**Parcours à montrer :** schéma SQL → `AuthController.login` → `Utilisateur.verifierMotDePasse` →
+`CustomUserDetailsService.loadUserByUsername` → `JwtService` →
+`JwtAuthenticationFilter.doFilterInternal` → `SecurityConfig.securityFilterChain` →
+un `@PreAuthorize` métier → `AuthController.refresh` et `IdleSessionService`.
+
+L'access token est envoyé en Bearer ; le refresh token est placé dans un cookie
+`HttpOnly`. Ils sont liés par la ligne `utilisateur_session` : l'access token
+porte son identifiant `sid`, et la ligne contient le refresh token. Le refresh
+ne prolonge pas à lui seul les 15 minutes d'inactivité ; seule une activité
+acceptée par `recordActivity` actualise `last_activity_at`.
+
+Les erreurs et transactions ne sont pas propres à ce module :
+`common/transaction/TransactionRunner.required` fait `commit` ou `rollback`
+sur une même connexion JDBC ; `common/exception/SirhBusinessException` porte
+le code métier ; `config/GlobalExceptionHandler.handleSirhBusiness` transforme
+l'exception propagée en réponse HTTP. Certains cas d'usage gèrent directement
+`setAutoCommit(false)`, `commit()` et `rollback()`.
+
 ## Bootstrap du premier administrateur
 
 Le bootstrap Spring est désactivé par défaut dans `application.properties`. Les deux Compose Web transmettent l'adresse et le mot de passe administrateur depuis les variables utilisateur `SIRH_PROD_*` ou `SIRH_DEV_*`. Ne pas ajouter les secrets aux documents ou fichiers suivis.

@@ -3,7 +3,6 @@ import { ArrowLeft, UserMinus } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
-import { Card } from '@/components/ui/data-display/Card';
 
 /** Page de travail du dossier ; conserve la même fiche métier que l'ancienne modale. */
 export default function DossierSortieWorkspaceShell({ isOpen, onClose, title, children, footer, isDirty }) {
@@ -22,7 +21,7 @@ export default function DossierSortieWorkspaceShell({ isOpen, onClose, title, ch
     if (!isOpen) return null;
 
     return (
-        <div className="dossier-stc-workspace w-full space-y-4 pb-8">
+        <div className="dossier-stc-workspace mx-auto w-full max-w-[1680px] space-y-4 pb-8">
             <PageHeader
                 title={title}
                 subtitle="Préparation, calcul et suivi du départ"
@@ -33,14 +32,14 @@ export default function DossierSortieWorkspaceShell({ isOpen, onClose, title, ch
                     Retour aux dossiers
                 </Button>}
             />
-            <Card as="main" shadow="none" className="p-4 sm:p-5">
+            <main className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:p-4">
                 {children}
                 {footer && (
                     <div className="mt-8">
                         {footer}
                     </div>
                 )}
-            </Card>
+            </main>
             <ConfirmDialog isOpen={confirmLeave} onClose={() => setConfirmLeave(false)}
                 onConfirm={() => { setConfirmLeave(false); onClose?.(); }}
                 title="Quitter sans enregistrer"

@@ -129,10 +129,17 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
     const monthlyAllocated = (situation?.reglements || []).filter(row => !row.estAnnule)
         .reduce((total, row) => total + Number(row.partBulletinMensuel || 0), 0);
     const monthlyRemaining = Math.max(0, monthlyDue - monthlyAllocated);
+    const totalDue = Number(situation?.netAPayerStc ?? dossier?.netAPayerStc ?? 0);
+    const totalPaid = Number(situation?.totalRegle ?? dossier?.montantTotalRegle ?? 0);
+    const remainingDue = Number(situation?.resteAPayer ?? dossier?.soldeRestantAPayer ?? 0);
 
-    return <div className="space-y-5 text-sm">
+    return <div className="space-y-4 text-sm">
         {error && <Alert type="error" message={error} />}
-        {dossier?.idBulletinStc && <section className="flex flex-col gap-3 border border-[var(--color-brand-500)]/40 bg-[var(--color-brand-100)]/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="border-l-[3px] border-l-[var(--color-brand-600)] bg-[var(--color-brand-50)] px-3 py-2.5">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--color-fg)]"><Wallet size={17} aria-hidden="true" />{dossier?.idStc ? 'Règlement du STC' : 'Règlement disponible après confirmation du STC'}</h3>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-fg-muted)]">{mayPay ? 'Saisissez le versement ci-dessous avec sa date, sa référence et son justificatif. La part du bulletin mensuel est affectée au même règlement.' : dossier?.idStc ? 'Consultez les versements et les justificatifs enregistrés ci-dessous.' : 'Terminez les contrôles et confirmez le décompte dans « Estimation ». Le formulaire de règlement apparaîtra ensuite ici.'}</p>
+        </div>
+        {dossier?.idBulletinStc && <section className="flex flex-col gap-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h3 className="text-base font-bold text-[var(--color-fg)]">Bulletin de paie du départ</h3>
                 <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Le bulletin STC final est disponible en PDF.</p>
@@ -142,14 +149,14 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
                 <Download size={16} /> Télécharger le bulletin PDF
             </Button>
         </section>}
-        <div className="grid gap-3 sm:grid-cols-3" aria-label="États distincts du départ">
-            <Card shadow="none" className="p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Contrat</p>
+        <div className="grid gap-2 sm:grid-cols-3" aria-label="États distincts du départ">
+            <Card shadow="none" className="border-t-[3px] border-t-[var(--color-brand-500)] p-3">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]"><FileCheck2 size={15} className="text-[var(--color-brand-600)]" aria-hidden="true" />Contrat</p>
                 <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{libelleStatut(dossier?.statutContrat)}</p>
                 <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{contractEnded ? `Fin effective : ${fmtDate(dossier.dateFinContrat)}` : `Fin : ${fmtDate(dossier?.dateFinContrat) || 'non enregistrée'}`}</p>
             </Card>
-            <Card shadow="none" className="p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">STC financier</p>
+            <Card shadow="none" className="border-t-[3px] border-t-[var(--color-brand-700)] p-3">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]"><Wallet size={15} className="text-[var(--color-brand-700)]" aria-hidden="true" />STC financier</p>
                 <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{dossier?.idStc ? libelleStatut(situation?.statutStc || 'VALIDE') : 'Non scellé'}</p>
                 {dossier?.idStc && <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Reste à payer : {formatMoneyAr(situation?.resteAPayer ?? dossier.soldeRestantAPayer ?? 0)}</p>}
                 {dossier?.idBulletinMensuel && Number(dossier.soldeBulletinARegler || 0) > 0 && (
@@ -158,38 +165,33 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
                     </p>
                 )}
             </Card>
-            <Card shadow="none" className="p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Dossier administratif</p>
+            <Card shadow="none" className="border-t-[3px] border-t-[var(--color-border-strong)] p-3">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]"><FileCheck2 size={15} className="text-[var(--color-fg-muted)]" aria-hidden="true" />Dossier administratif</p>
                 <p className="mt-2 text-base font-bold text-[var(--color-fg)]">{libelleStatut(dossier?.statutDossier || 'EN_PREPARATION')}</p>
-                {closed && Number(situation?.resteAPayer ?? dossier?.soldeRestantAPayer ?? 0) > 0 && <p className="mt-1 text-xs font-semibold text-[var(--color-warning-700)]">Clôturé avec dette restante</p>}
+                {closed && Number(situation?.resteAPayer ?? dossier?.soldeRestantAPayer ?? 0) > 0 && <p className="mt-1 text-xs font-semibold text-[var(--color-danger-700)]">Clôturé avec dette restante</p>}
             </Card>
         </div>
         {dossier?.derogationReglement && <Alert type="warning" title="Clôture dérogatoire avec solde dû" message={`${dossier.justificationDerogation || ''} · Décision : ${dossier.autoriteDecisionDerogation || ''} · ${dossier.referenceDecisionDerogation || ''} · ${fmtDate(dossier.dateDecisionDerogation)}. Le solde restant reste dû.`} />}
         {dossier?.idStc && <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-            <div className="border-b border-[var(--color-border-subtle)] p-4">
+            <div className="border-b border-[var(--color-border-subtle)] px-4 py-3">
                 <div className="flex items-center gap-2"><Wallet size={18} className="text-[var(--color-brand-600)]" /><h3 className="text-base font-bold text-[var(--color-fg)]">Règlements du STC</h3></div>
-                <p className="mt-1.5 text-sm leading-5 text-[var(--color-fg-muted)]">Les paiements enregistrés sont listés ici. Télécharger un justificatif n’enregistre pas un nouveau paiement.</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">Suivez le solde, puis enregistrez chaque versement avec sa preuve.</p>
             </div>
-            <div className="grid gap-px bg-[var(--color-border-subtle)] sm:grid-cols-3">
-                {[
-                    { label: 'Total dû', amount: situation?.netAPayerStc ?? dossier.netAPayerStc ?? 0 },
-                    { label: 'Total versé', amount: situation?.totalRegle ?? dossier.montantTotalRegle ?? 0 },
-                    { label: 'Reste à payer', amount: situation?.resteAPayer ?? dossier.soldeRestantAPayer ?? 0, remaining: true },
-                ].map(({ label, amount, remaining }) => {
-                    const settled = remaining && Number(amount) <= 0;
-                    return <div key={label} className={`flex min-h-20 flex-col items-start justify-center gap-1 px-4 py-3 ${settled ? 'bg-[var(--color-success-50)]' : 'bg-[var(--color-surface)]'}`}>
-                        <div className="flex w-full items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-[var(--color-fg-muted)]">{label}</span>
-                            {settled && <span className="border border-[var(--color-success-200)] px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-success-700)]">Soldé</span>}
-                        </div>
-                        <span className={`font-data text-xl font-bold ${settled ? 'text-[var(--color-success-700)]' : 'text-[var(--color-fg)]'}`}>{formatMoneyAr(amount)}</span>
-                    </div>;
-                })}
+            <div className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
+                    <div className="border-l-[3px] border-l-[var(--color-brand-600)] bg-[var(--color-surface)] px-3 py-2">
+                        <span className="text-xs font-semibold text-[var(--color-fg-muted)]">Reste à payer</span>
+                        <strong className="font-data mt-0.5 block text-xl font-bold text-[var(--color-fg)]">{formatMoneyAr(remainingDue)}</strong>
+                        <span className="text-xs text-[var(--color-fg-muted)]">{remainingDue <= 0 ? 'Solde réglé' : 'À répartir sur un ou plusieurs versements'}</span>
+                    </div>
+                    <div className="px-1"><span className="text-xs text-[var(--color-fg-muted)]">Montant du STC</span><strong className="font-data block text-base text-[var(--color-fg)]">{formatMoneyAr(totalDue)}</strong></div>
+                    <div className="px-1"><span className="text-xs text-[var(--color-fg-muted)]">Déjà versé</span><strong className="font-data block text-base text-[var(--color-fg)]">{formatMoneyAr(totalPaid)}</strong></div>
+                </div>
             </div>
-            <div className="p-4">
-                <h4 className="mb-3 text-sm font-bold text-[var(--color-fg)]">Historique des versements</h4>
+            <div className="px-4 py-3">
+                <h4 className="mb-2 text-sm font-bold text-[var(--color-fg)]">Historique des versements</h4>
                 {(situation?.reglements || dossier.reglements || []).length === 0 ? (
-                    <p className="border border-dashed border-[var(--color-border-subtle)] px-3 py-4 text-sm text-[var(--color-fg-muted)]">Aucun versement enregistré pour le moment.</p>
+                    <p className="border-l-2 border-l-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] px-3 py-2 text-xs text-[var(--color-fg-muted)]">Aucun versement enregistré. Le premier apparaîtra ici après validation du formulaire.</p>
                 ) : <div className="divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)]">
                     {(situation?.reglements || dossier.reglements || []).map(row => <div key={row.idReglement} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                         <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)_minmax(130px,auto)] sm:items-center">
@@ -213,27 +215,29 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
             </div>
             {historicalAllocation && <HasPermission authority="PAIE_WRITE"><form className="grid gap-3 border-t border-[var(--color-border-subtle)] p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); if (historicalAllocation.file || historicalAllocation.hasProof) reconcileHistorical(); }}>
                 <h4 className="text-sm font-bold sm:col-span-2">Rapprocher un versement déjà enregistré</h4>
-                <MoneyInput label="Part affectée au bulletin mensuel (Ar)" min={0} max={Math.min(Number(historicalAllocation.montant), monthlyRemaining)} value={historicalAllocation.partBulletinMensuel} onValueChange={value => setHistoricalAllocation(p => ({ ...p, partBulletinMensuel: value }))} />
+                <MoneyInput label="Part affectée au bulletin mensuel (Ar)" placeholder="Ex. 250 000" min={0} max={Math.min(Number(historicalAllocation.montant), monthlyRemaining)} value={historicalAllocation.partBulletinMensuel} onValueChange={value => setHistoricalAllocation(p => ({ ...p, partBulletinMensuel: value }))} />
                 {!historicalAllocation.hasProof && <Input label="Preuve réelle du paiement" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={e => setHistoricalAllocation(p => ({ ...p, file: e.target.files?.[0] || null }))} />}
                 {historicalAllocation.hasProof && <p className="text-sm text-[var(--color-fg-muted)]">La preuve déjà enregistrée sera réutilisée.</p>}
                 <div className="flex gap-2 sm:col-span-2"><Button type="submit" disabled={busy || (!historicalAllocation.file && !historicalAllocation.hasProof)}>Enregistrer le rapprochement</Button><Button type="button" variant="outline" onClick={() => setHistoricalAllocation(null)}>Annuler</Button></div>
             </form></HasPermission>}
-            {mayPay && <HasPermission authority="PAIE_WRITE"><form className="grid gap-3 border-t border-[var(--color-border-subtle)] p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); if (!busyRef.current && (zeroNetAttestation || paymentFile)) setConfirmation('payment'); }}>
-                <h4 className="text-sm font-bold text-[var(--color-fg)] sm:col-span-2">Nouveau règlement</h4>
+            {mayPay && <HasPermission authority="PAIE_WRITE"><form className="border-t border-[var(--color-border-subtle)] px-4 py-4" onSubmit={e => { e.preventDefault(); if (!busyRef.current && (zeroNetAttestation || paymentFile)) setConfirmation('payment'); }}>
+                <div className="mb-4 border-l-[3px] border-l-[var(--color-brand-600)] bg-[var(--color-bg-subtle)] px-3 py-2"><h4 className="text-sm font-bold text-[var(--color-fg)]">Nouveau règlement</h4><p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">Renseignez le paiement réellement effectué. Un versement partiel laisse le solde restant ouvert.</p></div>
+                <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Input label="Date du règlement" type="date" required min={String(dossier.dateDepart || '').slice(0, 10) || undefined} max={getTodayDateString()} value={payment.dateReglement} onChange={e => setPayment(p => ({ ...p, dateReglement: e.target.value }))} />
                 <Select label="Mode du règlement" value={payment.modeReglement} onChange={value => setPayment(p => ({ ...p, modeReglement: value }))} options={[{ value: 'VIREMENT', label: 'Virement' }, { value: 'CHEQUE', label: 'Chèque' }, { value: 'ESPECES', label: 'Espèces' }, { value: 'MOBILE_MONEY', label: 'Mobile money' }]} />
-                <Input label="Référence du règlement" aria-label="Référence du règlement" required placeholder="Ex. référence bancaire" value={payment.referenceReglement} onChange={e => setPayment(p => ({ ...p, referenceReglement: e.target.value }))} />
-                <MoneyInput label="Montant du règlement (Ar)" aria-label="Montant du règlement" min={zeroNetAttestation ? 0 : 0.01} max={situation?.resteAPayer ?? undefined} required value={zeroNetAttestation ? 0 : payment.montantRegle} disabled={zeroNetAttestation} onValueChange={value => setPayment(p => ({ ...p, montantRegle: value, partBulletinMensuel: Math.min(Number(value || 0), monthlyRemaining) }))} />
-                {monthlyRemaining > 0 && !zeroNetAttestation && <MoneyInput label="Part affectée au bulletin mensuel (Ar)" min={0} max={Math.min(Number(payment.montantRegle || 0), monthlyRemaining)} value={payment.partBulletinMensuel} onValueChange={value => setPayment(p => ({ ...p, partBulletinMensuel: value }))} hint={`Solde mensuel inclus dans le STC : ${formatMoneyAr(monthlyRemaining)}. Ce montant ne crée pas un second paiement.`} />}
+                <Input label="Référence du règlement" aria-label="Référence du règlement" required placeholder="Ex. VIR-2026-001, n° chèque ou reçu de caisse" value={payment.referenceReglement} onChange={e => setPayment(p => ({ ...p, referenceReglement: e.target.value }))} />
+                <MoneyInput label="Montant du règlement (Ar)" aria-label="Montant du règlement" placeholder="Ex. 250 000" min={zeroNetAttestation ? 0 : 0.01} max={situation?.resteAPayer ?? undefined} required value={zeroNetAttestation ? 0 : payment.montantRegle} disabled={zeroNetAttestation} onValueChange={value => setPayment(p => ({ ...p, montantRegle: value, partBulletinMensuel: Math.min(Number(value || 0), monthlyRemaining) }))} />
+                {monthlyRemaining > 0 && !zeroNetAttestation && <MoneyInput label="Part affectée au bulletin mensuel (Ar)" placeholder="Ex. 250 000" min={0} max={Math.min(Number(payment.montantRegle || 0), monthlyRemaining)} value={payment.partBulletinMensuel} onValueChange={value => setPayment(p => ({ ...p, partBulletinMensuel: value }))} hint={`Solde mensuel inclus dans le STC : ${formatMoneyAr(monthlyRemaining)}. Ce montant ne crée pas un second paiement.`} />}
                 {!zeroNetAttestation && (
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-2 lg:col-span-1">
                         <Input label="Justificatif réel du versement (PDF, PNG, JPEG ; 5 Mo maximum)" type="file" required accept=".pdf,.png,.jpg,.jpeg" onChange={e => setPaymentFile(e.target.files?.[0] || null)} />
                     </div>
                 )}
-                <div className="flex justify-end sm:col-span-2"><Button type="submit" variant="primary" disabled={busy}>{zeroNetAttestation ? 'Attester le STC à solde nul' : 'Vérifier puis enregistrer'}</Button></div>
+                <div className="flex justify-end border-t border-[var(--color-border-subtle)] pt-3 sm:col-span-2 lg:col-span-3"><Button type="submit" variant="primary" disabled={busy}>{zeroNetAttestation ? 'Attester le STC à solde nul' : 'Vérifier puis enregistrer'}</Button></div>
+                </div>
             </form></HasPermission>}
         </section>}
-        <section className="space-y-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
+        <section className="space-y-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2"><FileCheck2 size={18} className="text-[var(--color-brand-600)]" /><h3 className="text-base font-bold text-[var(--color-fg)]">Documents disponibles</h3></div>
                 {showCertificate && dossier?.idContrat && (
@@ -252,29 +256,33 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
             {documents.length === 0 && <p className="text-sm text-[var(--color-fg-muted)]">Les documents apparaîtront selon l'état du contrat et du STC.</p>}
             <div className="grid gap-2 sm:grid-cols-3">{documents.map(([kind, label]) => <Button key={kind} type="button" variant="outline" disabled={busy} onClick={() => download(kind)} className="min-h-11 justify-between text-left"><span>{label}</span><Download size={15} className="shrink-0" /></Button>)}</div>
         </section>
-        {mayClose && <HasPermission authority="PAIE_WRITE"><section className="space-y-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-4">
-            <h3 className="text-base font-bold text-[var(--color-fg)]">Clôture administrative</h3>
+        {mayClose && <HasPermission authority="PAIE_WRITE"><details className="group border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-sm font-bold text-[var(--color-fg)] marker:hidden hover:bg-[var(--color-bg-subtle)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-brand-600)]">
+                <span>Clôture administrative <span className="ml-2 font-normal text-[var(--color-fg-muted)]">Après les règlements et documents</span></span><span aria-hidden="true" className="text-[var(--color-brand-700)] group-open:rotate-180">⌄</span>
+            </summary>
+            <div className="space-y-3 border-t border-[var(--color-border-subtle)] p-3">
             <p className="text-xs text-[var(--color-fg-muted)]">La fin du contrat et les contrôles bloquants seront revérifiés par le serveur. La clôture ne signifie pas forcément que la dette est éteinte.</p>
-            <Input label="Motif de clôture" placeholder="Précisez le motif de clôture" value={closure.motifCloture} onChange={e => setClosure(p => ({ ...p, motifCloture: e.target.value }))} />
-            {!situation?.estIntegralementRegle && <div className="space-y-3 border border-[var(--color-warning-200)] bg-[var(--color-warning-50)] p-3">
-                <p className="text-xs font-semibold text-[var(--color-warning-900)]">Solde restant dû : {formatMoneyAr(situation?.resteAPayer ?? dossier?.soldeRestantAPayer ?? 0)}</p>
+            <Input label="Motif de clôture" placeholder="Ex. Documents remis et règlement vérifié" value={closure.motifCloture} onChange={e => setClosure(p => ({ ...p, motifCloture: e.target.value }))} />
+            {!situation?.estIntegralementRegle && <div className="space-y-3 border border-[var(--color-danger-200)] bg-[var(--color-danger-50)] p-3">
+                <p className="text-xs font-semibold text-[var(--color-danger-800)]">Solde restant dû : {formatMoneyAr(situation?.resteAPayer ?? dossier?.soldeRestantAPayer ?? 0)}</p>
                 <label className="flex min-h-10 items-center gap-2 text-sm text-[var(--color-fg)]"><input type="checkbox" checked={closure.derogationReglementIncomplet} onChange={e => setClosure(p => ({ ...p, derogationReglementIncomplet: e.target.checked }))} />Décision dérogatoire documentée pour clôturer avec ce solde</label>
                 {closure.derogationReglementIncomplet && <div className="grid gap-2 sm:grid-cols-2">
                     {[
-                        ['justificationDerogation', 'Justification de la dérogation'],
-                        ['autoriteDecisionDerogation', 'Autorité décisionnaire'],
-                        ['referenceDecisionDerogation', 'Référence de la décision'],
-                    ].map(([field, label]) => <Input key={field} required label={label} aria-label={label} placeholder={label} value={closure[field]} onChange={e => setClosure(p => ({ ...p, [field]: e.target.value }))} />)}
+                        ['justificationDerogation', 'Justification de la dérogation', 'Ex. Solde restant à recouvrer selon échéancier signé'],
+                        ['autoriteDecisionDerogation', 'Autorité décisionnaire', 'Ex. Direction RH'],
+                        ['referenceDecisionDerogation', 'Référence de la décision', 'Ex. DEC-RH-2026-001'],
+                    ].map(([field, label, placeholder]) => <Input key={field} required label={label} aria-label={label} placeholder={placeholder} value={closure[field]} onChange={e => setClosure(p => ({ ...p, [field]: e.target.value }))} />)}
                     <Input required label="Date de décision" aria-label="Date de décision" type="date" value={closure.dateDecisionDerogation} onChange={e => setClosure(p => ({ ...p, dateDecisionDerogation: e.target.value }))} />
                 </div>}
             </div>}
             <div className="flex justify-end"><Button type="button" variant="primary" disabled={busy || (!situation?.estIntegralementRegle && !closure.derogationReglementIncomplet)} onClick={() => setConfirmation('closure')}>Vérifier puis clôturer</Button></div>
-        </section></HasPermission>}
+            </div>
+        </details></HasPermission>}
         {cancellation && <ConfirmDialog isOpen onClose={() => setCancellation(null)}
             onConfirm={() => { if (cancellation.motifAnnulation.trim()) cancelPayment(); }}
             title="Annuler le règlement" message="L’écriture restera visible dans le journal avec son motif d’annulation."
             confirmLabel="Confirmer l’annulation" variant="danger" loading={busy}>
-            <Input label="Motif de l’annulation" aria-label="Motif de l’annulation" required placeholder="Motif de l’annulation"
+            <Input label="Motif de l’annulation" aria-label="Motif de l’annulation" required placeholder="Ex. Référence erronée ou versement saisi en double"
                 value={cancellation.motifAnnulation} onChange={e => setCancellation(prev => ({ ...prev, motifAnnulation: e.target.value }))} />
             {!cancellation.motifAnnulation.trim() && <p className="text-xs text-[var(--color-danger-700)]">Un motif est obligatoire.</p>}
         </ConfirmDialog>}
