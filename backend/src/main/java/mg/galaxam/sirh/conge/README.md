@@ -7,7 +7,11 @@ Le module gère les demandes, droits acquis, soldes, lots FIFO, valorisation, p�
 ```text
 conge/
 ├── api/                 Entrées HTTP, autorisation et réponses
-├── application/         Cas d'utilisation, transactions et intégrations
+├── application/         Cas d’usage, transactions et intégrations
+│   ├── demande/         Demandes, validation, continuité, régularisation Pointage
+│   ├── solde/           Décompte calendaire et examen des expirations
+│   ├── valorisation/    Périodes de référence, lots, taux et rémunération
+│   ├── backenddriven/   Actions disponibles calculées pour le front
 │   └── export/          Lecture et génération Excel
 ├── domain/              Calculs sans accès aux données et contrats du module
 └── persistence/         Tables, vues et requêtes SQL
@@ -28,16 +32,16 @@ Pour suivre une action, partir du contrôleur, ouvrir la méthode de service app
 
 | Fichier | Responsabilité ; méthodes à lire |
 |---|---|
-| `application/CongeService.java` | Orchestration principale : `simulerDemande`, `creerDemande`, `modifierDemande`, `validerDemande`, `refuserDemande`, `annulerDemande`, `verifierConflitsDemande` ; acquisition et bonification via `enregistrerAcquisitionMensuelle`, `executerBonificationMensuelle` ; régularisations de pointage. |
-| `application/CongeTauxApplicableService.java` | Période de référence, TCONGE et reprise : `resoudreTauxCongeApplicable`, `creerPeriodeReference`, `ensureLeaveReferencePeriod`, `cloturerPeriodeReference`, `activerTauxCalcule`, `enregistrerCutoverSnapshot`, `obtenirSituationComplete`. |
-| `application/CongeLotValorisationService.java` | Situation des lots et prises valorisées : `situation`, `simulerPrise`, `valorisationPrisesSurPeriode`, `corrigerReliquatCutover`. |
-| `application/CongeValorisationMensuelleService.java` | Lecture, historique et correction auditée des valorisations mensuelles : `lister`, `historique`, `corriger`. |
-| `application/CongeExpirationExamenService.java` | Examen des droits expirables : `obtenir`, `reporter`, `confirmerExpiration`. |
-| `application/CongeContinuiteService.java` | Vérifie la continuité d'affectation poste/site pendant une demande : `analyser`. |
-| `application/CongeDecompteCalendaireResolver.java` | Résout le décompte journalier selon la politique datée : `calculer`, `session`. |
-| `application/CongePayrollPolicy.java` | Décide si un type de congé est rémunéré : `estRemunere`. |
-| `application/RemunerationCongePolicy.java` | Résout la rémunération applicable : `resolve`. |
-| `application/RegularisationCongeResult.java` | Résultat transmis après régularisation ; aucune orchestration. |
+| `application/demande/CongeService.java` | Orchestration principale : `simulerDemande`, `creerDemande`, `modifierDemande`, `validerDemande`, `refuserDemande`, `annulerDemande`, `verifierConflitsDemande` ; acquisition et bonification via `enregistrerAcquisitionMensuelle`, `executerBonificationMensuelle` ; régularisations de pointage. |
+| `application/valorisation/CongeTauxApplicableService.java` | Période de référence, TCONGE et reprise : `resoudreTauxCongeApplicable`, `creerPeriodeReference`, `ensureLeaveReferencePeriod`, `cloturerPeriodeReference`, `activerTauxCalcule`, `enregistrerCutoverSnapshot`, `obtenirSituationComplete`. |
+| `application/valorisation/CongeLotValorisationService.java` | Situation des lots et prises valorisées : `situation`, `simulerPrise`, `valorisationPrisesSurPeriode`, `corrigerReliquatCutover`. |
+| `application/valorisation/CongeValorisationMensuelleService.java` | Lecture, historique et correction auditée des valorisations mensuelles : `lister`, `historique`, `corriger`. |
+| `application/solde/CongeExpirationExamenService.java` | Examen des droits expirables : `obtenir`, `reporter`, `confirmerExpiration`. |
+| `application/demande/CongeContinuiteService.java` | Vérifie la continuité d'affectation poste/site pendant une demande : `analyser`. |
+| `application/solde/CongeDecompteCalendaireResolver.java` | Résout le décompte journalier selon la politique datée : `calculer`, `session`. |
+| `application/valorisation/CongePayrollPolicy.java` | Décide si un type de congé est rémunéré : `estRemunere`. |
+| `application/valorisation/RemunerationCongePolicy.java` | Résout la rémunération applicable : `resolve`. |
+| `application/demande/RegularisationCongeResult.java` | Résultat transmis après régularisation ; aucune orchestration. |
 | `application/export/CongeAnnuelExcelExportService.java` | État individuel : `genererEtatCongesIndividuel`, `obtenirNomFichierExport`, `resoudreEmployeDePeriode`. |
 | `application/export/CongeGrandRecapExcelExportService.java` | Grand récapitulatif DAF : `generer` ; lit les lots et l'affectation à la date du rapport. |
 
@@ -73,15 +77,21 @@ Les `Requests` et `DTO` sont des contrats de données, pas des moteurs de règle
 
 | Méthode | Effet concret | Quand la consulter |
 |---|---|---|
+| `CongeService.appliquerActionsDisponibles` → `CongeActionCapabilities.actions` | Lit les verrous de période et de pointage, puis attache les actions autorisées et leurs motifs de refus à la vue de demande. La décision effective reste contrôlée par les méthodes de mutation. | Une action est absente ou désactivée dans le front. |
 | `CongeService.simulerDemande` / `creerDemande` | Estiment les droits et conflits / enregistrent une nouvelle demande. La simulation n'écrit pas la demande. | Vérifier le résultat avant soumission ou la création effective. |
+| `CongeService.modifierDemande` / `refuserDemande` / `annulerDemande` | Modifient les dates et propriétés autorisées, ou enregistrent une décision de refus ou annulation avec contrôles de période. | Une modification ou une décision ne produit pas l’effet attendu. |
 | `CongeService.validerDemande` | Applique la décision de validation et les effets sur droits et solde. | Une demande approuvée ne se reflète pas dans les soldes. |
+| `CongeService.regulariserCongeAnnuelDepuisPointageStructure` / `regulariserPermissionDepuisPointage` | Inscrivent la régularisation issue de Pointage dans la transaction reçue et retournent la couverture obtenue ou la permission créée. | Suivre l’effet d’une régularisation de présence sur les congés. |
 | `CongeService.enregistrerAcquisitionMensuelle` | Inscrit les droits acquis pour un mois. | Une acquisition planifiée manque. |
 | `CongeService.executerBonificationMensuelle` | Applique la bonification d'ancienneté du mois concerné. | Une bonification Cron est absente ou doublée. |
+| `CongeDecompteCalendaireResolver.calculer` | Compte les jours imputables entre deux dates selon la configuration datée des jours fériés. | Un nombre de jours pris est inattendu. |
+| `CongeContinuiteService.analyser` | Recherche l’affectation continue et les collisions de poste ou de site sur la période demandée. | Une demande signale un conflit d’affectation. |
 | `CongeTauxApplicableService.resoudreTauxCongeApplicable` | Choisit le TCONGE valable à la date et sa provenance. | Une valorisation utilise un taux inattendu. |
 | `CongeTauxApplicableService.ensureLeaveReferencePeriod` | Retrouve ou crée la période de référence nécessaire à une acquisition. | Une acquisition échoue faute de période. |
 | `CongeTauxApplicableService.enregistrerCutoverSnapshot` | Enregistre l'état d'ouverture historique avec sa référence DAF. | Reprise initiale des droits et valorisations. |
 | `CongeLotValorisationService.simulerPrise` / `PurgeFifoEngine.calculerImputation` | Estiment la valorisation / répartissent les jours pris entre les lots selon FIFO. | Un débit semble viser le mauvais lot. |
 | `CongeExpirationExamenService.obtenir` / `confirmerExpiration` | Examinent les droits expirables / confirment l'expiration. | Une expiration affichée n'a pas encore produit d'effet. |
+| `CongeLotValorisationService.situation` / `valorisationPrisesSurPeriode` | Reconstitue les lots disponibles et la valeur des prises de la période pour la paie. | Comprendre la source d’un montant de congé. |
 | `CongeValorisationMensuelleService.corriger` | Enregistre une correction mensuelle avec historique. | Réparer une valeur de période déjà calculée. |
 
 ## Intégrations et invariants

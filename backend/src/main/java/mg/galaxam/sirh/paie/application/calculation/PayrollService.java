@@ -58,13 +58,13 @@ public class PayrollService {
     private TransactionRunner transactionRunner;
 
     @Autowired
-    private mg.galaxam.sirh.conge.application.CongeService congeService;
+    private mg.galaxam.sirh.conge.application.demande.CongeService congeService;
 
     @Autowired
     private PayrollLeaveJournalService payrollLeaveJournalService;
 
     @Autowired
-    private mg.galaxam.sirh.conge.application.CongeLotValorisationService congeLotValorisationService;
+    private mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService congeLotValorisationService;
 
     // Cache local des id_rubrique par code (thread-safe)
     private final Map<String, Integer> cacheRubriques = new ConcurrentHashMap<>();

@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
-import mg.galaxam.sirh.conge.application.CongeService;
+import mg.galaxam.sirh.conge.application.demande.CongeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

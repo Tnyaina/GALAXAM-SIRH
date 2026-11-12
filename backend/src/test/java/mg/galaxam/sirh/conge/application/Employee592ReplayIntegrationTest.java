@@ -1,4 +1,6 @@
 package mg.galaxam.sirh.conge.application;
+import mg.galaxam.sirh.conge.application.demande.CongeService;
+import mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService;
 
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;

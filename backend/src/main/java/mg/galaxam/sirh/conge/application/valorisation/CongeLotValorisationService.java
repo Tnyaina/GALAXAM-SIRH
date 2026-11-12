@@ -1,4 +1,5 @@
-package mg.galaxam.sirh.conge.application;
+package mg.galaxam.sirh.conge.application.valorisation;
+import mg.galaxam.sirh.conge.application.solde.CongeDecompteCalendaireResolver;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

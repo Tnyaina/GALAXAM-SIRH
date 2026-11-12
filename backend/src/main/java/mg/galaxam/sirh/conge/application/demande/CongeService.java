@@ -1,4 +1,7 @@
-package mg.galaxam.sirh.conge.application;
+package mg.galaxam.sirh.conge.application.demande;
+import mg.galaxam.sirh.conge.application.solde.CongeDecompteCalendaireResolver;
+import mg.galaxam.sirh.conge.application.valorisation.CongePayrollPolicy;
+import mg.galaxam.sirh.conge.application.valorisation.RemunerationCongePolicy;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,7 +20,7 @@ import mg.galaxam.sirh.conge.persistence.RefStatutDemandeConge;
 import mg.galaxam.sirh.conge.persistence.RefTypeConge;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
 import mg.galaxam.sirh.conge.persistence.VDemandeCongeCpl;
-import mg.galaxam.sirh.common.dto.ActionCapability;
+import mg.galaxam.sirh.conge.application.backenddriven.CongeActionCapabilities;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
 import mg.galaxam.sirh.conge.domain.PurgeFifoEngine;
@@ -85,39 +88,8 @@ public class CongeService {
             }
         }
 
-        java.util.Map<String, ActionCapability> actions = new java.util.LinkedHashMap<>();
-        actions.put("EDIT", editCapability(statut, canWrite, isOwner, periodeFermee,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
-        actions.put("SUBMIT", capability(canWrite, brouillon && !periodeFermee,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
-        ActionCapability validation = capability(canValidate, attente && !periodeFermee && !pointageVerrouille,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED"
-                        : pointageVerrouille && attente ? "CONGE_POINTAGE_VERROUILLE" : "INVALID_STATE");
-        actions.put("VALIDATE", validation);
-        actions.put("APPROVE", validation); // compatibilité du frontend existant
-        actions.put("REJECT", capability(canValidate, attente && !periodeFermee,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED" : "INVALID_STATE"));
-        boolean cancelAllowed = (brouillon || attente || valide) && !periodeFermee
-                && !(valide && pointageVerrouille);
-        actions.put("CANCEL", capability(canWrite || canValidate, cancelAllowed,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED"
-                        : valide && pointageVerrouille ? "CONGE_POINTAGE_VERROUILLE" : "INVALID_STATE"));
-        actions.put("MODIFY_DATES", capability(canValidate, valide && future && !periodeFermee && !pointageVerrouille,
-                periodeFermee ? "PAYROLL_PERIOD_CLOSED"
-                        : valide && pointageVerrouille ? "CONGE_POINTAGE_VERROUILLE"
-                        : (valide ? "LEAVE_ALREADY_STARTED" : "INVALID_STATE")));
-        demande.setAvailableActions(actions);
-    }
-
-    private static ActionCapability capability(boolean authorized, boolean stateAllowed, String reason) {
-        if (!authorized) return ActionCapability.denied("FORBIDDEN");
-        return stateAllowed ? ActionCapability.permit() : ActionCapability.denied(reason);
-    }
-
-    static ActionCapability editCapability(String statut, boolean canWrite, boolean isOwner,
-            boolean periodeFermee, String reason) {
-        boolean editableState = "BROUILLON".equalsIgnoreCase(statut) || "EN_ATTENTE".equalsIgnoreCase(statut);
-        return capability(canWrite || isOwner, editableState && !periodeFermee, reason);
+        demande.setAvailableActions(CongeActionCapabilities.actions(
+                statut, canWrite, canValidate, isOwner, future, periodeFermee, pointageVerrouille));
     }
 
     private int getParamGlobalInt(String code, LocalDate dateMetier, Connection c) {
@@ -721,7 +693,7 @@ public class CongeService {
 
         BigDecimal soldeAvant = BigDecimal.ZERO;
         BigDecimal joursDemandes = type.isDecompteSoldeAcquis() && idEmploye != null
-                ? mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
+                ? mg.galaxam.sirh.conge.application.solde.CongeDecompteCalendaireResolver.calculer(
                         idEmploye, dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee, c)
                 : calculateurEngine.calculerNombreJours(
                         dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee);
@@ -1377,7 +1349,7 @@ public class CongeService {
         // 1. Décompte de base
         RefTypeConge typeDecompte = idTypeConge != null ? RefTypeConge.rechercherParId(idTypeConge, c) : null;
         BigDecimal nbJours = typeDecompte != null && typeDecompte.isDecompteSoldeAcquis() && idEmploye != null
-                ? mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
+                ? mg.galaxam.sirh.conge.application.solde.CongeDecompteCalendaireResolver.calculer(
                         idEmploye, dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee, c)
                 : calculateurEngine.calculerNombreJours(dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee);
         res.put("nbJoursDecomptes", nbJours);

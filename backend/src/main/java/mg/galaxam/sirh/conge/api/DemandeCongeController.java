@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.PageDTO;
-import mg.galaxam.sirh.conge.application.RemunerationCongePolicy;
+import mg.galaxam.sirh.conge.application.valorisation.RemunerationCongePolicy;
 import mg.galaxam.sirh.conge.domain.DemandeCongeRequests.CreerDemandeRequest;
 import mg.galaxam.sirh.conge.domain.DemandeCongeRequests.DecisionDemandeRequest;
 import mg.galaxam.sirh.conge.domain.DemandeCongeRequests.ModifierDemandeRequest;
@@ -42,10 +42,10 @@ public class DemandeCongeController {
     private DataSource dataSource;
 
     @Autowired
-    private mg.galaxam.sirh.conge.application.CongeService congeService;
+    private mg.galaxam.sirh.conge.application.demande.CongeService congeService;
 
     @Autowired
-    private mg.galaxam.sirh.conge.application.CongeLotValorisationService congeLotValorisationService;
+    private mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService congeLotValorisationService;
 
     @Autowired
     private mg.galaxam.sirh.common.transaction.TransactionRunner transactionRunner;

@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
-import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
+import mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

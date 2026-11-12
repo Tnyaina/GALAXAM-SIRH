@@ -117,8 +117,8 @@ public class StcService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StcService.class);
 
     private final AncienneteEngine ancienneteEngine;
-    private final mg.galaxam.sirh.conge.application.CongeLotValorisationService lotsConges =
-            new mg.galaxam.sirh.conge.application.CongeLotValorisationService();
+    private final mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService lotsConges =
+            new mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService();
     private final mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator overtimePayCalculator =
             new mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator();
 
@@ -2066,8 +2066,8 @@ public class StcService {
         }
     }
 
-    private static final mg.galaxam.sirh.conge.application.CongeTauxApplicableService congeTauxApplicableService =
-            new mg.galaxam.sirh.conge.application.CongeTauxApplicableService();
+    private static final mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService congeTauxApplicableService =
+            new mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService();
 
     public static BigDecimal getTauxJournalierApplicable(int idEmploye, LocalDate dateReference, BigDecimal salaireBaseFallback, Connection c) {
         if (dateReference == null) {

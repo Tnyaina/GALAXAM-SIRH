@@ -1,4 +1,5 @@
 package mg.galaxam.sirh.conge.application;
+import mg.galaxam.sirh.conge.application.valorisation.RemunerationCongePolicy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;

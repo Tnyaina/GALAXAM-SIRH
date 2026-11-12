@@ -64,8 +64,8 @@ public class DossierSortieService {
     private final StcService stcService;
     private final WorkflowRhService workflowRhService;
     private final AncienneteEngine ancienneteEngine = new AncienneteEngine();
-    private final mg.galaxam.sirh.conge.application.CongeLotValorisationService lotsConges =
-            new mg.galaxam.sirh.conge.application.CongeLotValorisationService();
+    private final mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService lotsConges =
+            new mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService();
 
     public DossierSortieService(StcService stcService, WorkflowRhService workflowRhService) {
         this.stcService = stcService;

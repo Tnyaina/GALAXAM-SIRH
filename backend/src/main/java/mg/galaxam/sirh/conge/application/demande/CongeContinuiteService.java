@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.conge.application;
+package mg.galaxam.sirh.conge.application.demande;
 
 import java.sql.Connection;
 import java.sql.Date;

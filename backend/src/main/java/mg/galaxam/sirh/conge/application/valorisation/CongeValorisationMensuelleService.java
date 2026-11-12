@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.conge.application;
+package mg.galaxam.sirh.conge.application.valorisation;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

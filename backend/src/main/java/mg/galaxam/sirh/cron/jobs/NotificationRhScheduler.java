@@ -14,7 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
-import mg.galaxam.sirh.conge.application.CongeService;
+import mg.galaxam.sirh.conge.application.demande.CongeService;
 import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,7 +1,7 @@
 package mg.galaxam.sirh.pointage.application.periode;
 import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 
-import mg.galaxam.sirh.conge.application.CongePayrollPolicy;
+import mg.galaxam.sirh.conge.application.valorisation.CongePayrollPolicy;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;

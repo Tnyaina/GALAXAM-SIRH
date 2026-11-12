@@ -4,10 +4,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import mg.galaxam.sirh.conge.application.CongeTauxApplicableService.PeriodeReferenceData;
-import mg.galaxam.sirh.conge.application.CongeTauxApplicableService.TcongeApplicableRateStatus;
-import mg.galaxam.sirh.conge.application.CongeTauxApplicableService.TcongeReferenceStatus;
-import mg.galaxam.sirh.conge.application.CongeTauxApplicableService.TcongeSourceProvenance;
+import mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService.PeriodeReferenceData;
+import mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService.TcongeApplicableRateStatus;
+import mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService.TcongeReferenceStatus;
+import mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService.TcongeSourceProvenance;
 
 /**
  * Phase 2A-4C.1 — DTO d'évaluation multidimensionnelle de la situation TCONGE d'un collaborateur.

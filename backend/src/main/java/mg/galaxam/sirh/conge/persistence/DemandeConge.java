@@ -127,7 +127,7 @@ public class DemandeConge extends ClassMere {
         boolean isRegularisation = this.commentaire != null && this.commentaire.startsWith("[REGULARISATION_POINTAGE]");
         if (!isRegularisation || this.nbJoursDecomptes == null || this.nbJoursDecomptes.compareTo(BigDecimal.ZERO) <= 0) {
             this.nbJoursDecomptes = typeConge.isDecompteSoldeAcquis()
-                    ? mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
+                    ? mg.galaxam.sirh.conge.application.solde.CongeDecompteCalendaireResolver.calculer(
                             idEmploye, dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee, c)
                     : calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
         }
@@ -158,7 +158,7 @@ public class DemandeConge extends ClassMere {
         }
 
         // Contrat, affectation et continuité résolus sur chaque jour de la demande.
-        var continuite = new mg.galaxam.sirh.conge.application.CongeContinuiteService()
+        var continuite = new mg.galaxam.sirh.conge.application.demande.CongeContinuiteService()
                 .analyser(idEmploye, dateDebut.toLocalDate(), dateFin.toLocalDate(),
                         idDemandeConge, estDemiJournee, momentDemiJournee, c);
         if (!continuite.actifSurPeriode()) {

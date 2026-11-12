@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.conge.application;
+package mg.galaxam.sirh.conge.application.demande;
 
 /**
  * Résultat structuré et explicite d'une régularisation de congé depuis Pointage.

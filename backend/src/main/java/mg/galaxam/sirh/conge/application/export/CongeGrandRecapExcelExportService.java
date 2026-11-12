@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.conge.application.CongeLotValorisationService;
+import mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;

@@ -3,7 +3,7 @@ import mg.galaxam.sirh.pointage.application.AttendanceStatusPolicy;
 import mg.galaxam.sirh.pointage.application.saisie.PointageService;
 
 import mg.galaxam.sirh.pointage.api.dto.PointageAnomalieDTO;
-import mg.galaxam.sirh.conge.application.CongeService;
+import mg.galaxam.sirh.conge.application.demande.CongeService;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
@@ -807,7 +807,7 @@ public class PointageAnomalieService {
                     // Créer la demande de congé annuel et débiter le solde dans mouvement_solde_conge
                     String momentConge = payload.get("momentDemiJournee") != null
                             ? payload.get("momentDemiJournee").toString() : null;
-                    mg.galaxam.sirh.conge.application.RegularisationCongeResult regRes = congeService.regulariserCongeAnnuelDepuisPointageStructure(
+                    mg.galaxam.sirh.conge.application.demande.RegularisationCongeResult regRes = congeService.regulariserCongeAnnuelDepuisPointageStructure(
                             idEmp, datePtg, leaveEndDate, nbJours, momentConge, motif, currentUserId(), c);
                     validatedLeaveId = regRes.demandeId();
 

@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.conge.application;
+package mg.galaxam.sirh.conge.application.valorisation;
 
 /** Règle partagée pour déterminer si une demande contribue aux lignes de congé payé en paie. */
 public final class CongePayrollPolicy {

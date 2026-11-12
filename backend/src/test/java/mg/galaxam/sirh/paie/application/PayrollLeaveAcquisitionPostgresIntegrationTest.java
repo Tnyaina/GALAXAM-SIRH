@@ -12,8 +12,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.UUID;
-import mg.galaxam.sirh.conge.application.CongeService;
-import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
+import mg.galaxam.sirh.conge.application.demande.CongeService;
+import mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import org.junit.jupiter.api.Test;
 
@@ -171,7 +171,7 @@ class PayrollLeaveAcquisitionPostgresIntegrationTest {
                 payrollService().cloturerDonneesPaie(january, null, c);
                 decimal("2.5", scalarDecimal(c,
                         "SELECT jours_droit_acquis FROM conge_journal_droit WHERE id_employe=? AND annee=2027", employee));
-                decimal("6.5", new mg.galaxam.sirh.conge.application.CongeLotValorisationService()
+                decimal("6.5", new mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService()
                         .situation(employee, java.time.LocalDate.of(2027, 1, 31), c).soldeJours());
                 assertEquals(1, scalarInt(c,
                         "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_employe=? AND type_mouvement='ACQUISITION'", employee));
@@ -200,7 +200,7 @@ class PayrollLeaveAcquisitionPostgresIntegrationTest {
                 decimal("25000.00", scalarDecimal(c, "SELECT valorisation_mensuelle FROM conge_journal_droit WHERE id_journal=?", journal));
                 decimal("25000.00", scalarDecimal(c, "SELECT valeur_source FROM mouvement_solde_conge WHERE id_employe=? AND type_mouvement='ACQUISITION'", employee));
                 assertEquals("NEW_HIRE", scalarString(c, "SELECT mode_reprise FROM conge_periode_reference WHERE id_employe=?", employee));
-                var situation = new mg.galaxam.sirh.conge.application.CongeLotValorisationService()
+                var situation = new mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService()
                         .situation(employee, java.time.LocalDate.of(2026, 3, 31), c);
                 decimal("2.5", situation.soldeJours());
                 decimal("25000", situation.soldeValorisation());
@@ -275,7 +275,7 @@ class PayrollLeaveAcquisitionPostgresIntegrationTest {
                 decimal("10.0000", scalarDecimal(c, "SELECT cumul_jours_droit FROM conge_journal_droit WHERE id_journal=?", journal));
                 decimal("100000.00", scalarDecimal(c, "SELECT cumul_valorisation FROM conge_journal_droit WHERE id_journal=?", journal));
                 assertEquals(1, scalarInt(c, "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_employe=? AND type_mouvement='ACQUISITION'", employee));
-                var situation = new mg.galaxam.sirh.conge.application.CongeLotValorisationService()
+                var situation = new mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService()
                         .situation(employee, java.time.LocalDate.of(2026, 3, 31), c);
                 decimal("6.5", situation.soldeJours());
                 decimal("75000", situation.soldeValorisation());
@@ -302,10 +302,10 @@ class PayrollLeaveAcquisitionPostgresIntegrationTest {
                 int movement = scalarInt(c, "SELECT id_mouvement FROM mouvement_solde_conge WHERE id_employe=? AND type_mouvement='ACQUISITION'", employee);
                 int user = insertTestUser(c);
 
-                var correction = new mg.galaxam.sirh.conge.application.CongeValorisationMensuelleService();
-                Field lots = mg.galaxam.sirh.conge.application.CongeValorisationMensuelleService.class.getDeclaredField("lots");
+                var correction = new mg.galaxam.sirh.conge.application.valorisation.CongeValorisationMensuelleService();
+                Field lots = mg.galaxam.sirh.conge.application.valorisation.CongeValorisationMensuelleService.class.getDeclaredField("lots");
                 lots.setAccessible(true);
-                lots.set(correction, new mg.galaxam.sirh.conge.application.CongeLotValorisationService());
+                lots.set(correction, new mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService());
                 correction.corriger(reference, journal, d("26000"), "Rectification DAF de recette", user, c);
                 assertEquals(1, scalarInt(c, "SELECT COUNT(*) FROM conge_valorisation_mensuelle_correction WHERE id_journal=?", journal));
                 decimal("26000.00", scalarDecimal(c, "SELECT valeur_source FROM mouvement_solde_conge WHERE id_mouvement=?", movement));

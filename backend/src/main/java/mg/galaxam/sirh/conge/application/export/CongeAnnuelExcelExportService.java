@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.conge.application.CongeLotValorisationService;
+import mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;

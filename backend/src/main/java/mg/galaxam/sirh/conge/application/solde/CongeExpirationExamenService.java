@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.conge.application;
+package mg.galaxam.sirh.conge.application.solde;
 
 import java.math.BigDecimal;
 import java.sql.Connection;

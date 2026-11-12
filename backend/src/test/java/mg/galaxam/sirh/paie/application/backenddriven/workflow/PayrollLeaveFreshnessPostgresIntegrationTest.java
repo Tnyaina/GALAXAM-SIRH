@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.conge.application.CongeService;
+import mg.galaxam.sirh.conge.application.demande.CongeService;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.paie.application.calculation.PayrollPopulationResolver;

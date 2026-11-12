@@ -1,4 +1,6 @@
 package mg.galaxam.sirh.conge.application;
+import mg.galaxam.sirh.conge.application.valorisation.CongeTauxApplicableService;
+import mg.galaxam.sirh.conge.application.valorisation.CongeLotValorisationService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
