@@ -22,7 +22,7 @@ import mg.galaxam.sirh.paie.application.export.EtatSocialMensuelExportService;
 import mg.galaxam.sirh.paie.application.export.QuarterlySocialDataService;
 import mg.galaxam.sirh.paie.application.export.AnnualPayrollExportService;
 import mg.galaxam.sirh.paie.application.export.PayrollDocumentCatalogService;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

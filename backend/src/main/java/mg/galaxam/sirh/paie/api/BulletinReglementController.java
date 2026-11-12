@@ -4,7 +4,7 @@ import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.domain.PayrollBusinessTime;
 import mg.galaxam.sirh.paie.application.PaymentEvidence;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

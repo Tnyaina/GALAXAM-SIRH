@@ -1832,7 +1832,7 @@ public class PointageService {
         try (PreparedStatement statement = c.prepareStatement(
                 "UPDATE pointage_jour SET ajuste_par = ?, date_ajustement = CURRENT_TIMESTAMP "
                         + "WHERE id_pointage = ?")) {
-            statement.setObject(1, mg.galaxam.sirh.securite.CustomUserDetails.getCurrentUserId());
+            statement.setObject(1, mg.galaxam.sirh.securite.auth.CustomUserDetails.getCurrentUserId());
             statement.setInt(2, pointageId);
             statement.executeUpdate();
         }

@@ -44,7 +44,7 @@ import java.sql.Timestamp;
 import mg.galaxam.sirh.contrat.persistence.Employe;
 import mg.galaxam.sirh.paie.api.dto.stc.ClotureDossierRequest;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

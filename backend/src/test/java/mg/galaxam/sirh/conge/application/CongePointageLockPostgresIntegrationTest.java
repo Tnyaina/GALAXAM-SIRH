@@ -23,7 +23,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 
 /** Lock and rollback behavior against an isolated disposable PostgreSQL database. */
 class CongePointageLockPostgresIntegrationTest {

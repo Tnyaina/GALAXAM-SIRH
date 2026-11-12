@@ -1,5 +1,6 @@
-package mg.galaxam.sirh.cron;
+package mg.galaxam.sirh.cron.jobs;
 
+import mg.galaxam.sirh.cron.execution.SchedulerExecutionRegistry;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;

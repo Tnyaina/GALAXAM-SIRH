@@ -1,5 +1,6 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.securite.auth;
 
+import mg.galaxam.sirh.securite.persistence.Utilisateur;
 import java.util.Collection;
 import java.util.Collections;
 import org.springframework.security.core.GrantedAuthority;

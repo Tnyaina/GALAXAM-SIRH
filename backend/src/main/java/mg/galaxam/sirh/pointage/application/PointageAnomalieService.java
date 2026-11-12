@@ -1002,7 +1002,7 @@ public class PointageAnomalieService {
     private static Integer currentUserId() {
         org.springframework.security.core.Authentication authentication =
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.CustomUserDetails user) {
+        if (authentication != null && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.auth.CustomUserDetails user) {
             return user.getIdUtilisateur();
         }
         return null;

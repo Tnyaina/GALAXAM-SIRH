@@ -16,8 +16,8 @@ import mg.galaxam.sirh.contrat.persistence.ContratTravail;
 import mg.galaxam.sirh.contrat.persistence.EmployeAffectationCarriere;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRh;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRhCPL;
-import mg.galaxam.sirh.dashboard.application.NotificationRhService;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.stereotype.Service;
 
 /**

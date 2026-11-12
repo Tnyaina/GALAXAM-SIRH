@@ -7,7 +7,7 @@ import static org.mockito.Mockito.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.test.util.ReflectionTestUtils;

@@ -11,7 +11,7 @@ import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.paieconfig.api.dto.RefTypeMouvementPaieRequest;
 import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

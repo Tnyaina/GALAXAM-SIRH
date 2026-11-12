@@ -2,7 +2,7 @@ package mg.galaxam.sirh.config;
 
 import java.util.Arrays;
 import jakarta.annotation.PostConstruct;
-import mg.galaxam.sirh.securite.JwtAuthenticationFilter;
+import mg.galaxam.sirh.securite.auth.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

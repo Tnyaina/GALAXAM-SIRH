@@ -8,6 +8,8 @@ Chaque domaine est autonome sous `features/<domaine>/`.
 - `api/` : frontières HTTP du domaine.
 - `utils/` : règles ou présentation propres au domaine, sans appel React ni HTTP.
 
+Dans `utils/`, ne pas créer de règle métier de calcul ou d'éligibilité. Ces fichiers peuvent formater une réponse, préparer un formulaire ou afficher un aperçu indicatif ; les chiffres et décisions officiels viennent de l'API. La [carte de lecture des parcours](../../../ARCHITECTURE.md#lire-un-parcours-dans-le-code) distingue ces rôles avec des exemples du dépôt.
+
 Les utilitaires réellement transversaux restent dans `src/utils/` : dates, monnaie, navigation et icônes. Un fichier de feature ne les réexporte pas : il les importe directement.
 
 Les règles globales de hiérarchie visuelle, de responsive et d’usage des tokens sont définies dans [`docs/CONVENTIONS.md`](../../docs/CONVENTIONS.md). Ce document complète ces règles avec les conventions d’organisation des features.

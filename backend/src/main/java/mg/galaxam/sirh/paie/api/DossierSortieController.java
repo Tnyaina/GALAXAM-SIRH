@@ -25,7 +25,7 @@ import mg.galaxam.sirh.paie.application.DeparturePayrollService;
 import mg.galaxam.sirh.paie.application.PaymentEvidence;
 import mg.galaxam.sirh.paie.application.StcPaymentReconciliationService;
 import mg.galaxam.sirh.paie.application.export.StcDocumentService;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;

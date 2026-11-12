@@ -1,11 +1,12 @@
 package mg.galaxam.sirh.securite.api;
 
+import mg.galaxam.sirh.securite.persistence.Utilisateur;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
-import mg.galaxam.sirh.securite.IdleSessionService;
+import mg.galaxam.sirh.securite.application.IdleSessionService;
 import mg.galaxam.sirh.securite.api.dto.UtilisateurRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

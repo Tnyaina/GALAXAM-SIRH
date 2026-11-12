@@ -11,7 +11,7 @@ import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
 import mg.galaxam.sirh.conge.application.CongeValorisationMensuelleService;
 import mg.galaxam.sirh.conge.domain.TcongeConfigurationDTO;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;

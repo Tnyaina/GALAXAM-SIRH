@@ -15,7 +15,7 @@ import mg.galaxam.sirh.paieconfig.api.dto.TauxMajorationRequest;
 import mg.galaxam.sirh.paieconfig.persistence.BaremeIrsa;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paieconfig.persistence.RefTauxMajoration;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -1,5 +1,6 @@
 package mg.galaxam.sirh.securite;
 
+import mg.galaxam.sirh.securite.auth.JwtService;
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.HashSet;
 import org.junit.jupiter.api.Test;

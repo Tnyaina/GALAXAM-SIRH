@@ -11,13 +11,13 @@ import javax.sql.DataSource;
 import mg.galaxam.sirh.securite.api.dto.LoginRequest;
 import mg.galaxam.sirh.securite.api.dto.RegisterRequest;
 import mg.galaxam.sirh.admin.persistence.RefMenu;
-import mg.galaxam.sirh.securite.Utilisateur;
-import mg.galaxam.sirh.securite.AuditLog;
-import mg.galaxam.sirh.securite.CustomUserDetails;
-import mg.galaxam.sirh.securite.CustomUserDetailsService;
-import mg.galaxam.sirh.securite.JournalConnexion;
-import mg.galaxam.sirh.securite.LoginAttemptRateLimiter;
-import mg.galaxam.sirh.securite.JwtService;
+import mg.galaxam.sirh.securite.persistence.Utilisateur;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetailsService;
+import mg.galaxam.sirh.securite.persistence.JournalConnexion;
+import mg.galaxam.sirh.securite.application.LoginAttemptRateLimiter;
+import mg.galaxam.sirh.securite.auth.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -64,14 +64,14 @@ public class AuthController {
     private LoginAttemptRateLimiter loginAttemptRateLimiter;
 
     @Autowired
-    private mg.galaxam.sirh.securite.IdleSessionService idleSessionService;
+    private mg.galaxam.sirh.securite.application.IdleSessionService idleSessionService;
 
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
     @Autowired
     @org.springframework.context.annotation.Lazy
-    private mg.galaxam.sirh.cron.RattrapageAutomatiqueService rattrapageAutomatiqueService;
+    private mg.galaxam.sirh.cron.execution.RattrapageAutomatiqueService rattrapageAutomatiqueService;
 
     private ResponseCookie createRefreshCookie(String token, boolean isSecure, long maxAgeSeconds) {
         return ResponseCookie.from("refreshToken", token)
@@ -226,7 +226,7 @@ public class AuthController {
 
             try (Connection c = dataSource.getConnection()) {
                 c.setAutoCommit(false);
-                mg.galaxam.sirh.securite.IdleSessionService.SessionTokens tokens = idleSessionService.findTokensByRefreshToken(refreshToken, c);
+                mg.galaxam.sirh.securite.application.IdleSessionService.SessionTokens tokens = idleSessionService.findTokensByRefreshToken(refreshToken, c);
                 if (tokens == null) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                             mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,

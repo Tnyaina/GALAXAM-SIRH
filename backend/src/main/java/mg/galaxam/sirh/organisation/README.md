@@ -1,28 +1,77 @@
-# Domaine organisation
+# Organisation — guide technique
 
-Ce dossier est le point d'entrée unique du backend pour la structure de l'entreprise.
+## Structure et parcours
 
-- `api/` : contrôleur REST unique [`OrganisationController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) et DTOs d'entrée ;
-- `application/` : service métier [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java) centralisant la logique transactionnelle, les garde-fous d'intégrité (désactivation contrôlée des filiales) et la journalisation d'audit ;
-- `persistence/` : modèles Active Record et SQL JDBC explicite ([`RefFiliale`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefFiliale.java), [`RefSite`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefSite.java), [`RefDepartement`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefDepartement.java), [`RefService`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefService.java), [`RefFonction`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefFonction.java), [`RefBanque`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefBanque.java), [`RefTypeContrat`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefTypeContrat.java), [`RefTypeIntervenant`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefTypeIntervenant.java)).
+Ce module gère les filiales, sites, départements, services, fonctions, banques, types de contrat et types d'intervenant. Il fournit les référentiels actifs aux formulaires employé et carrière.
 
-Les routes REST restent sous le préfixe `/referentiel/*` (exposées sous `/api/referentiel/*` via le context-path). Le contrat d'intégration avec le frontend React est intégralement préservé.
+```text
+organisation/
+├── api/                 OrganisationController : routes, autorisations, DTO d'entrée
+├── application/         OrganisationService : cas d'usage, transactions, audit
+└── persistence/         Ref* : modèles Active Record et requêtes JDBC
+```
 
-L'écran `/admin/organisation` est accessible à `ROLE_ADMIN` et aux comptes dotés de `ORGANISATION_WRITE`. Côté API, les lectures de `OrganisationController` exigent une authentification et les écritures exigent `ORGANISATION_WRITE` ou `ROLE_ADMIN` ; le contrôle serveur reste la source d'autorité. Les rôles délégués doivent recevoir le menu `ADMIN_ORGANISATION` pour voir son lien dans la barre latérale. Une écriture d'audit en échec interrompt les opérations transactionnelles du service.
+```mermaid
+flowchart LR
+    UI[Client React] --> API[OrganisationController]
+    API --> APP[OrganisationService]
+    APP --> REF[Ref* / JDBC]
+    APP --> AUDIT[AuditLog]
+    APP --> CHECK[Contrôle désactivation filiale]
+    CHECK --> SITE[(ref_site)]
+    CHECK --> CONTRACT[(contrat_travail)]
+    REF --> DB[(Référentiels SQL)]
+```
 
-Les classes de `persistence/` conservent la rigueur Active Record : `Connection`, `PreparedStatement` et `ResultSet` sans aucun framework ORM lourd.
+Parcours de lecture : `frontend/src/features/organization/api/organisationService.js` → [`OrganisationController`](api/OrganisationController.java) → [`OrganisationService`](application/OrganisationService.java) → `Ref*` dans `persistence/`. Le contrôleur adapte HTTP ; le service orchestre les cas d'usage ; les modèles exécutent le SQL. Le contrôle de désactivation d'une filiale est une règle métier située dans le service. « Backend driven » signifie que le serveur décide des changements d'état ; ce n'est pas une catégorie de classe Java.
 
-## Cohérence des affectations de carrière
+## Routes et méthodes
 
-Le lien d'une affectation vers son contrat est contrôlé avec le couple
-`(id_contrat, id_employe)`, et le lien vers le service avec
-`(id_service, id_departement)`. Les clés étrangères composées figurent dans
-`backend/conception/bdd/03_schema_employes_contrats.sql`, avec les contraintes
-uniques correspondantes dans les schémas canoniques 02 et 03. Elles complètent
-les validations applicatives sans changer le modèle des départements ni celui
-des sites partagés.
+Préfixe : `/api/referentiel` avec le context-path actuel. Pour chaque ressource : `GET /{ressource}` → `lister*`, `GET /{ressource}/{id}` → `get*`, `POST /{ressource}` → `creer*`, `PUT /{ressource}/{id}` → `modifier*`, `PUT /{ressource}/{id}/activer|desactiver` → `activer*|desactiver*`.
 
-Ces schémas servent à initialiser une base neuve ; ils ne constituent pas une
-procédure de mise à niveau d'une base existante. Les tests
-`ContratTravailControllerPostgresTest` et `EmployeSatelliteLifecycleTest`
-vérifient des comportements ciblés, sans valider une migration de schéma.
+| Ressource | Méthodes de `OrganisationService` | Usage et importance |
+| --- | --- | --- |
+| `formulaire-employe` | `listerReferentielsFormulaireEmploye` | **Support** — agrège sept listes actives ; lecture seule. |
+| `filiales` | `listerFiliales`, `getFiliale`, `creerFiliale`, `modifierFiliale`, `activerFiliale`, `desactiverFiliale` | **Critique** — `validerDesactivationFiliale` bloque la désactivation si des sites actifs ou contrats en cours subsistent. |
+| `sites` | `listerSites`, `getSite`, `creerSite`, `modifierSite`, `activerSite`, `desactiverSite`, `configurerPlancherSite` | **Critique** — horaires et plancher consommés par Pointage ; `PUT /sites/{id}/plancher`. |
+| `departements` | `listerDepartements`, `getDepartement`, `creerDepartement`, `modifierDepartement`, `activerDepartement`, `desactiverDepartement` | **Structurant** — rattachement des services et affectations. |
+| `services` | `listerServices`, `getService`, `creerService`, `modifierService`, `activerService`, `desactiverService` | **Structurant** — rattachement département ; liste filtrable par département. |
+| `fonctions` | `listerFonctions`, `getFonction`, `creerFonction`, `modifierFonction`, `activerFonction`, `desactiverFonction` | **Critique** — `dispensePointage` influe sur le temps de travail. |
+| `banques` | `listerBanques`, `getBanque`, `creerBanque`, `modifierBanque`, `activerBanque`, `desactiverBanque` | **Structurant** — référentiel bancaire ; modèle `RefBanque` utilisé aussi en HTTP. |
+| `types-contrat` | `listerTypesContrat`, `getTypeContrat`, `creerTypeContrat`, `modifierTypeContrat`, `activerTypeContrat`, `desactiverTypeContrat` | **Critique** — `exigeDateFin` paramètre les contrats. |
+| `types-intervenant` | `listerTypesIntervenant`, `getTypeIntervenant`, `creerTypeIntervenant`, `modifierTypeIntervenant`, `activerTypeIntervenant`, `desactiverTypeIntervenant` | **Critique** — paramètres IRSA, ISI, CNaPS et santé. |
+
+Les lectures par identifiant signalent `RESOURCE_NOT_FOUND`. Les listes filtrent après lecture JDBC. Les écritures partagent une connexion avec `AuditLog.audit` et valident ou annulent la transaction ensemble. Plusieurs `catch` convertissent actuellement des exceptions en `VALIDATION_ERROR` : vérifier le code observable avant de changer cette gestion.
+
+## Inventaire des fichiers
+
+| Fichier | Méthodes ou données à connaître |
+| --- | --- |
+| [`OrganisationController`](api/OrganisationController.java) | Les méthodes `getAll*`, `get*ById`, `create*`, `update*`, `activate*`, `deactivate*` relient les routes aux méthodes du tableau précédent ; `toggleSitePlancher` traite l'opération supplémentaire du site. |
+| [`OrganisationService`](application/OrganisationService.java) | Les 50 méthodes publiques sont réparties par référentiel dans le tableau précédent ; `validerDesactivationFiliale` est le contrôle privé des sites et contrats dépendants. |
+| [`FilialeRequest`](api/dto/FilialeRequest.java) | Identité légale et coordonnées de la filiale : code, raison sociale, NIF, STAT, RCS, adresse, téléphone et email. |
+| [`SiteRequest`](api/dto/SiteRequest.java) | Code, libellé, filiale de rattachement, horaires et plancher d'arrivée. |
+| [`DepartementRequest`](api/dto/DepartementRequest.java) | Code et libellé du département. |
+| [`ServiceRequest`](api/dto/ServiceRequest.java) | Code, libellé et département de rattachement. |
+| [`FonctionRequest`](api/dto/FonctionRequest.java) | Code, libellé et indicateur `dispensePointage`. |
+| [`RefFiliale`](persistence/RefFiliale.java) | État légal et statut actif ; `rechercherParCode`, `listAll`, `listActifs`, `rechercherParId`, opérations Active Record. |
+| [`RefSite`](persistence/RefSite.java) | Rattachement, horaires et plancher ; `rechercherParCode`, `listAll`, `listActifs`, `listByFiliale`, opérations Active Record. |
+| [`RefDepartement`](persistence/RefDepartement.java) | Code/libellé/statut ; `rechercherParCode`, `listAll`, `listActifs`, opérations Active Record. |
+| [`RefService`](persistence/RefService.java) | Département parent ; `rechercherParCodeEtDepartement`, `listAll`, `listActifs`, `listByDepartement`, opérations Active Record. |
+| [`RefFonction`](persistence/RefFonction.java) | Code/libellé, `dispensePointage` ; `rechercherParCode`, `listAll`, `listActifs`, opérations Active Record. |
+| [`RefBanque`](persistence/RefBanque.java) | Code, nom, SWIFT ; `rechercherParCode`, `listAll`, `listActifs`, opérations Active Record. |
+| [`RefTypeContrat`](persistence/RefTypeContrat.java) | `exigeDateFin` et aides `isCdi`, `isCdd`, `isStage`, `isPrestataire` ; `rechercherParCode`, `listAll`, `listActifs`, opérations Active Record. |
+| [`RefTypeIntervenant`](persistence/RefTypeIntervenant.java) | Indicateurs fiscaux et sociaux ; `rechercherParCode`, `listAll`, `listActifs`, opérations Active Record. |
+
+Les modèles `Ref*` héritent de `ClassMere` : `controler`, `inserer`, `modifier`, `supprimer` et `rechercherParId` sont leurs méthodes de validation et de persistance. Les accesseurs `get*`/`set*` exposent les colonnes ; ils ne constituent pas des cas d'usage. Les décisions métier sont dans le service ou chez les domaines consommateurs, pas dans ces accesseurs.
+
+## Contrats et dépendances
+
+- **Sécurité** : lecture authentifiée ; écriture avec `ORGANISATION_WRITE` ou `ROLE_ADMIN`. Le menu `ADMIN_ORGANISATION` ne contrôle que la visibilité du lien.
+- **Données** : `validerDesactivationFiliale` lit `ref_site` et `contrat_travail`. Les `Ref*` portent les requêtes JDBC ; aucun ORM.
+- **HTTP** : routes, verbes, champs JSON et erreurs forment le contrat client. `RefBanque`, `RefTypeContrat` et `RefTypeIntervenant` servent aussi de corps de requête ; les autres commandes utilisent les DTO de `api/dto/`.
+- **Schéma** : les clés composées `(id_contrat, id_employe)` et `(id_service, id_departement)` des affectations figurent dans `backend/conception/bdd/03_schema_employes_contrats.sql`. Une évolution de base existante passe par `docker/migrations/`.
+
+## Vérification
+
+Aucun test dédié à `OrganisationService` n'est présent dans `backend/src/test`. `ContratTravailControllerPostgresTest` et `EmployeSatelliteLifecycleTest` couvrent des comportements voisins, sans prouver tous les parcours ci-dessus. Pour une commande modifiée, vérifier succès, refus métier, code HTTP et rollback de l'audit, puis les tests des domaines consommateurs concernés.

@@ -12,7 +12,7 @@ import mg.galaxam.sirh.contrat.persistence.RefMotifMouvement;
 import mg.galaxam.sirh.contrat.persistence.RefMotifSortie;
 import mg.galaxam.sirh.contrat.persistence.RefTypeDocument;
 import mg.galaxam.sirh.contrat.persistence.RefTypeEvenementRh;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

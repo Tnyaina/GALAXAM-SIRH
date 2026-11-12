@@ -10,7 +10,7 @@ import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.api.dto.PaieRubriqueRequest;
 import mg.galaxam.sirh.paie.domain.ManualRubriquePolicy;
 import mg.galaxam.sirh.paie.persistence.PaieRubrique;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.stereotype.Service;
 
 /** Création et versionnement des rubriques manuelles avec règles de cohérence transactionnelles. */

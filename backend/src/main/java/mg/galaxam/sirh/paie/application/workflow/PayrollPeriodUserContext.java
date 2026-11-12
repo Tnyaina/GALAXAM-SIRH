@@ -3,7 +3,7 @@ package mg.galaxam.sirh.paie.application.workflow;
 
 import java.util.Set;
 import java.util.stream.Collectors;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.security.core.Authentication;
 
 public record PayrollPeriodUserContext(Integer userId, Set<String> authorities) {

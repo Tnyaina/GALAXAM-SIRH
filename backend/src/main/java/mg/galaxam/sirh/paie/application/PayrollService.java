@@ -849,7 +849,7 @@ public class PayrollService {
         if (explicitUserId != null) return explicitUserId;
         try {
             var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof mg.galaxam.sirh.securite.CustomUserDetails cud) {
+            if (auth != null && auth.getPrincipal() instanceof mg.galaxam.sirh.securite.auth.CustomUserDetails cud) {
                 return cud.getIdUtilisateur();
             }
         } catch (Exception ignored) {}

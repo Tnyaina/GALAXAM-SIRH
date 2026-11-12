@@ -7,7 +7,7 @@ import mg.galaxam.sirh.paieconfig.api.dto.CotisationRequest;
 import mg.galaxam.sirh.paieconfig.api.dto.SiteCotisationRequest;
 import mg.galaxam.sirh.paieconfig.persistence.RefTypeCotisation;
 import mg.galaxam.sirh.paieconfig.persistence.SiteCotisation;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

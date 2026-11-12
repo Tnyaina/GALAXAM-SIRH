@@ -1,40 +1,90 @@
-# Domaine Contrat & Gestion du Personnel
+# Contrat et personnel — guide technique
 
-`application/EmploymentContextResolver` porte la résolution commune contrat /
-affectation à une date ou sur une plage. Les méthodes historiques exigent des
-dates métier explicites ; `resolveCurrent` est le seul raccourci pour aujourd'hui.
-Les contrats et affectations aujourd'hui clôturés restent résolus aux dates
-qu'ils couvraient. La résolution groupée des sites par jour charge les segments
-en une requête et bloque les chevauchements. Les domaines clients gardent leurs
-règles propres (tarifs, calendrier, cotisations).
+Ce domaine possède le dossier employé, les contrats, les affectations, les workflows de carrière et les documents RH. Les autres domaines consomment son contexte d'emploi daté ; ils conservent leurs propres règles de pointage, congés et paie.
 
-Ce dossier regroupe le cycle complet du personnel, des contrats et de l'évolution de carrière.
+```text
+contrat/
+├── api/           Routes HTTP et dto/ des requêtes/réponses
+├── application/   Cas d'usage, résolutions datées, exports et documents
+├── domain/        Validations et calculs de carrière
+└── persistence/   Modèles Active Record et SQL JDBC
+```
 
-- `api/` : contrôleurs REST (`EmployeController`, `ContratTravailController`, `ContratGlobalController`, `WorkflowRhController`, `RefCarriereController`, `DocumentRhController`)
-- `api/dto/` : contrats DTO (`EmployeRequest`, `ContratTravailGlobalDTO`, `ContratTravailDocumentDTO`, `EmbaucheInitialeRequest`, `TransitionCarriereRequest`, `ValiderWorkflowRequest`, etc.)
-- `application/` : services applicatifs (`EmployeService`, `WorkflowRhService`, `DocumentRhService` - moteur de génération contractuelle Word .docx via Apache POI, `EmploymentContextResolver`, `EmployerIdentityContextResolver`, `CarriereExportService`)
-- `domain/` : moteurs et règles métier (`CarriereTransitionValidator`, `ContratValidationEngine`, `AncienneteEngine`, `EmployeValidationEngine`, `MatriculeGeneratorEngine`)
-- `persistence/` : entités Active Record et requêtes SQL (`Employe`, `EmployeCPL`, `ContratTravail`, `WorkflowRh`, `DocumentRh`, `DocumentRhCPL`, `EmployeConjoint`, `EmployeEnfant`, etc.)
+```mermaid
+flowchart LR
+    UI[Client React] --> API[Contrôleurs Contrat]
+    API --> APP[Services application]
+    APP --> RULE[Validateurs et moteurs domain]
+    APP --> DB[(Tables employé, contrat, carrière)]
+    POINT[Pointage] --> CONTEXT[EmploymentContextResolver]
+    PAY[Paie] --> CONTEXT
+    LEAVE[Congés] --> CONTEXT
+    CONTEXT --> DB
+```
 
-Les routes `/employes/*`, `/contrats/*`, `/documents/*`, `/ref-carriere/*` et
-`/ref-types-documents/*` exigent une authentification (`SecurityConfig`). Les
-contrôleurs appliquent ensuite leurs permissions : `EMPLOYE_READ` pour les
-lectures de fiches, contrats et workflows, `EMPLOYE_WRITE` pour leurs écritures,
-et `EMPLOYE_VALIDATE` pour la validation des workflows (ou `ROLE_ADMIN` selon
-les annotations). La désactivation et la réactivation d'un employé acceptent
-`EMPLOYE_VALIDATE` ou `EMPLOYE_WRITE` ; les coordonnées bancaires nécessitent
-`PAIE_READ` en lecture et `PAIE_WRITE` en écriture. La lecture et le téléchargement
-des documents RH et des contrats générés exigent ensemble `EMPLOYE_READ` et
-`PAIE_READ`, ou `ROLE_ADMIN` ; les attestations et certificats générés exigent
-`EMPLOYE_READ` ou `ROLE_ADMIN`. Les lectures des référentiels de carrière et des
-types de documents exigent une authentification ; leurs mutations exposées sont
-réservées à `ROLE_ADMIN`.
+## Parcours à suivre
 
-`DocumentRhController` expose `GET /documents/contrat/{idContrat}` et
-`GET /documents/contrat/{idContrat}/docx` ; aucune route `/preview` distincte
-n'est déclarée. Modèles de contrats RH :
-`resources/templates/documents/Contrat_{TYPE}_modele.docx` (CDI, CDD, STAGE,
-PRESTATION, TEMPORAIRE). Le modèle RH `PRESTATION` est conservé pour les dossiers
-historiques ; les nouvelles missions indépendantes passent par le module
-Prestataires indépendants, avec dépôt du contrat signé en PDF (voir
-`../paie/PRESTATAIRES_2026.md`).
+| Besoin | Point d'entrée → cas d'usage → règle | Effet / importance |
+| --- | --- | --- |
+| Créer ou modifier un employé | `EmployeController.createEmploye` / `updateEmploye` → `EmployeService.creerEmploye` / `modifierEmploye` → `EmployeValidationEngine` | **Critique** — identité, données satellites et compte bancaire sous permissions distinctes. |
+| Embauche et transition | `WorkflowRhController.creerBrouillonEmbauche` / `creerBrouillonTransition` → `WorkflowRhService` → `CarriereTransitionValidator`, `ContratValidationEngine` | **Critique** — brouillon, validation et application datée des changements. |
+| Résoudre l'emploi à une date | Appel d'un domaine consommateur → `EmploymentContextResolver.resolveContext`, `resolveCoverage`, `resolvePointageDays`, `resolveSalaryByDay` | **Critique** — contrat, affectation, site et salaire applicables à la date demandée. |
+| Produire un document | `DocumentRhController` → `DocumentRhService.preparer*` / `generer*Docx` | **Structurant** — données contrôlées et génération depuis les modèles DOCX. |
+| Superviser les contrats | `ContratGlobalController` → requêtes de lecture / `CarriereExportService.exportContratsCsv` | **Support** — listes, alertes, statistiques et export. |
+
+## Fichiers API
+
+| Fichier | Méthodes et contrat |
+| --- | --- |
+| [`EmployeController`](api/EmployeController.java) | `getEmployes`, `getEmployeFicheDetail`, `getEmployeStats`, `getEmployeOptions`, `checkMatriculeExists`, `getNextMatricule` lisent le dossier ; `createEmploye`, `updateEmploye`, `desactiverEmploye`, `reactiverEmploye` le modifient ; `getComptesBancaires`/`updateCompteBancaire` appliquent les droits Paie ; `getPhoto*`/`uploadPhoto*` gèrent les photos. |
+| [`ContratTravailController`](api/ContratTravailController.java) | `getContratsEmploye`, `getContratActif`, `getContrat`, `getEtatEssaiEmploye`, `getAffectationsEmploye`, `getAffectationActive`, `getAffectationParContrat` consultent ; `renseignerDateSignature`, `modifierBrouillonContrat` modifient un contrat existant. La création passe par le workflow. |
+| [`WorkflowRhController`](api/WorkflowRhController.java) | `creerBrouillonEmbauche`, `creerBrouillonTransition`, `modifierBrouillonWorkflow`, `validerWorkflow`, `annulerWorkflow`, `annulerWorkflowPlanifie`, `confirmerEssaiDirectement` commandent la carrière ; `getWorkflow*` et `getStatutsWorkflows` consultent ; `forcerRattrapage` déclenche la reprise. |
+| [`DocumentRhController`](api/DocumentRhController.java) | `getDocumentsByEmploye`, `uploadDocument`, `downloadDocument`, `deleteDocument` gèrent les pièces ; `getContratData`, `getAttestationData`, `getCertificatData` et `download*Docx` produisent les documents. |
+| [`RefCarriereController`](api/RefCarriereController.java) | `getAllReferentielsCarriere` et `get*` lisent les référentiels ; `createCategoriePro`, `updateCategoriePro`, `createTypeDocument`, `updateTypeDocument`, `deleteTypeDocument` les administrent. |
+| [`ContratGlobalController`](api/ContratGlobalController.java) | `getFiltresContrats`, `getContratsGlobal`, `getStatsSupervision`, `getAlertesPrioritaires`, `exportContratsCsv` servent la supervision. |
+
+## Fichiers application et domain
+
+| Fichier | Méthodes principales / responsabilité |
+| --- | --- |
+| [`EmployeService`](application/EmployeService.java) | `creerEmploye`, `modifierEmploye`, `desactiverEmploye`, `reactiverEmploye`, `modifierCompteBancaire` possèdent les écritures ; `getFicheDetail`, `getEmployes`, `getStats`, `getOptions`, `generateNextMatricule` servent les lectures et préparations. |
+| [`WorkflowRhService`](application/WorkflowRhService.java) | `creerBrouillonEmbauche`, `creerBrouillonTransition`, `modifierBrouillonWorkflow`, `validerWorkflow`, `annulerWorkflow`, `annulerWorkflowPlanifie`, `confirmerEssaiDirectement`, `autoAppliquerMouvementsEchus` orchestrent les transitions et transactions. |
+| [`EmploymentContextResolver`](application/EmploymentContextResolver.java) | `resolveContext`, `resolveCoverage`, `resolvePointageDays`, `resolveSitesByDay`, `resolveSalaryByDay`, `resolveContinuityDays`, `resolveLabels`, `listActiveEmploymentContexts` lisent l'emploi daté ; `resolveCurrent` seul utilise aujourd'hui par défaut. |
+| [`EmployerIdentityContextResolver`](application/EmployerIdentityContextResolver.java) | `resolve` fournit l'identité employeur applicable au dossier et à la période. |
+| [`DocumentRhService`](application/DocumentRhService.java) | `preparerContrat`, `preparerAttestation`, `preparerCertificat`, `genererContratDocx`, `genererAttestationDocx`, `genererCertificatDocx`, `validerLiaisonsDocument` préparent et génèrent les fichiers. |
+| [`CarriereExportService`](application/CarriereExportService.java) | `exportContratsCsv` sérialise la liste de supervision. |
+| [`EmployeValidationEngine`](domain/EmployeValidationEngine.java) | `validerEmploye`, `validerAgeLegal`, `validerCinFormatEtDate`, `validerCompteBancaire`, `validerDesactivation` contrôlent les invariants du dossier. |
+| [`ContratValidationEngine`](domain/ContratValidationEngine.java) | `validerDatesContrat` contrôle la chronologie contractuelle. |
+| [`CarriereTransitionValidator`](domain/CarriereTransitionValidator.java) | `validerTransition`, `validerDureeContratCDD`, `validerMotifCDD`, `trouverCddReembaucheMemePoste` contrôlent l'admissibilité des mouvements. |
+| [`AncienneteEngine`](domain/AncienneteEngine.java) | `evaluerAnciennete`, `calculerAnciennete`, `calculerAncienneteEmploye`, `calculerAncienneteBatch`, `formaterAncienneteTexte` reconstituent l'ancienneté. |
+| [`MatriculeGeneratorEngine`](domain/MatriculeGeneratorEngine.java) | `genererMatriculeSequentiel`, `genererMatriculeParDefaut` construisent les matricules ; l'unicité concurrente dépend aussi de la transaction et de SQL. |
+| [`EmploymentContext`](domain/EmploymentContext.java) | Données d'emploi résolues ; `estActifAPaie`, `estSoumisPointage` donnent les indicateurs consommés par les autres domaines. |
+
+## Contrats HTTP et persistance
+
+Les DTO de `api/dto/` sont : `EmployeRequest` (écriture du dossier), `ContratTravailGlobalDTO` (vue globale), `EmployeFicheDetailDTO` (vue détaillée), `DocumentRhDTO` (pièce), `TransitionCarriereRequest` (commande de transition), `ContratModificationRequest` (brouillon), `DateSignatureRequest` (signature) et `EtatEssaiDTO` (état d'essai fourni au frontend). Les trois derniers sont des classes autonomes extraites du contrôleur ; leur JSON reste identique.
+
+| Fichier de `persistence/` | Usage |
+| --- | --- |
+| [`Employe`](persistence/Employe.java), [`EmployeCPL`](persistence/EmployeCPL.java) | Compte principal et vue détaillée de l'employé. |
+| [`EmployeCompteBanque`](persistence/EmployeCompteBanque.java) | Coordonnées bancaires. |
+| [`EmployeConjoint`](persistence/EmployeConjoint.java), [`EmployeEnfant`](persistence/EmployeEnfant.java), [`EmployeContactUrgence`](persistence/EmployeContactUrgence.java) | Données familiales et contacts satellites. |
+| [`ContratTravail`](persistence/ContratTravail.java), [`EmployeAffectationCarriere`](persistence/EmployeAffectationCarriere.java) | Contrat et affectation datée ; sources du contexte d'emploi. |
+| [`WorkflowRh`](persistence/WorkflowRh.java), [`WorkflowRhCPL`](persistence/WorkflowRhCPL.java) | Mouvement RH et vue enrichie. |
+| [`DocumentRh`](persistence/DocumentRh.java), [`DocumentRhCPL`](persistence/DocumentRhCPL.java) | Pièce RH et vue enrichie. |
+| [`RefCategorieProfessionnelle`](persistence/RefCategorieProfessionnelle.java), [`RefModeCalculPaie`](persistence/RefModeCalculPaie.java) | Catégorie professionnelle et mode de paie. |
+| [`RefMotifMouvement`](persistence/RefMotifMouvement.java), [`RefMotifSortie`](persistence/RefMotifSortie.java) | Motifs des transitions et sorties. |
+| [`RefTypeDocument`](persistence/RefTypeDocument.java), [`RefTypeEvenementRh`](persistence/RefTypeEvenementRh.java) | Types de pièces et d'événements RH. |
+
+Ces classes exécutent le SQL Active Record : `controler`, `inserer`, `modifier`, `rechercherParId`, méthodes de liste et de recherche selon le modèle. Leurs accesseurs ne sont pas des règles métier ; les cas d'usage se trouvent dans `application/` et les invariants dans `domain/`.
+
+Les routes `/employes/*`, `/contrats/*`, `/documents/*`, `/ref-carriere/*` et `/ref-types-documents/*` exigent une authentification. Les contrôleurs appliquent `EMPLOYE_READ`, `EMPLOYE_WRITE`, `EMPLOYE_VALIDATE`, `PAIE_READ`, `PAIE_WRITE` ou `ROLE_ADMIN` selon l'opération. La lecture des données bancaires et des contrats générés est plus restrictive que la fiche générale ; vérifier l'annotation de la méthode avant de changer une route. Les clés composées `(id_contrat, id_employe)` et `(id_service, id_departement)` protègent les affectations en base.
+
+## Vérifier un changement
+
+- Employé et satellites : `EmployeSatelliteLifecycleTest`, `EmployeConjointLifecycleTest`, `EmployeCompteBanqueLifecycleTest`, `EmployeServiceSatelliteNullTest`.
+- Matricule et contrat : `EmployeMatriculeConcurrencyPostgresTest`, `ContratTravailControllerPostgresTest`.
+- Autorisations bancaires : `EmployeBankAccessTest`.
+- Règles pures : `CarriereTransitionValidatorCddTest`, `EmployeValidationEngineSatelliteTest`.
+
+Les tests PostgreSQL demandent leur base isolée et peuvent être ignorés sans elle. Pour un changement de contrat HTTP, exécuter aussi `npm run test:api` et `npm run build` depuis `frontend/`. Les règles métier détaillées figurent dans [le Boky Employé et Carrière](../../../../../../../docs/boky/module-employe-carriere.md).

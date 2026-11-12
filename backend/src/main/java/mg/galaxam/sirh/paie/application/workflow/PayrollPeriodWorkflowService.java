@@ -30,7 +30,7 @@ import mg.galaxam.sirh.paie.api.dto.PayrollWorkflowStatuses;
 import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView.PayrollOutputView;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
-import mg.galaxam.sirh.dashboard.application.NotificationRhService;
+import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
 import mg.galaxam.sirh.paie.application.PayrollService;
 import mg.galaxam.sirh.paie.application.PayrollPopulationResolver;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;

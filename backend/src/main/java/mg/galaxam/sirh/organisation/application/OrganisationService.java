@@ -17,7 +17,7 @@ import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.common.exception.SirhExceptionTranslator;
 import mg.galaxam.sirh.organisation.api.dto.*;
 import mg.galaxam.sirh.organisation.persistence.*;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.securite.application;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

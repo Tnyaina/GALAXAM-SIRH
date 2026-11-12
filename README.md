@@ -157,6 +157,8 @@ flowchart LR
 
 ### Choix d'Architecture Notables
 
+Les règles de propriété des domaines, de contrat API et de rangement des fichiers sont détaillées dans [ARCHITECTURE.md](ARCHITECTURE.md).
+
 1. **JDBC Direct plutôt qu'un ORM (Hibernate/JPA) :**
    Les accès JDBC rendent les requêtes SQL explicites et permettent de maîtriser leur formulation, y compris les verrous transactionnels (`FOR UPDATE`). Ce choix ne garantit pas à lui seul l'absence de motifs N+1 ni un niveau de performance : ceux-ci dépendent des requêtes et doivent être évalués par inspection et mesures.
 2. **Backend-Driven UI :**

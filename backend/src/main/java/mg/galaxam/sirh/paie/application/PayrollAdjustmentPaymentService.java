@@ -11,7 +11,7 @@ import javax.sql.DataSource;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.api.dto.ConfirmationVersementRequest;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.stereotype.Service;
 
 @Service

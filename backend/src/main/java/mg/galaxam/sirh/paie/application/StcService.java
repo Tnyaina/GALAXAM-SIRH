@@ -44,7 +44,7 @@ import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.api.dto.stc.AnnulationReglementRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.StcReglementDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcSituationReglementDTO;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 

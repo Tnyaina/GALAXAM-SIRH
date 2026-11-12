@@ -9,8 +9,8 @@ import mg.galaxam.sirh.pointage.application.PointageImportService;
 import mg.galaxam.sirh.pointage.application.PointageService;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
 import mg.galaxam.sirh.pointage.persistence.EmployeIndemniteDerogation;
-import mg.galaxam.sirh.securite.AuditLog;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -275,7 +275,7 @@ public class PointageController {
             throw new IllegalArgumentException("Version et correction en minutes obligatoires.");
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         Integer userId = authentication != null
-                && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.CustomUserDetails user
+                && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.auth.CustomUserDetails user
                 ? user.getIdUtilisateur() : null;
         boolean daf = authentication != null && authentication.getAuthorities().stream().anyMatch(authority ->
                 "POINTAGE_VALIDATE".equals(authority.getAuthority()) || "ROLE_ADMIN".equals(authority.getAuthority()));
@@ -293,7 +293,7 @@ public class PointageController {
             throw new IllegalArgumentException("Employé, période et correction obligatoires.");
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         Integer userId = authentication != null
-                && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.CustomUserDetails user
+                && authentication.getPrincipal() instanceof mg.galaxam.sirh.securite.auth.CustomUserDetails user
                 ? user.getIdUtilisateur() : null;
         boolean daf = authentication != null && authentication.getAuthorities().stream().anyMatch(authority ->
                 "POINTAGE_VALIDATE".equals(authority.getAuthority()) || "ROLE_ADMIN".equals(authority.getAuthority()));

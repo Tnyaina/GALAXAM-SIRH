@@ -1,5 +1,37 @@
 # Code commun du backend
 
+```mermaid
+flowchart LR
+    DOMAIN[Service de domaine] --> DECISION[DTO de décision]
+    DOMAIN --> TX[TransactionRunner]
+    DOMAIN --> EX[SirhBusinessException]
+    EX --> HANDLER[GlobalExceptionHandler]
+    HANDLER --> ERROR[ApiErrorResponse]
+    REQUEST[Requête HTTP] --> FILTER[BackupConsistencyFilter]
+    JOB[Tâche hors HTTP] --> GATE[BackupConsistencyGate]
+```
+
+## Inventaire des fichiers
+
+| Fichier | Méthodes ou données à connaître | Importance |
+| --- | --- | --- |
+| [`BackupConsistencyFilter`](backup/BackupConsistencyFilter.java) | `doFilterInternal` prend un verrou partagé PostgreSQL pendant toute la requête HTTP et limite les requêtes admises. | **Critique** — cohérence des sauvegardes. |
+| [`BackupConsistencyGate`](backup/BackupConsistencyGate.java) | `withWriteAccess(Callable)` et `withWriteAccess(CheckedRunnable)` encadrent les écritures hors filtre HTTP avec le même verrou ; `LOCK_NAMESPACE` et `LOCK_ID` identifient ce verrou. | **Critique** — coordination des écritures hors HTTP. |
+| [`TransactionRunner`](transaction/TransactionRunner.java) | `required(Work)` ouvre une connexion, exécute le travail, valide ou annule ; `Work.execute` reçoit cette connexion. | **Critique** — atomicité des écritures JDBC qui l'utilisent. |
+| [`SirhErrorCode`](exception/SirhErrorCode.java) | `getHttpStatus`, `getDefaultMessage` ; catalogue des codes d'erreur partagés. | **Critique** — contrat HTTP d'erreur. |
+| [`SirhBusinessException`](exception/SirhBusinessException.java) | Constructeurs et `getErrorCode`, `getHttpStatus`, `getDetails`, `getIssues` transportent l'échec métier. | **Critique** — déclenche le rollback lorsqu'elle se propage. |
+| [`SirhExceptionTranslator`](exception/SirhExceptionTranslator.java) | `propagate` préserve les exceptions runtime et traduit les exceptions contrôlées. | **Structurant** — propagation vers la frontière HTTP. |
+| [`ApiErrorResponse`](dto/ApiErrorResponse.java) | Constructeurs et accesseurs des champs `status`, `code`, `message`, `details`, `issues`, etc. | **Structurant** — forme JSON des erreurs. |
+| [`BusinessIssue`](dto/BusinessIssue.java) | Record `code`, `message`, `details`. | **Support** — détail d'un champ ou prérequis. |
+| [`BusinessDecision`](dto/BusinessDecision.java) | Record de décision : état, résultat, règles examinées, blocages, avertissements, `availableActions`, version. | **Structurant** — transporte une décision prise par un domaine. |
+| [`DecisionStatus`](dto/DecisionStatus.java) | Valeurs du résultat d'une décision. | **Support** — vocabulaire partagé. |
+| [`RuleResult`](dto/RuleResult.java) | Record de résultat d'une règle ; `pass(code)` crée un succès simple. | **Support** — diagnostic d'une évaluation. |
+| [`ActionCapability`](dto/ActionCapability.java) | Record `allowed`/`reasonCodes` ; `permit()` et `denied(reasonCode)`. | **Structurant** — capacité d'action renvoyée au client. |
+| [`PageDTO`](dto/PageDTO.java) | Constructeurs et accesseurs de `content`, total et paramètres de page. | **Support** — réponse paginée. |
+| [`FlexibleLocalDateDeserializer`](json/FlexibleLocalDateDeserializer.java) | `deserialize` accepte date ISO simple ou date-heure ISO et retourne `LocalDate`. | **Support** — compatibilité des entrées JSON. |
+
+`common/` fournit des mécanismes et formes de données. Il ne décide ni des soldes, ni des droits, ni des transitions propres à un domaine. Les accesseurs et constructeurs des DTO transportent les valeurs ; ils n'appliquent pas de règle métier.
+
 Ce dossier contient des outils partagés entre les domaines RH. Il ne porte pas
 les règles propres aux congés, au pointage ou à la paie.
 

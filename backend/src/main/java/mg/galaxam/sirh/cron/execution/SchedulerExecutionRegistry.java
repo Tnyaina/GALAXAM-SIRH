@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.cron;
+package mg.galaxam.sirh.cron.execution;
 
 import java.sql.Connection;
 import java.sql.Date;

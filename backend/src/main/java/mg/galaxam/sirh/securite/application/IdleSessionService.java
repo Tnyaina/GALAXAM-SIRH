@@ -1,5 +1,6 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.securite.application;
 
+import mg.galaxam.sirh.securite.auth.JwtService;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;

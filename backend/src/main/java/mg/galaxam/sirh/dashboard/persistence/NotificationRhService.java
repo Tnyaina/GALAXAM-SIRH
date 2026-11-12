@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.dashboard.application;
+package mg.galaxam.sirh.dashboard.persistence;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

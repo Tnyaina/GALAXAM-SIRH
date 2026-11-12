@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import mg.galaxam.sirh.admin.persistence.RefRole;
-import mg.galaxam.sirh.securite.Utilisateur;
+import mg.galaxam.sirh.securite.persistence.Utilisateur;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;

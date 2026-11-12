@@ -1,5 +1,10 @@
-package mg.galaxam.sirh.cron;
+package mg.galaxam.sirh.cron.execution;
 
+import mg.galaxam.sirh.cron.jobs.SessionSecurityScheduler;
+import mg.galaxam.sirh.cron.jobs.NotificationRhScheduler;
+import mg.galaxam.sirh.cron.jobs.MouvementRhScheduler;
+import mg.galaxam.sirh.cron.jobs.AuditLogPurgeScheduler;
+import mg.galaxam.sirh.cron.jobs.AcquisitionCongeScheduler;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;

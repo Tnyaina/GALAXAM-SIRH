@@ -1,5 +1,6 @@
 package mg.galaxam.sirh.securite;
 
+import mg.galaxam.sirh.securite.application.LoginAttemptRateLimiter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.securite.persistence;
 
 import bean.ClassMere;
 import java.sql.Connection;

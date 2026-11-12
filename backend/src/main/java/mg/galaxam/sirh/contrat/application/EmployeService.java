@@ -13,7 +13,7 @@ import mg.galaxam.sirh.common.dto.PageDTO;
 import mg.galaxam.sirh.contrat.api.dto.EmployeRequest.DesactivationRequest;
 import mg.galaxam.sirh.contrat.api.dto.EmployeFicheDetailDTO;
 import mg.galaxam.sirh.contrat.api.dto.EmployeRequest;
-import mg.galaxam.sirh.dashboard.application.NotificationRhService;
+import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
 import mg.galaxam.sirh.contrat.persistence.Employe;
 import mg.galaxam.sirh.contrat.persistence.EmployeCPL;
 import mg.galaxam.sirh.contrat.persistence.EmployeCompteBanque;
@@ -22,7 +22,7 @@ import mg.galaxam.sirh.contrat.persistence.EmployeContactUrgence;
 import mg.galaxam.sirh.contrat.persistence.EmployeEnfant;
 import mg.galaxam.sirh.contrat.domain.EmployeValidationEngine;
 import mg.galaxam.sirh.contrat.domain.MatriculeGeneratorEngine;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.stereotype.Service;
 
 @Service

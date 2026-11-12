@@ -17,7 +17,7 @@ import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
 import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 

@@ -12,7 +12,7 @@ import mg.galaxam.sirh.admin.api.dto.RoleRequest;
 import mg.galaxam.sirh.admin.persistence.RefRole;
 import mg.galaxam.sirh.admin.persistence.RoleMenu;
 import mg.galaxam.sirh.admin.persistence.RolePermission;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

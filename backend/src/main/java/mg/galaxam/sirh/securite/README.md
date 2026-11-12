@@ -1,99 +1,65 @@
-# Domaine Sécurité
+# Sécurité — guide technique
 
-Ce dossier regroupe l'authentification, la gestion des utilisateurs, les tokens JWT et la journalisation d'audit.
+Ce module gère les comptes, l'authentification, les sessions, les JWT et les traces d'audit. Les autorisations globales sont configurées dans [`SecurityConfig`](../config/SecurityConfig.java) ; les permissions fines restent dans les contrôleurs et les cas d'usage des domaines.
 
-- `api/` : contrôleurs REST (`AuthController`, `UtilisateurController`)
-- `api/dto/` : contrats d'entrée/sortie (`LoginRequest`, `RegisterRequest`, `UtilisateurRequest`, `UtilisateurResponse`)
-- Composants de sécurité Spring & JWT : `JwtService`, `JwtAuthenticationFilter`, `CustomUserDetailsService`, `CustomUserDetails`
-- Persistance & audit : `Utilisateur`, `AuditLog`, `JournalConnexion`, `AdminAccountSeeder`
+```text
+securite/
+├── api/             Authentification, utilisateurs, bootstrap desktop et DTO HTTP
+├── application/     Sessions, limitation des connexions et bootstrap administrateur
+├── auth/            JWT, filtre et identité Spring Security
+└── persistence/     Comptes, journal des connexions et audit JDBC
+```
 
-Les routes publiques de ce domaine sont `/auth/login`, `/auth/refresh`,
-`/auth/logout` et `/auth/ping`. Les autres routes `/auth/*` exigent une
-authentification, sauf `/auth/register`, réservé à `ROLE_ADMIN`. Les routes
-`/securite/utilisateurs/*` sont réservées à `ROLE_ADMIN` par `SecurityConfig`.
-Voir [la documentation du module](../../../../../../../docs/boky/module-securite-audit.md)
-pour le catalogue détaillé.
+```mermaid
+flowchart LR
+    LOGIN[AuthController.login] --> USER[Utilisateur]
+    LOGIN --> RATE[LoginAttemptRateLimiter]
+    LOGIN --> SESSION[IdleSessionService]
+    LOGIN --> JWT[JwtService]
+    REQ[Requête Bearer] --> FILTER[JwtAuthenticationFilter]
+    FILTER --> JWT
+    FILTER --> DETAILS[CustomUserDetailsService]
+    FILTER --> SESSION
+    DETAILS --> USER
+    API[Commandes métier] --> AUDIT[AuditLog]
+```
 
-## Carte du code pour la soutenance
+## Inventaire des fichiers et méthodes
 
-| Besoin | Point d'entrée à ouvrir | Rôle de la méthode |
+| Fichier | Méthodes principales et usage | Importance |
 | --- | --- | --- |
-| Définir les accès | `backend/conception/bdd/01_schema_core_securite.sql` | `utilisateur`, `ref_role`, `ref_module`, `role_permission` et `utilisateur_session` constituent le modèle en base. |
-| Protéger les routes | `config/SecurityConfig.securityFilterChain` | Déclare les routes publiques, les routes administrateur et l'authentification requise ailleurs ; installe le filtre JWT. |
-| Se connecter | `api/AuthController.login` | Vérifie les données, le compte et le mot de passe ; crée une session, un access token et un refresh token. |
-| Vérifier le mot de passe | `Utilisateur.verifierMotDePasse` | Compare le mot de passe fourni au hachage BCrypt ; `Utilisateur.controler` contrôle et hache un nouveau mot de passe. |
-| Charger les droits | `CustomUserDetailsService.loadUserByUsername` | Traduit le rôle et les droits par module en autorités Spring telles que `POINTAGE_WRITE`. |
-| Créer et vérifier les JWT | `JwtService.generateAccessToken`, `generateRefreshToken`, `extractValidUsername` | Signe les jetons HS512 et vérifie la signature et l'expiration d'un access token. |
-| Authentifier une requête | `JwtAuthenticationFilter.doFilterInternal` | Lit le Bearer, recharge le compte, vérifie la session `sid`, puis renseigne le contexte Spring Security. |
-| Autoriser une méthode | `@PreAuthorize` dans les contrôleurs, par exemple `pointage/api/PointageController` | Exige une autorité avant l'exécution de l'action. Les services peuvent vérifier en plus les règles du workflow. |
-| Renouveler la session | `api/AuthController.refresh` et `IdleSessionService.rotate` | Vérifie le refresh token et la session en base, remplace le refresh token et émet un nouvel access token. |
-| Suivre l'inactivité | `api/AuthController.recordActivity`, `IdleSessionService.touch`, `isActive` | Une activité explicite actualise `last_activity_at` ; une session inactive est refusée. |
-| Révoquer l'accès | `api/AuthController.logout`, `IdleSessionService.revoke`, `revokeAllForUser` | Révoque une session ou toutes les sessions d'un compte. |
-| Garder une trace | `JournalConnexion.save`, `AuditLog.audit` | Enregistre les connexions et les opérations qui appellent explicitement l'audit. |
+| [`api/AuthController`](api/AuthController.java) | `login` vérifie le compte et crée les jetons/session ; `refresh` renouvelle le cookie ; `logout` révoque ; `recordActivity` prolonge l'activité ; `getMenu` renvoie les menus autorisés ; `register` crée un compte admin ; `ping` contrôle l'accès. `requireTrustedOrigin` protège les commandes à cookie et `createRefreshCookie` construit ce cookie. | **Critique** — frontière des sessions HTTP. |
+| [`api/UtilisateurController`](api/UtilisateurController.java) | `getAllUsers`, `getUserById`, `createUser`, `updateUser`, `deactivateUser`, `activateUser` administrent les comptes ; changement de mot de passe et désactivation révoquent les sessions selon leur parcours. | **Critique** — cycle de vie des accès. |
+| [`api/DesktopBootstrapController`](api/DesktopBootstrapController.java) | `createInitialAdmin` initialise le premier admin desktop ; `validCapability` contrôle la capacité locale ; `handleBootstrapRejection` transforme un refus. | **Critique** — initialisation locale. |
+| [`application/AdminAccountSeeder`](application/AdminAccountSeeder.java) | `run` crée l'admin configuré uniquement si aucun admin actif n'existe. | **Critique** — bootstrap serveur. |
+| [`application/IdleSessionService`](application/IdleSessionService.java) | `migrateSessionSchema`, `create`, `isActive`, `touch`, `rotate`, `revoke`, `revokeAllForUser`, `findSessionIdByRefreshToken`, `findTokensByRefreshToken`, `expireIfIdle`, `getIdleExpiresAt` gèrent le cycle des familles de sessions ; `SessionTokens` et `AuthenticationSession` transportent les données. | **Critique** — révocation et inactivité. |
+| [`application/LoginAttemptRateLimiter`](application/LoginAttemptRateLimiter.java) | `retryAfterSeconds`, `recordFailure`, `recordSuccess` limitent les essais de connexion ; `evictExpiredAndOldest` borne le compteur en mémoire. | **Critique** — protection du login, locale à l'instance. |
+| [`auth/JwtService`](auth/JwtService.java) | `validateJwtSecret`, `generateAccessToken`, `generateRefreshToken`, `extractValidUsername`, `extractSessionId`, `isTokenValid`, `isRefreshTokenValid`, durées d'expiration. | **Critique** — émission et validation des jetons. |
+| [`auth/JwtAuthenticationFilter`](auth/JwtAuthenticationFilter.java) | `doFilterInternal` lit le Bearer, vérifie le compte et la session, renseigne le contexte Spring. | **Critique** — authentification de chaque requête protégée. |
+| [`auth/CustomUserDetailsService`](auth/CustomUserDetailsService.java) | `loadUserByUsername` charge compte, rôle et autorités par module. | **Critique** — droits effectifs. |
+| [`auth/CustomUserDetails`](auth/CustomUserDetails.java) | `getAuthorities`, `getUsername`, `getPassword`, `isEnabled`, `getCurrentUserId` et autres méthodes `UserDetails` exposent l'identité au framework. | **Structurant** — identité courante. |
+| [`persistence/Utilisateur`](persistence/Utilisateur.java) | `controler`, `verifierMotDePasse`, `setMotDePasseEnClair`, `rechercherParEmail`, `rechercherParId`, `lister`, méthodes de refresh héritées et opérations Active Record. `supprimer` interdit la suppression physique. | **Critique** — état du compte et SQL. |
+| [`persistence/JournalConnexion`](persistence/JournalConnexion.java) | `controler`, `inserer`, méthodes Active Record et accesseurs enregistrent le résultat d'une connexion. | **Structurant** — traçabilité des connexions. |
+| [`persistence/AuditLog`](persistence/AuditLog.java) | `audit` enregistre auteur, action, table, ancien/nouvel état et adresse IP ; méthodes Active Record et sérialisation servent cette écriture. | **Critique** — traçabilité des commandes. |
 
-**Parcours à montrer :** schéma SQL → `AuthController.login` → `Utilisateur.verifierMotDePasse` →
-`CustomUserDetailsService.loadUserByUsername` → `JwtService` →
-`JwtAuthenticationFilter.doFilterInternal` → `SecurityConfig.securityFilterChain` →
-un `@PreAuthorize` métier → `AuthController.refresh` et `IdleSessionService`.
+| DTO HTTP | Rôle |
+| --- | --- |
+| [`LoginRequest`](api/dto/LoginRequest.java) | Email et mot de passe du login. |
+| [`RegisterRequest`](api/dto/RegisterRequest.java) | Identité, email, mot de passe et rôle pour l'inscription admin. |
+| [`UtilisateurRequest`](api/dto/UtilisateurRequest.java) | Création, modification, désactivation d'un compte. |
+| [`UtilisateurResponse`](api/dto/UtilisateurResponse.java) | Vue de compte sans mot de passe ni refresh token. |
 
-L'access token est envoyé en Bearer ; le refresh token est placé dans un cookie
-`HttpOnly`. Ils sont liés par la ligne `utilisateur_session` : l'access token
-porte son identifiant `sid`, et la ligne contient le refresh token. Le refresh
-ne prolonge pas à lui seul les 15 minutes d'inactivité ; seule une activité
-acceptée par `recordActivity` actualise `last_activity_at`.
+Les accesseurs des modèles et DTO transportent des champs ; ils ne sont pas des décisions métier. La règle de validité d'un compte est dans `Utilisateur`, la validité d'une session dans `IdleSessionService`, et le contrôle d'accès à une route dans `SecurityConfig` ou `@PreAuthorize`.
 
-Les erreurs et transactions ne sont pas propres à ce module :
-`common/transaction/TransactionRunner.required` fait `commit` ou `rollback`
-sur une même connexion JDBC ; `common/exception/SirhBusinessException` porte
-le code métier ; `config/GlobalExceptionHandler.handleSirhBusiness` transforme
-l'exception propagée en réponse HTTP. Certains cas d'usage gèrent directement
-`setAutoCommit(false)`, `commit()` et `rollback()`.
+## Contrats et invariants
 
-## Bootstrap du premier administrateur
+- **Routes** : `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/ping`, `/auth/activity`, `/auth/menu`, `/auth/register`, `/securite/utilisateurs/*` et `/desktop/setup/admin`. `SecurityConfig` définit les accès globaux ; `@PreAuthorize` protège notamment `register` et les opérations utilisateur. Le préfixe `/api` vient du context-path.
+- **Jetons** : l'access token est un Bearer ; le refresh token est dans un cookie `HttpOnly`. Les deux sont liés à `utilisateur_session` par `sid`. Le renouvellement du refresh ne prolonge pas à lui seul l'inactivité ; seule une activité acceptée actualise `last_activity_at`.
+- **Révocation** : désactivation du compte et changement de mot de passe non vide révoquent les sessions. La réactivation impose une nouvelle connexion. `Utilisateur.supprimer` interdit la suppression physique pour préserver les historiques.
+- **Origine** : `refresh` et `logout` vérifient une origine autorisée par `app.cors.allowed-origins` via `Origin` ou `Referer`. La limite de tentatives de login est en mémoire par instance.
+- **Bootstrap** : `AdminAccountSeeder` est désactivé par défaut et ne crée un admin que si aucun admin actif n'existe. Le bootstrap desktop utilise un parcours distinct.
+- **Audit** : `AuditLog.audit` est appelé explicitement par les commandes. Une erreur d'audit doit remonter et annuler l'opération lorsqu'elle partage la même transaction.
 
-Le bootstrap Spring est désactivé par défaut dans `application.properties`. Les deux Compose Web transmettent l'adresse et le mot de passe administrateur depuis les variables utilisateur `SIRH_PROD_*` ou `SIRH_DEV_*`. Ne pas ajouter les secrets aux documents ou fichiers suivis.
+## Tests et références
 
-Lorsque le bootstrap est activé, `AdminAccountSeeder` crée le compte seulement si aucun administrateur actif n'existe. Un administrateur déjà actif conserve son identité et son mot de passe. Après l'initialisation, désactiver le bootstrap dans `.env` et recréer le backend pour appliquer la variable. Le mode de développement hors Docker possède ses propres paramètres dans `application-local.properties`.
-
-## Cycle de vie du compte et sessions
-
-La procédure normale pour retirer un accès est la désactivation via
-`UtilisateurController`. Elle efface les colonnes de refresh héritées du compte
-et révoque toutes ses familles dans `utilisateur_session`. La réactivation ne
-restaure pas les anciennes sessions : l'utilisateur doit se reconnecter. Le
-refresh exige un compte actif et une famille non révoquée ; le logout révoque
-la famille du cookie. Une requête concurrente peut réutiliser le token précédent
-pendant dix secondes pour récupérer le token déjà émis, sans prolonger l'activité.
-
-La suppression physique via `Utilisateur.delete` est interdite afin d'éviter la
-perte silencieuse des historiques liés au compte. Les journaux de connexion et
-d'audit restent donc associés à l'identité d'origine. Le filtre JWT recharge le
-compte et vérifie `isEnabled()` ainsi que la session `sid` à chaque requête.
-La désactivation révoque les sessions en base : un ancien access token reste
-refusé après réactivation. Une nouvelle connexion crée une nouvelle session.
-
-Les requêtes de renouvellement et de déconnexion par cookie exigent une origine
-exactement autorisée par `app.cors.allowed-origins` (en-tête `Origin`, ou
-`Referer` en repli). Une origine absente ou différente est refusée. Les écritures
-d'audit échouées remontent désormais une erreur ; les opérations qui utilisent
-la même transaction JDBC doivent alors être annulées.
-
-La connexion limite à dix les échecs par adresse e-mail normalisée sur une
-fenêtre de quinze minutes. Le compteur est en mémoire et borné ; il protège
-l'instance Compose unique. En cas de déploiement multi-instance, appliquer aussi
-une limite partagée au proxy d'entrée ou déplacer ce compteur vers un stockage
-partagé. Le proxy TLS public doit remplacer `X-Forwarded-Proto` et transmettre
-sa valeur à Nginx pour que le cookie de renouvellement conserve l'attribut
-`Secure`.
-
-`UtilisateurController.updateUser` peut modifier le mot de passe d'un compte
-administré ; `Utilisateur.controler` vérifie sa complexité et le hache en BCrypt.
-Lorsqu'un nouveau mot de passe non vide est fourni, la même transaction efface
-les colonnes de refresh héritées et révoque toutes les familles de sessions du
-compte. Une modification sans nouveau mot de passe ne provoque pas cette
-révocation. Le test ciblé des familles et de l'inactivité est
-`IdleSessionServicePostgresTest` ; `UtilisateurPasswordChangeTest` vérifie la
-révocation conditionnelle et l'annulation transactionnelle. Ces tests ne
-couvrent pas le parcours HTTP ou navigateur complet.
-
-Les écritures métier qui exigent un auteur échouent si aucun `CustomUserDetails` n'est présent dans le contexte de sécurité. L'identifiant du compte administrateur n'est jamais utilisé comme valeur de remplacement. Les permissions complètes implicites ne sont accordées qu'au code de rôle exact `ROLE_ADMIN`.
+`LoginAttemptRateLimiterTest` couvre la limitation, `IdleSessionServicePostgresTest` les familles et l'inactivité, `RefreshTokenUniquenessTest` l'unicité du refresh, et `UtilisateurPasswordChangeTest` la révocation conditionnelle. Les tests PostgreSQL demandent une base de test disponible. La référence métier détaillée reste [le module Sécurité et Audit](../../../../../../../docs/boky/module-securite-audit.md).

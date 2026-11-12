@@ -1,5 +1,6 @@
-package mg.galaxam.sirh.cron;
+package mg.galaxam.sirh.cron.jobs;
 
+import mg.galaxam.sirh.cron.execution.SchedulerExecutionRegistry;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -14,7 +15,7 @@ import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.backup.BackupConsistencyGate;
 import mg.galaxam.sirh.conge.application.CongeService;
-import mg.galaxam.sirh.dashboard.application.NotificationRhService;
+import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

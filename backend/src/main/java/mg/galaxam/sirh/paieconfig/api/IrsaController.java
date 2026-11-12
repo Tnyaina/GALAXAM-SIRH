@@ -7,7 +7,7 @@ import javax.sql.DataSource;
 import mg.galaxam.sirh.paieconfig.api.dto.IrsaRequest;
 import mg.galaxam.sirh.paieconfig.api.dto.IrsaRevalorisationRequest;
 import mg.galaxam.sirh.paieconfig.persistence.BaremeIrsa;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

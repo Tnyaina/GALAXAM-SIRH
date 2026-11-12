@@ -471,7 +471,7 @@ flowchart LR
    - **Effet Futur ($\text{dateEffet} > \text{Aujourd'hui}$)** :
      - Le contrat cible et l'affectation cible passent au statut `PLANIFIE`.
      - Le workflow passe au statut `PLANIFIE`.
-     - L'activation effective est déléguée au scheduler nocturne [`MouvementRhScheduler.java`](../../src/main/java/mg/galaxam/sirh/cron/MouvementRhScheduler.java) qui s'exécute chaque nuit à 00:10 (heure de Madagascar).
+     - L'activation effective est déléguée au scheduler nocturne [`MouvementRhScheduler.java`](../../src/main/java/mg/galaxam/sirh/cron/jobs/MouvementRhScheduler.java) qui s'exécute chaque nuit à 00:10 (heure de Madagascar).
 
 ---
 

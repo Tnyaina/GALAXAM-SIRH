@@ -11,8 +11,8 @@ import mg.galaxam.sirh.securite.api.dto.UtilisateurRequest;
 import mg.galaxam.sirh.securite.api.dto.UtilisateurResponse;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.admin.persistence.RefRole;
-import mg.galaxam.sirh.securite.Utilisateur;
-import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.persistence.Utilisateur;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +30,7 @@ public class UtilisateurController {
     private TransactionRunner transactionRunner;
 
     @Autowired
-    private mg.galaxam.sirh.securite.IdleSessionService idleSessionService;
+    private mg.galaxam.sirh.securite.application.IdleSessionService idleSessionService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

@@ -750,7 +750,7 @@ graph TD
 - **Colonnes** : `id_utilisateur`, `identifiant` (indexé sans unicité), `email` (unique sans distinction de casse), `mot_de_passe_hache` (BCrypt avec salage), `id_role` (un rôle principal), `est_actif`, `date_desactivation`, `motif_desactivation`, `refresh_token`, `refresh_token_expiration`.
 - **Désactivation/réactivation** : efface le refresh token et son expiration et révoque les sessions ; le cookie antérieur ne peut pas être rafraîchi après réactivation. Le filtre JWT vérifie le compte actif et la session `sid` non révoquée, donc un ancien access token reste refusé.
 - **Suppression physique** : interdite par `Utilisateur.delete` pour conserver les historiques. La base garde une FK `journal_connexion -> utilisateur ON DELETE CASCADE` et `audit_log -> utilisateur ON DELETE SET NULL` ; un `DELETE` SQL direct contournerait la politique applicative et ne doit pas servir à supprimer un compte.
-- **Politique de Sécurité Mot de Passe** ([`Utilisateur.java`](../../src/main/java/mg/galaxam/sirh/securite/Utilisateur.java)) :
+- **Politique de Sécurité Mot de Passe** ([`Utilisateur.java`](../../src/main/java/mg/galaxam/sirh/securite/persistence/Utilisateur.java)) :
   - Longueur minimale de **8 caractères** ;
   - Au moins une majuscule (`[A-Z]`) et au moins un chiffre (`[0-9]`) ;
   - Hachage systématique par `BCryptPasswordEncoder` avant écriture.
@@ -772,7 +772,7 @@ graph TD
   );
   ```
 
-### 21.3. Bootstrap Idempotent du Compte Administrateur ([`AdminAccountSeeder.java`](../../src/main/java/mg/galaxam/sirh/securite/AdminAccountSeeder.java))
+### 21.3. Bootstrap Idempotent du Compte Administrateur ([`AdminAccountSeeder.java`](../../src/main/java/mg/galaxam/sirh/securite/application/AdminAccountSeeder.java))
 Au démarrage du serveur (`CommandLineRunner`), si `app.security.bootstrap-admin.enabled = true` :
 1. Vérifie si un compte actif rattaché à `ROLE_ADMIN` existe déjà.
 2. Si oui : rollback immédiat, **aucun compte ni mot de passe n'est écrasé**.
@@ -945,7 +945,7 @@ GALAXAM SIRH fait le choix délibéré d'**exclure tout framework ORM lourd** (J
   1. Instanciation en mémoire de l'objet ;
   2. Appel de la méthode `controler(Connection c)` : validation des règles métier, unicité des codes, vérification des contraintes ;
   3. Appel de `save(c)` ou `update(c)` ;
-  4. Journalisation systématique dans la même transaction via [`AuditLog.audit(c, ...)`](../../src/main/java/mg/galaxam/sirh/securite/AuditLog.java).
+  4. Journalisation systématique dans la même transaction via [`AuditLog.audit(c, ...)`](../../src/main/java/mg/galaxam/sirh/securite/persistence/AuditLog.java).
 
 ---
 

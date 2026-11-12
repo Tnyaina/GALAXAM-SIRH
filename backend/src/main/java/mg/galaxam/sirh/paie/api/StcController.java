@@ -20,7 +20,7 @@ import mg.galaxam.sirh.paie.persistence.PaieStc;
 import mg.galaxam.sirh.paie.application.StcService;
 import mg.galaxam.sirh.paie.application.StcPaymentReconciliationService;
 import mg.galaxam.sirh.paie.application.PaymentEvidence;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

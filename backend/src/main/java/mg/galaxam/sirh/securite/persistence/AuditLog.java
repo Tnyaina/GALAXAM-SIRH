@@ -1,5 +1,6 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.securite.persistence;
 
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import bean.ClassMere;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Connection;

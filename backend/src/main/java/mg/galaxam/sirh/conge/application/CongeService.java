@@ -19,7 +19,7 @@ import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
 import mg.galaxam.sirh.conge.persistence.VDemandeCongeCpl;
 import mg.galaxam.sirh.common.dto.ActionCapability;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
-import mg.galaxam.sirh.dashboard.application.NotificationRhService;
+import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
 import mg.galaxam.sirh.conge.domain.PurgeFifoEngine;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;

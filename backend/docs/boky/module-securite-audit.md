@@ -1,7 +1,7 @@
 # GALAXAM SIRH — Module Sécurité, IAM, RBAC & Piste d'Audit
 ## Document Canonique — Mis à jour Octobre 2026
 
-> **Références d'implémentation** : `securite/api/AuthController.java`, `config/SecurityConfig.java`, `securite/IdleSessionService.java`, `frontend/src/context/AuthContext.jsx` et `backend/conception/bdd/01_schema_core_securite.sql`.
+> **Références d'implémentation** : `securite/api/AuthController.java`, `config/SecurityConfig.java`, `securite/application/IdleSessionService.java`, `frontend/src/context/AuthContext.jsx` et `backend/conception/bdd/01_schema_core_securite.sql`.
 > **Cadre Juridique** : Loi n° 2014-038 (Protection des données personnelles, Madagascar) — NIST SP 800-107 (HS512) — OWASP API Security Top 10.
 
 ---
@@ -79,8 +79,8 @@ l'expiration de l'access token, au besoin à la reprise, et coordonne les
 renouvellements concurrents. Ces contrôles d'interface n'accordent aucune
 permission côté serveur.
 
-Les classes concernées sont `securite/IdleSessionService.java`,
-`securite/JwtAuthenticationFilter.java`, `securite/JwtService.java` et
+Les classes concernées sont `securite/application/IdleSessionService.java`,
+`securite/auth/JwtAuthenticationFilter.java`, `securite/auth/JwtService.java` et
 `securite/api/AuthController.java`; côté React,
 `context/idleSession.js`, `context/AuthContext.jsx` et `api/apiClient.js`.
 Les tests temporels du service nécessitent PostgreSQL de test isolé via

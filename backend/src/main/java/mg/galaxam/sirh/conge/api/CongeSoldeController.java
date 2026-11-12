@@ -18,7 +18,7 @@ import mg.galaxam.sirh.conge.domain.CongeSoldeRequests.ReporterExamenRequest;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
 import mg.galaxam.sirh.conge.persistence.RefPoolCongeAnnuel;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;

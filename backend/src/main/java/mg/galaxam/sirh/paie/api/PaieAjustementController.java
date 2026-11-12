@@ -28,8 +28,8 @@ import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.Payroll
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
-import mg.galaxam.sirh.securite.AuditLog;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.persistence.AuditLog;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

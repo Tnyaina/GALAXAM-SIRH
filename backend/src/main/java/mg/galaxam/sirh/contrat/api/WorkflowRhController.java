@@ -10,7 +10,7 @@ import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRh;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRhCPL;
 import mg.galaxam.sirh.contrat.application.WorkflowRhService;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,7 +34,7 @@ public class WorkflowRhController {
 
     @Autowired
     @org.springframework.context.annotation.Lazy
-    private mg.galaxam.sirh.cron.RattrapageAutomatiqueService rattrapageAutomatiqueService;
+    private mg.galaxam.sirh.cron.execution.RattrapageAutomatiqueService rattrapageAutomatiqueService;
 
     // =========================================================================
     // EMBAUCHE INITIALE

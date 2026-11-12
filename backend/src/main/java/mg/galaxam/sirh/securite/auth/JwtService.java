@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.securite.auth;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

@@ -1,5 +1,6 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.securite.auth;
 
+import mg.galaxam.sirh.securite.application.IdleSessionService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
