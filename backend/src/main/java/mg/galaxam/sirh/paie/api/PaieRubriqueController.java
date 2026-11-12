@@ -1,4 +1,6 @@
 package mg.galaxam.sirh.paie.api;
+import mg.galaxam.sirh.paie.application.rubrique.ManualRubriqueManagementService;
+import mg.galaxam.sirh.paie.application.rubrique.PayrollRubriqueCycleService;
 
 
 import java.sql.Connection;
@@ -26,10 +28,10 @@ public class PaieRubriqueController {
     private DataSource dataSource;
 
     @Autowired
-    private mg.galaxam.sirh.paie.application.PayrollRubriqueCycleService rubriqueCycleService;
+    private mg.galaxam.sirh.paie.application.rubrique.PayrollRubriqueCycleService rubriqueCycleService;
 
     @Autowired
-    private mg.galaxam.sirh.paie.application.ManualRubriqueManagementService rubriqueManagementService;
+    private mg.galaxam.sirh.paie.application.rubrique.ManualRubriqueManagementService rubriqueManagementService;
 
     @GetMapping("/cycle-preview")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")

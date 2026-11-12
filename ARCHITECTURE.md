@@ -54,7 +54,7 @@ Chaque README contient au minimum, de façon concise :
 
 Dans la colonne « importance », utiliser **critique** pour un calcul, une décision, une autorisation ou une écriture dont l'erreur affecte les données métier ; **structurant** pour un cas d'usage ou une frontière API ; **support** pour une lecture, un export ou un mécanisme auxiliaire. Justifier le niveau en une phrase. Mettre à jour le README lors d'un changement de parcours, d'API ou de propriétaire d'une règle, et vérifier les liens vers les méthodes après un renommage.
 
-À faire : compléter les README techniques de `paie` selon cette convention. Les README de `organisation`, `admin`, `securite`, `dashboard`, `contrat`, `conge`, `pointage` et `paieconfig` suivent déjà ce format. `common`, `config` et `cron` sont transversaux ou techniques : documenter leurs mécanismes et leurs consommateurs dans leur README, sans les présenter artificiellement comme des domaines métier.
+Les README techniques des domaines déjà traités suivent cette convention. Les README de `organisation`, `admin`, `securite`, `dashboard`, `contrat`, `conge`, `pointage` et `paieconfig` suivent déjà ce format. `common`, `config` et `cron` sont transversaux ou techniques : documenter leurs mécanismes et leurs consommateurs dans leur README, sans les présenter artificiellement comme des domaines métier.
 
 ## Lire un parcours dans le code
 
@@ -62,7 +62,7 @@ Pour retrouver le fonctionnement principal, suivre cette chaîne : **page React 
 
 | Exemple | Point d'entrée frontend | Contrat HTTP | Cas d'usage serveur | Règle métier |
 | --- | --- | --- | --- | --- |
-| Calcul d'une campagne de paie | `features/payroll/pages/CalculStepPage.jsx` et `features/payroll/api/paieService.js` | `paie/api/PaieController.java` | `paie/application/PayrollService.java` (`calculerPaiePeriode`) | `paie/domain/engine/PayrollExecutionEngine.java` et moteurs associés |
+| Calcul d'une campagne de paie | `features/payroll/pages/CalculStepPage.jsx` et `features/payroll/api/paieService.js` | `paie/api/PaieController.java` | `paie/application/calculation/PayrollService.java` (`calculerPaiePeriode`) | `paie/domain/engine/PayrollExecutionEngine.java` et moteurs associés |
 | Simulation d'une demande de congé | `features/leave/hooks/useDemandeCongeForm.js` et `features/leave/api/congeService.js` | `conge/api/DemandeCongeController.java` | `conge/application/CongeService.java` (`simulerDemande`) | `conge/domain/CongeCalculateurEngine.java` (`simuler`) |
 | Calcul des semaines de pointage | `features/attendance/` et son service API | `pointage/api/PointageController.java` (`calculerTout`) | `pointage/application/PointageSyntheseService.java` (`calculerToutesSemainesPeriode`) | `pointage/domain/calculation/AttendanceEngine.java` et `TemporalAttendanceEngine.java` |
 

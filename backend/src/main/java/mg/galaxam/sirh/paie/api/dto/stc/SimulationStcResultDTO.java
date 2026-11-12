@@ -1,4 +1,5 @@
 package mg.galaxam.sirh.paie.api.dto.stc;
+import mg.galaxam.sirh.paie.application.stc.StcService;
 
 import java.util.Map;
 

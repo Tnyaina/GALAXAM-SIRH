@@ -1,4 +1,7 @@
 package mg.galaxam.sirh.paie.api;
+import mg.galaxam.sirh.paie.application.adjustment.PayrollAdjustmentCreationService;
+import mg.galaxam.sirh.paie.application.adjustment.PayrollAdjustmentSummaryService;
+import mg.galaxam.sirh.paie.application.rubrique.ManualRubriqueResolver;
 
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
@@ -19,14 +22,14 @@ import mg.galaxam.sirh.paie.api.dto.ConfirmationVersementRequest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
-import mg.galaxam.sirh.paie.application.ManualVariableAmountService;
-import mg.galaxam.sirh.paie.application.PayrollAdjustmentPaymentService;
-import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAdjustmentCommand;
-import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommandRequest;
-import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentWorkflowService;
-import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAction;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
+import mg.galaxam.sirh.paie.application.rubrique.ManualVariableAmountService;
+import mg.galaxam.sirh.paie.application.adjustment.PayrollAdjustmentPaymentService;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollWorkflowCommands.PayrollAdjustmentCommand;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollAdjustmentCommandRequest;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollAdjustmentWorkflowService;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollWorkflowCommands.PayrollAction;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
 import mg.galaxam.sirh.securite.persistence.AuditLog;
 import mg.galaxam.sirh.securite.auth.CustomUserDetails;
@@ -59,8 +62,8 @@ public class PaieAjustementController {
     private final PayrollPeriodWorkflowService periodWorkflowService;
     private final ManualVariableAmountService manualVariableAmountService;
     private final PayrollAdjustmentPaymentService paymentService;
-    private final mg.galaxam.sirh.paie.application.PayrollAdjustmentCreationService adjustmentCreationService;
-    private final mg.galaxam.sirh.paie.application.PayrollAdjustmentSummaryService adjustmentSummaryService;
+    private final mg.galaxam.sirh.paie.application.adjustment.PayrollAdjustmentCreationService adjustmentCreationService;
+    private final mg.galaxam.sirh.paie.application.adjustment.PayrollAdjustmentSummaryService adjustmentSummaryService;
 
     public PaieAjustementController(
             DataSource dataSource,
@@ -68,8 +71,8 @@ public class PaieAjustementController {
             PayrollPeriodWorkflowService periodWorkflowService,
             ManualVariableAmountService manualVariableAmountService,
             PayrollAdjustmentPaymentService paymentService,
-            mg.galaxam.sirh.paie.application.PayrollAdjustmentCreationService adjustmentCreationService,
-            mg.galaxam.sirh.paie.application.PayrollAdjustmentSummaryService adjustmentSummaryService) {
+            mg.galaxam.sirh.paie.application.adjustment.PayrollAdjustmentCreationService adjustmentCreationService,
+            mg.galaxam.sirh.paie.application.adjustment.PayrollAdjustmentSummaryService adjustmentSummaryService) {
         this.dataSource = dataSource;
         this.adjustmentWorkflowService = adjustmentWorkflowService;
         this.periodWorkflowService = periodWorkflowService;
@@ -306,7 +309,7 @@ public class PaieAjustementController {
                             try(var period=c.prepareStatement("SELECT date_debut,date_fin FROM periode_paie WHERE id_periode_paie=?")) {
                                 period.setInt(1,idPeriode); try(var dates=period.executeQuery()) {
                                     if(dates.next()) {
-                                        try { rule=mg.galaxam.sirh.paie.application.ManualRubriqueResolver.resolve(c,rs.getInt("id_rubrique"),dates.getDate(1).toLocalDate(),dates.getDate(2).toLocalDate()); }
+                                        try { rule=mg.galaxam.sirh.paie.application.rubrique.ManualRubriqueResolver.resolve(c,rs.getInt("id_rubrique"),dates.getDate(1).toLocalDate(),dates.getDate(2).toLocalDate()); }
                                         catch(SirhBusinessException e) { type.put("configurationError",e.getMessage()); }
                                     }
                                 }

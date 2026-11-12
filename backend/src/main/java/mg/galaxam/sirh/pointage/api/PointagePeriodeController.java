@@ -2,14 +2,14 @@ package mg.galaxam.sirh.pointage.api;
 
 import mg.galaxam.sirh.pointage.api.dto.PeriodePaieDTO;
 import jakarta.validation.Valid;
-import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollPeriodCommand;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodCommandRequest;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollWorkflowCommands.PayrollPeriodCommand;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodCommandRequest;
 import mg.galaxam.sirh.common.dto.BusinessDecision;
 import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.application.PayrollPeriodCalendarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

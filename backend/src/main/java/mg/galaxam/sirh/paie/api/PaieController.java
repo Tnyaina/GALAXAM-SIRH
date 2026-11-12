@@ -10,10 +10,10 @@ import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.paie.domain.dto.PayrollBatchResult;
-import mg.galaxam.sirh.paie.application.PayrollService;
-import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAction;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
+import mg.galaxam.sirh.paie.application.calculation.PayrollService;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollWorkflowCommands.PayrollAction;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.application.export.PaieExportService;
 import mg.galaxam.sirh.paie.application.export.BulletinDocumentService;
 import mg.galaxam.sirh.paie.application.export.GrandLivrePaieExportService;
@@ -21,7 +21,8 @@ import mg.galaxam.sirh.paie.application.export.IrsaExcelExportService;
 import mg.galaxam.sirh.paie.application.export.EtatSocialMensuelExportService;
 import mg.galaxam.sirh.paie.application.export.QuarterlySocialDataService;
 import mg.galaxam.sirh.paie.application.export.AnnualPayrollExportService;
-import mg.galaxam.sirh.paie.application.export.PayrollDocumentCatalogService;
+import mg.galaxam.sirh.paie.application.backenddriven.PayrollDocumentCatalogService;
+import mg.galaxam.sirh.paie.application.backenddriven.PayrollCockpitService;
 import mg.galaxam.sirh.securite.auth.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -59,6 +60,7 @@ public class PaieController {
     private final QuarterlySocialDataService quarterlySocialDataService;
     private final AnnualPayrollExportService annualPayrollExportService;
     private final PayrollDocumentCatalogService documentCatalogService;
+    private final PayrollCockpitService payrollCockpitService;
     private final PayrollPeriodWorkflowService payrollPeriodWorkflowService;
 
     public PaieController(DataSource dataSource,
@@ -71,6 +73,7 @@ public class PaieController {
                           QuarterlySocialDataService quarterlySocialDataService,
                           AnnualPayrollExportService annualPayrollExportService,
                           PayrollDocumentCatalogService documentCatalogService,
+                          PayrollCockpitService payrollCockpitService,
                           PayrollPeriodWorkflowService payrollPeriodWorkflowService) {
         this.dataSource = dataSource;
         this.payrollService = payrollService;
@@ -82,6 +85,7 @@ public class PaieController {
         this.quarterlySocialDataService = quarterlySocialDataService;
         this.annualPayrollExportService = annualPayrollExportService;
         this.documentCatalogService = documentCatalogService;
+        this.payrollCockpitService = payrollCockpitService;
         this.payrollPeriodWorkflowService = payrollPeriodWorkflowService;
     }
 
@@ -214,8 +218,8 @@ public class PaieController {
             Authentication authentication) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             Map<String, Object> cockpit = "population".equalsIgnoreCase(projection)
-                    ? new java.util.HashMap<>(payrollService.obtenirPopulationCockpit(idPeriode, c))
-                    : payrollService.obtenirCockpitPeriode(idPeriode, page, size, query, site, filter, c);
+                    ? new java.util.HashMap<>(payrollCockpitService.obtenirPopulationCockpit(idPeriode, c))
+                    : payrollCockpitService.obtenirCockpitPeriode(idPeriode, page, size, query, site, filter, c);
             // Les clients qui n'ont pas déjà chargé /periodes/context peuvent le demander ici.
             if (includeContext) {
                 cockpit.put("context", payrollPeriodWorkflowService.describeContext(

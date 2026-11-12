@@ -1,7 +1,7 @@
 package mg.galaxam.sirh.pointage;
 
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodTransitionLogger;
-import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollPeriodCommand;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodTransitionLogger;
+import mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollWorkflowCommands.PayrollPeriodCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

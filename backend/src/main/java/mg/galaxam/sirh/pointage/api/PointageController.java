@@ -337,7 +337,7 @@ public class PointageController {
         FichePointageEmployeDTO fiche = propositionsIndemnites
                 ? pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode, true)
                 : pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode);
-        var user = mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext.from(
+        var user = mg.galaxam.sirh.paie.application.backenddriven.workflow.PayrollPeriodUserContext.from(
                 SecurityContextHolder.getContext().getAuthentication());
         boolean periodAvailable = fiche.getIdPeriode() != null;
         boolean mutable = periodAvailable && fiche.getStatutPeriode() != null && java.util.List.of("EN_COURS", "A_VALIDER", "TRANSMIS_DAF").contains(fiche.getStatutPeriode());

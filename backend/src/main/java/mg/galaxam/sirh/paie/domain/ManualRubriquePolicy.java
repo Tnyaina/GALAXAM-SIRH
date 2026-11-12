@@ -3,7 +3,6 @@ package mg.galaxam.sirh.paie.domain;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieRubrique;
-import mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry;
 
 /** Single owner for rules that allow a manually configured payroll rubrique. */
 public final class ManualRubriquePolicy {
@@ -20,8 +19,7 @@ public final class ManualRubriquePolicy {
                 || !("GAIN".equals(rubrique.getSens()) || "RETENUE".equals(rubrique.getSens()))) {
             invalid("Seules les rubriques manuelles de gain ou de retenue en montant peuvent être créées ici.");
         }
-        if (!"CONFIGURABLE".equals(PayrollCalculatorRegistry.describe(rubrique.getCode(), rubrique.getCategorie(),
-                rubrique.isEstFixe(), rubrique.getEtapeCalcul()).niveau()))
+        if (!ManualRubriqueEligibility.isConfigurable(rubrique.getCode(), rubrique.getCategorie(), rubrique.isEstFixe()))
             invalid("Cette rubrique appartient à un calculateur dédié. Utilisez son paramétrage métier.");
         if (rubrique.getDateFinEffet() != null && (rubrique.getDateDebutEffet() == null
                 || rubrique.getDateFinEffet().isBefore(rubrique.getDateDebutEffet())))

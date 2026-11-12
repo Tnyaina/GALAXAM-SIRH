@@ -13,8 +13,8 @@ import java.time.LocalDate;
 import java.util.UUID;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import mg.galaxam.sirh.conge.domain.CongeLotValorisationEngine;
-import mg.galaxam.sirh.paie.application.PayrollLeaveJournalService;
-import mg.galaxam.sirh.paie.application.PayrollService;
+import mg.galaxam.sirh.paie.application.calculation.PayrollLeaveJournalService;
+import mg.galaxam.sirh.paie.application.calculation.PayrollService;
 import org.junit.jupiter.api.Test;
 
 /** DAF correction and history checks against disposable PostgreSQL. */

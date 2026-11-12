@@ -7,6 +7,87 @@ métier ne sont pas interchangeables avec celles du contrat.
 
 Ce dossier regroupe le moteur de paie, la préparation et le calcul des bulletins, les campagnes de paie, le solde de tout compte (STC) et les exports fiscaux/sociaux.
 
+## Naviguer dans le code
+
+```text
+paie/
+├── api/                         Routes HTTP et dto/ de transport
+├── application/
+│   ├── calculation/             Bulletin, contexte et résolutions datées
+│   ├── stc/                     Dossier de sortie, solde et règlements
+│   ├── adjustment/              Variables et avances de paie
+│   ├── rubrique/                Configuration et cycle des rubriques
+│   ├── read/                    Historique Paie du salarié
+│   ├── backenddriven/           Vues, capacités et commandes pour l'interface
+│   │   └── workflow/            Décisions et transitions de campagne/ajustement
+│   ├── export/                  Génération réelle des fichiers
+│   ├── PayrollPeriodCalendarService   Dates proposées pour une campagne
+│   ├── PaymentEvidence                Pièce justificative de paiement
+│   └── PrestataireFactureService      Factures prestataires
+├── domain/engine/               Calculs monétaires sans SQL
+└── persistence/                 Bulletins et mouvements enregistrés
+```
+
+| Besoin | Départ → traitement → règle ou donnée |
+|---|---|
+| Calculer un bulletin | `PaieController.calculerBulletinEmploye` → `PayrollService.calculerBulletinEmploye` → `PayrollCalculationContextAssembler.assemble` → `PayrollExecutionEngine` |
+| Calculer toute la campagne | `PaieController` → `PayrollService.calculerPaiePeriode` → mêmes assembleur et moteur, salarié par salarié |
+| Comprendre une action disponible ou un refus | `PointagePeriodeController` / `PaieController` → `backenddriven/workflow/PayrollPeriodWorkflowService.describeContext`, `describeActions`, `requirePayrollAction` |
+| Exécuter une transition de campagne | `backenddriven/workflow/PayrollPeriodWorkflowService.execute` → vérifications, journal de transition et services métier concernés |
+| Lire le cockpit DAF | `PaieController.obtenirCockpitPeriode` → `backenddriven/PayrollCockpitService.obtenirCockpitPeriode` |
+| Voir les documents disponibles | `PaieController` → `backenddriven/PayrollDocumentCatalogService.monthly`, `quarterly`, `annual` |
+| Produire un export | `PaieController` → service du format dans `application/export/` ; `PayrollExportEligibility` vérifie les statuts finaux |
+| Préparer un STC | `DossierSortieController` → `DossierSortieService` → `StcService.preparerStc`, `simulerStc`, `validerStc` |
+| Régler un bulletin ou un STC | `BulletinReglementController` / `StcController` → registre de règlement / `StcService.enregistrerReglement` |
+
+### Fichiers d'application : ouvrir le bon sous-dossier
+
+| Dossier / fichier | Rôle et méthode à ouvrir en premier |
+|---|---|
+| `calculation/PayrollService` | Exécution du bulletin et de la campagne : `calculerBulletinEmploye`, `calculerPaiePeriode`, `validerPaiePeriode`. |
+| `calculation/PayrollCalculationContextAssembler` | `assemble` prépare toutes les entrées d'un bulletin sur une même connexion. |
+| `calculation/PayrollLegalContextResolver` / `PayrollFiscalRulesResolver` | `resolve` applique les paramètres légaux ; `resolveIrsaBrackets`, `resolveIsiRate` choisissent les règles fiscales datées. |
+| `calculation/PayrollConfigurationGuard` | `missing`, `requireFlag` transforment un paramètre absent en erreur bloquante. |
+| `calculation/PayrollPointageCoverage` / `PayrollPopulationResolver` | `allFrozen` vérifie les snapshots ; `resolve` choisit les salariés de la campagne. |
+| `calculation/PayrollLeaveJournalService` | `mettreAJourJournalConge` inscrit l'acquisition à la clôture. |
+| `stc/DossierSortieService` | `sauvegarderDossier`, `cloturerDossier`, `scellerDossierEtStc` pilotent le dossier administratif. |
+| `stc/StcService` | `preparerStc`, `simulerStc`, `validerStc`, `enregistrerReglement` calculent et règlent le solde. |
+| `stc/DeparturePayrollService` | `gelerPointage`, `calculerBulletin`, `validerBulletin` traitent le bulletin final individuel. |
+| `stc/StcPaymentReconciliationService` | `affecter` relie un règlement STC au bulletin mensuel sans second décaissement. |
+| `adjustment/PayrollAdjustmentCreationService` / `PayrollAdjustmentSummaryService` | `create` crée un mouvement ; `summarize` en prépare la lecture. |
+| `adjustment/PayrollAdjustmentPaymentService` | `canConfirm`, `confirm` contrôlent et enregistrent la confirmation de paiement. |
+| `rubrique/ManualRubriqueManagementService` | `create`, `createVersion`, `update` gèrent les rubriques manuelles versionnées. |
+| `rubrique/ManualRubriqueResolver` / `ManualVariableAmountService` | `resolve` choisit la version applicable ; `calculate` calcule son montant. |
+| `rubrique/PayrollRubriqueCycleService` | `preview` montre l'effet de la période sur le cycle d'une rubrique. |
+| `read/PayrollEmployeeReadService` | `listerBulletinsEmploye`, `obtenirSynthesePaieEmploye` alimentent l'onglet Paie du salarié. |
+| `PayrollPeriodCalendarService` | Propose les bornes d'une nouvelle campagne. |
+| `PaymentEvidence` / `PrestataireFactureService` | Justificatif de règlement partagé / cycle des factures prestataires. |
+
+Pour les fichiers de `backenddriven/`, consulter l'index ci-dessous. `export/` est déjà classé par document produit ; `PayrollDocumentCatalogService` décrit leur disponibilité mais ne génère aucun fichier.
+
+### Calcul métier et backend driven
+
+`domain/engine/` calcule les montants : `PayrollExecutionEngine` compose le bulletin, `PayrollTaxCalculations` calcule IRSA/ISI, `SocialContributionCalculator` les cotisations, `OvertimePayCalculator` les heures majorées et `MoneyRoundingPolicy` les arrondis. `application/calculation/PayrollCalculationContextAssembler` lit les données et résout les dates ; `application/calculation/PayrollService` possède les écritures et transactions du bulletin.
+
+`application/backenddriven/` construit ce que l'interface doit afficher ou peut demander : `PayrollCockpitService` projette la campagne, `PayrollDocumentCatalogService` décrit la disponibilité des fichiers et `PayrollCalculatorRegistry` décrit les calculateurs dans le catalogue. Dans `backenddriven/workflow/`, `PayrollPeriodWorkflowService` et `PayrollAdjustmentWorkflowService` **décident et exécutent** les transitions ; les capacités renvoyées au client viennent de ces mêmes règles. `PayrollWorkflowStatusResolver` transforme les statuts persistés en phases lisibles. Les DTO `api/dto/PayrollPeriodContextView` et `PayrollWorkflowStatuses` sont les réponses de transport. Le package `export/` génère les fichiers et conserve ses contrôles d'éligibilité : une capacité d'affichage ne remplace pas le contrôle à l'exécution.
+
+### Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `PayrollService.preparerInput` / `PayrollCalculationContextAssembler.assemble` | Rassemblent emploi, salaire, pointage figé, congés et paramètres datés dans l'entrée du moteur. | Un montant utilise une mauvaise source ou date. |
+| `PayrollExecutionEngine.calculer` | Calcule le bulletin à partir de l'entrée préparée, sans SQL. | Le montant est faux alors que les entrées sont correctes. |
+| `PayrollService.calculerBulletinEmploye` | Simule ou enregistre le bulletin individuel et ses imputations selon l'argument de simulation. | Recalcul d'un salarié. |
+| `PayrollService.calculerPaiePeriode` | Parcourt la population de campagne et calcule ses bulletins ; la simulation annule les effets. | Calcul collectif. |
+| `PayrollService.validerPaiePeriode` / `cloturerDonneesPaie` | Valident les bulletins calculés / figent les données de fin de campagne. | Passer d'un calcul à une paie officielle. |
+| `PayrollPeriodWorkflowService.describeContext` / `describeActions` | Renvoient état, prérequis, étapes et actions permises avec motifs de refus. | Comprendre ce que l'interface propose. |
+| `PayrollPeriodWorkflowService.execute` / `requirePayrollAction` | Exécutent une commande autorisée / bloquent une action interdite avant l'écriture métier. | Une transition ou un bouton est refusé. |
+| `PayrollAdjustmentWorkflowService.describeActions` / `execute` | Exposent les actions d'une variable et exécutent sa transition. | Approbation, rejet ou annulation d'un ajustement. |
+| `PayrollCockpitService.obtenirCockpitPeriode` | Assemble les indicateurs et la population paginée ; ne calcule aucun bulletin. | Une carte ou ligne du cockpit semble incohérente. |
+| `PayrollCalculatorRegistry.describe` / `phases` | Décrivent le calculateur propriétaire et les étapes affichées ; `ManualRubriqueEligibility.isConfigurable` porte la règle qui interdit l’édition manuelle des calculateurs dédiés. | Une rubrique apparaît configurable à tort. |
+| `PayrollDocumentCatalogService.monthly` / `quarterly` / `annual` | Décrivent les documents disponibles et les motifs d'indisponibilité ; ne génèrent pas de fichier. | Un export est grisé ou absent. |
+| `StcService.simulerStc` / `validerStc` | Estiment le solde de départ / enregistrent sa validation. | Dossier de sortie. |
+
 ## Paie finale d'un salarié sortant pendant la campagne
 
 Le dossier de sortie expose un parcours individuel : constater la fin effective du
@@ -162,7 +243,7 @@ un bulletin validé.
 
 - `api/` : contrôleurs REST (`PaieController`, `PaieAjustementController`, `PaieRubriqueController`, `StcController`)
 - `api/dto/` : contrats DTO (`PayrollCampaignStep`, `CalculPeriodeRequest`, `stc/*`, etc.)
-- `application/` : services applicatifs (`PayrollService`, `StcService`, `workflow/`, `export/`)
+- `application/` : `calculation/` (bulletin), `stc/` (sortie), `adjustment/` (variables), `rubrique/` (rubriques), `read/` (historique), `backenddriven/` (décisions client), `export/` (fichiers)
 - `domain/` : moteurs de calculs purs et invariants fiscaux (`engine/`, `dto/`)
 - `persistence/` : entités de paie et tables historiques (`BulletinPaie`, `BulletinPaieLigne`, `PaieAvanceAcompte`, `PaieStc`, etc.)
 
@@ -176,7 +257,7 @@ La proposition des bornes d'une nouvelle campagne (cycle 26–25 ou mois civil)
 appartient à `application/PayrollPeriodCalendarService.java` et est exposée par
 `GET /periodes/suggestion`. La page de création ne recalcule plus ces dates.
 La couverture des pointages figés de la population incluse est vérifiée par
-`application/PayrollPointageCoverage.java`, utilisée par le workflow de calcul et
+`application/calculation/PayrollPointageCoverage.java`, utilisée par le workflow de calcul et
 le cockpit. La page Préparation affiche les contrôles transmis par le cockpit ;
 Calendriers, Congés, Prêts et Indemnités restent explicitement « à vérifier »
 tant qu'aucun contrôle autonome de campagne ne les prouve.
@@ -205,8 +286,8 @@ aussi les mouvements et demandes de congé pertinents modifiés depuis le calcul
 `PayrollCockpitService` porte
 les projections de période, les indicateurs et la pagination du cockpit DAF.
 `PayrollEmployeeReadService` porte l'historique et la synthèse de l'onglet Paie
-de l'employé. Les méthodes publiques historiques de `PayrollService` délèguent
-à ces services de lecture pour préserver les appelants existants.
+de l'employé. Le contrôleur appelle directement `PayrollCockpitService` pour la vue de campagne.
+Les lectures du dossier salarié passent encore par les façades de `PayrollService`.
 
 `PayrollPeriodContextView` contient les vues de résumé, de sortie et d'étape
 de campagne ; `PayrollWorkflowStatuses` contient le statut de chaque phase.
@@ -215,16 +296,16 @@ Les noms des champs JSON restent ceux des records, sans enveloppe nouvelle.
 | Responsabilité | Fichier à ouvrir |
 | --- | --- |
 | IRSA des salariés | `domain/engine/PayrollTaxCalculations.java` (`calculateIrsa`) |
-| Versions datées du barème IRSA | `application/PayrollFiscalRulesResolver.java` |
+| Versions datées du barème IRSA | `application/calculation/PayrollFiscalRulesResolver.java` |
 | Routes HTTP des prestataires | `api/PrestataireController.java` ; voir `PRESTATAIRES_2026.md` |
 | Commandes et transitions des factures prestataires | `application/PrestataireFactureService.java` et `domain/PrestataireFacturePolicy.java` |
 | Montant, validité et assiettes des rubriques manuelles | `domain/engine/ManualPayrollRules.java` |
-| Catalogue, validation et gestion/versionnement des rubriques manuelles | `domain/ManualRubriqueCatalog.java`, `domain/ManualRubriquePolicy.java`, `application/ManualRubriqueManagementService.java` |
-| Actions projetées et exécution des ajustements | `application/workflow/PayrollAdjustmentWorkflowService.java` |
+| Catalogue, validation et gestion/versionnement des rubriques manuelles | `domain/ManualRubriqueCatalog.java`, `domain/ManualRubriquePolicy.java`, `application/rubrique/ManualRubriqueManagementService.java` |
+| Actions projetées et exécution des ajustements | `application/backenddriven/workflow/PayrollAdjustmentWorkflowService.java` |
 | Composition du brut et écarts de bulletin affichés | `domain/dto/BulletinPaieComplet.java` (`compositionBrut`) |
-| Lecture de la version de rubrique en base | `application/ManualRubriqueResolver.java` |
-| Statuts de la campagne Pointage/Paie | `application/workflow/PayrollWorkflowStatusResolver.java` |
-| Commandes typées de la période, de la paie, du pointage et des ajustements | `application/workflow/PayrollWorkflowCommands.java` |
+| Lecture de la version de rubrique en base | `application/rubrique/ManualRubriqueResolver.java` |
+| Statuts de la campagne Pointage/Paie | `application/backenddriven/workflow/PayrollWorkflowStatusResolver.java` |
+| Commandes typées de la période, de la paie, du pointage et des ajustements | `application/backenddriven/workflow/PayrollWorkflowCommands.java` |
 | Données SAFI et CSV | `application/export/SafiExportService.java` |
 | Présentation SAFI XLS | `application/export/SafiXlsExportService.java` |
 | Données sociales trimestrielles et classeurs | `application/export/QuarterlySocialDataService.java` |
@@ -330,7 +411,7 @@ sont requises ; cette référence ne vaut pas validation juridique automatique.
 
 ### Calculateurs métier protégés
 
-`PayrollCalculatorRegistry` expose la capacité de configuration dans le catalogue.
+`application/backenddriven/PayrollCalculatorRegistry` expose la capacité de configuration et les phases dans le catalogue. `domain/ManualRubriqueEligibility` porte la règle utilisée par `ManualRubriquePolicy` pour autoriser une rubrique manuelle.
 Il décrit les calculateurs existants ; il ne remplace pas leur exécution métier.
 Les primes dédiées, cotisations, fiscalité et heures majorées utilisent leurs
 paramètres de domaine. Congés, rupture, avances et acomptes gardent leur circuit.

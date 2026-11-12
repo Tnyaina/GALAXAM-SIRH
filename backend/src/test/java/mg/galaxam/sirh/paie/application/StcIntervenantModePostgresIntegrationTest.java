@@ -1,4 +1,5 @@
 package mg.galaxam.sirh.paie.application;
+import mg.galaxam.sirh.paie.application.stc.StcService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;

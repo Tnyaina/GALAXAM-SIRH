@@ -1,4 +1,5 @@
 package mg.galaxam.sirh.paieconfig.api;
+import mg.galaxam.sirh.paie.application.calculation.PayrollService;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -26,7 +27,7 @@ public class RefTypeMouvementPaieController {
     private DataSource dataSource;
 
     @Autowired
-    private mg.galaxam.sirh.paie.application.PayrollService payrollService;
+    private mg.galaxam.sirh.paie.application.calculation.PayrollService payrollService;
 
     @GetMapping("/catalogue")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
@@ -86,7 +87,7 @@ public class RefTypeMouvementPaieController {
                     item.put("idRubriqueOrigine", rs.getObject("id_rubrique_origine"));
                     item.put("conditionApplication", rs.getString("condition_application"));
                     item.put("ordreAffichage", rs.getInt("ordre_affichage"));
-                    var capability=mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.describe(rs.getString("code"),rs.getString("categorie"),rs.getBoolean("est_fixe"),rs.getString("etape_calcul"));
+                    var capability=mg.galaxam.sirh.paie.application.backenddriven.PayrollCalculatorRegistry.describe(rs.getString("code"),rs.getString("categorie"),rs.getBoolean("est_fixe"),rs.getString("etape_calcul"));
                     item.put("niveauConfiguration",capability.niveau());item.put("calculateur",capability.calculateur());
                     item.put("phaseCalcul",capability.phase());item.put("sourceCalcul",capability.source());item.put("arrondiCalculateur",capability.arrondi());
                     rubriques.add(item);
@@ -103,7 +104,7 @@ public class RefTypeMouvementPaieController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getParcoursConfiguration() {
         return ResponseEntity.ok(Map.of(
-                "phases", mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.phases(),
+                "phases", mg.galaxam.sirh.paie.application.backenddriven.PayrollCalculatorRegistry.phases(),
                 "rubriques", tousLesElements("rubriques"), "types", tousLesElements("types")));
     }
 
@@ -403,7 +404,7 @@ public class RefTypeMouvementPaieController {
                     throw new IllegalArgumentException("La rubrique doit être active et avoir le même sens que la variable.");
                 }
                 if (current == null && (!req.getCategorie().equals(rs.getString("categorie"))
-                        || !"CONFIGURABLE".equals(mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.describe(rs.getString("code"), rs.getString("categorie"), rs.getBoolean("est_fixe"), rs.getString("etape_calcul")).niveau())
+                        || !"CONFIGURABLE".equals(mg.galaxam.sirh.paie.application.backenddriven.PayrollCalculatorRegistry.describe(rs.getString("code"), rs.getString("categorie"), rs.getBoolean("est_fixe"), rs.getString("etape_calcul")).niveau())
                         || ("INDEMNITE_NON_IMPOSABLE".equals(req.getCategorie())
                             && !"GAIN_NET".equals(rs.getString("etape_calcul"))))) {
                     throw new IllegalArgumentException("Choisissez une rubrique compatible avec la catégorie et le circuit de cette variable.");
