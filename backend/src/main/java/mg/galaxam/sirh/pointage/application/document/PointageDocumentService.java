@@ -1,6 +1,7 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.document;
 
 import mg.galaxam.sirh.pointage.api.dto.FichePointageEmployeDTO;
+import mg.galaxam.sirh.pointage.application.PointageEmployeService;
 import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.sql.*;

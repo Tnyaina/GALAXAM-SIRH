@@ -80,6 +80,19 @@ Ces classes exécutent le SQL Active Record : `controler`, `inserer`, `modifier`
 
 Les routes `/employes/*`, `/contrats/*`, `/documents/*`, `/ref-carriere/*` et `/ref-types-documents/*` exigent une authentification. Les contrôleurs appliquent `EMPLOYE_READ`, `EMPLOYE_WRITE`, `EMPLOYE_VALIDATE`, `PAIE_READ`, `PAIE_WRITE` ou `ROLE_ADMIN` selon l'opération. La lecture des données bancaires et des contrats générés est plus restrictive que la fiche générale ; vérifier l'annotation de la méthode avant de changer une route. Les clés composées `(id_contrat, id_employe)` et `(id_service, id_departement)` protègent les affectations en base.
 
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `EmployeService.creerEmploye` / `modifierEmploye` | Valident puis écrivent le dossier employé et ses données associées. | Modifier l'identité ou les informations satellites. |
+| `WorkflowRhService.creerBrouillonTransition` | Prépare un mouvement de carrière sans l'appliquer immédiatement. | Comprendre la différence entre saisie et effet du changement. |
+| `WorkflowRhService.validerWorkflow` | Valide une transition et applique ou planifie ses effets selon sa date. | Une affectation ou un contrat ne change pas après approbation. |
+| `WorkflowRhService.autoAppliquerMouvementsEchus` | Applique les mouvements planifiés devenus effectifs. | Rechercher pourquoi un changement daté n'est pas encore visible. |
+| `EmploymentContextResolver.resolveContext` / `resolvePointageDays` | Retrouvent contrat, affectation et site applicables à une date / à une série de jours. | Pointage, Congés ou Paie voient un mauvais contexte d'emploi. |
+| `EmploymentContextResolver.resolveCurrent` | Résout le contexte pour aujourd'hui ; ne convient pas à une situation historique. | Vérifier un affichage courant. |
+| `DocumentRhService.preparerContrat` / `genererContratDocx` | Rassemblent les données contrôlées / produisent le fichier DOCX. | Un champ de contrat généré est faux ou absent. |
+| `EmployeValidationEngine.validerEmploye` / `CarriereTransitionValidator.validerTransition` | Vérifient les invariants du dossier / l'admissibilité d'un mouvement. | Une commande est refusée pour une raison métier. |
+
 ## Vérifier un changement
 
 - Employé et satellites : `EmployeSatelliteLifecycleTest`, `EmployeConjointLifecycleTest`, `EmployeCompteBanqueLifecycleTest`, `EmployeServiceSatelliteNullTest`.

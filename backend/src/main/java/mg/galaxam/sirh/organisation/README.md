@@ -72,6 +72,17 @@ Les modèles `Ref*` héritent de `ClassMere` : `controler`, `inserer`, `modifier
 - **HTTP** : routes, verbes, champs JSON et erreurs forment le contrat client. `RefBanque`, `RefTypeContrat` et `RefTypeIntervenant` servent aussi de corps de requête ; les autres commandes utilisent les DTO de `api/dto/`.
 - **Schéma** : les clés composées `(id_contrat, id_employe)` et `(id_service, id_departement)` des affectations figurent dans `backend/conception/bdd/03_schema_employes_contrats.sql`. Une évolution de base existante passe par `docker/migrations/`.
 
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `listerReferentielsFormulaireEmploye` | Agrège les listes actives utiles au formulaire employé ; aucune modification. | Un choix manque ou affiche une valeur inactive. |
+| `validerDesactivationFiliale` | Refuse la désactivation si la filiale possède encore un site actif ou un contrat en cours. | Une désactivation échoue malgré un identifiant valide. |
+| `configurerPlancherSite` | Modifie le plancher d'arrivée du site utilisé par Pointage. | Le calcul des heures d'arrivée semble ignorer un paramètre du site. |
+| `creer*` / `modifier*` | Valident puis écrivent le référentiel et son audit dans la même transaction. | Ajouter ou modifier une ligne ; vérifier aussi le `Ref*` correspondant. |
+| `activer*` / `desactiver*` | Change la disponibilité d'une valeur pour les nouveaux choix. | Une option apparaît ou disparaît des formulaires. |
+| `Ref*.controler` / `Ref*.rechercherParId` | Vérifient les champs du modèle / chargent une ligne SQL ; ce sont des opérations de persistance. | Tracer une validation de colonne ou une recherche, après le service. |
+
 ## Vérification
 
 Aucun test dédié à `OrganisationService` n'est présent dans `backend/src/test`. `ContratTravailControllerPostgresTest` et `EmployeSatelliteLifecycleTest` couvrent des comportements voisins, sans prouver tous les parcours ci-dessus. Pour une commande modifiée, vérifier succès, refus métier, code HTTP et rollback de l'audit, puis les tests des domaines consommateurs concernés.

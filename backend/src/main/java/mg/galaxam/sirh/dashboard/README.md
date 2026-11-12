@@ -30,6 +30,17 @@ flowchart LR
 | [`NotificationController`](api/NotificationController.java) | `getNotifications` liste 50 non lues ; `marquerToutesLues`, `marquerUne`, `purgerToutes` changent l'état visible. `visibilityCondition` et `bindVisibility` imposent le filtre utilisateur/rôle ; `getCurrentUserId` et `getCurrentUserRoleCode` résolvent le destinataire. | **Critique** — confidentialité et modifications des notifications. |
 | [`NotificationRhService`](persistence/NotificationRhService.java) | Surcharges `creer` et `creerPourRole` insèrent une notification avec utilisateur ou rôle cible sur la connexion fournie par l'appelant. | **Structurant** — écriture partagée par Cron et les domaines RH. |
 
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `DashboardService.getDashboardSummary` | Assemble une réponse de synthèse à partir de plusieurs sources métier ; lecture seule. | Une carte du tableau de bord est absente ou incohérente. |
+| `buildKpis` / `buildActionsATraiter` | Préparent les chiffres clés / actions affichés dans la synthèse. | Corriger un bloc précis de la page d'accueil. |
+| `NotificationController.getNotifications` | Liste les notifications visibles pour l'utilisateur ou son rôle, limitées aux non lues. | Une notification manque ou est visible au mauvais destinataire. |
+| `NotificationController.visibilityCondition` / `bindVisibility` | Construisent et paramètrent le filtre SQL par destinataire. | Vérifier la confidentialité des lectures et mutations. |
+| `marquerUne` / `marquerToutesLues` / `purgerToutes` | Changent l'état des notifications visibles à l'utilisateur. | Une action de notification n'a pas l'effet attendu. |
+| `NotificationRhService.creerPourRole` | Insère une notification ciblée sur un rôle dans la connexion appelante ; l'échec est isolé par savepoint. | Une tâche Cron ou un domaine émet une alerte. |
+
 ## Contrats et limites actuelles
 
 `GET /dashboard/summary` exige `EMPLOYE_READ` ou `ROLE_ADMIN`. Les routes `/notifications` exigent une authentification ; le contrôleur filtre les lignes par destinataire ou rôle. Le préfixe `/api` vient du context-path. Le frontend appelle ces routes dans `frontend/src/features/dashboard/api/dashboardService.js`.

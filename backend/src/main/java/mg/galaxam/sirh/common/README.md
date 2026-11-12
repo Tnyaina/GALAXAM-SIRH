@@ -141,3 +141,14 @@ numéro de page). Il ne concerne pas le traitement des erreurs.
 4. `config/GlobalExceptionHandler.java` : transformation en réponse HTTP.
 5. `dto/ApiErrorResponse.java` et `dto/BusinessIssue.java` : forme du JSON.
 6. `dto/BusinessDecision.java` : exemple de DTO de résultat, distinct d'une erreur HTTP.
+
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `TransactionRunner.required` | Ouvre une connexion, valide si le travail réussit et annule si une exception remonte. | Plusieurs écritures JDBC doivent réussir ou échouer ensemble. |
+| `SirhExceptionTranslator.propagate` | Préserve une exception runtime ou traduit une exception contrôlée pour la propager. | Un échec a été converti avant la frontière HTTP. |
+| `BackupConsistencyFilter.doFilterInternal` | Protège une requête HTTP par le verrou de cohérence des sauvegardes. | Une écriture HTTP attend pendant une sauvegarde. |
+| `BackupConsistencyGate.withWriteAccess` | Applique le même verrou aux écritures hors requête HTTP. | Une tâche Cron ou un traitement serveur modifie la base. |
+| `ActionCapability.permit` / `denied` | Construit une capacité d'action autorisée ou refusée avec motif ; ne décide pas la règle métier. | Exposer au client une action possible. |
+| `RuleResult.pass` / `BusinessDecision` | Transportent un résultat de règle / de décision ; l'évaluation appartient au domaine appelant. | Comprendre une réponse backend driven. |

@@ -37,3 +37,14 @@ flowchart LR
 | [`RoleMenusRequest`](api/dto/RoleMenusRequest.java) | Liste des identifiants de menus à affecter au rôle. |
 
 Les lectures des catalogues exigent une authentification ; les écritures exigent `ROLE_ADMIN` via `@PreAuthorize`. Le context-path `/api` s'ajoute aux routes. `/admin/desktop-backup/authorize` relève de la règle globale `ADMIN_ENDPOINTS` de `SecurityConfig` et retourne 204 pour une session admin admise. `/desktop/internal/shutdown` est permis par la chaîne HTTP globale, mais seulement sous le profil `desktop` et avec un jeton d'au moins 32 octets vérifié par le contrôleur. Les écritures de catalogue associent JDBC et `AuditLog.audit` dans la transaction. Pour suivre une permission effective : `RoleController.updateRolePermissions` → `RolePermission` → chargement des autorités dans `securite/`.
+
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `RoleController.updateRolePermissions` | Remplace l'ensemble des permissions du rôle dans une transaction. | Un droit module manque ou persiste après modification. |
+| `RoleController.updateRoleMenus` | Remplace l'ensemble des menus attribués au rôle ; la visibilité du menu ne suffit pas à autoriser une route. | Un lien du menu apparaît ou disparaît. |
+| `MenuController.buildMenuTree` | Transforme les menus plats et leurs parents en arborescence de réponse. | Un menu est au mauvais niveau. |
+| `RolePermission.supprimerParRole` / `RoleMenu.supprimerParRole` | Effacent les anciennes associations avant leur remplacement complet. | Vérifier la sémantique d'une mise à jour de rôle. |
+| `DesktopBackupAuthorizationController.authorize` | Vérifie qu'une session admin peut lancer la sauvegarde desktop ; ne lance pas la sauvegarde. | Tracer un refus d'accès à cette action. |
+| `DesktopServiceControlController.shutdown` | Demande l'arrêt du service desktop après vérification du jeton local. | Tracer la commande d'arrêt desktop. |

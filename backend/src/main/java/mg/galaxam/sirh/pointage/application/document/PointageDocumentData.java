@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.document;
 
 import mg.galaxam.sirh.pointage.api.dto.*;
 import java.math.BigDecimal;

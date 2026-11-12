@@ -4,7 +4,7 @@ import mg.galaxam.sirh.pointage.api.dto.*;
 import mg.galaxam.sirh.pointage.application.PointageAnomalieService;
 import mg.galaxam.sirh.pointage.application.PointageAjustementPeriodeService;
 import mg.galaxam.sirh.pointage.application.PointageEmployeService;
-import mg.galaxam.sirh.pointage.application.PointageExcelExportService;
+import mg.galaxam.sirh.pointage.application.document.PointageExcelExportService;
 import mg.galaxam.sirh.pointage.application.PointageImportService;
 import mg.galaxam.sirh.pointage.application.PointageService;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
@@ -39,8 +39,8 @@ public class PointageController {
     @Autowired private PointageEmployeService pointageEmployeService;
     @Autowired private PointageExcelExportService pointageExcelExportService;
     @Autowired private PointageImportService pointageImportService;
-    @Autowired private mg.galaxam.sirh.pointage.application.PointageDocumentService pointageDocumentService;
-    @Autowired private mg.galaxam.sirh.pointage.application.PointagePdfExportService pointagePdfExportService;
+    @Autowired private mg.galaxam.sirh.pointage.application.document.PointageDocumentService pointageDocumentService;
+    @Autowired private mg.galaxam.sirh.pointage.application.document.PointagePdfExportService pointagePdfExportService;
     @Autowired private PointageAjustementPeriodeService pointageAjustementPeriodeService;
     @Autowired private DataSource dataSource;
 

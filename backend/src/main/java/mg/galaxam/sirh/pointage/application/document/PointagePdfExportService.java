@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.document;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;

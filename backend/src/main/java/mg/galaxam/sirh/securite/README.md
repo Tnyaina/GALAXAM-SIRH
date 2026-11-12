@@ -51,6 +51,19 @@ flowchart LR
 
 Les accesseurs des modèles et DTO transportent des champs ; ils ne sont pas des décisions métier. La règle de validité d'un compte est dans `Utilisateur`, la validité d'une session dans `IdleSessionService`, et le contrôle d'accès à une route dans `SecurityConfig` ou `@PreAuthorize`.
 
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `AuthController.login` | Vérifie les identifiants, limite les échecs et crée une famille de session avec jetons. | Un utilisateur ne peut pas se connecter. |
+| `AuthController.refresh` | Renouvelle les jetons à partir du cookie et fait tourner le refresh token ; ne compte pas comme activité utilisateur. | Une session expire ou un renouvellement échoue. |
+| `AuthController.recordActivity` / `IdleSessionService.touch` | Actualisent la dernière activité acceptée et l'échéance d'inactivité. | Une session se déconnecte trop tôt ou reste active trop longtemps. |
+| `IdleSessionService.rotate` | Remplace les jetons d'une session existante et maintient leur lien au `sid`. | Examiner la rotation ou la révocation des refresh tokens. |
+| `JwtAuthenticationFilter.doFilterInternal` | Vérifie Bearer, compte et session avant de placer l'identité dans Spring Security. | Une requête protégée retourne 401. |
+| `CustomUserDetailsService.loadUserByUsername` | Charge les autorités effectives du rôle et des modules. | Une requête authentifiée retourne 403. |
+| `UtilisateurController.deactivateUser` / `IdleSessionService.revokeAllForUser` | Désactivent un compte et invalident ses sessions existantes. | Un compte désactivé semble encore utilisable. |
+| `AuditLog.audit` | Insère la trace d'une commande sur la connexion fournie. | Comprendre la traçabilité ou un rollback lié à l'audit. |
+
 ## Contrats et invariants
 
 - **Routes** : `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/ping`, `/auth/activity`, `/auth/menu`, `/auth/register`, `/securite/utilisateurs/*` et `/desktop/setup/admin`. `SecurityConfig` définit les accès globaux ; `@PreAuthorize` protège notamment `register` et les opérations utilisateur. Le préfixe `/api` vient du context-path.

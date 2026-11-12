@@ -36,3 +36,14 @@ flowchart LR
 Chaque écriture planifiée passe par `BackupConsistencyGate` pour cohabiter avec les sauvegardes. `SchedulerExecutionRegistry` utilise `scheduler_execution` avec un jeton par tentative, un bail initial de 30 minutes et un renouvellement de 10 minutes, limité à 23 heures. Un worker qui perd le bail n'est pas interrompu automatiquement : les effets d'une tâche doivent tolérer une reprise ou un chevauchement. Le rattrapage n'est pas déclenché par le frontend ; son entrée HTTP éventuelle est un filet de sécurité asynchrone.
 
 Pour modifier une tâche, vérifier sa clé d'exécution, ses effets transactionnels, son comportement en double exécution et son rattrapage. Les règles de calcul restent dans le domaine propriétaire ; les méthodes `@Scheduled` ne font que déclencher et coordonner.
+
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `SchedulerExecutionRegistry.runDaily` / `runMonthly` | Réservent une clé de traitement pour un jour ou un mois et exécutent le travail sous bail. | Une tâche ne part pas ou se déclenche deux fois. |
+| `tryStart` / `renewLease` / `updateResult` | Acquièrent le bail, maintiennent sa possession et enregistrent l'issue. | Une tentative est reprise ou un ancien worker continue. |
+| `findIncompletePeriods` / `runDailyCatchUp` | Repèrent puis rejouent les périodes manquées. | Après un arrêt ou une veille du serveur. |
+| `RattrapageAutomatiqueService.auDemarrage` / `battementCoeurPeriodique` | Déclenchent la vérification des tâches échues au lancement puis périodiquement. | Le rattrapage ne se produit pas. |
+| `AcquisitionCongeScheduler.bonifierCongesAnciennete` | Planifie la bonification ; le calcul et l'écriture métier appartiennent à Congés. | Diagnostiquer l'horaire ou l'appel vers Congés. |
+| `NotificationRhScheduler.genererNotificationsRh` | Déclenche la création des alertes RH dues ; l'écriture commune est dans Dashboard. | Une alerte n'est pas apparue. |

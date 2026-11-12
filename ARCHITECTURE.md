@@ -54,7 +54,7 @@ Chaque README contient au minimum, de façon concise :
 
 Dans la colonne « importance », utiliser **critique** pour un calcul, une décision, une autorisation ou une écriture dont l'erreur affecte les données métier ; **structurant** pour un cas d'usage ou une frontière API ; **support** pour une lecture, un export ou un mécanisme auxiliaire. Justifier le niveau en une phrase. Mettre à jour le README lors d'un changement de parcours, d'API ou de propriétaire d'une règle, et vérifier les liens vers les méthodes après un renommage.
 
-À faire : compléter les README techniques de `paie`, `paieconfig` et `pointage` selon cette convention. Les README de `organisation`, `admin`, `securite`, `dashboard`, `contrat` et `conge` suivent déjà ce format. `common`, `config` et `cron` sont transversaux ou techniques : documenter leurs mécanismes et leurs consommateurs dans leur README, sans les présenter artificiellement comme des domaines métier.
+À faire : compléter les README techniques de `paie` selon cette convention. Les README de `organisation`, `admin`, `securite`, `dashboard`, `contrat`, `conge`, `pointage` et `paieconfig` suivent déjà ce format. `common`, `config` et `cron` sont transversaux ou techniques : documenter leurs mécanismes et leurs consommateurs dans leur README, sans les présenter artificiellement comme des domaines métier.
 
 ## Lire un parcours dans le code
 

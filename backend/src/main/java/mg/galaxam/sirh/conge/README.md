@@ -69,6 +69,21 @@ Les `Requests` et `DTO` sont des contrats de données, pas des moteurs de règle
 | `persistence/VDemandeCongeCpl.java` | Vue enrichie des demandes pour la lecture. |
 | `persistence/VSoldeCongeEmploye.java` | Vue de solde par salarié. |
 
+## Index des méthodes principales
+
+| Méthode | Effet concret | Quand la consulter |
+|---|---|---|
+| `CongeService.simulerDemande` / `creerDemande` | Estiment les droits et conflits / enregistrent une nouvelle demande. La simulation n'écrit pas la demande. | Vérifier le résultat avant soumission ou la création effective. |
+| `CongeService.validerDemande` | Applique la décision de validation et les effets sur droits et solde. | Une demande approuvée ne se reflète pas dans les soldes. |
+| `CongeService.enregistrerAcquisitionMensuelle` | Inscrit les droits acquis pour un mois. | Une acquisition planifiée manque. |
+| `CongeService.executerBonificationMensuelle` | Applique la bonification d'ancienneté du mois concerné. | Une bonification Cron est absente ou doublée. |
+| `CongeTauxApplicableService.resoudreTauxCongeApplicable` | Choisit le TCONGE valable à la date et sa provenance. | Une valorisation utilise un taux inattendu. |
+| `CongeTauxApplicableService.ensureLeaveReferencePeriod` | Retrouve ou crée la période de référence nécessaire à une acquisition. | Une acquisition échoue faute de période. |
+| `CongeTauxApplicableService.enregistrerCutoverSnapshot` | Enregistre l'état d'ouverture historique avec sa référence DAF. | Reprise initiale des droits et valorisations. |
+| `CongeLotValorisationService.simulerPrise` / `PurgeFifoEngine.calculerImputation` | Estiment la valorisation / répartissent les jours pris entre les lots selon FIFO. | Un débit semble viser le mauvais lot. |
+| `CongeExpirationExamenService.obtenir` / `confirmerExpiration` | Examinent les droits expirables / confirment l'expiration. | Une expiration affichée n'a pas encore produit d'effet. |
+| `CongeValorisationMensuelleService.corriger` | Enregistre une correction mensuelle avec historique. | Réparer une valeur de période déjà calculée. |
+
 ## Intégrations et invariants
 
 - `cron` déclenche acquisition et bonification ; `pointage` appelle les régularisations ; `paie` consomme la rémunération et la valorisation des congés. Les règles restent dans ce module, les déclencheurs dans leurs domaines respectifs.
