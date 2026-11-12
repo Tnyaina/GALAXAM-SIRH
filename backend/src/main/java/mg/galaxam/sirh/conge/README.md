@@ -1,25 +1,81 @@
-# Domaine Congé
+# Congés — guide technique
 
-Ce dossier regroupe l'ensemble du cycle de vie des congés : demandes, validation, calcul des droits, gestion des soldes et des périodes de référence.
+Le module gère les demandes, droits acquis, soldes, lots FIFO, valorisation, périodes de référence et exports. Les routes `/conges/*` exigent une authentification ; chaque contrôleur contrôle ensuite les permissions ou l'accès au dossier personnel.
 
-- `api/` : contrôleurs REST (`DemandeCongeController`, `CongeSoldeController`, `CongePeriodeReferenceController`, `CongeRefController`)
-- `application/` : `CongeService` porte le workflow des demandes et ses intégrations pointage ; `CongeContinuiteService` vérifie le poste/site sur chaque segment d'affectation d'une demande ; `CongeTauxApplicableService` porte le cycle civil de référence, le TCONGE et le cutover ; `CongeDecompteCalendaireResolver` applique la politique datée par jour ; `CongeValorisationMensuelleService` porte les corrections mensuelles auditées ; `CongeLotValorisationService` porte les lots FIFO et leurs valorisations. Les services d'export restent séparés de ces écritures.
-- `domain/` : moteurs de calcul sans JDBC (`CongeCalculateurEngine`, `PurgeFifoEngine`, `CongeLotValorisationEngine`) et contrats de requête/réponse.
-- Exports Excel : `CongeAnnuelExcelExportService` et `CongeGrandRecapExcelExportService` ; génération seule, sans écriture de règles métier.
-- `persistence/` : entités et requêtes SQL (`DemandeConge`, `MouvementSoldeConge`, `RefTypeConge`, `VSoldeCongeEmploye`, `VDemandeCongeCpl`, etc.)
+## Structure et chemin de lecture
 
-Les routes HTTP du module sont sous `/conges/*` ; elles ne sont pas publiques au sens d'un accès anonyme. Spring Security exige une authentification et les contrôleurs appliquent ensuite les permissions globales ou l'accès au dossier personnel selon l'opération. Par exemple, la lecture d'un dossier personnel peut être autorisée au propriétaire, tandis que les opérations de validation et de paramétrage exigent leurs permissions dédiées. Les exports restent soumis à `CONGE_READ` ou `ROLE_ADMIN`, notamment `/conges/periodes-reference/employe/{idEmploye}/export-excel` (canevas `resources/templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`).
+```text
+conge/
+├── api/                 Entrées HTTP, autorisation et réponses
+├── application/         Cas d'utilisation, transactions et intégrations
+│   └── export/          Lecture et génération Excel
+├── domain/              Calculs sans accès aux données et contrats du module
+└── persistence/         Tables, vues et requêtes SQL
+```
 
-La reprise historique exige la référence identifiable de l'arrêté DAF ; elle
-reste conservée dans les commentaires du taux de reprise et du mouvement de
-stock initial. Le grand récapitulatif lit filiale, site et poste depuis
-`EmploymentContextResolver` à la date de fin du rapport.
+Pour suivre une action, partir du contrôleur, ouvrir la méthode de service appelée, puis le moteur de calcul ou l'objet de persistance référencé. Exemple : `DemandeCongeController.creerDemande` → `CongeService.creerDemande` → `CongeCalculateurEngine` / `PurgeFifoEngine` → `DemandeConge` / `MouvementSoldeConge`.
 
-Les tentatives scheduler utilisent un bail et un jeton de possession ; une
-tentative expirée peut être reprise, et l'ancien worker ne peut plus renouveler
-le bail ni finaliser le statut. Les bonifications annuelles sont rendues
-idempotentes par une unicité salarié/année, avec diagnostic bloquant en cas de
-données historiques dupliquées. Ces protections empêchent les doubles écritures
-de bonification, mais le bail ne peut pas annuler un traitement métier déjà
-exécuté par un ancien worker : chaque effet métier doit rester idempotent ou
-protégé dans sa propre transaction. Les scripts de migration SP historiques ne sont pas présents dans le dépôt ; l'index `idx_uniq_mouvement_bonification_annee` est décrit dans le schéma canonique `backend/conception/bdd/04_schema_conges.sql`. Ce schéma initialise une base vierge et ne documente pas une migration depuis une base existante.
+## API : où entre la demande ?
+
+| Fichier | Responsabilité ; méthodes à lire |
+|---|---|
+| `api/DemandeCongeController.java` | Demandes et workflow : `simulerDemande`, `verifierConflits`, `creerDemande`, `modifierDemande`, `validerDemande`, `refuserDemande`, `annulerDemande` ; lectures personnelles et de validation. |
+| `api/CongeSoldeController.java` | Soldes, mouvements, lots, planning et expiration : `getSoldeEmploye`, `getImputationSolde`, `getValorisationLots`, `getExamenExpiration`, `reporterExamenExpiration`, `confirmerExpiration`, `creerAjustementManuel`, `enregistrerCutoverOpening`. |
+| `api/CongePeriodeReferenceController.java` | Périodes et TCONGE : `creerPeriodeReference`, `cloturerPeriodeReference`, `activerTauxCalcule`, `corrigerValorisation` ; trois routes `export*`. |
+| `api/CongeRefController.java` | Lecture et administration des types, motifs familiaux, pools et statuts de demande. |
+
+## Application : où est le fonctionnement ?
+
+| Fichier | Responsabilité ; méthodes à lire |
+|---|---|
+| `application/CongeService.java` | Orchestration principale : `simulerDemande`, `creerDemande`, `modifierDemande`, `validerDemande`, `refuserDemande`, `annulerDemande`, `verifierConflitsDemande` ; acquisition et bonification via `enregistrerAcquisitionMensuelle`, `executerBonificationMensuelle` ; régularisations de pointage. |
+| `application/CongeTauxApplicableService.java` | Période de référence, TCONGE et reprise : `resoudreTauxCongeApplicable`, `creerPeriodeReference`, `ensureLeaveReferencePeriod`, `cloturerPeriodeReference`, `activerTauxCalcule`, `enregistrerCutoverSnapshot`, `obtenirSituationComplete`. |
+| `application/CongeLotValorisationService.java` | Situation des lots et prises valorisées : `situation`, `simulerPrise`, `valorisationPrisesSurPeriode`, `corrigerReliquatCutover`. |
+| `application/CongeValorisationMensuelleService.java` | Lecture, historique et correction auditée des valorisations mensuelles : `lister`, `historique`, `corriger`. |
+| `application/CongeExpirationExamenService.java` | Examen des droits expirables : `obtenir`, `reporter`, `confirmerExpiration`. |
+| `application/CongeContinuiteService.java` | Vérifie la continuité d'affectation poste/site pendant une demande : `analyser`. |
+| `application/CongeDecompteCalendaireResolver.java` | Résout le décompte journalier selon la politique datée : `calculer`, `session`. |
+| `application/CongePayrollPolicy.java` | Décide si un type de congé est rémunéré : `estRemunere`. |
+| `application/RemunerationCongePolicy.java` | Résout la rémunération applicable : `resolve`. |
+| `application/RegularisationCongeResult.java` | Résultat transmis après régularisation ; aucune orchestration. |
+| `application/export/CongeAnnuelExcelExportService.java` | État individuel : `genererEtatCongesIndividuel`, `obtenirNomFichierExport`, `resoudreEmployeDePeriode`. |
+| `application/export/CongeGrandRecapExcelExportService.java` | Grand récapitulatif DAF : `generer` ; lit les lots et l'affectation à la date du rapport. |
+
+## Domaine : règles et contrats
+
+| Fichier | Responsabilité ; méthodes à lire |
+|---|---|
+| `domain/CongeCalculateurEngine.java` | Calcul pur des jours, acquisitions, bonification, taux et simulation : `calculerNombreJours`, `calculerAcquisitionMensuelle`, `calculerBonificationAnciennete`, `simuler`. |
+| `domain/PurgeFifoEngine.java` | Ordre d'imputation et expiration des droits : `calculerDroitsDisponibles`, `calculerImputation`, `calculerJoursAExpierFifo`. |
+| `domain/CongeLotValorisationEngine.java` | Valorisation pure des lots et des prises : `calculer`, `simulerPrise`. |
+| `domain/DemandeCongeRequests.java` | Corps des requêtes de création, modification, simulation, conflit et décision. |
+| `domain/CongeSoldeRequests.java` | Corps des requêtes d'ajustement, cutover et examen d'expiration. |
+| `domain/CongeExpirationExamenDTO.java` | Résultat de l'examen d'expiration. |
+| `domain/CongeSituationEmployeDTO.java` | Situation consolidée d'un salarié. |
+| `domain/TcongeConfigurationDTO.java` | État de configuration du TCONGE. |
+
+Les `Requests` et `DTO` sont des contrats de données, pas des moteurs de règles. Ils restent dans `domain/` car les services d'application consomment certains de ces types directement ; déplacer ces contrats sous `api/` ferait dépendre l'application de l'interface HTTP.
+
+## Persistance : où sont les données ?
+
+| Fichier | Responsabilité |
+|---|---|
+| `persistence/DemandeConge.java` | Demande enregistrée, recherche et mise à jour ; `calculerNombreJoursDecomptes` fournit le décompte associé. |
+| `persistence/MouvementSoldeConge.java` | Ledger des droits et prises ; `saveBonificationAnnuelleUneFois` protège l'écriture annuelle. |
+| `persistence/RefTypeConge.java` | Configuration des types de congé. |
+| `persistence/RefMotifEvenementFamilial.java` | Motifs familiaux. |
+| `persistence/RefPoolCongeAnnuel.java` | Pool annuel, consommations et quota ; `verrouillerQuota`. |
+| `persistence/RefStatutDemandeConge.java` | Statuts de demande. |
+| `persistence/VDemandeCongeCpl.java` | Vue enrichie des demandes pour la lecture. |
+| `persistence/VSoldeCongeEmploye.java` | Vue de solde par salarié. |
+
+## Intégrations et invariants
+
+- `cron` déclenche acquisition et bonification ; `pointage` appelle les régularisations ; `paie` consomme la rémunération et la valorisation des congés. Les règles restent dans ce module, les déclencheurs dans leurs domaines respectifs.
+- La reprise historique exige une référence d'arrêté DAF, conservée avec le taux et le mouvement d'ouverture. `CongeTauxApplicableService.enregistrerCutoverSnapshot` est le point d'entrée.
+- Les bonifications sont idempotentes par unicité salarié/année. Le schéma canonique est `backend/conception/bdd/04_schema_conges.sql` ; il initialise une base vierge et ne constitue pas une migration historique.
+- Les exports lisent les données métier ; ils ne recalculent pas les droits. L'état individuel utilise `backend/src/main/resources/templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`.
+
+## Vérification
+
+`mvn -f backend/pom.xml clean test` exécute les tests unitaires ; les tests PostgreSQL du package `conge` demandent une base disponible. Après un changement de route ou de contrat, lancer aussi `npm --prefix frontend run test:api` et `npm --prefix frontend run build`.
