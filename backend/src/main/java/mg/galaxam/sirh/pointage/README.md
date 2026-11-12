@@ -8,8 +8,12 @@ Ce module couvre la saisie journalière, les anomalies, les calculs de temps et 
 pointage/
 ├── api/                 Contrôleurs REST
 │   └── dto/             Entrées et vues HTTP
-├── application/         Saisie, anomalies, synthèse, période et import
-│   └── document/        Fiche figée et exports Excel/PDF
+├── application/         Règle commune de qualification des statuts
+│   ├── saisie/          Saisie, correction et import
+│   ├── anomalie/        Détection et régularisation
+│   ├── periode/         Synthèse, ajustements et gel
+│   ├── document/        Fiche individuelle et exports Excel/PDF
+│   └── backenddriven/   Actions de statut proposées à l’interface
 ├── domain/
 │   ├── calculation/     Calculs de temps et d'indemnités
 │   └── engine/          Calendrier ouvrable daté
@@ -38,14 +42,15 @@ pointage/
 
 | Fichier | Méthodes et responsabilité |
 |---|---|
-| `PointageService.java` | Saisie et aperçu des journées, validation contrat/site (`verifierEligibilitePointage`), correction de temps et proposition d'indemnités. Point de départ pour modifier l'écriture journalière. |
-| `PointageSyntheseService.java` | Calcul hebdomadaire et de période, lectures de synthèse, précontrôle, gel et dégel. Les versions avec `Connection` participent à la transaction appelante. |
-| `PointageAnomalieService.java` | Recherche des anomalies et régularisation transactionnelle, y compris l'intégration Congés. |
-| `PointageEmployeService.java` | Construit la fiche d'un salarié, son contexte d'affectation daté et ses lignes. |
-| `PointageAjustementPeriodeService.java` | Ajoute ou annule les ajustements motivés du solde ; `totalMinutesValidees` et `figerProvenance` sont utilisés au gel. |
-| `PointageImportService.java` | Produit le modèle Excel et analyse un fichier pour un aperçu d'import. |
-| `AttendanceStatusPolicy.java` | Résout le code de présence et les actions disponibles selon jour, calcul et régularisation : `resolve`, `resolveRegularizedAbsence`, `resolveRegularizedWork`, `actions`. |
-| `PointageTemporalConfigurationGuard.java` | Vérifie les configurations datées avant calcul ou gel : `verify`. |
+| `saisie/PointageService.java` | Saisie et aperçu des journées, validation contrat/site (`verifierEligibilitePointage`), correction de temps et proposition d'indemnités. Point de départ pour modifier l'écriture journalière. |
+| `periode/PointageSyntheseService.java` | Calcul hebdomadaire et de période, lectures de synthèse, précontrôle, gel et dégel. Les versions avec `Connection` participent à la transaction appelante. |
+| `anomalie/PointageAnomalieService.java` | Recherche des anomalies et régularisation transactionnelle, y compris l'intégration Congés. |
+| `document/PointageEmployeService.java` | Construit la fiche d'un salarié, son contexte d'affectation daté et ses lignes. |
+| `periode/PointageAjustementPeriodeService.java` | Ajoute ou annule les ajustements motivés du solde ; `totalMinutesValidees` et `figerProvenance` sont utilisés au gel. |
+| `saisie/PointageImportService.java` | Produit le modèle Excel et analyse un fichier pour un aperçu d'import. |
+| `AttendanceStatusPolicy.java` | Résout le code de présence selon jour, calcul et régularisation : `resolve`, `resolveRegularizedAbsence`, `resolveRegularizedWork`, `resolveRegularizedLeaveCoverage`. |
+| `periode/PointageTemporalConfigurationGuard.java` | Vérifie les configurations datées avant calcul ou gel : `verify`. |
+| `backenddriven/PointageStatusActions.java` | `actions` construit la liste des qualifications proposées à l’interface selon la journée ; aucune écriture métier. |
 | `document/PointageDocumentService.java` | `preparer` choisit la fiche courante ou le snapshot figé et ses ajustements. |
 | `document/PointageDocumentData.java` | Contrat de document et formats communs Excel/PDF (`from`, `days`, `dualHours`, `money`). |
 | `document/PointageExcelExportService.java` | Génère la fiche Excel et son nom (`genererExcelFicheEmploye`, `buildExportFilename`). |
@@ -93,6 +98,7 @@ pointage/
 | `PointageAjustementPeriodeService.figerProvenance` | Rattache au snapshot les ajustements validés qui ont influencé le solde. | Pendant le gel, pour garder une trace vérifiable. |
 | `PointageDocumentService.preparer` | Choisit les données courantes ou le dernier snapshot figé, puis ajoute ajustements et montants au document. | Avant tout export Excel ou PDF. |
 | `PointagePeriodeController.executeCommand` | Délègue une transition (`SUBMIT`, `APPROVE`, `CLOSE`, etc.) au workflow Paie, qui vérifie droits et état. | Changer le statut de la campagne ; `retiredGenericStatusMutation` refuse l'ancien changement direct. |
+| `PointageStatusActions.actions` | Prépare les choix de qualification affichés dans `SaisiePointageJourDTO.statusActions` ; n’enregistre aucune décision. | Pour modifier les actions proposées par le front. |
 | `AttendanceStatusPolicy.resolve` | Déduit le statut affiché/enregistré d'une journée à partir de la saisie, du calcul et de la date. | Lors du calcul ou de la régularisation d'une journée. |
 | `TemporalAttendanceEngine.partition` / `project` | Découpe les intervalles travaillés aux frontières temporelles, puis produit les minutes qualifiées (nuit, dimanche, férié). | Modifier la qualification temporelle sans toucher au workflow HTTP. |
 

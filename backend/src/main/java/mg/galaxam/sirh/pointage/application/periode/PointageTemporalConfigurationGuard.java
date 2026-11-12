@@ -1,12 +1,12 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.periode;
 
 import java.sql.*;
 import java.time.LocalDate;
 
 /** Préflight des versions journalières avant les agrégations de pointage. */
-final class PointageTemporalConfigurationGuard {
+public final class PointageTemporalConfigurationGuard {
     private PointageTemporalConfigurationGuard() {}
-    static void verify(int employee, int period, Connection c) throws SQLException {
+    public static void verify(int employee, int period, Connection c) throws SQLException {
         try (var ps=c.prepareStatement("SELECT date_debut,date_fin FROM periode_paie WHERE id_periode_paie=?")) {
             ps.setInt(1,period);
             try(var rs=ps.executeQuery()) {
@@ -15,7 +15,7 @@ final class PointageTemporalConfigurationGuard {
             }
         }
     }
-    static void verify(int employee, LocalDate start, LocalDate end, Connection c) throws SQLException {
+    public static void verify(int employee, LocalDate start, LocalDate end, Connection c) throws SQLException {
         String sql="WITH jours AS (SELECT generate_series(?::date, ?::date, interval '1 day')::date AS jour) "
                 + "SELECT j.jour, 'AFFECTATION' AS type FROM jours j WHERE "
                 + "(SELECT COUNT(*) FROM employe_affectation_carriere a "

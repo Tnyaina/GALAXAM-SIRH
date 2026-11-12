@@ -1,13 +1,13 @@
 package mg.galaxam.sirh.pointage.api;
 
 import mg.galaxam.sirh.pointage.api.dto.*;
-import mg.galaxam.sirh.pointage.application.PointageAnomalieService;
-import mg.galaxam.sirh.pointage.application.PointageAjustementPeriodeService;
-import mg.galaxam.sirh.pointage.application.PointageEmployeService;
+import mg.galaxam.sirh.pointage.application.anomalie.PointageAnomalieService;
+import mg.galaxam.sirh.pointage.application.periode.PointageAjustementPeriodeService;
+import mg.galaxam.sirh.pointage.application.document.PointageEmployeService;
 import mg.galaxam.sirh.pointage.application.document.PointageExcelExportService;
-import mg.galaxam.sirh.pointage.application.PointageImportService;
-import mg.galaxam.sirh.pointage.application.PointageService;
-import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
+import mg.galaxam.sirh.pointage.application.saisie.PointageImportService;
+import mg.galaxam.sirh.pointage.application.saisie.PointageService;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 import mg.galaxam.sirh.pointage.persistence.EmployeIndemniteDerogation;
 import mg.galaxam.sirh.securite.persistence.AuditLog;
 import mg.galaxam.sirh.securite.auth.CustomUserDetails;

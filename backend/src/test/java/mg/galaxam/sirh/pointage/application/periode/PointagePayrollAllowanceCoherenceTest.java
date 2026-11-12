@@ -1,4 +1,5 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.periode;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 
 import org.junit.jupiter.api.Test;
 import mg.galaxam.sirh.pointage.domain.calculation.PointageAllowancePolicy;

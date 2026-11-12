@@ -1,4 +1,6 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.periode;
+import mg.galaxam.sirh.pointage.application.AttendanceStatusPolicy;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;

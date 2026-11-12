@@ -34,7 +34,7 @@ import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.dashboard.persistence.NotificationRhService;
 import mg.galaxam.sirh.paie.application.calculation.PayrollService;
 import mg.galaxam.sirh.paie.application.calculation.PayrollPopulationResolver;
-import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
 

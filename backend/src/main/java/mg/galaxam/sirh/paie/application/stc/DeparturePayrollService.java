@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.paie.domain.PayrollBusinessTime;
 import mg.galaxam.sirh.paie.persistence.PaieDossierSortie;
-import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 import org.springframework.stereotype.Service;
 
 /** Parcours anticipé du bulletin mensuel final d'un salarié sorti. */

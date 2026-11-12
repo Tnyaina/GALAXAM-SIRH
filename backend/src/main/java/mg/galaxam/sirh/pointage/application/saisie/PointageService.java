@@ -1,4 +1,8 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.saisie;
+import mg.galaxam.sirh.pointage.application.AttendanceStatusPolicy;
+import mg.galaxam.sirh.pointage.application.backenddriven.PointageStatusActions;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
+import mg.galaxam.sirh.pointage.application.periode.PointageTemporalConfigurationGuard;
 
 import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
@@ -119,7 +123,7 @@ public class PointageService {
         }
     }
 
-    static LocalTime resolveOptionalTimeRule(
+    public static LocalTime resolveOptionalTimeRule(
             Map<String, ParametreGlobal.ParametreEtat> params, String code) {
         ParametreGlobal.ParametreResolution resolution = ParametreGlobal.resolve(params, code);
         if (resolution.isDisabled()) return null;
@@ -207,7 +211,7 @@ public class PointageService {
         return value == null ? null : value.toLocalTime();
     }
 
-    static void verifierVacationDansCampagne(int employeId, LocalDate jour, LocalDate finCampagne,
+    public static void verifierVacationDansCampagne(int employeId, LocalDate jour, LocalDate finCampagne,
             LocalTime entreeMatin, LocalTime sortieMatin, LocalTime entreeAm, LocalTime sortieAm,
             boolean horaireContinu) {
         if (!jour.equals(finCampagne)) return;
@@ -220,7 +224,7 @@ public class PointageService {
         }
     }
 
-    static NightWindow resolveNightWindowAt(Connection c, LocalDate day) {
+    public static NightWindow resolveNightWindowAt(Connection c, LocalDate day) {
         var etat = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(day), c);
         LocalTime start = resolveOptionalTimeRule(etat, "SEUIL_NUIT_DEBUT");
         LocalTime end = resolveOptionalTimeRule(etat, "SEUIL_NUIT_FIN");
@@ -229,7 +233,7 @@ public class PointageService {
         return start == null ? null : new NightWindow(start, end);
     }
 
-    static NightWindow resolveNextDayNightWindow(Connection c, LocalDate day,
+    public static NightWindow resolveNextDayNightWindow(Connection c, LocalDate day,
             LocalTime em, LocalTime sm, LocalTime ea, LocalTime sa, boolean continu) {
         var intervals = WorkIntervalFactory.createIntervals(null, null, day,
                 em, sm, ea, sa, continu, "NUIT_PREVIEW");
@@ -263,7 +267,7 @@ public class PointageService {
         return punched.isBefore(earliestCounted) ? earliestCounted : punched;
     }
 
-    static LocalTime effectiveMorningEntry(LocalTime punched, LocalTime earliestCounted, NightWindow nightWindow) {
+    public static LocalTime effectiveMorningEntry(LocalTime punched, LocalTime earliestCounted, NightWindow nightWindow) {
         if (punched != null && nightWindow != null
                 && (!punched.isBefore(nightWindow.start()) || punched.isBefore(nightWindow.end()))) {
             return punched;
@@ -292,7 +296,7 @@ public class PointageService {
         }
     }
 
-    static double resolveDailyTargetHours(Map<String, ParametreGlobal.ParametreEtat> params) {
+    public static double resolveDailyTargetHours(Map<String, ParametreGlobal.ParametreEtat> params) {
         ParametreGlobal.ParametreResolution resolution = ParametreGlobal.resolve(params, "SEUIL_HEURES_JOUR");
         if (resolution.isDisabled()) return 0.0;
         if (resolution.isMissing()) {
@@ -500,7 +504,7 @@ public class PointageService {
     }
 
     private static List<SaisiePointageJourDTO.StatusAction> resolveStatusActions(SaisiePointageJourDTO dto) {
-        return AttendanceStatusPolicy.actions(dto);
+        return PointageStatusActions.actions(dto);
     }
 
     /**

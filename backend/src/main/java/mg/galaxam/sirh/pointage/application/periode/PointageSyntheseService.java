@@ -1,4 +1,5 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.periode;
+import mg.galaxam.sirh.pointage.application.saisie.PointageService;
 
 import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.pointage.api.dto.PointageTronconSemaineDTO;

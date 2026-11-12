@@ -1,4 +1,5 @@
 package mg.galaxam.sirh.pointage.application;
+import mg.galaxam.sirh.pointage.application.saisie.PointageService;
 
 import org.junit.jupiter.api.Test;
 

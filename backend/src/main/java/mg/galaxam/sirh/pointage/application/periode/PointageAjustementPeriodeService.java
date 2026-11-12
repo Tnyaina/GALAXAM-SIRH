@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.pointage.application;
+package mg.galaxam.sirh.pointage.application.periode;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

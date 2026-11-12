@@ -39,7 +39,7 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcReglementRequest;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
 import mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator;
-import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
@@ -123,7 +123,7 @@ public class StcService {
             new mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator();
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private mg.galaxam.sirh.pointage.application.PointageSyntheseService pointageSyntheseService;
+    private mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService pointageSyntheseService;
 
     public StcService(DataSource dataSource, Object ignoredLegacyCalculator, AncienneteEngine ancienneteEngine) {
         this.ancienneteEngine = ancienneteEngine != null ? ancienneteEngine : new AncienneteEngine();

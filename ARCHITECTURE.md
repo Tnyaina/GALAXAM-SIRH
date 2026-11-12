@@ -64,7 +64,7 @@ Pour retrouver le fonctionnement principal, suivre cette chaîne : **page React 
 | --- | --- | --- | --- | --- |
 | Calcul d'une campagne de paie | `features/payroll/pages/CalculStepPage.jsx` et `features/payroll/api/paieService.js` | `paie/api/PaieController.java` | `paie/application/calculation/PayrollService.java` (`calculerPaiePeriode`) | `paie/domain/engine/PayrollExecutionEngine.java` et moteurs associés |
 | Simulation d'une demande de congé | `features/leave/hooks/useDemandeCongeForm.js` et `features/leave/api/congeService.js` | `conge/api/DemandeCongeController.java` | `conge/application/CongeService.java` (`simulerDemande`) | `conge/domain/CongeCalculateurEngine.java` (`simuler`) |
-| Calcul des semaines de pointage | `features/attendance/` et son service API | `pointage/api/PointageController.java` (`calculerTout`) | `pointage/application/PointageSyntheseService.java` (`calculerToutesSemainesPeriode`) | `pointage/domain/calculation/AttendanceEngine.java` et `TemporalAttendanceEngine.java` |
+| Calcul des semaines de pointage | `features/attendance/` et son service API | `pointage/api/PointageController.java` (`calculerTout`) | `pointage/application/periode/PointageSyntheseService.java` (`calculerToutesSemainesPeriode`) | `pointage/domain/calculation/AttendanceEngine.java` et `TemporalAttendanceEngine.java` |
 
 ### Reconnaître le rôle d'une méthode
 

@@ -1,4 +1,7 @@
 package mg.galaxam.sirh.pointage.application;
+import mg.galaxam.sirh.pointage.application.document.PointageEmployeService;
+import mg.galaxam.sirh.pointage.application.saisie.PointageImportService;
+import mg.galaxam.sirh.pointage.application.saisie.PointageService;
 
 import mg.galaxam.sirh.pointage.api.dto.FichePointageEmployeDTO;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,5 @@
 package mg.galaxam.sirh.pointage.application;
+import mg.galaxam.sirh.pointage.application.periode.PointageSyntheseService;
 
 import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
 import org.junit.jupiter.api.Test;
