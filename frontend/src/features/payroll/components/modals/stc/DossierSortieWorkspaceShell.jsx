@@ -32,10 +32,10 @@ export default function DossierSortieWorkspaceShell({ isOpen, onClose, title, ch
                     Retour aux dossiers
                 </Button>}
             />
-            <main className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:p-4">
+            <main className="space-y-4">
                 {children}
                 {footer && (
-                    <div className="mt-8">
+                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-3 py-3 sm:px-4">
                         {footer}
                     </div>
                 )}

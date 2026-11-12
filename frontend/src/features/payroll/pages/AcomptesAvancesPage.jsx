@@ -536,12 +536,13 @@ export default function AcomptesAvancesPage() {
             )}
 
             {/* Info contextuelle */}
-            <p className="text-xs text-[var(--color-fg-muted)]">
+            <p className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-3 py-2.5 text-xs text-[var(--color-fg-muted)]">
                 La fiche salarié ou cette interface permet d'enregistrer une demande. Seul un versement confirmé peut être retenu sur le bulletin.
             </p>
 
             {/* Tableau principal */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
+            <section className="space-y-3" aria-label="Dossiers d'avances et d'acomptes">
+                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
                 <DataSectionHeader
                     title="Dossiers d'avances et d'acomptes"
                     description={groupByPeriode
@@ -551,9 +552,10 @@ export default function AcomptesAvancesPage() {
                     countLabel={`dossier${visible.length > 1 ? 's' : ''}`}
                     tone={(synthese?.aApprouver || 0) > 0 ? 'warning' : 'brand'}
                 />
+                </div>
 
                 {/* Barre de filtres */}
-                <div className="p-3 border-b border-[var(--color-border-subtle)] space-y-2">
+                <div className="space-y-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
                         <p className="text-xs font-semibold text-[var(--color-fg-muted)]">Rechercher ou filtrer les dossiers</p>
                         <div className="flex flex-wrap gap-2 items-center">
@@ -648,6 +650,7 @@ export default function AcomptesAvancesPage() {
                     )}
                 </div>
 
+                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
                 {/* Corps du tableau */}
                 {loading ? (
                     <div className="p-3"><SkeletonTable rows={6} columns={8} bordered={false} /></div>
@@ -731,7 +734,8 @@ export default function AcomptesAvancesPage() {
                         </div>
                     </div>
                 )}
-            </div>
+                </div>
+            </section>
 
             {/* ── SlideOver détail dossier ──────────────────────────────── */}
             <SlideOver

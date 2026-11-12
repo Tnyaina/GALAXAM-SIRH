@@ -135,7 +135,7 @@ export default function DossierSortieSuiviPanel({ dossier, onDossierChange }) {
 
     return <div className="space-y-4 text-sm">
         {error && <Alert type="error" message={error} />}
-        <div className="border-l-[3px] border-l-[var(--color-brand-600)] bg-[var(--color-brand-50)] px-3 py-2.5">
+        <div className="border border-[var(--color-border-subtle)] border-l-[3px] border-l-[var(--color-brand-600)] bg-[var(--color-surface)] px-3 py-3 sm:px-4">
             <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--color-fg)]"><Wallet size={17} aria-hidden="true" />{dossier?.idStc ? 'Règlement du STC' : 'Règlement disponible après confirmation du STC'}</h3>
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-fg-muted)]">{mayPay ? 'Saisissez le versement ci-dessous avec sa date, sa référence et son justificatif. La part du bulletin mensuel est affectée au même règlement.' : dossier?.idStc ? 'Consultez les versements et les justificatifs enregistrés ci-dessous.' : 'Terminez les contrôles et confirmez le décompte dans « Estimation ». Le formulaire de règlement apparaîtra ensuite ici.'}</p>
         </div>

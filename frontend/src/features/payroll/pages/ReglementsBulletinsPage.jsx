@@ -142,7 +142,7 @@ export default function ReglementsBulletinsPage() {
             <StatCard title="Paiements enregistrés" value={formatMoneyAr(paid)} subtext="Montants déjà payés" color="success" />
             <StatCard title="Reste à payer" value={formatMoneyAr(total - paid)} subtext="Inclut les virements non enregistrés" color="brand" />
         </div>
-        <Card shadow="none"><CardHeader><CardTitle size="sm">Bulletins individuels</CardTitle></CardHeader><CardBody className="space-y-3">
+        <section aria-label="Recherche et actions sur les bulletins" className="space-y-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:p-4">
             {canWrite && <InfoDisclosure label="Comment enregistrer un paiement ?" message="Pour enregistrer un salaire déjà versé par virement, chèque, espèces ou mobile money, ouvrez « Enregistrer un paiement » sur le bulletin. Les cases de sélection servent uniquement à préparer un fichier de virements bancaires." />}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <Input label="Rechercher" value={query} onChange={e => { setQuery(e.target.value); setCurrentPage(1); }} placeholder="Nom, matricule ou référence" containerClassName="w-full sm:max-w-sm" />
@@ -150,6 +150,8 @@ export default function ReglementsBulletinsPage() {
             </div>
             {canWrite && <Checkbox label={query ? `Tout sélectionner pour le lot bancaire parmi les ${visibleEligibleIds.length} bulletins filtrés` : `Tout sélectionner pour le lot bancaire parmi les ${visibleEligibleIds.length} bulletins de la période`} checked={allVisibleSelected} disabled={!visibleEligibleIds.length} onChange={e => toggleAllVisible(e.target.checked)} />}
             {canWrite && selectedEligible.length > 0 && <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-fg-muted)]"><span>{selectedEligible.length} bulletin(s) sélectionné(s){selectedOutsideFilter > 0 ? `, dont ${selectedOutsideFilter} hors de la recherche` : ''}.</span><Button variant="ghost" size="xs" onClick={() => setSelected([])}>Effacer la sélection</Button></div>}
+        </section>
+        <Card shadow="none"><CardHeader><CardTitle size="sm">Bulletins individuels</CardTitle></CardHeader><CardBody className="space-y-3">
             <div className="divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)] sm:hidden">
                 {displayed.map(b => <article key={b.idBulletin} className="space-y-3 py-4">
                     <div className="flex items-start justify-between gap-3">

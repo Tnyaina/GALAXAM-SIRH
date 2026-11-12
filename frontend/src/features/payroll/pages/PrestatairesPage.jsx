@@ -11,7 +11,7 @@ import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
 import SEO from '@/components/system/SEO';
 import FormModal from '@/components/ui/overlays/FormModal';
-import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '@/components/ui/data-display/Card';
+import { Card, CardTitle, CardSubtitle, CardBody } from '@/components/ui/data-display/Card';
 import { Tabs } from '@/components/ui/navigation/Tabs';
 import StatCard from '@/components/ui/data-display/StatCard';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -261,9 +261,11 @@ export default function PrestatairesPage() {
                 <StatCard title="Factures à traiter" value={facturesEnAttente.length} icon={<ReceiptText size={17} />} subtext="À compléter ou à régler" color="warning" />
             </div>
 
-            <Card shadow="sm" className="overflow-hidden">
-                <CardHeader className="px-5 py-4"><div><CardTitle size="lg">Dossiers prestataires</CardTitle><CardSubtitle>Suivez chaque dossier, du contrat au règlement.</CardSubtitle></div></CardHeader>
-                <div className="border-y border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-5 py-3">
+            <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3 sm:px-5">
+                <CardTitle size="lg">Dossiers prestataires</CardTitle>
+                <CardSubtitle>Suivez chaque dossier, du contrat au règlement.</CardSubtitle>
+            </section>
+            <section aria-label="Parcours de règlement" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3 sm:px-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Parcours de règlement</p>
@@ -284,7 +286,8 @@ export default function PrestatairesPage() {
                         <li><strong>4. Valider</strong><span className="block text-[var(--color-fg-muted)]">Contrôler les pièces et valider la facture.</span></li>
                         <li><strong>5. Régler</strong><span className="block text-[var(--color-fg-muted)]">Après paiement réel, consigner date et référence.</span></li>
                     </ol>}
-                </div>
+            </section>
+            <section className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
                 <Tabs ariaLabel="Parcours prestataires" activeTab={activeTab} onChange={setActiveTab} tabs={[
                     { id: 'prestataires', label: 'Prestataires', icon: Users, count: prestataires.length },
                     { id: 'contrats', label: 'Contrats', icon: FileCheck2, count: contrats.length },
@@ -469,7 +472,7 @@ export default function PrestatairesPage() {
                 })}
             </CardBody>}
                 </div>
-            </Card>
+            </section>
         </div>
     );
 }

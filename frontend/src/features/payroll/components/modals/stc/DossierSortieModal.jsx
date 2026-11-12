@@ -602,9 +602,9 @@ export default function DossierSortieModal({
                     {activeTab === 'synthese' && ruptureFigee && <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Date et motif figés après validation RH de la fin de contrat.</p>}
                 </Card>
 
-                <div className="min-w-0 space-y-5">
+                <div className="min-w-0 space-y-4">
                     {pageMode ? (
-                        <nav aria-label="Étapes du dossier de sortie" className="min-w-0 border-b border-[var(--color-border-subtle)]">
+                        <nav aria-label="Étapes du dossier de sortie" className="min-w-0 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-2 pt-2 sm:px-3">
                             <div role="tablist" aria-label="Sections du dossier" className="flex gap-1 overflow-x-auto lg:grid lg:grid-cols-5 lg:overflow-visible">
                                 {dossierTabs.map(({ id, label, icon: Icon, count }) => (
                                     <button key={id} id={`tab-${id}`} role="tab" aria-selected={activeTab === id} aria-controls={`panel-${id}`} tabIndex={activeTab === id ? 0 : -1} type="button" onClick={() => setActiveTab(id)}
@@ -632,12 +632,12 @@ export default function DossierSortieModal({
                                 ariaLabel="Étapes du dossier de sortie" className="dossier-stc-tabs" />
                         </div>
                     )}
-                    <div className="min-w-0 space-y-5" aria-label={dossierTabs.find(tab => tab.id === activeTab)?.label}>
+                    <div className="min-w-0 space-y-4" aria-label={dossierTabs.find(tab => tab.id === activeTab)?.label}>
 
                 {/* CONTENU ONGLET 1 : Données sources en lecture */}
                 {activeTab === 'synthese' && (
                     <div id="panel-synthese" role="tabpanel" aria-labelledby="tab-synthese" className="space-y-4">
-                        <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-3">
+                        <div className="flex flex-wrap items-end justify-between gap-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-3 py-3 sm:px-4">
                             <div>
                                 <h3 className="text-base font-bold text-[var(--color-fg)]">Données du départ</h3>
                                 <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">Sources utilisées pour préparer le dernier salaire et estimer le STC.</p>
@@ -844,7 +844,7 @@ export default function DossierSortieModal({
                                 </article>;
                             };
                             return <>
-                                <div className="border-b border-[var(--color-border-subtle)] pb-3">
+                                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-3 py-3 sm:px-4">
                                     <h3 className="text-base font-bold text-[var(--color-fg)]">Ce qu’il reste à faire</h3>
                                     <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{todo.length ? `${todo.length} point${todo.length > 1 ? 's' : ''} à examiner avant le bulletin final.` : 'Aucune action immédiate. Vous pouvez poursuivre la préparation.'}</p>
                                 </div>

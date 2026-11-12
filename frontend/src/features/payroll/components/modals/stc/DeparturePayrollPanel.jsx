@@ -76,7 +76,7 @@ export default function DeparturePayrollPanel({ dossier, onDossierChange }) {
     ];
 
     return <div id="panel-paie-finale" role="tabpanel" aria-labelledby="tab-paie-finale" className="space-y-3">
-        <div>
+        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-3 py-3 sm:px-4">
             <h3 className="text-base font-semibold text-[var(--color-fg)]">Paie finale du salarié sortant</h3>
             <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
                 Le pointage est figé uniquement pour ce salarié. Son bulletin validé sera conservé lors de la clôture collective.
