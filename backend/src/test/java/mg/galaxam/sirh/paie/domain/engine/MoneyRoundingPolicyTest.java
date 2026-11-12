@@ -8,6 +8,17 @@ import org.junit.jupiter.api.Test;
 class MoneyRoundingPolicyTest {
 
     @Test
+    void arronditLeNetDeReglementALaDizaineCommeLeBulletinEtLeStc() {
+        assertEquals(new BigDecimal("450120.00"),
+                MoneyRoundingPolicy.netSettlementToNearestTenAriary(new BigDecimal("450123.45")));
+        assertEquals(new BigDecimal("450130.00"),
+                MoneyRoundingPolicy.netSettlementToNearestTenAriary(new BigDecimal("450127.00")));
+        assertEquals(new BigDecimal("450130.00"),
+                MoneyRoundingPolicy.netSettlementToNearestTenAriary(new BigDecimal("450125.00")));
+        assertEquals(BigDecimal.ZERO, MoneyRoundingPolicy.netSettlementToNearestTenAriary(null));
+    }
+
+    @Test
     void arronditLariaryEntierAuPlusProche() {
         assertEquals(new BigDecimal("12"), MoneyRoundingPolicy.roundToNearestAriary(new BigDecimal("12.49")));
         assertEquals(new BigDecimal("13"), MoneyRoundingPolicy.roundToNearestAriary(new BigDecimal("12.50")));

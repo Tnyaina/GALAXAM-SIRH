@@ -31,6 +31,7 @@ paie/
 | Besoin | Départ → traitement → règle ou donnée |
 |---|---|
 | Calculer un bulletin | `PaieController.calculerBulletinEmploye` → `PayrollService.calculerBulletinEmploye` → `PayrollCalculationContextAssembler.assemble` → `PayrollExecutionEngine` |
+| Modifier le net à payer final ou son arrondi | `PayrollExecutionEngine.calculer` → `calculerNetAPayer` → `MoneyRoundingPolicy.netSettlementToNearestTenAriary` ; la ligne `AJUSTEMENT_ARRONDI` retrace l'écart |
 | Calculer toute la campagne | `PaieController` → `PayrollService.calculerPaiePeriode` → mêmes assembleur et moteur, salarié par salarié |
 | Comprendre une action disponible ou un refus | `PointagePeriodeController` / `PaieController` → `backenddriven/workflow/PayrollPeriodWorkflowService.describeContext`, `describeActions`, `requirePayrollAction` |
 | Exécuter une transition de campagne | `backenddriven/workflow/PayrollPeriodWorkflowService.execute` → vérifications, journal de transition et services métier concernés |
@@ -77,6 +78,7 @@ Pour les fichiers de `backenddriven/`, consulter l'index ci-dessous. `export/` e
 |---|---|---|
 | `PayrollService.preparerInput` / `PayrollCalculationContextAssembler.assemble` | Rassemblent emploi, salaire, pointage figé, congés et paramètres datés dans l'entrée du moteur. | Un montant utilise une mauvaise source ou date. |
 | `PayrollExecutionEngine.calculer` | Calcule le bulletin à partir de l'entrée préparée, sans SQL. | Le montant est faux alors que les entrées sont correctes. |
+| `PayrollExecutionEngine.calculerNetAPayer` | Soustrait les retenues du net avant trésorerie, inscrit `netAvantArrondi`, calcule `netAPayer` et ajoute la ligne d'écart d'arrondi. L'arrondi à la dizaine d'ariary est dans `MoneyRoundingPolicy.netSettlementToNearestTenAriary`. | Modifier la formule ou l'arrondi du net final du bulletin mensuel. Le STC appelle la même règle. |
 | `PayrollService.calculerBulletinEmploye` | Simule ou enregistre le bulletin individuel et ses imputations selon l'argument de simulation. | Recalcul d'un salarié. |
 | `PayrollService.calculerPaiePeriode` | Parcourt la population de campagne et calcule ses bulletins ; la simulation annule les effets. | Calcul collectif. |
 | `PayrollService.validerPaiePeriode` / `cloturerDonneesPaie` | Valident les bulletins calculés / figent les données de fin de campagne. | Passer d'un calcul à une paie officielle. |

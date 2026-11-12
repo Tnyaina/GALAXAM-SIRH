@@ -991,7 +991,7 @@ public class PayrollExecutionEngine {
         bp.setNetAvantArrondi(netAvantArrondi);
 
         // Arrondi officiel bancaire à la dizaine d'Ariary la plus proche
-        BigDecimal netAPayer = BulletinPaie.arrondirDizaineAriary(netAvantArrondi);
+        BigDecimal netAPayer = MoneyRoundingPolicy.netSettlementToNearestTenAriary(netAvantArrondi);
         bp.setNetAPayer(netAPayer);
 
         // Écart d'arrondi monétaire

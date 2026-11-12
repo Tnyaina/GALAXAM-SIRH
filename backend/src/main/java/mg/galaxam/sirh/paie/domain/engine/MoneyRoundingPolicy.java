@@ -20,6 +20,13 @@ public final class MoneyRoundingPolicy {
     public static BigDecimal tax(BigDecimal value) { return amount(value); }
     public static BigDecimal netPay(BigDecimal value) { return amount(value); }
 
+    /** Arrondi du net de règlement à la dizaine d'Ariary la plus proche. */
+    public static BigDecimal netSettlementToNearestTenAriary(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO
+                : value.divide(BigDecimal.TEN, 0, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.TEN).setScale(2, RoundingMode.HALF_UP);
+    }
+
     /** Ariary entier le plus proche ; une demi-unité s'éloigne de zéro. */
     public static BigDecimal roundToNearestAriary(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value.setScale(0, RoundingMode.HALF_UP);

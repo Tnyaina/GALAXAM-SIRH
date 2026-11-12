@@ -814,7 +814,7 @@ public class StcService {
         // 6. Net Final à Payer (arrondi bancaire officiel Ariary à la dizaine la plus proche)
         BigDecimal netFinalNonArrondi = netApresAvances.subtract(autresADeduire)
                 .add(res.getSoldeBulletinARegler()).max(BigDecimal.ZERO);
-        BigDecimal netFinal = BulletinPaie.arrondirDizaineAriary(netFinalNonArrondi);
+        BigDecimal netFinal = MoneyRoundingPolicy.netSettlementToNearestTenAriary(netFinalNonArrondi);
         BigDecimal ecartArrondi = netFinal.subtract(netFinalNonArrondi);
         if (ecartArrondi.compareTo(BigDecimal.ZERO) != 0) {
             if (ecartArrondi.compareTo(BigDecimal.ZERO) > 0) {

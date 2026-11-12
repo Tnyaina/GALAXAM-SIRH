@@ -2,7 +2,6 @@ package mg.galaxam.sirh.paie.persistence;
 
 import bean.ClassMere;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -449,15 +448,6 @@ public class BulletinPaie extends ClassMere {
             }
         }
         return list;
-    }
-
-    /**
-     * Règle d'arrondi monétaire malgache : arrondi à la dizaine d'Ariary la plus proche.
-     * Ex: 450 123.45 Ar -> 450 120 Ar ; 450 127.00 Ar -> 450 130 Ar.
-     */
-    public static BigDecimal arrondirDizaineAriary(BigDecimal montant) {
-        if (montant == null) return BigDecimal.ZERO;
-        return montant.divide(BigDecimal.TEN, 0, RoundingMode.HALF_UP).multiply(BigDecimal.TEN).setScale(2, RoundingMode.HALF_UP);
     }
 
     private static BulletinPaie mapResultSet(ResultSet rs) throws Exception {
