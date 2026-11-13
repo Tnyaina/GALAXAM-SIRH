@@ -31,6 +31,7 @@ const routeGroups = {
       ['conges', 'regles_acquisition', 'conges/acquisition'],
       ['pointage', 'parametres_globaux_pointage', 'pointage/constantes'],
       ['calendrier', 'calendrier', 'calendrier'],
+      ['import', 'employes', 'import/employes'],
     ],
   },
   conges: {

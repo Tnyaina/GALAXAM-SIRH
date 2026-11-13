@@ -43,6 +43,7 @@ public class Employe extends ClassMere {
     private String adresse;
     private String ville;
     private String telephone;
+    private List<String> telephonesSecondaires = new ArrayList<>();
     private String email;
 
     // Identifiants sociaux & Fiche
@@ -87,6 +88,7 @@ public class Employe extends ClassMere {
         adresse = source.adresse;
         ville = source.ville;
         telephone = source.telephone;
+        telephonesSecondaires = new ArrayList<>(source.telephonesSecondaires);
         email = source.email;
         numAffiliationCnaps = source.numAffiliationCnaps;
         photoUrl = source.photoUrl;
@@ -173,8 +175,8 @@ public class Employe extends ClassMere {
                 "matricule, nom, prenom, sexe, date_naissance, lieu_naissance, nationalite, pere_nom_prenom, mere_nom_prenom, situation_familiale, " +
                 "cin_numero, cin_date_delivrance, cin_lieu_delivrance, cin_duplicata_date, cin_duplicata_lieu, " +
                 "permis_conduire_numero, permis_conduire_date_delivrance, permis_conduire_lieu_delivrance, " +
-                "adresse, ville, telephone, email, num_affiliation_cnaps, photo_url, date_declaration, est_actif" +
-                ") VALUES (?, ?, ?, ?::sexe_enum, ?, ?, ?, ?, ?, ?::situation_familiale_enum, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "adresse, ville, telephone, email, num_affiliation_cnaps, photo_url, date_declaration, est_actif, telephones_secondaires" +
+                ") VALUES (?, ?, ?, ?::sexe_enum, ?, ?, ?, ?, ?, ?::situation_familiale_enum, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
@@ -207,6 +209,7 @@ public class Employe extends ClassMere {
             setNullableString(ps, i++, photoUrl);
             ps.setDate(i++, dateDeclaration);
             ps.setBoolean(i++, estActif);
+            ps.setArray(i++, c.createArrayOf("text", telephonesSecondaires.toArray(String[]::new)));
 
             ps.executeUpdate();
 
@@ -225,7 +228,7 @@ public class Employe extends ClassMere {
                 "matricule = ?, nom = ?, prenom = ?, sexe = ?::sexe_enum, date_naissance = ?, lieu_naissance = ?, nationalite = ?, pere_nom_prenom = ?, mere_nom_prenom = ?, situation_familiale = ?::situation_familiale_enum, " +
                 "cin_numero = ?, cin_date_delivrance = ?, cin_lieu_delivrance = ?, cin_duplicata_date = ?, cin_duplicata_lieu = ?, " +
                 "permis_conduire_numero = ?, permis_conduire_date_delivrance = ?, permis_conduire_lieu_delivrance = ?, " +
-                "adresse = ?, ville = ?, telephone = ?, email = ?, num_affiliation_cnaps = ?, photo_url = ?, date_declaration = ?, " +
+                "adresse = ?, ville = ?, telephone = ?, email = ?, num_affiliation_cnaps = ?, photo_url = ?, date_declaration = ?, telephones_secondaires = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_employe = ?";
 
@@ -259,6 +262,7 @@ public class Employe extends ClassMere {
             setNullableString(ps, i++, numAffiliationCnaps);
             setNullableString(ps, i++, photoUrl);
             ps.setDate(i++, dateDeclaration);
+            ps.setArray(i++, c.createArrayOf("text", telephonesSecondaires.toArray(String[]::new)));
 
             ps.setInt(i++, idEmploye);
 
@@ -428,6 +432,7 @@ public class Employe extends ClassMere {
         e.setAdresse(rs.getString("adresse"));
         e.setVille(rs.getString("ville"));
         e.setTelephone(rs.getString("telephone"));
+        e.setTelephonesSecondaires(java.util.Arrays.asList((String[]) rs.getArray("telephones_secondaires").getArray()));
         e.setEmail(rs.getString("email"));
 
         e.setNumAffiliationCnaps(rs.getString("num_affiliation_cnaps"));
@@ -509,6 +514,8 @@ public class Employe extends ClassMere {
 
     public String getTelephone() { return telephone; }
     public void setTelephone(String telephone) { this.telephone = telephone; }
+    public List<String> getTelephonesSecondaires() { return telephonesSecondaires; }
+    public void setTelephonesSecondaires(List<String> values) { this.telephonesSecondaires = values == null ? new ArrayList<>() : new ArrayList<>(values); }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

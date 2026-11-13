@@ -66,6 +66,7 @@ public class EmployeRequest {
     private String adresse;
     private String ville;
     private String telephone;
+    private List<String> telephonesSecondaires;
     private String email;
 
     // IDENTIFIANTS SOCIAUX & FICHE
@@ -176,6 +177,7 @@ public class EmployeRequest {
         private String lienParente;
         private String adresse;
         private String telephone;
+        private List<String> telephonesSecondaires;
         private String societe;
 
         public Integer getIdContact() { return idContact; }
@@ -195,6 +197,8 @@ public class EmployeRequest {
 
         public String getTelephone() { return telephone; }
         public void setTelephone(String telephone) { this.telephone = telephone; }
+        public List<String> getTelephonesSecondaires() { return telephonesSecondaires; }
+        public void setTelephonesSecondaires(List<String> telephonesSecondaires) { this.telephonesSecondaires = telephonesSecondaires; }
 
         public String getSociete() { return societe; }
         public void setSociete(String societe) { this.societe = societe; }
@@ -205,6 +209,9 @@ public class EmployeRequest {
         private Integer idBanque;
         private String agence;
         private String numCompteRib;
+        private String codeGuichet;
+        private String numeroCompte;
+        private String cleRib;
         private String titulaireCompte;
 
         public Integer getIdCompteBanque() { return idCompteBanque; }
@@ -218,6 +225,13 @@ public class EmployeRequest {
 
         public String getNumCompteRib() { return numCompteRib; }
         public void setNumCompteRib(String numCompteRib) { this.numCompteRib = numCompteRib; }
+
+        public String getCodeGuichet() { return codeGuichet; }
+        public void setCodeGuichet(String codeGuichet) { this.codeGuichet = codeGuichet; }
+        public String getNumeroCompte() { return numeroCompte; }
+        public void setNumeroCompte(String numeroCompte) { this.numeroCompte = numeroCompte; }
+        public String getCleRib() { return cleRib; }
+        public void setCleRib(String cleRib) { this.cleRib = cleRib; }
 
         public String getTitulaireCompte() { return titulaireCompte; }
         public void setTitulaireCompte(String titulaireCompte) { this.titulaireCompte = titulaireCompte; }
@@ -300,6 +314,8 @@ public class EmployeRequest {
 
     public String getTelephone() { return telephone; }
     public void setTelephone(String telephone) { this.telephone = telephone; }
+    public List<String> getTelephonesSecondaires() { return telephonesSecondaires; }
+    public void setTelephonesSecondaires(List<String> telephonesSecondaires) { this.telephonesSecondaires = telephonesSecondaires; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

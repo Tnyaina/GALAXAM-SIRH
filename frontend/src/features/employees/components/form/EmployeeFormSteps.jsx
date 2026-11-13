@@ -280,6 +280,8 @@ export function CoordonneesPhotoStep({
                         error={fieldErrors.telephone}
                         placeholder="Ex: 034 12 345 67" 
                     />
+                    {(formData.telephonesSecondaires || []).map((numero, index) => <div key={index} className="flex items-end gap-2"><Input label={`Autre téléphone ${index + 1}`} error={fieldErrors[`telephoneSecondaire_${index}`]} value={numero} onChange={e => set('telephonesSecondaires', formData.telephonesSecondaires.map((value, i) => i === index ? e.target.value : value))} /><Button type="button" variant="ghost" size="xs" onClick={() => set('telephonesSecondaires', formData.telephonesSecondaires.filter((_, i) => i !== index))}>Retirer</Button></div>)}
+                    <Button type="button" variant="ghost" size="xs" onClick={() => set('telephonesSecondaires', [...(formData.telephonesSecondaires || []), ''])}>+ Ajouter un téléphone</Button>
                     <Input 
                         label="Email" 
                         type="email" 
@@ -620,6 +622,7 @@ export function UrgenceFormStep({
                                     ))}
                                 </Select>
                                 <Input label="Téléphone" value={ct.telephone} onChange={e => setContact(idx, 'telephone', e.target.value)} placeholder="Téléphone" error={fieldErrors[`contact_${idx}_telephone`]} />
+                                <div className="md:col-span-3 space-y-2">{(ct.telephonesSecondaires || []).map((numero, numeroIndex) => <div key={numeroIndex} className="flex items-end gap-2"><Input label={`Autre téléphone ${numeroIndex + 1}`} value={numero} onChange={e => setContact(idx, 'telephonesSecondaires', ct.telephonesSecondaires.map((value, i) => i === numeroIndex ? e.target.value : value))} /><Button type="button" variant="ghost" size="xs" onClick={() => setContact(idx, 'telephonesSecondaires', ct.telephonesSecondaires.filter((_, i) => i !== numeroIndex))}>Retirer</Button></div>)}<Button type="button" variant="ghost" size="xs" onClick={() => setContact(idx, 'telephonesSecondaires', [...(ct.telephonesSecondaires || []), ''])}>+ Ajouter un numéro à ce contact</Button></div>
                                 <div className="md:col-span-2">
                                     <Input label="Adresse" value={ct.adresse} onChange={e => setContact(idx, 'adresse', e.target.value)} placeholder="Adresse" />
                                 </div>

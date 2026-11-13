@@ -129,6 +129,7 @@ export default function EmployeSideSummaryPanel({
                             icon={Phone}
                         />
                     )}
+                    {(emp.telephonesSecondaires || []).map((phone, index) => <MiniRow key={`${phone}-${index}`} label={`Autre téléphone ${index + 1}`} value={phone} isMono isLink href={`tel:${phone}`} icon={Phone} />)}
                     {emp.email && (
                         <MiniRow
                             label="Email"

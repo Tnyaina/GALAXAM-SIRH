@@ -33,6 +33,7 @@ export default function EmployeListPage() {
     const [totalElements, setTotalElements] = useState(0);
     const [statsCounts, setStatsCounts] = useState({ total: 0, actifs: 0, inactifs: 0 });
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Filtres synchronisés avec l'URL
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -52,6 +53,7 @@ export default function EmployeListPage() {
     const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
     const [pageSize, setPageSize] = useState(Number(searchParams.get('size')) || 10);
     const requestSequence = useRef(0);
+    const hasLoadedEmployes = useRef(false);
 
     // Modales & Actions
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -86,7 +88,8 @@ export default function EmployeListPage() {
     // Chargement paginé et filtré côté serveur (PostgreSQL)
     const loadEmployes = useCallback(async () => {
         const requestId = ++requestSequence.current;
-        setLoading(true);
+        if (hasLoadedEmployes.current) setRefreshing(true);
+        else setLoading(true);
         try {
             const data = await employeService.getEmployes({
                 q: debouncedSearch.trim() || undefined,
@@ -105,12 +108,16 @@ export default function EmployeListPage() {
             setEmployes(list);
             setTotalElements(data?.totalElements ?? list.length);
             setError('');
+            hasLoadedEmployes.current = true;
         } catch (err) {
             if (requestId !== requestSequence.current) return;
             console.error('Erreur chargement employés:', err);
             setError('Impossible de charger la liste des employés.');
         } finally {
-            if (requestId === requestSequence.current) setLoading(false);
+            if (requestId === requestSequence.current) {
+                setLoading(false);
+                setRefreshing(false);
+            }
         }
     }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter, columnSortConfig, currentPage, pageSize]);
 
@@ -396,7 +403,8 @@ export default function EmployeListPage() {
             </div>
 
             {/* Tableau paginé côté serveur */}
-            <Card className="flex flex-col overflow-hidden p-0" shadow="sm">
+            <Card className="relative flex flex-col overflow-hidden p-0" shadow="sm" aria-busy={loading || refreshing}>
+                {refreshing && <div className="absolute inset-x-0 top-0 z-10 h-0.5 animate-pulse bg-[var(--color-brand-500)]" aria-label="Actualisation de la liste" />}
                 <EmployeTable
                     employes={employes}
                     loading={loading}

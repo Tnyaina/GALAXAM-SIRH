@@ -63,13 +63,13 @@ public class VirementBancaireExportService {
             String rib = bp.getBanqueRib() != null ? bp.getBanqueRib().trim() : "";
             row.setRibComplet(rib);
 
-            // Découpage du RIB malgache normalisé (Ex: 00004 00123 00000000001 45)
-            String[] segments = rib.split("\\s+");
-            if (segments.length >= 4) {
-                row.setCodeBanque(segments[0]);
-                row.setCodeGuichet(segments[1]);
-                row.setNumeroCompte(segments[2]);
-                row.setCleRib(segments[3]);
+            // Les comptes sont enregistrés en 5 + 5 + 11 + 2 chiffres, sans séparateur.
+            String normalizedRib = rib.replaceAll("[\\s-]", "");
+            if (normalizedRib.matches("[0-9]{23}")) {
+                row.setCodeBanque(normalizedRib.substring(0, 5));
+                row.setCodeGuichet(normalizedRib.substring(5, 10));
+                row.setNumeroCompte(normalizedRib.substring(10, 21));
+                row.setCleRib(normalizedRib.substring(21, 23));
             } else {
                 row.setCodeBanque("");
                 row.setCodeGuichet("");

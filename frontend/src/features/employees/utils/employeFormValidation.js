@@ -117,6 +117,15 @@ export const validerChampsEtape = (stepId, formData, matriculeError = '', option
     } else if (!PATTERN_TELEPHONE.test(String(formData.telephone).trim())) {
       errors.telephone = "Format invalide (ex: 034 00 000 00 ou +261 34 00 000 00).";
     }
+    const numeros = new Set([String(formData.telephone || '').replace(/\D/g, '')]);
+    (formData.telephonesSecondaires || []).forEach((numero, index) => {
+      if (!numero?.trim()) return;
+      const chiffres = numero.replace(/\D/g, '');
+      if (!PATTERN_TELEPHONE.test(numero.trim()) || chiffres.length < 8 || chiffres.length > 15 || numeros.has(chiffres)) {
+        errors[`telephoneSecondaire_${index}`] = 'Numéro invalide ou déjà présent.';
+      }
+      numeros.add(chiffres);
+    });
     if (formData.email && formData.email.trim() && !validerEmail(formData.email)) {
       errors.email = "L'adresse email saisie est invalide.";
     }
@@ -134,6 +143,11 @@ export const validerChampsEtape = (stepId, formData, matriculeError = '', option
       }
       if (hasBanque && !hasRib) {
         errors.numCompteRib = "Le numéro de compte RIB est obligatoire si une banque est sélectionnée.";
+      }
+      if (hasBanque) {
+        if (!/^[0-9]{5}$/.test(cb.codeGuichet || '')) errors.codeGuichet = 'Code guichet : 5 chiffres attendus.';
+        if (!/^[0-9]{11}$/.test(cb.numeroCompte || '')) errors.numeroCompte = 'Numéro de compte : 11 chiffres attendus.';
+        if (!/^[0-9]{2}$/.test(cb.cleRib || '')) errors.cleRib = 'Clé RIB : 2 chiffres attendus.';
       }
     }
   }

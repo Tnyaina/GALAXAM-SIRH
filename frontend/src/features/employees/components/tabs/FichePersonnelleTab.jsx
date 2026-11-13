@@ -163,6 +163,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canReadBank = f
                                             </Td>
                                             <Td isData className="font-mono text-xs font-bold text-[var(--color-fg)]">
                                                 {cb.numCompteRib || '—'}
+                                                {cb.codeGuichet && <span className="mt-1 block font-sans font-normal text-[var(--color-fg-muted)]">Guichet {cb.codeGuichet} · Compte {cb.numeroCompte} · Clé {cb.cleRib}</span>}
                                             </Td>
                                         </Tr>
                                     ))}

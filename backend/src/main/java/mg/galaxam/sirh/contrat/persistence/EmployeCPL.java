@@ -44,6 +44,7 @@ public class EmployeCPL extends ClassMere {
     private String adresse;
     private String ville;
     private String telephone;
+    private List<String> telephonesSecondaires = new ArrayList<>();
     private String email;
 
     // IDENTIFIANTS SOCIAUX & STATUT
@@ -568,6 +569,8 @@ public class EmployeCPL extends ClassMere {
 
     public String getTelephone() { return telephone; }
     public void setTelephone(String telephone) { this.telephone = telephone; }
+    public List<String> getTelephonesSecondaires() { return telephonesSecondaires; }
+    public void setTelephonesSecondaires(List<String> values) { this.telephonesSecondaires = values == null ? new ArrayList<>() : new ArrayList<>(values); }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

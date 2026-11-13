@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, CreditCard } from 'lucide-react';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, CreditCard, Upload } from 'lucide-react';
 import { useReadableTabs } from '@/hooks/useReadableTabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
@@ -12,6 +12,7 @@ const CalendrierFerieTab = lazy(() => import('@/features/administration/componen
 const CotisationsIrsaTab = lazy(() => import('@/features/administration/components/payroll/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/features/administration/components/payroll/IndemnitesSitesTab'));
 const ReglementationFiscaleTab = lazy(() => import('@/features/administration/components/payroll/ReglementationFiscaleTab'));
+const ImportEmployesTab = lazy(() => import('@/features/administration/components/ImportEmployesTab'));
 const ModesPaiementTab = lazy(() => import('@/features/administration/components/payroll/ModesPaiementTab'));
 
 const MODULES = [
@@ -19,7 +20,8 @@ const MODULES = [
     { id: 'paie', label: 'Paie', icon: <FileText size={18} /> },
     { id: 'conges', label: 'Congés', icon: <Calendar size={18} /> },
     { id: 'pointage', label: 'Pointage', icon: <Clock size={18} /> },
-    { id: 'calendrier', label: 'Calendrier', icon: <Calendar size={18} /> }
+    { id: 'calendrier', label: 'Calendrier', icon: <Calendar size={18} /> },
+    { id: 'import', label: 'Import', icon: <Upload size={18} /> }
 ];
 
 export default function ParametresModulesPanel() {
@@ -35,6 +37,7 @@ export default function ParametresModulesPanel() {
         activeModule === 'conges' ? 'regles_acquisition' :
         activeModule === 'pointage' ? 'parametres_globaux_pointage' :
         activeModule === 'calendrier' ? 'calendrier' :
+        activeModule === 'import' ? 'employes' :
         'parametres_globaux_systeme'
     );
 
@@ -45,6 +48,7 @@ export default function ParametresModulesPanel() {
         else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
 
         if (moduleId === 'calendrier') defaultTab = 'calendrier';
+        if (moduleId === 'import') defaultTab = 'employes';
         setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('module', moduleId); next.set('tab', defaultTab); next.delete('subtab'); return next; });
     };
 
@@ -94,23 +98,25 @@ export default function ParametresModulesPanel() {
         ? congesTabs
         : activeModule === 'pointage'
         ? pointageTabs
-        : activeModule === 'calendrier' ? [{ id: 'calendrier', label: 'Calendrier & jours fériés', icon: <Calendar size={16} /> }] : generalTabs;
+        : activeModule === 'calendrier' ? [{ id: 'calendrier', label: 'Calendrier & jours fériés', icon: <Calendar size={16} /> }] : activeModule === 'import' ? [{ id: 'employes', label: 'Employés', icon: <Upload size={16} /> }] : generalTabs;
 
     const activeTab = currentTabs.some(tab => tab.id === requestedTab) ? requestedTab : currentTabs[0].id;
 
     return (
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full space-y-3 lg:space-y-4">
-            <SEO title="Paramétrage des Modules" description="Configuration des barèmes, cotisations, majorations et règles métier." />
+            <SEO title={activeModule === 'import' ? 'Import des employés' : 'Paramétrage des Modules'} description="Configuration des modules RH." />
 
             <PageHeader
                 className="shrink-0 mb-3.5"
-                title="Règles métier"
-                subtitle="Choisissez un domaine, puis la règle ou le barème à configurer."
-                icon={Wrench}
+                title={activeModule === 'import' ? 'Import des employés' : 'Règles métier'}
+                subtitle={activeModule === 'import'
+                    ? 'Préparation et contrôle des dossiers employés avant leur insertion initiale.'
+                    : 'Choisissez un domaine, puis la règle ou le barème à configurer.'}
+                icon={activeModule === 'import' ? Upload : Wrench}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Paramètres', href: '/admin/organisation' },
-                    { label: 'Règles métier' }
+                    { label: activeModule === 'import' ? 'Import des employés' : 'Règles métier' }
                 ]}
             />
 
@@ -118,6 +124,11 @@ export default function ParametresModulesPanel() {
                 groups={[{ id: 'domaines', label: 'Domaines métier', items: MODULES }]}
                 activeId={activeModule} onChange={handleModuleChange}
             >
+                {activeModule === 'import' ? (
+                    <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
+                        <ImportEmployesTab />
+                    </Suspense>
+                ) : (
                     <AdministrationSettingsView
                         groups={activeModule === 'paie' ? paieGroups : [{ id: activeModule, label: 'Configuration', items: currentTabs }]}
                         activeId={activeTab}
@@ -162,6 +173,7 @@ export default function ParametresModulesPanel() {
                         )}
                 </Suspense>
                     </AdministrationSettingsView>
+                )}
             </AdministrationSettingsView>
         </div>
     );

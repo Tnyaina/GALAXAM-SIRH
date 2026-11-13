@@ -19,6 +19,9 @@ public class EmployeCompteBanque extends ClassMere {
     private String codeBanque;
     private String agence;
     private String numCompteRib;
+    private String codeGuichet;
+    private String numeroCompte;
+    private String cleRib;
     private String titulaireCompte;
     private Timestamp createdAt;
     private Timestamp updatedAt;
@@ -55,13 +58,16 @@ public class EmployeCompteBanque extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         controler(c);
-        String sql = "INSERT INTO employe_compte_banque (id_employe, id_banque, agence, num_compte_rib, titulaire_compte) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO employe_compte_banque (id_employe, id_banque, agence, num_compte_rib, titulaire_compte, code_guichet, numero_compte, cle_rib) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, idEmploye);
             ps.setInt(2, idBanque);
             ps.setString(3, agence);
             ps.setString(4, numCompteRib);
             ps.setString(5, titulaireCompte);
+            ps.setString(6, codeGuichet);
+            ps.setString(7, numeroCompte);
+            ps.setString(8, cleRib);
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
@@ -75,14 +81,17 @@ public class EmployeCompteBanque extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         controler(c);
-        String sql = "UPDATE employe_compte_banque SET id_employe = ?, id_banque = ?, agence = ?, num_compte_rib = ?, titulaire_compte = ?, updated_at = CURRENT_TIMESTAMP WHERE id_compte_banque = ?";
+        String sql = "UPDATE employe_compte_banque SET id_employe = ?, id_banque = ?, agence = ?, num_compte_rib = ?, titulaire_compte = ?, code_guichet = ?, numero_compte = ?, cle_rib = ?, updated_at = CURRENT_TIMESTAMP WHERE id_compte_banque = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             ps.setInt(2, idBanque);
             ps.setString(3, agence);
             ps.setString(4, numCompteRib);
             ps.setString(5, titulaireCompte);
-            ps.setInt(6, idCompteBanque);
+            ps.setString(6, codeGuichet);
+            ps.setString(7, numeroCompte);
+            ps.setString(8, cleRib);
+            ps.setInt(9, idCompteBanque);
             ps.executeUpdate();
         }
         return this;
@@ -167,6 +176,9 @@ public class EmployeCompteBanque extends ClassMere {
         cb.setIdBanque(rs.getInt("id_banque"));
         cb.setAgence(rs.getString("agence"));
         cb.setNumCompteRib(rs.getString("num_compte_rib"));
+        cb.setCodeGuichet(rs.getString("code_guichet"));
+        cb.setNumeroCompte(rs.getString("numero_compte"));
+        cb.setCleRib(rs.getString("cle_rib"));
         cb.setTitulaireCompte(rs.getString("titulaire_compte"));
         cb.setCreatedAt(rs.getTimestamp("created_at"));
         cb.setUpdatedAt(rs.getTimestamp("updated_at"));
@@ -202,6 +214,13 @@ public class EmployeCompteBanque extends ClassMere {
 
     public String getNumCompteRib() { return numCompteRib; }
     public void setNumCompteRib(String numCompteRib) { this.numCompteRib = numCompteRib; }
+
+    public String getCodeGuichet() { return codeGuichet; }
+    public void setCodeGuichet(String codeGuichet) { this.codeGuichet = codeGuichet; }
+    public String getNumeroCompte() { return numeroCompte; }
+    public void setNumeroCompte(String numeroCompte) { this.numeroCompte = numeroCompte; }
+    public String getCleRib() { return cleRib; }
+    public void setCleRib(String cleRib) { this.cleRib = cleRib; }
 
     public String getTitulaireCompte() { return titulaireCompte; }
     public void setTitulaireCompte(String titulaireCompte) { this.titulaireCompte = titulaireCompte; }

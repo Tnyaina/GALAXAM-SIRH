@@ -53,13 +53,13 @@ const EMPTY_FORM = {
     cinNumero: '', cinDateDelivrance: '', cinLieuDelivrance: '',
     cinDuplicataDate: '', cinDuplicataLieu: '',
     permisConduireNumero: '', permisConduireDateDelivrance: '', permisConduireLieuDelivrance: '',
-    adresse: '', ville: '', telephone: '', email: '',
+    adresse: '', ville: '', telephone: '', telephonesSecondaires: [], email: '',
     numAffiliationCnaps: '', photoUrl: '', dateDeclaration: '',
     conjoint: { nom: '', prenom: '', dateNaissance: '', lieuNaissance: '', societe: '', fonction: '' },
     supprimerConjoint: false,
     enfants: [],
-    contactsUrgence: [{ clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
-    compteBanquePrincipal: { idBanque: '', agence: '', numCompteRib: '', titulaireCompte: '' },
+    contactsUrgence: [{ clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', telephonesSecondaires: [], adresse: '', societe: '' }],
+    compteBanquePrincipal: { idBanque: '', agence: '', codeGuichet: '', numeroCompte: '', cleRib: '', numCompteRib: '', titulaireCompte: '' },
     supprimerCompteBanque: false
 };
 
@@ -139,6 +139,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 adresse: e.adresse || '',
                 ville: e.ville || '',
                 telephone: e.telephone || '',
+                telephonesSecondaires: e.telephonesSecondaires || [],
                 email: e.email || '',
                 numAffiliationCnaps: e.numAffiliationCnaps || '',
                 photoUrl: e.photoUrl || '',
@@ -175,12 +176,13 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                         prenom: ct.prenom || '',
                         lienParente: ct.lienParente || 'Autre',
                         telephone: ct.telephone || '',
+                        telephonesSecondaires: ct.telephonesSecondaires || [],
                         adresse: ct.adresse || '',
                         societe: ct.societe || ''
                     }))
-                    : [{ clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
+                    : [{ clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', telephonesSecondaires: [], adresse: '', societe: '' }],
                 compteBanquePrincipal: employeData.comptesBancaires?.[0] || {
-                    idBanque: '', agence: '', numCompteRib: '', titulaireCompte: ''
+                    idBanque: '', agence: '', codeGuichet: '', numeroCompte: '', cleRib: '', numCompteRib: '', titulaireCompte: ''
                 },
                 supprimerCompteBanque: false
             });
@@ -235,6 +237,17 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             return next;
         });
     }, []);
+
+    const setBankField = (field, value) => {
+        setIsDirty(true);
+        setFormData(prev => {
+            const next = { ...prev.compteBanquePrincipal, [field]: value };
+            const bank = banques.find(item => String(item.idBanque) === String(next.idBanque));
+            next.numCompteRib = `${bank?.codeBanque || ''}${next.codeGuichet || ''}${next.numeroCompte || ''}${next.cleRib || ''}`;
+            return { ...prev, compteBanquePrincipal: next };
+        });
+        setFieldErrors(prev => ({ ...prev, [field]: '', numCompteRib: '' }));
+    };
 
     const toggleSuppressionConjoint = useCallback(() => {
         setIsDirty(true);
@@ -293,7 +306,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         setIsDirty(true);
         setFormData(prev => ({
             ...prev,
-            contactsUrgence: [...prev.contactsUrgence, { clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }]
+            contactsUrgence: [...prev.contactsUrgence, { clientKey: createSatelliteClientKey(), nom: '', prenom: '', lienParente: 'Autre', telephone: '', telephonesSecondaires: [], adresse: '', societe: '' }]
         }));
     }, []);
 
@@ -881,7 +894,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                     <SearchSelect 
                                         label="Banque" 
                                         value={formData.compteBanquePrincipal.idBanque} 
-                                        onChange={(value) => setNested('compteBanquePrincipal', 'idBanque', value)} 
+                                        onChange={(value) => setBankField('idBanque', value)}
                                         options={banques.filter((bank) => bank.estActif !== false && bank.actif !== false || String(bank.idBanque) === String(formData.compteBanquePrincipal.idBanque)).map((bank) => ({ value: bank.idBanque, label: bank.nomBanque, sublabel: bank.codeBanque }))} 
                                         placeholder="Rechercher une banque…" 
                                         error={fieldErrors.idBanque}
@@ -894,14 +907,16 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                         options={AGENCES_BANCAIRES} 
                                         listId="agences-bancaires-list" 
                                     />
-                                    <Input 
-                                        label="N° Compte / RIB" 
-                                        value={formData.compteBanquePrincipal.numCompteRib} 
-                                        onChange={(event) => setNested('compteBanquePrincipal', 'numCompteRib', event.target.value)} 
-                                        onBlur={() => handleFieldBlur('numCompteRib')}
-                                        error={fieldErrors.numCompteRib}
-                                        placeholder="00000-00000-00000000000-00" 
-                                    />
+                                    <Input label="Code guichet" value={formData.compteBanquePrincipal.codeGuichet || ''}
+                                        onChange={(event) => setBankField('codeGuichet', event.target.value)}
+                                        error={fieldErrors.codeGuichet} placeholder="00009" inputMode="numeric" maxLength={5} />
+                                    <Input label="Numéro de compte" value={formData.compteBanquePrincipal.numeroCompte || ''}
+                                        onChange={(event) => setBankField('numeroCompte', event.target.value)}
+                                        error={fieldErrors.numeroCompte} placeholder="00000000001" inputMode="numeric" maxLength={11} />
+                                    <Input label="Clé RIB" value={formData.compteBanquePrincipal.cleRib || ''}
+                                        onChange={(event) => setBankField('cleRib', event.target.value)}
+                                        error={fieldErrors.cleRib} placeholder="01" inputMode="numeric" maxLength={2} />
+                                    <div className="text-xs text-[var(--color-fg-muted)]">RIB complet : <span className="font-mono text-[var(--color-fg)]">{formData.compteBanquePrincipal.numCompteRib || '—'}</span></div>
                                     <Input 
                                         label="Titulaire du Compte" 
                                         value={formData.compteBanquePrincipal.titulaireCompte} 

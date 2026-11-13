@@ -271,6 +271,7 @@ export default function FamilleContactsTab({
                                                 <span className="text-[var(--color-fg-subtle)]">Non renseigné</span>
                                             )}
                                         </div>
+                                        {(ct.telephonesSecondaires || []).map((phone, index) => <div key={`${phone}-${index}`} className="flex items-center justify-between text-[11px]"><span className="text-[var(--color-fg-muted)]">Autre téléphone {index + 1}</span><a href={`tel:${phone}`} className="font-mono text-[var(--color-brand-600)] hover:underline">{phone}</a></div>)}
                                         {ct.adresse && (
                                             <div className="flex items-center justify-between text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Adresse</span>

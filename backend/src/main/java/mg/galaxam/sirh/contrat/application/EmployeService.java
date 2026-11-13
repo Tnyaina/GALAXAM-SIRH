@@ -4,6 +4,7 @@ package mg.galaxam.sirh.contrat.application;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -111,6 +112,8 @@ public class EmployeService {
         if (empView == null) {
             return null;
         }
+        Employe employeComplet = new Employe().rechercherParId(id, c);
+        empView.setTelephonesSecondaires(employeComplet.getTelephonesSecondaires());
 
         EmployeConjoint conjoint = EmployeConjoint.findByEmployeId(id, c);
         List<EmployeEnfant> enfants = EmployeEnfant.listByEmployeId(id, c);
@@ -158,52 +161,95 @@ public class EmployeService {
     }
 
     public EmployeCPL creerEmploye(EmployeRequest req) throws Exception {
-        // 1. Validation métier par le Domain Engine
         validationEngine.validerEmploye(req);
-
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                verrouillerAllocateurMatricule(c);
-                // 2. Gestion et génération automatique du matricule si non renseigné
-                if (req.getMatricule() == null || req.getMatricule().trim().isEmpty() || "AUTO".equalsIgnoreCase(req.getMatricule().trim())) {
-                    req.setMatricule(calculerProchainMatricule(c));
-                }
-
-                // 3. Employé principal
-                Employe emp = new Employe();
-                copierChampsEmploye(emp, req);
-
-                emp.save(c);
-                Integer empId = emp.getIdEmploye();
-
-                // 4. Conjoint actuel facultatif
-                appliquerConjoint(empId, req, c);
-
-                // 5–6. Enfants et contacts d'urgence
-                appliquerEnfants(empId, req, c);
-                appliquerContactsUrgence(empId, req, c);
-
-                // 7. Compte bancaire facultatif et unique
-                appliquerCompteBanque(empId, req, c);
-
-                AuditLog.audit(c, "CREATION", "employe", String.valueOf(empId), null, emp);
-
-                // Notification RH via source unique de vérité
-                NotificationRhService.creer(c, "EMPLOYE_CREE", "INFO",
-                    "Nouvel employé - " + emp.getNom() + " " + emp.getPrenom(),
-                    "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom()
-                        + " a été créée. Pensez à ajouter un contrat et les documents obligatoires.",
-                    "/employes/" + empId + "/documents",
-                    empId);
-
+                EmployeCPL created = creerEmployeDansTransaction(req, c);
                 c.commit();
-                return new EmployeCPL().rechercherParId(empId, c);
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
+                return created;
+            } catch (Exception e) { c.rollback(); throw e; }
         }
+    }
+
+    /** Un lot initial est créé entièrement ou annulé entièrement. */
+    public java.util.List<EmployeCPL> creerEmployesInitiaux(java.util.List<EmployeRequest> requests) throws Exception {
+        return creerEmployesInitiaux(requests, Set.of());
+    }
+
+    /** Crée les exclusions de déplacement choisies dans la même transaction que les fiches. */
+    public java.util.List<EmployeCPL> creerEmployesInitiaux(java.util.List<EmployeRequest> requests,
+            Set<String> exclusionsDeplacement) throws Exception {
+        return creerEmployesInitiaux(requests, exclusionsDeplacement, (employe, connection) -> {});
+    }
+
+    @FunctionalInterface
+    public interface InitialEmployeeHandler {
+        void handle(EmployeCPL employe, Connection connection) throws Exception;
+    }
+
+    /** Exécute les étapes complémentaires dans la transaction du lot initial. */
+    public java.util.List<EmployeCPL> creerEmployesInitiaux(java.util.List<EmployeRequest> requests,
+            Set<String> exclusionsDeplacement, InitialEmployeeHandler afterCreation) throws Exception {
+        for (EmployeRequest req : requests) validationEngine.validerEmploye(req);
+        Set<String> matricules = new HashSet<>();
+        for (EmployeRequest req : requests) matricules.add(req.getMatricule());
+        if (!matricules.containsAll(exclusionsDeplacement)) {
+            throw new IllegalArgumentException("Exclusion de déplacement sans employé dans le lot.");
+        }
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                java.util.List<EmployeCPL> result = new java.util.ArrayList<>();
+                Integer indemniteDeplacement = null;
+                if (!exclusionsDeplacement.isEmpty()) {
+                    try (PreparedStatement ps = c.prepareStatement("SELECT id_indemnite FROM ref_indemnite WHERE code = 'DPLCT' AND est_actif = TRUE")) {
+                        try (var rs = ps.executeQuery()) {
+                            if (!rs.next()) throw new IllegalArgumentException("Indemnité de déplacement DPLCT absente du référentiel.");
+                            indemniteDeplacement = rs.getInt(1);
+                        }
+                    }
+                }
+                for (EmployeRequest req : requests) {
+                    EmployeCPL employe = creerEmployeDansTransaction(req, c);
+                    result.add(employe);
+                    afterCreation.handle(employe, c);
+                    if (exclusionsDeplacement.contains(req.getMatricule())) {
+                        try (PreparedStatement ps = c.prepareStatement("INSERT INTO employe_indemnite_derogation "
+                                + "(id_employe, id_indemnite, beneficie, motif, date_debut) VALUES (?, ?, FALSE, ?, CURRENT_DATE)")) {
+                            ps.setInt(1, employe.getIdEmploye());
+                            ps.setInt(2, indemniteDeplacement);
+                            ps.setString(3, "Exclusion initiale de l'indemnité de déplacement — à vérifier par la DAF");
+                            ps.executeUpdate();
+                        }
+                    }
+                }
+                c.commit();
+                return result;
+            } catch (Exception e) { c.rollback(); throw e; }
+        }
+    }
+
+    private EmployeCPL creerEmployeDansTransaction(EmployeRequest req, Connection c) throws Exception {
+        verrouillerAllocateurMatricule(c);
+        if (req.getMatricule() == null || req.getMatricule().trim().isEmpty() || "AUTO".equalsIgnoreCase(req.getMatricule().trim())) {
+            req.setMatricule(calculerProchainMatricule(c));
+        }
+        Employe emp = new Employe();
+        copierChampsEmploye(emp, req);
+        emp.save(c);
+        Integer empId = emp.getIdEmploye();
+        appliquerConjoint(empId, req, c);
+        appliquerEnfants(empId, req, c);
+        appliquerContactsUrgence(empId, req, c);
+        appliquerCompteBanque(empId, req, c);
+        AuditLog.audit(c, "CREATION", "employe", String.valueOf(empId), null, emp);
+        NotificationRhService.creer(c, "EMPLOYE_CREE", "INFO",
+            "Nouvel employé - " + emp.getNom() + " " + emp.getPrenom(),
+            "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom()
+                + " a été créée. Pensez à ajouter un contrat et les documents obligatoires.",
+            "/employes/" + empId + "/documents", empId);
+        return new EmployeCPL().rechercherParId(empId, c);
     }
 
     public EmployeCPL modifierEmploye(int id, EmployeRequest req) throws Exception {
@@ -270,6 +316,8 @@ public class EmployeService {
         employe.setAdresse(req.getAdresse());
         employe.setVille(req.getVille());
         employe.setTelephone(req.getTelephone());
+        if (req.getTelephonesSecondaires() != null)
+            employe.setTelephonesSecondaires(telephonesSecondairesValides(req.getTelephone(), req.getTelephonesSecondaires()));
         employe.setEmail(req.getEmail());
 
         employe.setNumAffiliationCnaps(req.getNumAffiliationCnaps());
@@ -299,6 +347,26 @@ public class EmployeService {
         if (donnees.getIdBanque() == null || estVide(donnees.getNumCompteRib())) {
             throw new IllegalArgumentException("La banque et le numéro de compte RIB sont obligatoires.");
         }
+        String codeBanque;
+        try (var ps = c.prepareStatement("SELECT code_banque FROM ref_banque WHERE id_banque = ?")) {
+            ps.setInt(1, donnees.getIdBanque());
+            try (var rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalArgumentException("Banque introuvable.");
+                codeBanque = rs.getString(1);
+            }
+        }
+        String rib = donnees.getNumCompteRib().replaceAll("[\\s-]", "");
+        if (!rib.matches("[0-9]{23}") || !rib.startsWith(codeBanque)) {
+            throw new IllegalArgumentException("RIB invalide : 23 chiffres attendus, commençant par le code banque.");
+        }
+        String guichet = rib.substring(5, 10);
+        String numeroCompte = rib.substring(10, 21);
+        String cleRib = rib.substring(21, 23);
+        if (donnees.getCodeGuichet() != null && !guichet.equals(donnees.getCodeGuichet())
+                || donnees.getNumeroCompte() != null && !numeroCompte.equals(donnees.getNumeroCompte())
+                || donnees.getCleRib() != null && !cleRib.equals(donnees.getCleRib())) {
+            throw new IllegalArgumentException("Les segments bancaires ne correspondent pas au RIB complet.");
+        }
         EmployeCompteBanque compte = EmployeCompteBanque.findByEmployeId(idEmploye, c);
         if (donnees.getIdCompteBanque() != null && (donnees.getIdCompteBanque() <= 0
                 || compte == null || !donnees.getIdCompteBanque().equals(compte.getIdCompteBanque()))) {
@@ -309,13 +377,16 @@ public class EmployeService {
             compte.setIdEmploye(idEmploye);
         } else if (Objects.equals(compte.getIdBanque(), donnees.getIdBanque())
                 && Objects.equals(compte.getAgence(), donnees.getAgence())
-                && Objects.equals(compte.getNumCompteRib(), donnees.getNumCompteRib())
+                && Objects.equals(compte.getNumCompteRib(), rib)
                 && Objects.equals(compte.getTitulaireCompte(), donnees.getTitulaireCompte())) {
             return;
         }
         compte.setIdBanque(donnees.getIdBanque());
         compte.setAgence(donnees.getAgence());
-        compte.setNumCompteRib(donnees.getNumCompteRib());
+        compte.setNumCompteRib(rib);
+        compte.setCodeGuichet(guichet);
+        compte.setNumeroCompte(numeroCompte);
+        compte.setCleRib(cleRib);
         compte.setTitulaireCompte(donnees.getTitulaireCompte());
         if (compte.getIdCompteBanque() == null) compte.save(c); else compte.update(c);
     }
@@ -390,6 +461,8 @@ public class EmployeService {
             contact.setLienParente(donnees.getLienParente());
             contact.setAdresse(donnees.getAdresse());
             contact.setTelephone(donnees.getTelephone());
+            if (donnees.getTelephonesSecondaires() != null)
+                contact.setTelephonesSecondaires(telephonesSecondairesValides(donnees.getTelephone(), donnees.getTelephonesSecondaires()));
             contact.setSociete(donnees.getSociete());
             if (id == null) contact.save(c); else contact.update(c);
         }
@@ -433,7 +506,25 @@ public class EmployeService {
                 && Objects.equals(actuel.getLienParente(), normalise.getLienParente())
                 && Objects.equals(actuel.getAdresse(), demande.getAdresse())
                 && Objects.equals(actuel.getTelephone(), demande.getTelephone())
+                && (demande.getTelephonesSecondaires() == null || Objects.equals(actuel.getTelephonesSecondaires(), demande.getTelephonesSecondaires()))
                 && Objects.equals(actuel.getSociete(), demande.getSociete());
+    }
+
+    private static List<String> telephonesSecondairesValides(String principal, List<String> autres) {
+        if (autres == null) return List.of();
+        List<String> result = new ArrayList<>();
+        Set<String> uniques = new HashSet<>();
+        if (principal != null) uniques.add(principal.replaceAll("[^0-9]", ""));
+        for (String valeur : autres) {
+            if (valeur == null || valeur.isBlank()) continue;
+            String numero = valeur.trim();
+            String chiffres = numero.replaceAll("[^0-9]", "");
+            if (!numero.matches("[+]?[0-9\\s.-]{8,30}") || chiffres.length() < 8 || chiffres.length() > 15)
+                throw new IllegalArgumentException("Numéro de téléphone secondaire invalide : " + numero);
+            if (!uniques.add(chiffres)) throw new IllegalArgumentException("Numéro de téléphone répété : " + numero);
+            result.add(numero);
+        }
+        return result;
     }
 
     void appliquerConjoint(int idEmploye, EmployeRequest req, Connection c) throws Exception {

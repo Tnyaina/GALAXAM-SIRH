@@ -12,6 +12,8 @@ import employeService from '@/features/employees/api/employeService';
 
 const emptyLot = () => ({ id: crypto.randomUUID(), exercice: '', joursRestants: '', tauxHistorique: '' });
 const parseJours = (value) => Number(String(value ?? '').replace(',', '.'));
+const referenceFromDate = (date) => date ? `Arrêté DAF du ${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}` : '';
+const generatedReference = /^Arrêté DAF du \d{2}\/\d{2}\/\d{4}$/;
 const valeurLot = (lot) => {
   const valeur = parseJours(lot.joursRestants) * Number(lot.tauxHistorique);
   return Number.isFinite(valeur) ? Number(valeur.toFixed(2)) : 0;
@@ -52,6 +54,12 @@ export default function InitialisationSoldeModal({
   const [error, setError] = useState(null);
   const [employeDetail, setEmployeDetail] = useState(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
+
+  const updateDateCutover = (date) => {
+    setDateCutover(date);
+    setReferenceArrete(previous => !previous.trim() || generatedReference.test(previous.trim())
+      ? referenceFromDate(date) : previous);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -343,7 +351,7 @@ export default function InitialisationSoldeModal({
                     <Input
                       type="date"
                       value={dateCutover}
-                      onChange={(e) => setDateCutover(e.target.value)}
+                      onChange={(e) => updateDateCutover(e.target.value)}
                       placeholder="jj/mm/aaaa"
                       required
                     />
@@ -474,7 +482,7 @@ export default function InitialisationSoldeModal({
                   <Input
                     type="date"
                     value={dateCutover}
-                    onChange={(e) => setDateCutover(e.target.value)}
+                    onChange={(e) => updateDateCutover(e.target.value)}
                     placeholder="jj/mm/aaaa"
                     required
                   />
@@ -623,11 +631,11 @@ export default function InitialisationSoldeModal({
                   type="text"
                   value={referenceArrete}
                   onChange={(e) => setReferenceArrete(e.target.value)}
-                  placeholder="Ex. Arrêté DAF n° 01"
+                  placeholder="Choisissez d’abord la date d’arrêté"
                   required
                 />
                 <p className="text-[11px] text-[var(--color-fg-muted)] leading-snug">
-                  Nom ou numéro du document source. Aucun fichier n&apos;est importé ici.
+                  Prérempli avec la date d’arrêté. Vérifiez et remplacez ce texte si le document DAF porte une référence précise. Aucun fichier n&apos;est importé ici.
                 </p>
               </div>
             </div>

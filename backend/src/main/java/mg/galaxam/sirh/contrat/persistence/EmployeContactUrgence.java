@@ -19,6 +19,7 @@ public class EmployeContactUrgence extends ClassMere {
     private String lienParente; // 'Pere', 'Mere', 'Conjoint', 'Frere', 'Soeur', 'Enfant', 'Autre'
     private String adresse;
     private String telephone;
+    private List<String> telephonesSecondaires = new ArrayList<>();
     private String societe;
     private Timestamp createdAt;
     private Timestamp updatedAt;
@@ -60,7 +61,7 @@ public class EmployeContactUrgence extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO employe_contact_urgence (id_employe, nom, prenom, lien_parente, adresse, telephone, societe) VALUES (?, ?, ?, ?::lien_parente_enum, ?, ?, ?)";
+        String sql = "INSERT INTO employe_contact_urgence (id_employe, nom, prenom, lien_parente, adresse, telephone, societe, telephones_secondaires) VALUES (?, ?, ?, ?::lien_parente_enum, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
             ps.setInt(i++, idEmploye);
@@ -70,6 +71,7 @@ public class EmployeContactUrgence extends ClassMere {
             ps.setString(i++, adresse);
             ps.setString(i++, telephone);
             ps.setString(i++, societe);
+            ps.setArray(i++, c.createArrayOf("text", telephonesSecondaires.toArray(String[]::new)));
 
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -83,7 +85,7 @@ public class EmployeContactUrgence extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE employe_contact_urgence SET nom = ?, prenom = ?, lien_parente = ?::lien_parente_enum, adresse = ?, telephone = ?, societe = ?, updated_at = CURRENT_TIMESTAMP WHERE id_contact = ?";
+        String sql = "UPDATE employe_contact_urgence SET nom = ?, prenom = ?, lien_parente = ?::lien_parente_enum, adresse = ?, telephone = ?, societe = ?, telephones_secondaires = ?, updated_at = CURRENT_TIMESTAMP WHERE id_contact = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             int i = 1;
             ps.setString(i++, nom);
@@ -92,6 +94,7 @@ public class EmployeContactUrgence extends ClassMere {
             ps.setString(i++, adresse);
             ps.setString(i++, telephone);
             ps.setString(i++, societe);
+            ps.setArray(i++, c.createArrayOf("text", telephonesSecondaires.toArray(String[]::new)));
             ps.setInt(i++, idContact);
 
             ps.executeUpdate();
@@ -158,6 +161,7 @@ public class EmployeContactUrgence extends ClassMere {
         ct.setLienParente(rs.getString("lien_parente"));
         ct.setAdresse(rs.getString("adresse"));
         ct.setTelephone(rs.getString("telephone"));
+        ct.setTelephonesSecondaires(java.util.Arrays.asList((String[]) rs.getArray("telephones_secondaires").getArray()));
         ct.setSociete(rs.getString("societe"));
         ct.setCreatedAt(rs.getTimestamp("created_at"));
         ct.setUpdatedAt(rs.getTimestamp("updated_at"));
@@ -227,6 +231,8 @@ public class EmployeContactUrgence extends ClassMere {
 
     public String getTelephone() { return telephone; }
     public void setTelephone(String telephone) { this.telephone = telephone; }
+    public List<String> getTelephonesSecondaires() { return telephonesSecondaires; }
+    public void setTelephonesSecondaires(List<String> values) { this.telephonesSecondaires = values == null ? new ArrayList<>() : new ArrayList<>(values); }
 
     public String getSociete() { return societe; }
     public void setSociete(String societe) { this.societe = societe; }

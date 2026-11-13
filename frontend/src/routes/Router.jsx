@@ -232,6 +232,7 @@ export default function Router() {
                         <Route path="/admin/parametres/conges/acquisition" element={<ParametresModulesPanel />} />
                         <Route path="/admin/parametres/pointage/constantes" element={<ParametresModulesPanel />} />
                         <Route path="/admin/parametres/calendrier" element={<ParametresModulesPanel />} />
+                        <Route path="/admin/parametres/import/employes" element={<ParametresModulesPanel />} />
 
                     </Route>
 
