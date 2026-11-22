@@ -274,7 +274,7 @@ public class CongeLotValorisationService {
                 mouvements.add(new CongeLotValorisationEngine.Mouvement(source.id(), source.type(), source.days(),
                         source.date(), source.requestId(), source.comment(), value, source.dateOrigineLot()));
             }
-            result.put(employeeId, engine.calculer(mouvements));
+            result.put(employeeId, engine.reconstituerSituationDesLots(mouvements));
         }
         return result;
     }

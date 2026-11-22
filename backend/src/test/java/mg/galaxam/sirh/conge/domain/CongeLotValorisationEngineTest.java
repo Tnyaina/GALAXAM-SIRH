@@ -31,7 +31,7 @@ class CongeLotValorisationEngineTest {
 
     @Test
     void tauxHistoriqueSixDecimalesConserveLaValorisationDuCas592() {
-        var situation = engine.calculer(List.of(
+        var situation = engine.reconstituerSituationDesLots(List.of(
                 movement(1, "AJUSTEMENT", "3.00", "2026-09-25", null,
                         "[SOLDE_INITIAL] reprise", "95744.78"),
                 movement(2, "PRISE", "-2.44", "2026-10-23", 592,
@@ -41,7 +41,7 @@ class CongeLotValorisationEngineTest {
 
     @Test
     void repriseDetailleeConsommeLePlusAncienLotSelonSaDateOrigineEtSaValeur() {
-        var situation = engine.calculer(List.of(
+        var situation = engine.reconstituerSituationDesLots(List.of(
                 new CongeLotValorisationEngine.Mouvement(1, "AJUSTEMENT", d("4"),
                         LocalDate.parse("2026-09-25"), null, "[SOLDE_INITIAL] lot récent", d("60000"),
                         LocalDate.parse("2025-12-31")),
@@ -60,7 +60,7 @@ class CongeLotValorisationEngineTest {
 
     @Test
     void consommationAncienLotSeulementRespecteValeurHistoriqueEtFifo() {
-        var situation = engine.calculer(twoHistoricalLots("5"));
+        var situation = engine.reconstituerSituationDesLots(twoHistoricalLots("5"));
 
         assertDecimal("10", situation.soldeJours());
         assertDecimal("120000.00", situation.soldeValorisation());
@@ -76,7 +76,7 @@ class CongeLotValorisationEngineTest {
 
     @Test
     void consommationTraverseDeuxLotsAvecLeurPropreValeurHistorique() {
-        var situation = engine.calculer(twoHistoricalLots("8"));
+        var situation = engine.reconstituerSituationDesLots(twoHistoricalLots("8"));
 
         assertEquals(2, situation.imputations().size());
         assertEquals(1, situation.imputations().get(0).idSource());
@@ -93,7 +93,7 @@ class CongeLotValorisationEngineTest {
 
     @Test
     void simulationLectureSeuleVentileLesLotsEtValoriseCommeUnePriseReelle() {
-        var situation = engine.calculer(List.of(
+        var situation = engine.reconstituerSituationDesLots(List.of(
                 movement(1, "ACQUISITION", "5", "2024-12-31", null, "2024", "50000"),
                 movement(2, "ACQUISITION", "10", "2025-12-31", null, "2025", "120000")));
 
@@ -111,7 +111,7 @@ class CongeLotValorisationEngineTest {
         assertDecimal("36000.00", simulation.imputations().get(1).valeur());
         assertDecimal("15", situation.soldeJours());
         assertDecimal("170000.00", situation.soldeValorisation());
-        var actual = engine.calculer(List.of(
+        var actual = engine.reconstituerSituationDesLots(List.of(
                 movement(1, "ACQUISITION", "5", "2024-12-31", null, "2024", "50000"),
                 movement(2, "ACQUISITION", "10", "2025-12-31", null, "2025", "120000"),
                 movement(3, "PRISE", "-8", "2026-02-01", 301, "committed take", null)));
@@ -123,7 +123,7 @@ class CongeLotValorisationEngineTest {
 
     @Test
     void simulationConserveTauxHistoriqueEtReliquatArrondiDuLotPartiel() {
-        var situation = engine.calculer(List.of(
+        var situation = engine.reconstituerSituationDesLots(List.of(
                 movement(1, "ACQUISITION", "3", "2024-01-01", null, "fractional historical value", "100.00"),
                 movement(2, "PRISE", "-1", "2024-02-01", 201, "partial", null)));
 
@@ -136,7 +136,7 @@ class CongeLotValorisationEngineTest {
 
     @Test
     void simulationRespectePrioriteRepriseEtSignaleLeSoldeInsuffisantSansAnticipation() {
-        var situation = engine.calculer(List.of(
+        var situation = engine.reconstituerSituationDesLots(List.of(
                 movement(1, "ACQUISITION", "4", "2024-01-01", null, "normal", "40000"),
                 movement(2, "AJUSTEMENT", "2", "2024-06-01", null,
                         "[SOLDE_INITIAL] agrégé", "30000")));
@@ -161,7 +161,7 @@ class CongeLotValorisationEngineTest {
                 movement(2, "PRISE", "-1", "2024-02-01", 201, "partial", null),
                 movement(3, "PRISE", "-2", "2024-03-01", 202, "exhaust lot", null));
 
-        var situation = engine.calculer(movements);
+        var situation = engine.reconstituerSituationDesLots(movements);
 
         assertDecimal("0", situation.soldeJours());
         assertDecimal("0.00", situation.soldeValorisation());
@@ -180,7 +180,7 @@ class CongeLotValorisationEngineTest {
                 movement(4, "ANNULATION", "8", "2026-02-02", 100, "annulation", null),
                 movement(5, "PRISE", "-8", "2026-02-03", 101, "second demand", "15000"));
 
-        var situation = engine.calculer(movements);
+        var situation = engine.reconstituerSituationDesLots(movements);
 
         assertDecimal("7", situation.soldeJours());
         assertDecimal("84000.00", situation.soldeValorisation());
@@ -198,7 +198,7 @@ class CongeLotValorisationEngineTest {
                 movement(1, "ACQUISITION", "10", "2024-07-01", null, "post-cutover accrual", "100000"),
                 movement(3, "PRISE", "-6", "2024-08-01", 301, "consume opening first", "12000"));
 
-        var situation = engine.calculer(movements);
+        var situation = engine.reconstituerSituationDesLots(movements);
 
         assertEquals(2, situation.imputations().size());
         assertEquals(2, situation.imputations().get(0).idSource());
@@ -222,7 +222,7 @@ class CongeLotValorisationEngineTest {
                 movement(3, "CORRECTION_CUTOVER", "1", "2024-03-01", 1,
                         "correction DAF", "60000"));
 
-        var situation = engine.calculer(movements);
+        var situation = engine.reconstituerSituationDesLots(movements);
 
         assertDecimal("4", situation.soldeJours());
         assertDecimal("60000.00", situation.soldeValorisation());
@@ -238,12 +238,12 @@ class CongeLotValorisationEngineTest {
         var withoutRate = List.of(
                 movement(1, "ACQUISITION", "2", "2025-01-01", null, "lot", "20000"),
                 movement(2, "PRISE", "-3", "2025-02-01", 401, "excess", null));
-        assertThrows(IllegalStateException.class, () -> engine.calculer(withoutRate));
+        assertThrows(IllegalStateException.class, () -> engine.reconstituerSituationDesLots(withoutRate));
 
         var withRate = List.of(
                 movement(1, "ACQUISITION", "2", "2025-01-01", null, "lot", "20000"),
                 movement(2, "PRISE", "-3", "2025-02-01", 401, "excess", "12000"));
-        var situation = engine.calculer(withRate);
+        var situation = engine.reconstituerSituationDesLots(withRate);
         assertDecimal("-1", situation.soldeJours());
         assertDecimal("-12000.00", situation.soldeValorisation());
         assertDecimal("1", situation.joursSansLot());
