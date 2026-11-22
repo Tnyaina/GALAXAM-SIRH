@@ -312,37 +312,55 @@ public class PayrollExecutionEngine {
         return montantAbsence;
     }
 
+    /**
+     * Crée les lignes de congé du bulletin à partir des jours et de la valeur FIFO déjà préparés.
+     * En mode mensuel, retire tous les jours de base puis indemnise les seuls jours couverts.
+     * En mode horaire/journalier, la base paie déjà uniquement le travail constaté : seule
+     * l'indemnité des jours couverts est ajoutée. Le solde est contrôlé en amont, pas ici.
+     *
+     * @return effet net des lignes de congé sur le bulletin
+     */
     public BigDecimal calculerConges(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        // 1. Aucun jour couvert par un droit à congé : aucune ligne de congé payé.
         BigDecimal nbJoursConges = zeroIfNull(input.getNbJoursConges());
         if (nbJoursConges.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
+
+        // 2. Paie horaire ou journalière : la base exclut déjà les jours non travaillés.
+        // Ajouter seulement l'indemnité FIFO ; une déduction de base serait un double retrait.
         if (estPaieAuTempsTravaille(input)) {
-            // La base de ces modes ne paie que le travail constaté. Les lots FIFO
-            // portent la valeur historique du congé, identique au parcours mensuel.
             BigDecimal indemnite = calculerIndemniteConge(input, nbJoursConges,
                     input.getTauxJournalierTrentieme(), true);
             BigDecimal taux = indemnite.divide(nbJoursConges, 8, RoundingMode.HALF_UP);
+
             lignes.add(creerLigne(bp, "INDEMNITE_CONGE_PAYE", "Indemnité de Congés Payés (TCONGE)", "GAIN", "SALAIRE_BASE",
                     taux, null, nbJoursConges, indemnite, null,
                     "Indemnité congés : " + nbJoursConges + " j valorisés selon les lots FIFO historiques", 26));
+
             return indemnite;
         }
 
+        // 3. Paie mensuelle : distinguer les jours de base des jours couverts par le solde.
         BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
         BigDecimal tauxJournalierTrentieme = input.getTauxJournalierTrentieme();
         var joursBaseParDate = input.getJoursCongeBaseParDate().isEmpty()
                 ? input.getJoursCongeValorisesParDate() : input.getJoursCongeBaseParDate();
         BigDecimal nbJoursBase = determinerJoursBaseConge(joursBaseParDate, nbJoursConges);
+
+        // 4. Retirer du salaire de base tous les jours de congé de la période au trentième.
         BigDecimal deductionCongeTrentieme = calculerDeductionCongeBase(
                 input, joursBaseParDate, nbJoursConges, nbJoursBase, tauxJournalierTrentieme);
 
         String commDed = input.getSalaireParJour().isEmpty()
                 ? String.format("Déduction base : %s j × (%s Ar / 30)", nbJoursBase, MoneyRoundingPolicy.amount(salaireBaseContractuel))
                 : String.format("Déduction base : %s j aux salaires de leurs dates / 30", nbJoursBase);
+
         lignes.add(creerLigne(bp, "DEDUCTION_CONGE_BASE", "Déduction Salaire Jours de Congé (1/30ème)", "RETENUE", "SALAIRE_BASE",
                 salaireBaseContractuel, null, nbJoursBase, deductionCongeTrentieme, null, commDed, 25));
 
+        // 5. Ajouter l'indemnité des seuls jours couverts, selon la valeur des lots FIFO.
+        // Le taux du bulletin est une moyenne d'affichage si plusieurs lots ont été consommés.
         BigDecimal indemniteConges = calculerIndemniteConge(
                 input, nbJoursConges, tauxJournalierTrentieme, false);
         BigDecimal tauxJournalierConge = input.getTauxJournalierConge() != null && input.getTauxJournalierConge().compareTo(BigDecimal.ZERO) > 0
@@ -354,9 +372,11 @@ public class PayrollExecutionEngine {
         String commInd = input.getIndemniteCongeLots() != null
                 ? String.format("Indemnité congés : %s j ventilés selon les TCONGE historiques des lots FIFO", nbJoursConges)
                 : String.format("Indemnité congés : %s j × TCONGE %s Ar", nbJoursConges, tauxJournalierConge.stripTrailingZeros().toPlainString());
+
         lignes.add(creerLigne(bp, "INDEMNITE_CONGE_PAYE", "Indemnité de Congés Payés (Maintien de salaire)", "GAIN", "SALAIRE_BASE",
                 tauxJournalierConge, null, nbJoursConges, indemniteConges, null, commInd, 26));
 
+        // 6. Renvoyer l'effet net des deux lignes sur le montant du bulletin.
         return indemniteConges.subtract(deductionCongeTrentieme);
     }
 
