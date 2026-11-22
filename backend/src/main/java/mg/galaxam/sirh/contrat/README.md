@@ -56,7 +56,7 @@ flowchart LR
 | [`EmployeValidationEngine`](domain/EmployeValidationEngine.java) | `validerEmploye`, `validerAgeLegal`, `validerCinFormatEtDate`, `validerCompteBancaire`, `validerDesactivation` contrôlent les invariants du dossier. |
 | [`ContratValidationEngine`](domain/ContratValidationEngine.java) | `validerDatesContrat` contrôle la chronologie contractuelle. |
 | [`CarriereTransitionValidator`](domain/CarriereTransitionValidator.java) | `validerTransition`, `validerDureeContratCDD`, `validerMotifCDD`, `trouverCddReembaucheMemePoste` contrôlent l'admissibilité des mouvements. |
-| [`AncienneteEngine`](domain/AncienneteEngine.java) | `evaluerAnciennete`, `calculerAnciennete`, `calculerAncienneteEmploye`, `calculerAncienneteBatch`, `formaterAncienneteTexte` reconstituent l'ancienneté. |
+| [`AncienneteEngine`](domain/AncienneteEngine.java) | `evaluerAnciennete` orchestre le bilan : `retrouverChaineContrats` suit les prédécesseurs liés et `calculerMoisEffectifs` calcule les mois de service utilisés pour le seuil de congé annuel. Les interruptions ne sont pas ajoutées ; les restes de jours sont convertis par tranches de 30. `calculerAnciennete`, `calculerAncienneteEmploye` et `calculerAncienneteBatch` chargent les contrats ; `formaterAncienneteTexte` produit l'affichage. |
 | [`MatriculeGeneratorEngine`](domain/MatriculeGeneratorEngine.java) | `genererMatriculeSequentiel`, `genererMatriculeParDefaut` construisent les matricules ; l'unicité concurrente dépend aussi de la transaction et de SQL. |
 | [`EmploymentContext`](domain/EmploymentContext.java) | Données d'emploi résolues ; `estActifAPaie`, `estSoumisPointage` donnent les indicateurs consommés par les autres domaines. |
 

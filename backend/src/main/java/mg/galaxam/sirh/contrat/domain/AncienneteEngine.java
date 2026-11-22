@@ -71,40 +71,21 @@ public class AncienneteEngine {
 
         LocalDate refDate = (dateReference != null) ? dateReference : LocalDate.now();
 
-        // Indexation par id_contrat pour navigation rapide O(1)
-        Map<Integer, IntervalleContrat> contratMap = new HashMap<>();
-        for (IntervalleContrat c : contrats) {
-            if (c.idContrat() != null) {
-                contratMap.put(c.idContrat(), c);
-            }
-        }
-
-        IntervalleContrat cible = contratMap.get(idContratCible);
-        if (cible == null || cible.dateDebut() == null) {
+        List<IntervalleContrat> chaine = retrouverChaineContrats(contrats, idContratCible);
+        if (chaine.isEmpty()) {
             return AncienneteBilan.vide();
         }
 
-        // Accumulation précise des périodes calendaires
-        int totalMoisCumul = 0;
-        int joursRestantsCumul = 0;
+        int totalMoisCumul = calculerMoisEffectifs(chaine, refDate);
         double totalJoursChaine = 0.0;
         double joursContratActuel = 0.0;
         int moisContratActuel = 0;
         int ansContratActuel = 0;
         int moisRestantsContratActuel = 0;
         int nbContrats = 0;
+        LocalDate dateOrigineChaine = chaine.get(chaine.size() - 1).dateDebut();
 
-        Integer currentId = idContratCible;
-        Set<Integer> visited = new HashSet<>();
-        LocalDate dateOrigineChaine = cible.dateDebut();
-
-        while (currentId != null && !visited.contains(currentId)) {
-            visited.add(currentId);
-            IntervalleContrat c = contratMap.get(currentId);
-            if (c == null || c.dateDebut() == null) {
-                break;
-            }
-            dateOrigineChaine = c.dateDebut();
+        for (IntervalleContrat c : chaine) {
 
             LocalDate debut = c.dateDebut();
             LocalDate fin = c.dateFin() != null && c.dateFin().isBefore(refDate)
@@ -118,25 +99,13 @@ public class AncienneteEngine {
                 nbContrats++;
 
                 java.time.Period p = java.time.Period.between(debut, finInclusive);
-                int moisDuContrat = p.getYears() * 12 + p.getMonths();
-                totalMoisCumul += moisDuContrat;
-                joursRestantsCumul += p.getDays();
-
-                if (currentId.equals(idContratCible)) {
+                if (c.idContrat().equals(idContratCible)) {
                     joursContratActuel = jours;
-                    moisContratActuel = moisDuContrat;
+                    moisContratActuel = p.getYears() * 12 + p.getMonths();
                     ansContratActuel = p.getYears();
                     moisRestantsContratActuel = p.getMonths();
                 }
             }
-
-            currentId = c.idContratPrecedent();
-        }
-
-        // Ajuster si les jours restants cumulés dépassent 30 jours
-        if (joursRestantsCumul >= 30) {
-            totalMoisCumul += (joursRestantsCumul / 30);
-            joursRestantsCumul = joursRestantsCumul % 30;
         }
 
         int ansEff = totalMoisCumul / 12;
@@ -159,6 +128,47 @@ public class AncienneteEngine {
                 nbContrats,
                 dateOrigineChaine
         );
+    }
+
+    /** Suit uniquement les liens explicites entre contrats, du contrat cible vers les précédents. */
+    private List<IntervalleContrat> retrouverChaineContrats(List<IntervalleContrat> contrats, Integer idContratCible) {
+        Map<Integer, IntervalleContrat> contratMap = new HashMap<>();
+        for (IntervalleContrat contrat : contrats) {
+            if (contrat.idContrat() != null) contratMap.put(contrat.idContrat(), contrat);
+        }
+        List<IntervalleContrat> chaine = new ArrayList<>();
+        Set<Integer> visited = new HashSet<>();
+        Integer currentId = idContratCible;
+        while (currentId != null && visited.add(currentId)) {
+            IntervalleContrat contrat = contratMap.get(currentId);
+            if (contrat == null || contrat.dateDebut() == null) break;
+            chaine.add(contrat);
+            currentId = contrat.idContratPrecedent();
+        }
+        return chaine;
+    }
+
+    /**
+     * Calcule les mois de service effectif utilisés par le seuil de congé annuel.
+     * Additionne les mois calendaires complets de chaque contrat lié jusqu'à la date de référence ;
+     * les jours résiduels cumulés donnent un mois supplémentaire par tranche de 30 jours.
+     * Les interruptions entre contrats ne sont pas comptées.
+     */
+    public int calculerMoisEffectifs(List<IntervalleContrat> chaine, LocalDate dateReference) {
+        if (chaine == null || chaine.isEmpty()) return 0;
+        LocalDate refDate = dateReference != null ? dateReference : LocalDate.now();
+        int moisCumules = 0;
+        int joursRestantsCumules = 0;
+        for (IntervalleContrat contrat : chaine) {
+            if (contrat == null || contrat.dateDebut() == null) continue;
+            LocalDate fin = contrat.dateFin() != null && contrat.dateFin().isBefore(refDate)
+                    ? contrat.dateFin() : refDate;
+            if (contrat.dateDebut().isAfter(fin)) continue;
+            java.time.Period duree = java.time.Period.between(contrat.dateDebut(), fin.plusDays(1));
+            moisCumules += duree.getYears() * 12 + duree.getMonths();
+            joursRestantsCumules += duree.getDays();
+        }
+        return moisCumules + joursRestantsCumules / 30;
     }
 
     /**
