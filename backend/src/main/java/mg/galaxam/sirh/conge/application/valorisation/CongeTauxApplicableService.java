@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import mg.galaxam.sirh.conge.domain.CongeSituationEmployeDTO;
+import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import mg.galaxam.sirh.conge.domain.TcongeConfigurationDTO;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 public class CongeTauxApplicableService {
 
     private final EmploymentContextResolver employmentContextResolver = new EmploymentContextResolver();
+    private final CongeCalculateurEngine calculateurConge = new CongeCalculateurEngine();
 
     public enum CongeModeReprise { FULL_HISTORY, AGGREGATED_OPENING, MINIMAL_OPENING, NEW_HIRE }
     public record LotReprise(LocalDate dateOrigine, BigDecimal joursRestants, BigDecimal valeurRestante) {}
@@ -693,7 +695,7 @@ public class CongeTauxApplicableService {
             throw new IllegalStateException("TCONGE_CLOSURE_DROITS_ZERO: impossible de clôturer une référence sans droits acquis.");
         }
 
-        BigDecimal tauxCalcule = cumulValo.divide(cumulDroits, 6, RoundingMode.HALF_UP);
+        BigDecimal tauxCalcule = calculateurConge.calculerTauxJournalierConge(cumulValo, cumulDroits);
         cloturerPeriodeReference(idPeriodeReference, cumulDroits, cumulValo, tauxCalcule, c);
         return tauxCalcule;
     }
@@ -1264,7 +1266,7 @@ public class CongeTauxApplicableService {
                 perDto.setCumulDroitsTotal(totalDroits);
                 perDto.setCumulValorisationTotal(totalValo);
                 if (totalDroits.compareTo(BigDecimal.ZERO) > 0) {
-                    perDto.setTauxProjection(totalValo.divide(totalDroits, 6, RoundingMode.HALF_UP));
+                    perDto.setTauxProjection(calculateurConge.calculerTauxJournalierConge(totalValo, totalDroits));
                 }
             }
 

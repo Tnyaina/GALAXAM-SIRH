@@ -133,6 +133,37 @@ public class CongeCalculateurEngine {
         return tauxMensuel.multiply(ratio).setScale(4, java.math.RoundingMode.HALF_UP);
     }
 
+    /** Convertit les jours couverts par un contrat en jours de service sur la base mensuelle. */
+    public BigDecimal calculerJoursServiceEquivalent(long joursSousContrat, long joursPeriode, BigDecimal diviseur) {
+        if (joursSousContrat < 0 || joursPeriode <= 0 || diviseur == null || diviseur.signum() <= 0) {
+            throw new IllegalArgumentException("La période de service et son diviseur doivent être valides.");
+        }
+        if (joursSousContrat >= 28) return diviseur;
+        return diviseur.multiply(BigDecimal.valueOf(joursSousContrat))
+                .divide(BigDecimal.valueOf(joursPeriode), 6, java.math.RoundingMode.HALF_UP);
+    }
+
+    /** Retire les absences non éligibles et borne le service à un mois complet. */
+    public BigDecimal calculerJoursEligibles(BigDecimal joursService, BigDecimal absencesInjustifiees,
+            BigDecimal diviseur) {
+        if (joursService == null || diviseur == null || diviseur.signum() <= 0) {
+            throw new IllegalArgumentException("Le service et son diviseur doivent être valides.");
+        }
+        BigDecimal absences = absencesInjustifiees == null ? BigDecimal.ZERO
+                : absencesInjustifiees.max(BigDecimal.ZERO);
+        return joursService.subtract(absences).max(BigDecimal.ZERO).min(diviseur);
+    }
+
+    /** Moyenne pondérée du cycle ; zéro tant qu'aucun droit n'a été acquis. */
+    public BigDecimal calculerTauxJournalierConge(BigDecimal cumulValeur, BigDecimal cumulJours) {
+        if (cumulValeur == null || cumulJours == null) {
+            throw new IllegalArgumentException("Les cumuls de congé sont obligatoires.");
+        }
+        return cumulJours.signum() > 0
+                ? cumulValeur.divide(cumulJours, 6, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
     /**
      * Calcule l'acquisition mensuelle de congés proratisée aux jours d'activité effective (base 30 jours, taux 2.5j).
      * Modèle OHATRA KAJY DROITS CONGES : nbre droit = 2.5 * formule / 30.0

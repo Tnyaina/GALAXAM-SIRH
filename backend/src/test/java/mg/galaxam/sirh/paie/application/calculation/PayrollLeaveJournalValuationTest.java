@@ -1,8 +1,8 @@
 package mg.galaxam.sirh.paie.application.calculation;
-import mg.galaxam.sirh.paie.application.calculation.PayrollLeaveJournalService;
+import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import org.junit.jupiter.api.Test;
@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PayrollLeaveJournalValuationTest {
+    private final CongeCalculateurEngine conge = new CongeCalculateurEngine();
     private static BulletinPaieLigne ligne(String code, String sens, String categorie, String montant) {
         BulletinPaieLigne ligne = new BulletinPaieLigne();
         ligne.setCodeRubrique(code);
@@ -21,12 +22,12 @@ class PayrollLeaveJournalValuationTest {
 
     @Test
     void sansHeuresSupplementairesEtAvecAjustementsDeBase() {
-        BigDecimal base = PayrollLeaveJournalService.calculerBaseValorisation(new BigDecimal("900000"), List.of(
+        BigDecimal base = PayrollExecutionEngine.calculerBaseValorisation(new BigDecimal("900000"), List.of(
                 ligne("RETENUE_ABSENCE", "RETENUE", "SALAIRE_BASE", "30000"),
                 ligne("INDEMNITE_CONGE_PAYE", "GAIN", "SALAIRE_BASE", "10000")));
         assertEquals(new BigDecimal("880000"), base);
-        assertEquals(new BigDecimal("73333.33"), base.multiply(new BigDecimal("2.5"))
-                .divide(new BigDecimal("30"), 2, RoundingMode.HALF_UP));
+        assertEquals(new BigDecimal("73333.33"), conge.calculerValorisationDroitMensuel(
+                base, new BigDecimal("2.5"), 30));
     }
 
     @Test
@@ -39,15 +40,14 @@ class PayrollLeaveJournalValuationTest {
                 ligne("HS_EXONEREE_IRSA", "INFO", "HEURES_SUP", "5000"),
                 ligne("HS_AUTRE_INFO", "INFO", "HEURES_SUP", "1000"),
                 ligne("HS_FAUX_GAIN", "GAIN", "AUTRE", "9000"));
-        BigDecimal base = PayrollLeaveJournalService.calculerBaseValorisation(new BigDecimal("900000"), lignes);
+        BigDecimal base = PayrollExecutionEngine.calculerBaseValorisation(new BigDecimal("900000"), lignes);
         assertEquals(new BigDecimal("930000"), base);
-        BigDecimal valeurMois = base.multiply(new BigDecimal("2.5"))
-                .divide(new BigDecimal("30"), 2, RoundingMode.HALF_UP);
+        BigDecimal valeurMois = conge.calculerValorisationDroitMensuel(base, new BigDecimal("2.5"), 30);
         assertEquals(new BigDecimal("77500.00"), valeurMois);
         BigDecimal cumulDroits = new BigDecimal("2.5").add(new BigDecimal("2.5"));
         BigDecimal cumulValeur = new BigDecimal("75000.00").add(valeurMois);
         assertEquals(new BigDecimal("30500.000000"),
-                PayrollLeaveJournalService.calculerTauxJournalier(cumulValeur, cumulDroits));
+                conge.calculerTauxJournalierConge(cumulValeur, cumulDroits));
     }
 
     @Test
@@ -56,12 +56,12 @@ class PayrollLeaveJournalValuationTest {
         BigDecimal cumulValeur = new BigDecimal("165000.00");
 
         assertEquals(new BigDecimal("11000.000000"),
-                PayrollLeaveJournalService.calculerTauxJournalier(cumulValeur, cumulJours));
+                conge.calculerTauxJournalierConge(cumulValeur, cumulJours));
         assertEquals(BigDecimal.ZERO,
-                PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("165000.00"), BigDecimal.ZERO));
+                conge.calculerTauxJournalierConge(new BigDecimal("165000.00"), BigDecimal.ZERO));
         assertEquals(new BigDecimal("1.005000"),
-                PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("1.005"), BigDecimal.ONE));
+                conge.calculerTauxJournalierConge(new BigDecimal("1.005"), BigDecimal.ONE));
         assertEquals(new BigDecimal("31914.926000"),
-                PayrollLeaveJournalService.calculerTauxJournalier(new BigDecimal("31914.926"), BigDecimal.ONE));
+                conge.calculerTauxJournalierConge(new BigDecimal("31914.926"), BigDecimal.ONE));
     }
 }

@@ -211,19 +211,12 @@ public class CongeService {
     public BigDecimal enregistrerAcquisitionMensuelle(int idEmploye, int annee, int mois,
             LocalDate debutPeriode, LocalDate finPeriode, BigDecimal absencesInjustifiees,
             Integer currentUserId, Connection c) throws Exception {
-        return enregistrerAcquisitionMensuelle(idEmploye, annee, mois, debutPeriode, finPeriode,
-                absencesInjustifiees, null, currentUserId, c);
-    }
-
-    public BigDecimal enregistrerAcquisitionMensuelle(int idEmploye, int annee, int mois,
-            LocalDate debutPeriode, LocalDate finPeriode, BigDecimal absencesInjustifiees,
-            BigDecimal joursTravailEffectif, Integer currentUserId, Connection c) throws Exception {
         if (debutPeriode == null || finPeriode == null || finPeriode.isBefore(debutPeriode)
                 || finPeriode.getYear() != annee || finPeriode.getMonthValue() != mois) {
             throw new IllegalArgumentException("La période de service doit être valide et se terminer dans le mois d'acquisition.");
         }
         BigDecimal formule = calculerFormuleAcquisition(idEmploye, debutPeriode, finPeriode,
-                absencesInjustifiees, joursTravailEffectif, c);
+                absencesInjustifiees, c);
         BigDecimal diviseur = BigDecimal.valueOf(getParamGlobalInt(
                 "DIVISEUR_JOURS_CALENDAIRE_CONGE", finPeriode, c));
         BigDecimal joursNonEligibles = diviseur.subtract(formule).max(BigDecimal.ZERO);
@@ -309,14 +302,9 @@ public class CongeService {
 
     public BigDecimal calculerFormuleAcquisition(int idEmploye, LocalDate debut, LocalDate fin,
             BigDecimal absencesInjustifiees, Connection c) throws SQLException {
-        return calculerFormuleAcquisition(idEmploye, debut, fin, absencesInjustifiees, null, c);
-    }
-
-    public BigDecimal calculerFormuleAcquisition(int idEmploye, LocalDate debut, LocalDate fin,
-            BigDecimal absencesInjustifiees, BigDecimal joursTravailEffectif, Connection c) throws SQLException {
         BigDecimal joursService = calculerJoursServiceEquivalent(idEmploye, debut, fin, c);
-        BigDecimal abs = absencesInjustifiees != null ? absencesInjustifiees.max(BigDecimal.ZERO) : BigDecimal.ZERO;
-        return joursService.subtract(abs).max(BigDecimal.ZERO).min(new BigDecimal("30"));
+        return calculateurEngine.calculerJoursEligibles(joursService, absencesInjustifiees,
+                new BigDecimal("30"));
     }
 
     private BigDecimal calculerJoursServiceEquivalent(int idEmploye, LocalDate debut, LocalDate fin,
@@ -343,9 +331,8 @@ public class CongeService {
             }
         }
         long joursPeriode = java.time.temporal.ChronoUnit.DAYS.between(debut, fin) + 1;
-        if (joursSousContrat.size() >= 28) return new BigDecimal("30");
-        return new BigDecimal("30").multiply(BigDecimal.valueOf(joursSousContrat.size()))
-                .divide(BigDecimal.valueOf(joursPeriode), 6, RoundingMode.HALF_UP);
+        return calculateurEngine.calculerJoursServiceEquivalent(joursSousContrat.size(), joursPeriode,
+                new BigDecimal("30"));
     }
 
     private LocalDate calculerDateEffetAcquisition(int idEmploye, LocalDate debut, LocalDate fin,

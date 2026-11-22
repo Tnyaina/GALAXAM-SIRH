@@ -32,6 +32,28 @@ public class PayrollExecutionEngine {
     public static final BigDecimal DIVISEUR_HEURES_MENSUELLES = new BigDecimal("173.33");
     public static final BigDecimal DIVISEUR_JOURS_TRENTIEME = new BigDecimal("30.0");
 
+    /** Assiette des droits à congé : base ajustée et seuls gains HS rémunérés. */
+    public static BigDecimal calculerBaseValorisation(BigDecimal salaireBase, List<BulletinPaieLigne> lignes) {
+        BigDecimal netBase = salaireBase != null ? salaireBase : BigDecimal.ZERO;
+        BigDecimal heuresSupRemunerees = BigDecimal.ZERO;
+        for (BulletinPaieLigne ligne : lignes) {
+            String code = ligne.getCodeRubrique() != null ? ligne.getCodeRubrique().toUpperCase() : "";
+            BigDecimal montant = ligne.getMontantSalarial();
+            if (montant == null) continue;
+            if ("RETENUE_ABSENCE".equals(code) || "RETENUE_CONGE".equals(code)
+                    || "DEDUCTION_CONGE_BASE".equals(code)) {
+                netBase = netBase.subtract(montant);
+            } else if ("INDEMNITE_CONGE".equals(code) || "INDEMNITE_CONGE_PAYE".equals(code)) {
+                netBase = netBase.add(montant);
+            } else if ("GAIN".equalsIgnoreCase(ligne.getSens())
+                    && ("HEURES_SUP".equalsIgnoreCase(ligne.getCategorie())
+                    || "HEURES_SUPPLEMENTAIRES".equalsIgnoreCase(ligne.getCategorie()))) {
+                heuresSupRemunerees = heuresSupRemunerees.add(montant);
+            }
+        }
+        return netBase.add(heuresSupRemunerees).max(BigDecimal.ZERO);
+    }
+
     public record CotisationsResult(BigDecimal totalCotisationsSalariales, BigDecimal totalCotisationsPatronales) {}
     public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi, PayrollTaxCalculations.Result detailIrsa) {}
     public record RetenuesResult(BigDecimal totalRetenues, List<MouvementImputation> imputations) {}

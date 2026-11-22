@@ -276,8 +276,11 @@ Dans `PayrollService`, chercher `calculerBulletinEmploye` pour le bulletin et
 ses imputations, `calculerPaiePeriode` pour le calcul collectif,
 `validerPaiePeriode` / `cloturerDonneesPaie` pour la fin de campagne et
 `mettreAJourJournalConge` pour déclencher l'acquisition dans la transaction de
-clôture. `PayrollLeaveJournalService` porte son calcul, la référence congé et
-la valorisation mensuelle, en appelant les règles du domaine Congés.
+clôture. `PayrollLeaveJournalService` parcourt les bulletins admissibles puis
+appelle `traiterCongesEmploye` pour chaque salarié. Il charge la référence congé,
+appelle `CongeService` pour l'acquisition, `PayrollExecutionEngine.calculerBaseValorisation`
+pour l'assiette du bulletin et `CongeCalculateurEngine` pour la valorisation
+mensuelle et le taux du cycle, puis écrit le journal et la valeur du lot.
 Un bulletin `CALCULE` peut être recalculé après restitution de ses imputations ;
 un bulletin `VALIDE` ou `CLOTURE` ne l'est pas directement. Le recalcul collectif
 peut remettre la période de `PAIE_VALIDEE` à `VALIDEE`. Le bulletin réel conserve
