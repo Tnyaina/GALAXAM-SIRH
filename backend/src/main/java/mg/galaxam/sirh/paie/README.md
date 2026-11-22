@@ -425,6 +425,11 @@ snapshot Pointage et du diviseur horaire configuré ; le montant arrondi est pla
 au salaire de base de la ligne. `DEDUCTION_CONGE_BASE` et `INDEMNITE_CONGE_PAYE`
 concernent les jours de congé rémunéré valorisés : la première suit le trentième
 des salaires applicables ou de la base contractuelle, la seconde la valeur des lots FIFO.
+Dans `PayrollExecutionEngine.calculerConges`, `determinerJoursBaseConge` établit les
+jours calendaires à déduire, `calculerDeductionCongeBase` calcule cette retenue et
+`calculerIndemniteConge` valorise uniquement les jours couverts. Ces entrées sont
+préparées par `PayrollCalculationContextAssembler.chargerConges` ; le moteur de paie
+ne relit pas le solde disponible et ne crée pas la demande de régularisation.
 `CongePayrollPolicy` retient `demande_conge.est_remunere` si renseigné, sinon
 `ref_type_conge.est_paye`. Les congés non rémunérés sont exclus de ces jours valorisés
 et de l'indemnité FIFO ; leur part non rémunérée relève du Pointage. Cette distinction

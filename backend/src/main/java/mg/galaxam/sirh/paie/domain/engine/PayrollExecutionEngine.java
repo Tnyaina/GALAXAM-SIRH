@@ -317,13 +317,11 @@ public class PayrollExecutionEngine {
         if (nbJoursConges.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
-        if ("HORAIRE".equalsIgnoreCase(input.getModeCalculPaie())
-                || "JOURNALIER".equalsIgnoreCase(input.getModeCalculPaie())) {
+        if (estPaieAuTempsTravaille(input)) {
             // La base de ces modes ne paie que le travail constaté. Les lots FIFO
             // portent la valeur historique du congé, identique au parcours mensuel.
-            if (input.getIndemniteCongeLots() == null || input.getIndemniteCongeLots().signum() < 0)
-                throw new IllegalStateException("PAYROLL_NON_MONTHLY_TCONGE_MISSING: valorisation historique du congé requise");
-            BigDecimal indemnite = MoneyRoundingPolicy.amount(input.getIndemniteCongeLots());
+            BigDecimal indemnite = calculerIndemniteConge(input, nbJoursConges,
+                    input.getTauxJournalierTrentieme(), true);
             BigDecimal taux = indemnite.divide(nbJoursConges, 8, RoundingMode.HALF_UP);
             lignes.add(creerLigne(bp, "INDEMNITE_CONGE_PAYE", "Indemnité de Congés Payés (TCONGE)", "GAIN", "SALAIRE_BASE",
                     taux, null, nbJoursConges, indemnite, null,
@@ -335,28 +333,9 @@ public class PayrollExecutionEngine {
         BigDecimal tauxJournalierTrentieme = input.getTauxJournalierTrentieme();
         var joursBaseParDate = input.getJoursCongeBaseParDate().isEmpty()
                 ? input.getJoursCongeValorisesParDate() : input.getJoursCongeBaseParDate();
-        BigDecimal nbJoursBase = joursBaseParDate.isEmpty() ? nbJoursConges
-                : joursBaseParDate.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (nbJoursBase.compareTo(nbJoursConges) < 0)
-            throw new IllegalStateException("PAYROLL_LEAVE_BASE_BELOW_COVERED: jours de base inférieurs aux droits couverts");
-        BigDecimal deductionCongeTrentieme;
-        if (!input.getSalaireParJour().isEmpty()) {
-            BigDecimal joursDates = input.getJoursCongeValorisesParDate().values().stream()
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (joursDates.compareTo(nbJoursConges) != 0)
-                throw new IllegalStateException("PAYROLL_LEAVE_DATES_MISSING: déduction congé sans dates de prise");
-            BigDecimal somme = BigDecimal.ZERO;
-            for (var prise : joursBaseParDate.entrySet()) {
-                BigDecimal salaire = input.getSalaireParJour().get(prise.getKey());
-                if (salaire == null) throw new IllegalStateException(
-                        "MISSING_CONFIGURATION: SALAIRE_CONGE au " + prise.getKey());
-                somme = somme.add(salaire.multiply(prise.getValue()));
-            }
-            deductionCongeTrentieme = MoneyRoundingPolicy.amount(
-                    somme.divide(new BigDecimal("30"), 8, RoundingMode.HALF_UP));
-        } else {
-            deductionCongeTrentieme = MoneyRoundingPolicy.amount(nbJoursBase.multiply(tauxJournalierTrentieme));
-        }
+        BigDecimal nbJoursBase = determinerJoursBaseConge(joursBaseParDate, nbJoursConges);
+        BigDecimal deductionCongeTrentieme = calculerDeductionCongeBase(
+                input, joursBaseParDate, nbJoursConges, nbJoursBase, tauxJournalierTrentieme);
 
         String commDed = input.getSalaireParJour().isEmpty()
                 ? String.format("Déduction base : %s j × (%s Ar / 30)", nbJoursBase, MoneyRoundingPolicy.amount(salaireBaseContractuel))
@@ -364,12 +343,10 @@ public class PayrollExecutionEngine {
         lignes.add(creerLigne(bp, "DEDUCTION_CONGE_BASE", "Déduction Salaire Jours de Congé (1/30ème)", "RETENUE", "SALAIRE_BASE",
                 salaireBaseContractuel, null, nbJoursBase, deductionCongeTrentieme, null, commDed, 25));
 
+        BigDecimal indemniteConges = calculerIndemniteConge(
+                input, nbJoursConges, tauxJournalierTrentieme, false);
         BigDecimal tauxJournalierConge = input.getTauxJournalierConge() != null && input.getTauxJournalierConge().compareTo(BigDecimal.ZERO) > 0
-                ? input.getTauxJournalierConge()
-                : tauxJournalierTrentieme;
-        BigDecimal indemniteConges = input.getIndemniteCongeLots() != null
-                ? MoneyRoundingPolicy.amount(input.getIndemniteCongeLots())
-                : MoneyRoundingPolicy.amount(nbJoursConges.multiply(tauxJournalierConge));
+                ? input.getTauxJournalierConge() : tauxJournalierTrentieme;
 
         if (input.getIndemniteCongeLots() != null) {
             tauxJournalierConge = indemniteConges.divide(nbJoursConges, 8, RoundingMode.HALF_UP);
@@ -381,6 +358,57 @@ public class PayrollExecutionEngine {
                 tauxJournalierConge, null, nbJoursConges, indemniteConges, null, commInd, 26));
 
         return indemniteConges.subtract(deductionCongeTrentieme);
+    }
+
+    private boolean estPaieAuTempsTravaille(PayrollCalculationInput input) {
+        return "HORAIRE".equalsIgnoreCase(input.getModeCalculPaie())
+                || "JOURNALIER".equalsIgnoreCase(input.getModeCalculPaie());
+    }
+
+    /** Les jours de base comprennent toute l'absence régularisée, y compris la part sans droits. */
+    private BigDecimal determinerJoursBaseConge(java.util.Map<java.time.LocalDate, BigDecimal> joursBaseParDate,
+            BigDecimal joursCouverts) {
+        BigDecimal joursBase = joursBaseParDate.isEmpty() ? joursCouverts
+                : joursBaseParDate.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (joursBase.compareTo(joursCouverts) < 0)
+            throw new IllegalStateException("PAYROLL_LEAVE_BASE_BELOW_COVERED: jours de base inférieurs aux droits couverts");
+        return joursBase;
+    }
+
+    /** Retire du salaire de base les jours calendaires de congé au trentième, salaire daté si disponible. */
+    private BigDecimal calculerDeductionCongeBase(PayrollCalculationInput input,
+            java.util.Map<java.time.LocalDate, BigDecimal> joursBaseParDate,
+            BigDecimal joursCouverts, BigDecimal joursBase, BigDecimal tauxTrentieme) {
+        if (input.getSalaireParJour().isEmpty()) {
+            return MoneyRoundingPolicy.amount(joursBase.multiply(tauxTrentieme));
+        }
+        BigDecimal joursDates = input.getJoursCongeValorisesParDate().values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (joursDates.compareTo(joursCouverts) != 0)
+            throw new IllegalStateException("PAYROLL_LEAVE_DATES_MISSING: déduction congé sans dates de prise");
+        BigDecimal somme = BigDecimal.ZERO;
+        for (var prise : joursBaseParDate.entrySet()) {
+            BigDecimal salaire = input.getSalaireParJour().get(prise.getKey());
+            if (salaire == null) throw new IllegalStateException(
+                    "MISSING_CONFIGURATION: SALAIRE_CONGE au " + prise.getKey());
+            somme = somme.add(salaire.multiply(prise.getValue()));
+        }
+        return MoneyRoundingPolicy.amount(somme.divide(new BigDecimal("30"), 8, RoundingMode.HALF_UP));
+    }
+
+    /** Valorise seulement les jours couverts : lots FIFO si fournis, sinon taux applicable. */
+    private BigDecimal calculerIndemniteConge(PayrollCalculationInput input, BigDecimal joursCouverts,
+            BigDecimal tauxTrentieme, boolean lotsObligatoires) {
+        if (input.getIndemniteCongeLots() != null) {
+            if (lotsObligatoires && input.getIndemniteCongeLots().signum() < 0)
+                throw new IllegalStateException("PAYROLL_NON_MONTHLY_TCONGE_MISSING: valorisation historique du congé requise");
+            return MoneyRoundingPolicy.amount(input.getIndemniteCongeLots());
+        }
+        if (lotsObligatoires)
+            throw new IllegalStateException("PAYROLL_NON_MONTHLY_TCONGE_MISSING: valorisation historique du congé requise");
+        BigDecimal taux = input.getTauxJournalierConge() != null && input.getTauxJournalierConge().signum() > 0
+                ? input.getTauxJournalierConge() : tauxTrentieme;
+        return MoneyRoundingPolicy.amount(joursCouverts.multiply(taux));
     }
 
     public BigDecimal calculerMajorationsEtHeuresSup(PayrollCalculationInput input, BigDecimal tauxHoraire,
