@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import mg.galaxam.sirh.conge.domain.CongeSituationEmployeDTO;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
@@ -221,8 +222,11 @@ public class CongeTauxApplicableService {
     }
 
     /**
-     * Résolution stricte as-of du taux applicable à une date donnée.
-     * Détecte et interdit toute ambiguïté (si plusieurs taux applicables existent simultanément).
+     * Résolution stricte as-of du taux journalier TCONGE applicable à une date donnée.
+     * Orchestre :
+     *   1. Recherche du taux actif en base (conge_taux_applicable).
+     *   2. Blocage anti-fallback pour salariés historiques (LEAVE_RATE_MISSING).
+     *   3. Calcul du taux canonique par défaut pour nouveau collaborateur (Base / 30).
      */
     public TauxCongeResolution resoudreTauxCongeApplicable(int idEmploye,
                                                           LocalDate dateReference,
@@ -232,6 +236,24 @@ public class CongeTauxApplicableService {
             throw new IllegalArgumentException("La date de référence temporelle est obligatoire pour résoudre TCONGE.");
         }
 
+        // 1. Taux officiel actif configuré en base (issu d'une clôture de cycle ou d'une reprise)
+        Optional<TauxCongeResolution> tauxActif = chercherTauxActifEnBase(idEmploye, dateReference, c);
+        if (tauxActif.isPresent()) {
+            return tauxActif.get();
+        }
+
+        // 2. Garde-fou d'intégrité : interdiction absolue du fallback silencieux pour un salarié historique
+        verifierInterdictionFallbackHistorique(idEmploye, dateReference, c);
+
+        // 3. Cas nouveau collaborateur pur (NEW_HIRE sans passif) : calcul du taux canonique Base / 30
+        return calculerTauxInitialNouveauSalarie(salaireBaseFallback, dateReference, idEmploye);
+    }
+
+    /**
+     * Recherche dans la table conge_taux_applicable le taux actif à la date de référence.
+     * Détecte et interdit toute ambiguïté (si plusieurs taux actifs se chevauchent).
+     */
+    private Optional<TauxCongeResolution> chercherTauxActifEnBase(int idEmploye, LocalDate dateReference, Connection c) {
         // Requête sans LIMIT 1 pour détecter explicitement les ambiguïtés / chevauchements
         String sql = "SELECT id_taux_applicable, taux_journalier, date_effet, date_fin, " +
                 "source_provenance, id_periode_reference " +
@@ -277,13 +299,15 @@ public class CongeTauxApplicableService {
                     " à la date " + dateReference + ". Un arbitrage explicite est requis.");
         }
 
-        if (matches.size() == 1) {
-            return matches.get(0);
-        }
+        return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
+    }
 
-        // La moyenne cumulée du journal mensuel est une projection de la période en cours.
-        // Seul un taux daté et activé peut être utilisé comme TCONGE applicable.
-        // Cas 0 match : vérification anti-fallback silencieux pour salarié historique.
+    /**
+     * Empêche tout fallback silencieux vers Base/30 pour un salarié historique ayant un passif de congés.
+     * Pour les historiques, une reprise officielle de solde ou une clôture annuelle est obligatoire.
+     */
+    private void verifierInterdictionFallbackHistorique(int idEmploye, LocalDate dateReference, Connection c) {
+        // A. Vérification de la configuration du cycle (si mode de reprise configuré autre que NEW_HIRE)
         String sqlCheckRef = "SELECT mode_reprise FROM conge_periode_reference WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ?";
         try (PreparedStatement psRef = c.prepareStatement(sqlCheckRef)) {
             psRef.setInt(1, idEmploye);
@@ -302,7 +326,7 @@ public class CongeTauxApplicableService {
             throw new IllegalStateException("TCONGE_REFERENCE_RESOLUTION_FAILED au " + dateReference, e);
         }
 
-        // Vérification de tout mouvement de congé antérieur (preuve de reprise ou de passif de congés)
+        // B. Vérification de tout mouvement de congé antérieur (preuve de reprise ou de passif de congés)
         String sqlHist = "SELECT 1 FROM mouvement_solde_conge WHERE id_employe = ? "
                 + "UNION ALL SELECT 1 FROM conge_taux_applicable WHERE id_employe = ? LIMIT 1";
         try (PreparedStatement psH = c.prepareStatement(sqlHist)) {
@@ -317,22 +341,41 @@ public class CongeTauxApplicableService {
         } catch (SQLException e) {
             throw new IllegalStateException("TCONGE_HISTORY_RESOLUTION_FAILED au " + dateReference, e);
         }
+    }
 
-        // 4. Cas nouveau collaborateur pur (NEW_HIRE sans historique) : Amorçage contractuel canonique Base / 30
-        if (salaireBaseFallback != null && salaireBaseFallback.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal tauxBase30 = salaireBaseFallback.divide(new BigDecimal("30.0"), 6, RoundingMode.HALF_UP);
-            return new TauxCongeResolution(
-                    tauxBase30,
-                    TcongeSourceProvenance.INITIALISATION_BASE_30,
-                    dateReference,
-                    null,
-                    null,
-                    null
-            );
+    /**
+     * Calcule le taux journalier TCONGE initial canonique pour un nouveau collaborateur (NEW_HIRE).
+     *
+     * Formule canonique :
+     *   Taux Journalier = Salaire de Base / 30.0
+     *
+     * Règle d'or :
+     * Applicable uniquement aux salariés n'ayant aucun passif de congés (pas de cycle antérieur, pas de reprise).
+     *
+     * @param salaireBaseFallback Salaire brut de base contractuel
+     * @param dateReference Date d'effet du taux
+     * @param idEmploye Identifiant de l'employé (pour logs et diagnostics)
+     * @return Résolution TCONGE avec source INITIALISATION_BASE_30
+     */
+    public TauxCongeResolution calculerTauxInitialNouveauSalarie(BigDecimal salaireBaseFallback,
+                                                                 LocalDate dateReference,
+                                                                 int idEmploye) {
+        if (salaireBaseFallback == null || salaireBaseFallback.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("TCONGE_CONFIGURATION_MISSING: aucun taux applicable trouvé pour l'employé "
+                    + idEmploye + " au " + dateReference + " et salaire de base non disponible.");
         }
 
-        throw new IllegalStateException("TCONGE_CONFIGURATION_MISSING: aucun taux applicable trouvé pour l'employé "
-                + idEmploye + " au " + dateReference + " et salaire de base non disponible.");
+        // Formule du 1/30ème : Taux = Salaire de Base / 30
+        BigDecimal tauxBase30 = salaireBaseFallback.divide(new BigDecimal("30.0"), 6, RoundingMode.HALF_UP);
+
+        return new TauxCongeResolution(
+                tauxBase30,
+                TcongeSourceProvenance.INITIALISATION_BASE_30,
+                dateReference,
+                null,
+                null,
+                null
+        );
     }
 
     /**
