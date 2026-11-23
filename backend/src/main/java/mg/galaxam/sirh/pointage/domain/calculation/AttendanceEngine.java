@@ -15,36 +15,80 @@ import org.springframework.stereotype.Component;
 public class AttendanceEngine {
 
     /** Rapprochement DAF des totaux hebdomadaires, en minutes entières. */
-    public record PeriodBalance(int balanceMinutes, int absenceMinutes,
-                                int overtime30Minutes, int overtime50Minutes) {
+    public record PeriodBalance(
+            int balanceMinutes,
+            int absenceMinutes,
+            int overtime30Minutes,
+            int overtime50Minutes
+    ) {
+        /**
+         * Rapprochement standard (salarié éligible aux heures supplémentaires sans surplus cadre).
+         */
         public static PeriodBalance calculate(int hs30, int hs50, int deficit, int adjustment) {
-            if (hs30 < 0 || hs50 < 0 || deficit < 0)
-                throw new IllegalArgumentException("Volumes de rapprochement invalides.");
-            int balance = Math.addExact(Math.subtractExact(Math.addExact(hs30, hs50), deficit), adjustment);
-            // Les paliers ont déjà été appliqués à chaque semaine. Une réduction
-            // consomme d'abord la tranche à 30 %, puis celle à 50 %.
+            validerVolumesPositifs(hs30, hs50, deficit, 0);
+
+            // 1. Solde global net (HS - Déficit + Ajustement DAF)
+            int totalPositif = Math.addExact(hs30, hs50);
+            int balance = Math.addExact(Math.subtractExact(totalPositif, deficit), adjustment);
+            int absenceFinale = balance < 0 ? Math.negateExact(balance) : 0;
+
+            // 2. Impact net sur les heures supplémentaires payables
+            // Une réduction (déficit ou ajustement DAF négatif) absorbe d'abord la tranche à 30 %,
+            // puis entame la tranche à 50 % si la première ne suffit pas.
             int netAdjustment = Math.subtractExact(adjustment, deficit);
-            int tier30 = netAdjustment >= 0 ? Math.addExact(hs30, netAdjustment)
-                    : Math.max(0, Math.addExact(hs30, netAdjustment));
-            long reduction50 = netAdjustment < 0 ? Math.max(0L, -(long) netAdjustment - hs30) : 0;
-            int tier50 = (int) Math.max(0L, hs50 - reduction50);
-            return new PeriodBalance(balance, balance < 0 ? Math.negateExact(balance) : 0,
-                    tier30, tier50);
+
+            int finalHs30;
+            int finalHs50;
+
+            if (netAdjustment >= 0) {
+                // Ajustement favorable : bonifie directement le premier palier
+                finalHs30 = Math.addExact(hs30, netAdjustment);
+                finalHs50 = hs50;
+            } else {
+                // Ajustement défavorable (netAdjustment < 0) : on puise d'abord dans les 30 %
+                int reductionTotale = Math.negateExact(netAdjustment); // valeur positive à imputer
+                int reductionSur30 = Math.min(hs30, reductionTotale);
+                finalHs30 = hs30 - reductionSur30;
+
+                // Le reste non couvert par les 30 % vient réduire les 50 %
+                int resteAReduire = reductionTotale - reductionSur30;
+                finalHs50 = Math.max(0, hs50 - resteAReduire);
+            }
+
+            return new PeriodBalance(balance, absenceFinale, finalHs30, finalHs50);
         }
 
-        /** Les excédents non éligibles compensent le déficit sans créer de HS payables. */
+        /**
+         * Rapprochement complet prenant en compte le statut Cadre (non éligible aux HS)
+         * et les excédents non payables (qui compensent le déficit sans générer de paiement HS).
+         */
         public static PeriodBalance calculate(int hs30, int hs50, int nonPayableSurplus,
                 int deficit, int adjustment, boolean overtimeEligible) {
-            if (nonPayableSurplus < 0 || hs30 < 0 || hs50 < 0 || deficit < 0)
+            validerVolumesPositifs(hs30, hs50, deficit, nonPayableSurplus);
+
+            // 1. Le surplus non payable (cadre) commence par éponger le déficit
+            int deficitRestant = Math.max(0, Math.subtractExact(deficit, nonPayableSurplus));
+
+            // 2. Calcul du solde global net
+            int totalHeuresPositives = Math.addExact(Math.addExact(hs30, hs50), nonPayableSurplus);
+            int balance = Math.addExact(Math.subtractExact(totalHeuresPositives, deficit), adjustment);
+            int absenceFinale = balance < 0 ? Math.negateExact(balance) : 0;
+
+            // 3. Calcul des HS payables selon l'éligibilité
+            if (!overtimeEligible) {
+                // Cadre non éligible : aucune HS n'est payable, mais le solde global est préservé
+                return new PeriodBalance(balance, absenceFinale, 0, 0);
+            }
+
+            // Salarié éligible : on calcule les paliers sur le déficit restant après absorption du surplus
+            PeriodBalance payable = calculate(hs30, hs50, deficitRestant, adjustment);
+            return new PeriodBalance(balance, absenceFinale, payable.overtime30Minutes(), payable.overtime50Minutes());
+        }
+
+        private static void validerVolumesPositifs(int hs30, int hs50, int deficit, int nonPayableSurplus) {
+            if (hs30 < 0 || hs50 < 0 || deficit < 0 || nonPayableSurplus < 0) {
                 throw new IllegalArgumentException("Volumes de rapprochement invalides.");
-            int balance = Math.addExact(Math.subtractExact(
-                    Math.addExact(Math.addExact(hs30, hs50), nonPayableSurplus), deficit), adjustment);
-            int deficitAfterNonPayable = Math.max(0, Math.subtractExact(deficit, nonPayableSurplus));
-            PeriodBalance payable = overtimeEligible
-                    ? calculate(hs30, hs50, deficitAfterNonPayable, adjustment)
-                    : new PeriodBalance(0, 0, 0, 0);
-            return new PeriodBalance(balance, balance < 0 ? Math.negateExact(balance) : 0,
-                    payable.overtime30Minutes(), payable.overtime50Minutes());
+            }
         }
     }
 
