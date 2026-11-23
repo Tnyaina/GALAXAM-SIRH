@@ -146,59 +146,74 @@ public class AttendanceEngine {
     }
 
     public Result calculateDay(Context context, TemporalAttendanceEngine.NightWindow nextDayNightWindow) {
-        List<String> anomalies = validatePunches(context);
+        List<String> anomalies = verifierPointages(context);
         boolean sunday = context.date().getDayOfWeek() == DayOfWeek.SUNDAY;
         boolean weekend = sunday || context.date().getDayOfWeek() == DayOfWeek.SATURDAY;
 
-        long scheduledMinutes = scheduledMinutes(context);
-        long morningMinutes = morningMinutes(context);
-        long afternoonMinutes = afternoonMinutes(context);
-        long workedMinutes = morningMinutes + afternoonMinutes;
-        boolean hasPunch = hasAnyPunch(context);
-
-        if (context.leavePart() == Context.LeavePart.FULL_DAY ||
-                (context.publicHoliday() && !hasPunch)) {
-            workedMinutes = 0;
-            morningMinutes = 0;
-            afternoonMinutes = 0;
-        } else if (context.autonomous() && !hasPunch && !weekend) {
-            workedMinutes = scheduledMinutes;
-            morningMinutes = scheduledMorningMinutes(context);
-            afternoonMinutes = scheduledMinutes - morningMinutes;
-        }
-
-        long lateMinutes = context.autonomous() ? 0 : lateMinutes(context);
+        long scheduledMinutes = calculerMinutesPrevues(context);
+        boolean hasPunch = contientUnPointage(context);
+        DureesTravaillees durees = calculerDureesTravaillees(context, scheduledMinutes, hasPunch, weekend);
+        long workedMinutes = durees.total();
+        long lateMinutes = context.autonomous() ? 0 : calculerMinutesRetard(context);
         long normalMinutes = Math.min(workedMinutes, scheduledMinutes);
-        long absenceMinutes = Math.max(0, scheduledMinutes - workedMinutes);
-        if (context.leavePart() == Context.LeavePart.FULL_DAY || (context.publicHoliday() && !hasPunch)) {
-            absenceMinutes = 0;
-        } else if (context.leavePart() == Context.LeavePart.MORNING) {
-            absenceMinutes = Math.max(0, absenceMinutes - scheduledMorningMinutes(context));
-        } else if (context.leavePart() == Context.LeavePart.AFTERNOON) {
-            absenceMinutes = Math.max(0, absenceMinutes - (scheduledMinutes - scheduledMorningMinutes(context)));
-        }
-        long nightMinutes = nightMinutes(context, nextDayNightWindow);
-
-        Result.Status status = determineStatus(
+        long absenceMinutes = calculerMinutesAbsence(context, scheduledMinutes, workedMinutes, hasPunch);
+        long nightMinutes = calculerMinutesNuit(context, nextDayNightWindow);
+        Result.Status status = determinerStatutTechnique(
                 context, anomalies, sunday, weekend, hasPunch, workedMinutes, scheduledMinutes);
-
-        boolean eligibleForAllowance = workedMinutes > 0 &&
-                context.leavePart() != Context.LeavePart.FULL_DAY && !context.publicHoliday();
-        int mealDays = eligibleForAllowance && context.mealGranted() ? 1 : 0;
-        BigDecimal mealAmount = mealDays == 1 ? context.mealAmount() : BigDecimal.ZERO;
-        BigDecimal travelUnits = eligibleForAllowance ? context.travelUnits() : BigDecimal.ZERO;
-        BigDecimal travelAmount = travelUnits.multiply(context.travelUnitAmount());
-        if (context.applyMealTravelDeduction() && mealDays == 1) {
-            travelAmount = travelAmount.subtract(travelUnits.multiply(context.mealTravelDeduction())).max(BigDecimal.ZERO);
-        }
+        IndemnitesJour indemnites = calculerIndemnitesJour(context, workedMinutes);
 
         return new Result(context.employeeId(), context.date(), status,
-                morningMinutes, afternoonMinutes, workedMinutes, normalMinutes, lateMinutes, absenceMinutes, nightMinutes,
-                sunday, context.publicHoliday(), mealDays, mealAmount, travelUnits,
-                travelAmount, anomalies);
+                durees.matin(), durees.apresMidi(), workedMinutes, normalMinutes, lateMinutes, absenceMinutes, nightMinutes,
+                sunday, context.publicHoliday(), indemnites.joursRepas(), indemnites.montantRepas(),
+                indemnites.unitesDeplacement(), indemnites.montantDeplacement(), anomalies);
     }
 
-    private List<String> validatePunches(Context c) {
+    private record DureesTravaillees(long matin, long apresMidi) {
+        long total() { return matin + apresMidi; }
+    }
+
+    /** Calcule les heures pointées puis applique le congé entier, le férié et l'autonomie. */
+    private DureesTravaillees calculerDureesTravaillees(Context c, long prevues,
+            boolean pointe, boolean weekend) {
+        long matin = calculerMinutesMatin(c);
+        long apresMidi = calculerMinutesApresMidi(c);
+        if (c.leavePart() == Context.LeavePart.FULL_DAY || (c.publicHoliday() && !pointe))
+            return new DureesTravaillees(0, 0);
+        if (c.autonomous() && !pointe && !weekend) {
+            matin = calculerMinutesPrevuesMatin(c);
+            return new DureesTravaillees(matin, prevues - matin);
+        }
+        return new DureesTravaillees(matin, apresMidi);
+    }
+
+    /** Retire du déficit les minutes couvertes par un congé ou un férié chômé. */
+    private long calculerMinutesAbsence(Context c, long prevues, long travaillees, boolean pointe) {
+        long absence = Math.max(0, prevues - travaillees);
+        if (c.leavePart() == Context.LeavePart.FULL_DAY || (c.publicHoliday() && !pointe)) return 0;
+        if (c.leavePart() == Context.LeavePart.MORNING)
+            return Math.max(0, absence - calculerMinutesPrevuesMatin(c));
+        if (c.leavePart() == Context.LeavePart.AFTERNOON)
+            return Math.max(0, absence - (prevues - calculerMinutesPrevuesMatin(c)));
+        return absence;
+    }
+
+    private record IndemnitesJour(int joursRepas, BigDecimal montantRepas,
+            BigDecimal unitesDeplacement, BigDecimal montantDeplacement) {}
+
+    /** Applique les conditions de présence et la réduction de déplacement liée au repas. */
+    private IndemnitesJour calculerIndemnitesJour(Context c, long travaillees) {
+        boolean eligible = travaillees > 0 && c.leavePart() != Context.LeavePart.FULL_DAY && !c.publicHoliday();
+        int joursRepas = eligible && c.mealGranted() ? 1 : 0;
+        BigDecimal montantRepas = joursRepas == 1 ? c.mealAmount() : BigDecimal.ZERO;
+        BigDecimal unites = eligible ? c.travelUnits() : BigDecimal.ZERO;
+        BigDecimal montant = unites.multiply(c.travelUnitAmount());
+        if (c.applyMealTravelDeduction() && joursRepas == 1)
+            montant = montant.subtract(unites.multiply(c.mealTravelDeduction())).max(BigDecimal.ZERO);
+        return new IndemnitesJour(joursRepas, montantRepas, unites, montant);
+    }
+
+    /** Repère les heures manquantes ou incohérentes avant de calculer la journée. */
+    private List<String> verifierPointages(Context c) {
         List<String> anomalies = new ArrayList<>();
         if (c.continuousSchedule()) {
             if ((c.morningEntry() == null) != (c.afternoonExit() == null)) {
@@ -206,9 +221,9 @@ public class AttendanceEngine {
             }
             return anomalies;
         }
-        if (isAutomaticBreak(c)) return anomalies;
-        validatePair(c.morningEntry(), c.morningExit(), "matin", anomalies);
-        validatePair(c.afternoonEntry(), c.afternoonExit(), "après-midi", anomalies);
+        if (aPauseAutomatique(c)) return anomalies;
+        verifierPaireHoraire(c.morningEntry(), c.morningExit(), "matin", anomalies);
+        verifierPaireHoraire(c.afternoonEntry(), c.afternoonExit(), "après-midi", anomalies);
         if (!c.continuousSchedule() && c.morningExit() != null && c.afternoonEntry() != null
                 && c.afternoonEntry().isBefore(c.morningExit())) {
             anomalies.add("L'entrée d'après-midi précède la sortie du matin.");
@@ -216,64 +231,67 @@ public class AttendanceEngine {
         return anomalies;
     }
 
-    private void validatePair(LocalTime start, LocalTime end, String segment, List<String> anomalies) {
+    private void verifierPaireHoraire(LocalTime start, LocalTime end, String segment, List<String> anomalies) {
         if ((start == null) != (end == null)) anomalies.add("Pointage " + segment + " incomplet.");
     }
 
-    private long morningMinutes(Context c) {
-        if (c.continuousSchedule()) return minutesBetween(c.morningEntry(), c.afternoonExit());
-        if (isAutomaticBreak(c)) {
-            return minutesBetween(c.morningEntry(), c.scheduledMorningExit());
+    private long calculerMinutesMatin(Context c) {
+        if (c.continuousSchedule()) return minutesEntre(c.morningEntry(), c.afternoonExit());
+        if (aPauseAutomatique(c)) {
+            return minutesEntre(c.morningEntry(), c.scheduledMorningExit());
         }
-        return minutesBetween(c.morningEntry(), c.morningExit());
+        return minutesEntre(c.morningEntry(), c.morningExit());
     }
 
-    private long afternoonMinutes(Context c) {
+    private long calculerMinutesApresMidi(Context c) {
         if (c.continuousSchedule()) return 0;
-        if (isAutomaticBreak(c)) return minutesBetween(c.scheduledAfternoonEntry(), c.afternoonExit());
-        return minutesBetween(c.afternoonEntry(), c.afternoonExit());
+        if (aPauseAutomatique(c)) return minutesEntre(c.scheduledAfternoonEntry(), c.afternoonExit());
+        return minutesEntre(c.afternoonEntry(), c.afternoonExit());
     }
 
-    private long scheduledMinutes(Context c) {
+    /** Durée de référence du site, hors pause pour un horaire fractionné. */
+    private long calculerMinutesPrevues(Context c) {
         if (c.continuousSchedule()) {
-            return minutesBetween(c.scheduledMorningEntry(), c.scheduledAfternoonExit());
+            return minutesEntre(c.scheduledMorningEntry(), c.scheduledAfternoonExit());
         }
-        return minutesBetween(c.scheduledMorningEntry(), c.scheduledMorningExit()) +
-                minutesBetween(c.scheduledAfternoonEntry(), c.scheduledAfternoonExit());
+        return minutesEntre(c.scheduledMorningEntry(), c.scheduledMorningExit()) +
+                minutesEntre(c.scheduledAfternoonEntry(), c.scheduledAfternoonExit());
     }
 
-    private long scheduledMorningMinutes(Context c) {
-        if (c.continuousSchedule()) return scheduledMinutes(c);
-        return minutesBetween(c.scheduledMorningEntry(), c.scheduledMorningExit());
+    private long calculerMinutesPrevuesMatin(Context c) {
+        if (c.continuousSchedule()) return calculerMinutesPrevues(c);
+        return minutesEntre(c.scheduledMorningEntry(), c.scheduledMorningExit());
     }
 
-    private long lateMinutes(Context c) {
-        long morning = positiveMinutes(c.scheduledMorningEntry(), c.morningEntry());
-        if (c.continuousSchedule() || isAutomaticBreak(c)) return morning;
-        long afternoon = afternoonLateMinutes(c);
+    /** Retard à l’arrivée et, si applicable, au retour de la pause. */
+    private long calculerMinutesRetard(Context c) {
+        long morning = minutesDeRetardPositives(c.scheduledMorningEntry(), c.morningEntry());
+        if (c.continuousSchedule() || aPauseAutomatique(c)) return morning;
+        long afternoon = calculerRetardApresMidi(c);
         return morning + afternoon;
     }
 
     /** La reprise tardive est mesurée sur la pause réellement prise lorsqu'elle débute tard. */
-    private long afternoonLateMinutes(Context c) {
+    private long calculerRetardApresMidi(Context c) {
         if (c.afternoonEntry() == null) return 0;
         if (c.morningExit() != null && c.scheduledMorningExit() != null && c.scheduledAfternoonEntry() != null
                 && c.scheduledAfternoonEntry().isAfter(c.scheduledMorningExit())
                 && c.morningExit().isAfter(c.scheduledMorningExit())
                 && c.afternoonEntry().isAfter(c.morningExit())) {
-            long scheduledBreak = minutesBetween(c.scheduledMorningExit(), c.scheduledAfternoonEntry());
-            long actualBreak = minutesBetween(c.morningExit(), c.afternoonEntry());
+            long scheduledBreak = minutesEntre(c.scheduledMorningExit(), c.scheduledAfternoonEntry());
+            long actualBreak = minutesEntre(c.morningExit(), c.afternoonEntry());
             return Math.max(0, actualBreak - scheduledBreak);
         }
-        return positiveMinutes(c.scheduledAfternoonEntry(), c.afternoonEntry());
+        return minutesDeRetardPositives(c.scheduledAfternoonEntry(), c.afternoonEntry());
     }
 
-    private boolean isAutomaticBreak(Context c) {
+    private boolean aPauseAutomatique(Context c) {
         return !c.continuousSchedule() && c.morningEntry() != null && c.afternoonExit() != null
                 && c.morningExit() == null && c.afternoonEntry() == null;
     }
 
-    private long nightMinutes(Context c, TemporalAttendanceEngine.NightWindow nextDayNightWindow) {
+    /** Mesure la part des intervalles travaillés comprise dans la plage de nuit. */
+    private long calculerMinutesNuit(Context c, TemporalAttendanceEngine.NightWindow nextDayNightWindow) {
         if (c.leavePart() == Context.LeavePart.FULL_DAY) return 0;
         var intervals = TemporalAttendanceEngine.WorkIntervalFactory.createIntervals(
                 c.employeeId(), null, c.date(), c.morningEntry(), c.morningExit(),
@@ -282,7 +300,7 @@ public class AttendanceEngine {
                 nextDayNightWindow);
     }
 
-    private Result.Status determineStatus(Context c, List<String> anomalies,
+    private Result.Status determinerStatutTechnique(Context c, List<String> anomalies,
             boolean sunday, boolean weekend, boolean hasPunch, long worked, long scheduled) {
         if (!anomalies.isEmpty()) return Result.Status.ANOMALY;
         if (c.leavePart() == Context.LeavePart.FULL_DAY) return Result.Status.LEAVE;
@@ -301,17 +319,17 @@ public class AttendanceEngine {
         return Result.Status.PRESENT;
     }
 
-    private boolean hasAnyPunch(Context c) {
+    private boolean contientUnPointage(Context c) {
         return c.morningEntry() != null || c.morningExit() != null ||
                 c.afternoonEntry() != null || c.afternoonExit() != null;
     }
 
-    private long positiveMinutes(LocalTime expected, LocalTime actual) {
+    private long minutesDeRetardPositives(LocalTime expected, LocalTime actual) {
         if (expected == null || actual == null || !actual.isAfter(expected)) return 0;
         return Duration.between(expected, actual).toMinutes();
     }
 
-    private long minutesBetween(LocalTime start, LocalTime end) {
+    private long minutesEntre(LocalTime start, LocalTime end) {
         if (start == null || end == null) return 0;
         long minutes = Duration.between(start, end).toMinutes();
         return minutes >= 0 ? minutes : minutes + 24L * 60L;

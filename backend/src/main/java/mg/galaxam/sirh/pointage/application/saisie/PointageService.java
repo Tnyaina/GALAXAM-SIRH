@@ -396,92 +396,135 @@ public class PointageService {
                     "Employé, site et date sont obligatoires pour prévisualiser une journée.");
         }
         LocalDate date = LocalDate.parse(dto.getDatePointage());
-        LocalTime startMorning;
-        LocalTime endMorning;
-        LocalTime startAfternoon;
-        LocalTime endAfternoon;
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi " +
-                        "FROM ref_site WHERE id_site = ?")) {
-            ps.setInt(1, dto.getIdSite());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Site introuvable.");
-                startMorning = toLocalTime(rs.getTime("heure_debut_matin"));
-                endMorning = toLocalTime(rs.getTime("heure_fin_matin"));
-                startAfternoon = toLocalTime(rs.getTime("heure_debut_apres_midi"));
-                endAfternoon = toLocalTime(rs.getTime("heure_fin_apres_midi"));
-            }
-        }
-        boolean scheduleComplete = startMorning != null && endAfternoon != null
-                && (dto.isHoraireContinu() || (endMorning != null && startAfternoon != null));
-        if (!scheduleComplete) {
+        HorairesSite horaires = chargerHorairesSitePourPrevisualisation(dto.getIdSite(), c);
+        HeuresPrevisualisation heures = preparerHeuresPrevisualisation(dto, date, horaires, c);
+        PeriodePrevisualisation periode = verifierPeriodeDePrevisualisation(dto, date,
+                heures.entreeEffective(), heures.sortieMatin(), heures.sortieJour(), c);
+        AttendanceEngine.Context contexte = construireContextePrevisualisation(dto, date, horaires, heures);
+        AttendanceEngine.Result result = dailyAttendanceCalculator.calculateDay(contexte,
+                resolveNextDayNightWindow(c, date, heures.entreeEffective(), heures.sortieMatin(),
+                        heures.entreeApresMidi(), heures.sortieJour(), dto.isHoraireContinu()));
+        renseignerResultatPrevisualisation(dto, result, date);
+        renseignerIndemnitesPrevisualisees(dto, date, periode, c);
+        return dto;
+    }
+
+    /** Heures saisies et heure d'entrée réellement comptabilisée, après application du plancher du site. */
+    private record HeuresPrevisualisation(LocalTime entreeEffective, LocalTime sortieMatin,
+            LocalTime entreeApresMidi, LocalTime sortieJour, LocalTime debutNuit, LocalTime finNuit) {}
+
+    private HeuresPrevisualisation preparerHeuresPrevisualisation(SaisiePointageJourDTO dto,
+            LocalDate date, HorairesSite horaires, Connection c) throws SQLException {
+        if (horaires.debutMatin() == null || horaires.finApresMidi() == null
+                || (!dto.isHoraireContinu() && (horaires.finMatin() == null || horaires.debutApresMidi() == null))) {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "Horaires de travail incomplets pour le site " + dto.getIdSite() + ".");
         }
-        normalizeDayIntent(dto, startMorning, endMorning, startAfternoon, endAfternoon);
-        Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(date), c);
-        LocalTime debutNuit = resolveOptionalTimeRule(params, "SEUIL_NUIT_DEBUT");
-        LocalTime finNuit = resolveOptionalTimeRule(params, "SEUIL_NUIT_FIN");
+        normalizeDayIntent(dto, horaires.debutMatin(), horaires.finMatin(),
+                horaires.debutApresMidi(), horaires.finApresMidi());
+        Map<String, ParametreGlobal.ParametreEtat> parametres = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(date), c);
+        LocalTime debutNuit = resolveOptionalTimeRule(parametres, "SEUIL_NUIT_DEBUT");
+        LocalTime finNuit = resolveOptionalTimeRule(parametres, "SEUIL_NUIT_FIN");
         NightWindow plageNuit = debutNuit == null || finNuit == null ? null : new NightWindow(debutNuit, finNuit);
-        LocalTime effectiveEntry = effectiveMorningEntry(
-                toLocalTime(parseTime(dto.getHeureEntreeMatin())), activeArrivalFloor(c, dto.getIdSite()), plageNuit);
-        LocalTime morningExit = toLocalTime(parseTime(dto.getHeureSortieMatin()));
-        LocalTime dayExit = toLocalTime(parseTime(dto.getHeureSortieAm()));
-        LocalTime originalEntry = toLocalTime(parseTime(dto.getHeureEntreeMatin()));
-        LocalTime firstExit = dto.isHoraireContinu() ? dayExit : morningExit;
-        if (effectiveEntry != null && firstExit != null && effectiveEntry.isAfter(firstExit)
-                && (originalEntry == null || !originalEntry.isAfter(firstExit))) {
+        LocalTime entreeSaisie = toLocalTime(parseTime(dto.getHeureEntreeMatin()));
+        LocalTime entreeEffective = effectiveMorningEntry(entreeSaisie, activeArrivalFloor(c, dto.getIdSite()), plageNuit);
+        LocalTime sortieMatin = toLocalTime(parseTime(dto.getHeureSortieMatin()));
+        LocalTime sortieJour = toLocalTime(parseTime(dto.getHeureSortieAm()));
+        LocalTime premiereSortie = dto.isHoraireContinu() ? sortieJour : sortieMatin;
+        if (entreeEffective != null && premiereSortie != null && entreeEffective.isAfter(premiereSortie)
+                && (entreeSaisie == null || !entreeSaisie.isAfter(premiereSortie))) {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "La sortie précède l'heure minimale comptabilisée du site.");
         }
-        LocalDate periodStart = date;
-        LocalDate periodEnd = date;
-        int workingDays = 0;
+        return new HeuresPrevisualisation(entreeEffective, sortieMatin,
+                toLocalTime(parseTime(dto.getHeureEntreeAm())), sortieJour, debutNuit, finNuit);
+    }
+
+    /** Associe les heures pointées aux horaires prévus et aux choix de la journée. */
+    private AttendanceEngine.Context construireContextePrevisualisation(SaisiePointageJourDTO dto,
+            LocalDate date, HorairesSite horaires, HeuresPrevisualisation heures) {
+        return new AttendanceEngine.Context(dto.getIdEmploye(), date, heures.entreeEffective(),
+                heures.sortieMatin(), heures.entreeApresMidi(), heures.sortieJour(),
+                horaires.debutMatin(), horaires.finMatin(), horaires.debutApresMidi(), horaires.finApresMidi(),
+                heures.debutNuit(), heures.finNuit(), dto.isHoraireContinu(), dto.isEstAutonome(),
+                dto.isFerieJour(), parseLeavePart(dto.getTypeCongeJour()),
+                false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false);
+    }
+
+    /** Ajoute les montants indicatifs seulement si l'interface demande leur prévisualisation. */
+    private void renseignerIndemnitesPrevisualisees(SaisiePointageJourDTO dto,
+            LocalDate date, PeriodePrevisualisation periode, Connection c) throws SQLException {
+        if (!dto.isInclureIndemnitesCalculeesPreview()) return;
+        int joursOuvrables = calendrierEngine.compterJoursOuvrables(
+                periode.debut(), periode.fin(), dto.getIdSite(), c);
+        boolean nonTravaille = AttendanceStatusPolicy.isNonWorkedDay(dto.getCodeStatut(),
+                "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()), dto.isFerieJour(),
+                CalendrierOuvrableEngine.isWeekend(date), dto.getTotalHeures() == null ? 0 : dto.getTotalHeures());
+        dto.setIndemnitesCalculeesPreview(previewDynamicAllowanceAmounts(
+                dto.getDynamicIndemnites(), dto.getIdSite(), Date.valueOf(date), joursOuvrables, nonTravaille, c));
+    }
+
+    /** Horaires de référence lus sur le site pour une journée. */
+    private record HorairesSite(LocalTime debutMatin, LocalTime finMatin,
+            LocalTime debutApresMidi, LocalTime finApresMidi) {}
+
+    /** Charge les quatre bornes horaires du site ; la validation dépend du mode continu. */
+    private HorairesSite chargerHorairesSitePourPrevisualisation(int idSite, Connection c) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi "
+                        + "FROM ref_site WHERE id_site = ?")) {
+            ps.setInt(1, idSite);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Site introuvable.");
+                HorairesSite horaires = new HorairesSite(
+                        toLocalTime(rs.getTime("heure_debut_matin")),
+                        toLocalTime(rs.getTime("heure_fin_matin")),
+                        toLocalTime(rs.getTime("heure_debut_apres_midi")),
+                        toLocalTime(rs.getTime("heure_fin_apres_midi")));
+                return horaires;
+            }
+        }
+    }
+
+    /** Transfère les minutes du moteur et le statut de saisie dans la réponse affichée. */
+    private void renseignerResultatPrevisualisation(SaisiePointageJourDTO dto,
+            AttendanceEngine.Result resultat, LocalDate date) {
+        dto.setHeuresMatin(minutesToStorageHours(resultat.morningMinutes()));
+        dto.setHeuresAm(minutesToStorageHours(resultat.afternoonMinutes()));
+        dto.setTotalHeures(minutesToStorageHours(resultat.workedMinutes()));
+        dto.setHeuresNuit(minutesToStorageHours(resultat.nightMinutes()));
+        dto.setMinutesRetard(Math.toIntExact(resultat.lateMinutes()));
+        dto.setHasValidationError(!resultat.anomalies().isEmpty());
+        dto.setValidationMessages(resultat.anomalies());
+        dto.setCodeStatut(AttendanceStatusPolicy.resolve(dto, resultat, date));
+        dto.setLibelleStatut(AttendanceStatusPolicy.label(dto.getCodeStatut()));
+        dto.setStatusActions(resolveStatusActions(dto));
+    }
+
+    /** Repère la campagne et contrôle une vacation qui franchit sa date de fin. */
+    private record PeriodePrevisualisation(LocalDate debut, LocalDate fin) {}
+
+    private PeriodePrevisualisation verifierPeriodeDePrevisualisation(SaisiePointageJourDTO dto,
+            LocalDate date, LocalTime entreeEffective, LocalTime sortieMatin,
+            LocalTime sortieJour, Connection c) throws SQLException {
+        LocalDate debut = date;
+        LocalDate fin = date;
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT date_debut, date_fin FROM periode_paie WHERE date_debut<=? AND date_fin>=?")) {
             ps.setDate(1, Date.valueOf(date));
             ps.setDate(2, Date.valueOf(date));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    periodStart = rs.getDate("date_debut").toLocalDate();
-                    periodEnd = rs.getDate("date_fin").toLocalDate();
-                    verifierVacationDansCampagne(dto.getIdEmploye(), date, periodEnd,
-                            effectiveEntry, morningExit, toLocalTime(parseTime(dto.getHeureEntreeAm())),
-                            dayExit, dto.isHoraireContinu());
+                    debut = rs.getDate("date_debut").toLocalDate();
+                    fin = rs.getDate("date_fin").toLocalDate();
+                    verifierVacationDansCampagne(dto.getIdEmploye(), date, fin,
+                            entreeEffective, sortieMatin, toLocalTime(parseTime(dto.getHeureEntreeAm())),
+                            sortieJour, dto.isHoraireContinu());
                     if (rs.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: PERIODE_PAIE au " + date);
                 }
             }
         }
-        if (dto.isInclureIndemnitesCalculeesPreview()) {
-            workingDays = calendrierEngine.compterJoursOuvrables(periodStart, periodEnd, dto.getIdSite(), c);
-        }
-        AttendanceEngine.Result result = dailyAttendanceCalculator.calculateDay(new AttendanceEngine.Context(
-                dto.getIdEmploye(), date, effectiveEntry,
-                toLocalTime(parseTime(dto.getHeureSortieMatin())), toLocalTime(parseTime(dto.getHeureEntreeAm())),
-                toLocalTime(parseTime(dto.getHeureSortieAm())), startMorning, endMorning, startAfternoon, endAfternoon,
-                debutNuit, finNuit,
-                dto.isHoraireContinu(), dto.isEstAutonome(), dto.isFerieJour(), parseLeavePart(dto.getTypeCongeJour()),
-                false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false),
-                resolveNextDayNightWindow(c, date, effectiveEntry, morningExit,
-                        toLocalTime(parseTime(dto.getHeureEntreeAm())), dayExit, dto.isHoraireContinu()));
-        dto.setHeuresMatin(minutesToStorageHours(result.morningMinutes()));
-        dto.setHeuresAm(minutesToStorageHours(result.afternoonMinutes()));
-        dto.setTotalHeures(minutesToStorageHours(result.workedMinutes()));
-        dto.setHeuresNuit(minutesToStorageHours(result.nightMinutes()));
-        dto.setMinutesRetard(Math.toIntExact(result.lateMinutes()));
-        dto.setHasValidationError(!result.anomalies().isEmpty());
-        dto.setValidationMessages(result.anomalies());
-        dto.setCodeStatut(AttendanceStatusPolicy.resolve(dto, result, date));
-        dto.setLibelleStatut(AttendanceStatusPolicy.label(dto.getCodeStatut()));
-        dto.setStatusActions(resolveStatusActions(dto));
-        if (dto.isInclureIndemnitesCalculeesPreview()) {
-            dto.setIndemnitesCalculeesPreview(previewDynamicAllowanceAmounts(
-                    dto.getDynamicIndemnites(), dto.getIdSite(), Date.valueOf(date), workingDays,
-                    AttendanceStatusPolicy.isNonWorkedDay(dto.getCodeStatut(),
-                            "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()), dto.isFerieJour(),
-                            CalendrierOuvrableEngine.isWeekend(date), dto.getTotalHeures() == null ? 0 : dto.getTotalHeures()), c));
-        }
-        return dto;
+        return new PeriodePrevisualisation(debut, fin);
     }
 
     /** Prévisualise une série de journées sur une connexion partagée, avec erreurs isolées par salarié. */

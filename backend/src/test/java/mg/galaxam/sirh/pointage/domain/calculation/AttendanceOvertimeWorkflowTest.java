@@ -112,6 +112,45 @@ class AttendanceOvertimeWorkflowTest {
                 () -> new TemporalAttendanceEngine.OvertimeProjectionEngine().project(List.of(timeline), 0, 239, 60));
     }
 
+    @Test
+    void congeEntierEtAutonomieConserventLeursDureesJournalieres() {
+        AttendanceEngine attendance = new AttendanceEngine();
+        LocalDate date = LocalDate.of(2026, 8, 3);
+        Context conge = new Context(42, date, null, null, null, null,
+                LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
+                null, null, false, false, false, Context.LeavePart.FULL_DAY, false,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false);
+        Result jourConge = attendance.calculateDay(conge);
+        assertEquals(0, jourConge.workedMinutes());
+        assertEquals(0, jourConge.absenceMinutes());
+        assertEquals(Result.Status.LEAVE, jourConge.status());
+
+        Context autonome = new Context(42, date, null, null, null, null,
+                LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
+                null, null, false, true, false, Context.LeavePart.NONE, false,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false);
+        Result jourAutonome = attendance.calculateDay(autonome);
+        assertEquals(240, jourAutonome.morningMinutes());
+        assertEquals(240, jourAutonome.afternoonMinutes());
+        assertEquals(0, jourAutonome.absenceMinutes());
+        assertEquals(Result.Status.AUTONOMOUS, jourAutonome.status());
+    }
+
+    @Test
+    void repasFourniReduitLeDeplacementSansRendreLeMontantNegatif() {
+        AttendanceEngine attendance = new AttendanceEngine();
+        Context contexte = new Context(42, LocalDate.of(2026, 8, 3),
+                LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
+                LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
+                null, null, false, false, false, Context.LeavePart.NONE, true,
+                new BigDecimal("5000"), BigDecimal.ONE, new BigDecimal("3000"),
+                new BigDecimal("4000"), true);
+        Result resultat = attendance.calculateDay(contexte);
+        assertEquals(1, resultat.mealDays());
+        assertMoney("5000", resultat.mealAmount());
+        assertMoney("0", resultat.travelAmount());
+    }
+
     private static Context workday(LocalDate date, LocalTime afternoonExit) {
         return new Context(42, date, LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), afternoonExit,
                 LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
