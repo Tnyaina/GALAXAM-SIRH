@@ -27,6 +27,15 @@ public class PayrollPopulationResolver {
 
     public PayrollPopulation resolve(int periodId, Connection connection) throws SQLException {
         Period period = loadPeriod(periodId, connection);
+        Map<Integer, List<Row>> candidaturesParEmploye = chargerCandidatsPeriode(period, connection);
+        List<PayrollPopulationMember> members = evaluerPopulation(candidaturesParEmploye, period, connection);
+        return new PayrollPopulation(period.id(), period.code(), period.startDate(), period.endDate(), members);
+    }
+
+    /**
+     * Extrait tous les collaborateurs candidats (actifs, sous contrat/affectation chevauchante ou avec bulletin existant).
+     */
+    private Map<Integer, List<Row>> chargerCandidatsPeriode(Period period, Connection connection) throws SQLException {
         String sql = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.est_actif, eac.id_affectation, "
                 + "ct.id_contrat, ct.numero_contrat, rtc.libelle AS type_contrat, rtc.code AS type_contrat_code, "
                 + "rs.libelle AS nom_site, tri.libelle AS regime, tri.code AS regime_code, "
@@ -45,6 +54,7 @@ public class PayrollPopulationResolver {
                 + "   OR EXISTS(SELECT 1 FROM employe_affectation_carriere eac2 WHERE eac2.id_employe = e.id_employe "
                 + "             AND eac2.date_debut <= ? AND (eac2.date_fin IS NULL OR eac2.date_fin >= ?))) "
                 + "ORDER BY e.matricule, eac.date_debut";
+
         Map<Integer, List<Row>> rowsByEmployee = new LinkedHashMap<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, period.id());
@@ -72,58 +82,98 @@ public class PayrollPopulationResolver {
                 }
             }
         }
-
-        List<PayrollPopulationMember> members = new ArrayList<>();
-        for (List<Row> rows : rowsByEmployee.values()) {
-            if (rows.stream().noneMatch(row -> row.assignmentId() != null)) {
-                members.add(decide(rows));
-                continue;
-            }
-            try {
-                var coverage = employmentContextResolver.resolveCoverage(rows.get(0).employeeId(),
-                        period.startDate(), period.endDate(), connection);
-                Row last = rows.stream().filter(row -> row.assignmentId() != null
-                        && row.assignmentId() == coverage.lastAssignmentId()).findFirst().orElseThrow();
-                members.add(decide(List.of(last)));
-            } catch (RuntimeException error) {
-                if (rows.get(0).aBulletin()) {
-                    members.add(decide(rows));
-                } else {
-                    members.add(member(rows.get(0), "BLOCKED", String.valueOf(error.getMessage()).startsWith("AMBIGUOUS_CONFIGURATION")
-                            ? "AMBIGUOUS_ASSIGNMENT" : "MISSING_TEMPORAL_ASSIGNMENT"));
-                }
-            }
-        }
-        return new PayrollPopulation(period.id(), period.code(), period.startDate(), period.endDate(), members);
+        return rowsByEmployee;
     }
 
+    /**
+     * Évalue chaque collaborateur candidat et décide de son éligibilité (INCLUDED, EXCLUDED ou BLOCKED).
+     */
+    private List<PayrollPopulationMember> evaluerPopulation(
+            Map<Integer, List<Row>> rowsByEmployee, Period period, Connection connection) throws SQLException {
+        List<PayrollPopulationMember> members = new ArrayList<>();
+        for (List<Row> rows : rowsByEmployee.values()) {
+            members.add(evaluerEmploye(rows, period, connection));
+        }
+        return members;
+    }
+
+    /**
+     * Résout l'affectation temporelle applicable pour un collaborateur et tranche son éligibilité.
+     */
+    private PayrollPopulationMember evaluerEmploye(List<Row> rows, Period period, Connection connection) throws SQLException {
+        if (rows.stream().noneMatch(row -> row.assignmentId() != null)) {
+            return decide(rows);
+        }
+        try {
+            var coverage = employmentContextResolver.resolveCoverage(
+                    rows.get(0).employeeId(), period.startDate(), period.endDate(), connection);
+            Row lastAssignmentRow = rows.stream()
+                    .filter(row -> row.assignmentId() != null && row.assignmentId() == coverage.lastAssignmentId())
+                    .findFirst()
+                    .orElseThrow();
+            return decide(List.of(lastAssignmentRow));
+        } catch (RuntimeException error) {
+            if (rows.get(0).aBulletin()) {
+                return decide(rows);
+            }
+            String errorCode = String.valueOf(error.getMessage()).startsWith("AMBIGUOUS_CONFIGURATION")
+                    ? "AMBIGUOUS_ASSIGNMENT" : "MISSING_TEMPORAL_ASSIGNMENT";
+            return member(rows.get(0), "BLOCKED", errorCode);
+        }
+    }
+
+    /**
+     * Applique les règles de gestion pour décider du statut de paie du salarié (INCLUDED, EXCLUDED, BLOCKED).
+     */
     private PayrollPopulationMember decide(List<Row> rows) {
         Row fallbackRow = rows.get(0);
         List<Row> applicableRows = rows.stream().filter(candidate -> candidate.assignmentId() != null).toList();
+
+        // 1. Déjà calculé : conserve son inclusion
         if (fallbackRow.aBulletin()) {
             Row r = applicableRows.isEmpty() ? fallbackRow : applicableRows.get(applicableRows.size() - 1);
             return member(r, "INCLUDED", null);
         }
+
+        // 2. Absence d'affectation sur la période
         if (applicableRows.isEmpty()) {
             return member(fallbackRow, "EXCLUDED", "NO_APPLICABLE_ASSIGNMENT");
         }
+
+        // 3. Conflit d'affectations simultanées
         if (applicableRows.size() > 1) {
             return member(fallbackRow, "BLOCKED", "AMBIGUOUS_ASSIGNMENT");
         }
+
         Row applicableRow = applicableRows.get(0);
+
+        // 4. Solde de tout compte (STC) déjà scellé sur la période
         if (applicableRow.stcScelle()) {
             return member(applicableRow, "EXCLUDED", "STC_ALREADY_SETTLED");
         }
+
+        // 5. Contrat ou régime absent
         if (applicableRow.contractId() == null || applicableRow.regime() == null) {
             return member(applicableRow, "BLOCKED", "NO_APPLICABLE_CONTRACT");
         }
-        if ("PRESTATION".equalsIgnoreCase(applicableRow.contractTypeCode())
-                || "CONSULTANT".equalsIgnoreCase(applicableRow.regimeCode())
-                || "PRESTATAIRE".equalsIgnoreCase(applicableRow.regimeCode())
-                || "ISI_5".equalsIgnoreCase(applicableRow.regimeCode())) {
+
+        // 6. Prestataires et consultants indépendants exclus du bulletin
+        if (estPrestataireIndependant(applicableRow)) {
             return member(applicableRow, "EXCLUDED", "INDEPENDENT_SERVICE_PROVIDER");
         }
+
+        // 7. Salarié standard éligible
         return member(applicableRow, "INCLUDED", null);
+    }
+
+    /**
+     * Identifie les prestataires et consultants exclus du bulletin (facturation fournisseur).
+     */
+    private boolean estPrestataireIndependant(Row row) {
+        return "PRESTATION".equalsIgnoreCase(row.contractTypeCode())
+                || "CONSULTANT".equalsIgnoreCase(row.regimeCode())
+                || "PRESTATAIRE".equalsIgnoreCase(row.regimeCode())
+                || "ISI_5".equalsIgnoreCase(row.regimeCode());
     }
 
     private PayrollPopulationMember member(Row row, String decision, String reasonCode) {
