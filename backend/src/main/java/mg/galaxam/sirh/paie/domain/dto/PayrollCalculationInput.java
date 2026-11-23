@@ -183,11 +183,26 @@ public class PayrollCalculationInput {
     private boolean soumisIrsa = true;
     private boolean soumisIsi5 = false;
 
-    // 8. Trésorerie
+    // 8. Trésorerie & Variables de paie
+    /**
+     * Mouvements de déduction (sens = 'RETENUE') :
+     * Acomptes quinzaine, avances spéciales et variables de paie en retenue (Call Perso, Retenues diverses).
+     * Evalués et imputés à l'étape de calcul RETENUE_NET via {@code deduireVariablesRetenueNet}.
+     */
     private List<PaieAvanceAcompte> avancesAcomptes = new ArrayList<>();
     private List<Integer> idsMouvementsGains = new ArrayList<>();
+
+    /**
+     * Variables de paie de type GAIN (sens = 'GAIN') :
+     * - Etape BRUT : Primes imposables / cotisables via {@code integrerVariablesBrut}.
+     * - Etape GAIN_NET : Indemnités non imposables / remboursements de frais via {@code integrerVariablesGainNet}.
+     */
     private List<GainVariable> gainsVariablesDynamiques = new ArrayList<>();
 
+    /**
+     * Représente une variable de paie de type GAIN (positive) injectée dynamiquement.
+     * Note historique : le champ {@code idAvance} correspond à la clé primaire dans la table pivot {@code paie_avance_acompte}.
+     */
     public static class GainVariable {
         private Integer idAvance;
         private String code;

@@ -672,25 +672,36 @@ public class PayrollExecutionEngine {
             totalPrimes = totalPrimes.add(transport);
         }
 
-        // Primes et gains dynamiques imposables (configurés en BDD dans ref_type_mouvement_paie)
-        if (input.getGainsVariablesDynamiques() != null) {
-            for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
-                if (ManualPayrollRules.Contributions.resolve(gv).brut().signum() > 0) {
-                    String cat = gv.getCategorie() != null ? gv.getCategorie() : "PRIME";
-                    String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
-                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
-                            gv.getBaseCalcul(), gv.getTaux(), gv.getQuantite(), gv.getMontant(), null, 120);
-                    ligne.setImposable(gv.isImposable());
-                    ligne.setSoumisCotisation(gv.isSoumisCotisation());
-                    ligne.setEtapeCalcul(gv.getEtapeCalcul());
-                    ligne.setCommentaire(gv.getExplicationCalcul());
-                    lignes.add(ligne);
-                    totalPrimes = totalPrimes.add(gv.getMontant());
-                }
-            }
-        }
+        // 2.3 Variables de paie : GAIN à l'étape BRUT (Primes imposables et cotisables)
+        totalPrimes = totalPrimes.add(integrerVariablesBrut(bp, input.getGainsVariablesDynamiques(), lignes));
 
         return totalPrimes;
+    }
+
+    /**
+     * Intègre les variables de paie de type GAIN dont l'étape est BRUT (ex: Prime de performance, Prime exceptionnelle).
+     * Ces variables augmentent le salaire brut soumis à cotisations sociales et à l'IRSA.
+     */
+    private BigDecimal integrerVariablesBrut(BulletinPaie bp, List<PayrollCalculationInput.GainVariable> variables,
+                                             List<BulletinPaieLigne> lignes) {
+        BigDecimal total = BigDecimal.ZERO;
+        if (variables == null) return total;
+
+        for (PayrollCalculationInput.GainVariable gv : variables) {
+            if (ManualPayrollRules.Contributions.resolve(gv).brut().signum() > 0) {
+                String cat = gv.getCategorie() != null ? gv.getCategorie() : "PRIME";
+                String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
+                BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
+                        gv.getBaseCalcul(), gv.getTaux(), gv.getQuantite(), gv.getMontant(), null, 120);
+                ligne.setImposable(gv.isImposable());
+                ligne.setSoumisCotisation(gv.isSoumisCotisation());
+                ligne.setEtapeCalcul(gv.getEtapeCalcul());
+                ligne.setCommentaire(gv.getExplicationCalcul());
+                lignes.add(ligne);
+                total = total.add(gv.getMontant());
+            }
+        }
+        return total;
     }
 
     // =========================================================================
@@ -911,26 +922,37 @@ public class PayrollExecutionEngine {
             totalIndemnitesNet = totalIndemnitesNet.add(notesFrais);
         }
 
-        // 6.5 Indemnités et gains dynamiques non imposables
-        if (input.getGainsVariablesDynamiques() != null) {
-            for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
-                if (ManualPayrollRules.Contributions.resolve(gv).ajoutNet().signum() > 0) {
-                    String cat = gv.getCategorie() != null ? gv.getCategorie() : "INDEMNITE_NON_IMPOSABLE";
-                    String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
-                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
-                            gv.getBaseCalcul(), gv.getTaux(), gv.getQuantite(), gv.getMontant(), null, 530);
-                    ligne.setImposable(gv.isImposable());
-                    ligne.setSoumisCotisation(gv.isSoumisCotisation());
-                    ligne.setEtapeCalcul(gv.getEtapeCalcul());
-                    ligne.setCommentaire(gv.getExplicationCalcul());
-                    lignes.add(ligne);
-                    totalIndemnitesNet = totalIndemnitesNet.add(gv.getMontant());
-                }
-            }
-        }
+        // 6.5 Variables de paie : GAIN à l'étape GAIN_NET (Indemnités et gains non imposables)
+        totalIndemnitesNet = totalIndemnitesNet.add(integrerVariablesGainNet(bp, input.getGainsVariablesDynamiques(), lignes));
 
         bp.setTotalIndemnitesNonImposables(totalIndemnitesNet);
         return totalIndemnitesNet;
+    }
+
+    /**
+     * Intègre les variables de paie de type GAIN dont l'étape est GAIN_NET (ex: Indemnité non imposable, Remboursement de frais).
+     * Ces variables s'ajoutent directement au net après cotisations et IRSA.
+     */
+    private BigDecimal integrerVariablesGainNet(BulletinPaie bp, List<PayrollCalculationInput.GainVariable> variables,
+                                                List<BulletinPaieLigne> lignes) {
+        BigDecimal total = BigDecimal.ZERO;
+        if (variables == null) return total;
+
+        for (PayrollCalculationInput.GainVariable gv : variables) {
+            if (ManualPayrollRules.Contributions.resolve(gv).ajoutNet().signum() > 0) {
+                String cat = gv.getCategorie() != null ? gv.getCategorie() : "INDEMNITE_NON_IMPOSABLE";
+                String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
+                BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
+                        gv.getBaseCalcul(), gv.getTaux(), gv.getQuantite(), gv.getMontant(), null, 530);
+                ligne.setImposable(gv.isImposable());
+                ligne.setSoumisCotisation(gv.isSoumisCotisation());
+                ligne.setEtapeCalcul(gv.getEtapeCalcul());
+                ligne.setCommentaire(gv.getExplicationCalcul());
+                lignes.add(ligne);
+                total = total.add(gv.getMontant());
+            }
+        }
+        return total;
     }
 
     // =========================================================================
@@ -939,115 +961,145 @@ public class PayrollExecutionEngine {
 
     public RetenuesResult calculerRetenuesEtAvances(BigDecimal netAvantTresorerie, PayrollCalculationInput input,
                                                    BulletinPaie bp, List<BulletinPaieLigne> lignes) {
-        BigDecimal totalAcomptesQuinzaine = BigDecimal.ZERO;
-        BigDecimal totalAvancesSpeciales = BigDecimal.ZERO;
         List<MouvementImputation> imputations = new ArrayList<>();
 
-        // Traitement prioritaire des acomptes de quinzaine (salaire échu)
-        BigDecimal soldeDisponibleAcompte = netAvantTresorerie;
-        if (input.getAvancesAcomptes() != null) {
-            for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
-                if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "ACOMPTE_15";
-                boolean isAcompteQuinzaine = "ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type);
-
-                if (isAcompteQuinzaine) {
-                    String codeRubrique = a.getCodeRubriqueCalcul() != null
-                            ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
-                    String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
-                            ? a.getLibelleRubriqueCalcul() : "Acompte sur salaire";
-
-                    BigDecimal mntAcompte = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponibleAcompte));
-                    if (mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
-                        lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
-                                a.getMontant(), null, mntAcompte, null, 600));
-                        totalAcomptesQuinzaine = totalAcomptesQuinzaine.add(mntAcompte);
-                        soldeDisponibleAcompte = soldeDisponibleAcompte.subtract(mntAcompte).max(BigDecimal.ZERO);
-                    }
-                    if (a.getIdAvance() != null && mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
-                        imputations.add(new MouvementImputation(a.getIdAvance(), mntAcompte));
-                    }
-                }
-            }
-        }
-
+        // 7.1 Acomptes de quinzaine (salaire échu prioritaire)
+        BigDecimal totalAcomptesQuinzaine = deduireAcomptesQuinzaine(bp, input.getAvancesAcomptes(), netAvantTresorerie, lignes, imputations);
         BigDecimal netApresAcompte = netAvantTresorerie.subtract(totalAcomptesQuinzaine).max(BigDecimal.ZERO);
 
-        if (input.getAvancesAcomptes() != null) {
-            for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
-                if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "";
-                boolean isAvanceSpeciale = "AVANCE_SPECIALE".equalsIgnoreCase(type);
-
-                if (isAvanceSpeciale) {
-                    String codeRubrique = a.getCodeRubriqueCalcul() != null
-                            ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
-                    String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
-                            ? a.getLibelleRubriqueCalcul() : "Avance exceptionnelle sur salaire";
-
-                    // Avance exceptionnelle : retenir le montant dû sans plafond en pourcentage,
-                    // dans la limite du net encore disponible sur ce bulletin.
-                    BigDecimal capaciteRestanteAvance = netApresAcompte.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
-                    BigDecimal mntAvanceRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(capaciteRestanteAvance));
-
-                    if (mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {
-                        lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
-                                a.getMontant(), null, mntAvanceRetenu, null, 610));
-                        totalAvancesSpeciales = totalAvancesSpeciales.add(mntAvanceRetenu);
-                    }
-                    if (a.getIdAvance() != null && mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {
-                        imputations.add(new MouvementImputation(a.getIdAvance(), mntAvanceRetenu));
-                    }
-                }
-            }
-        }
-
-        // Autres retenues directes sur salaire (CALL PERSO, RETENUE DIVERSE)
-        BigDecimal totalAutresRetenues = BigDecimal.ZERO;
+        // 7.2 Avances exceptionnelles spéciales
+        BigDecimal totalAvancesSpeciales = deduireAvancesSpeciales(bp, input.getAvancesAcomptes(), netApresAcompte, lignes, imputations);
         BigDecimal netApresAvance = netApresAcompte.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
 
-        if (input.getAvancesAcomptes() != null) {
-            for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
-                if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "";
-                boolean isAcompte = "ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type);
-                boolean isAvanceSpeciale = "AVANCE_SPECIALE".equalsIgnoreCase(type);
-
-                if (!isAcompte && !isAvanceSpeciale) {
-                    String codeRubrique = a.getCodeRubriqueCalcul() != null
-                            ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
-                    String libelleDefaut = "CALL_PERSO".equalsIgnoreCase(type)
-                            ? "Retenue Téléphonie Privée (Call Perso)"
-                            : "Retenue Diverse sur Salaire";
-                    String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
-                            ? a.getLibelleRubriqueCalcul() : libelleDefaut;
-
-                    BigDecimal soldeDisponible = netApresAvance.subtract(totalAutresRetenues).max(BigDecimal.ZERO);
-                    BigDecimal mntRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponible));
-
-                    if (mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
-                        int ordre = "CALL_PERSO".equalsIgnoreCase(type) ? 630 : 640;
-                        BulletinPaieLigne ligne = creerLigne(bp, codeRubrique, libelle, "RETENUE", "RETENUE_DIVERSE",
-                                a.getMontant(), null, mntRetenu, null, ordre);
-                        ligne.setEtapeCalcul("RETENUE_NET");
-                        ligne.setCommentaire(a.getExplicationCalcul());
-                        lignes.add(ligne);
-                        totalAutresRetenues = totalAutresRetenues.add(mntRetenu);
-                    }
-                    if (a.getIdAvance() != null && mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
-                        imputations.add(new MouvementImputation(a.getIdAvance(), mntRetenu));
-                    }
-                }
-            }
-        }
+        // 7.3 Variables de paie : RETENUE à l'étape RETENUE_NET (Call Perso, Retenue Diverse sur salaire)
+        BigDecimal totalAutresRetenues = deduireVariablesRetenueNet(bp, input.getAvancesAcomptes(), netApresAvance, lignes, imputations);
 
         BigDecimal totalRetenuesTresorerie = totalAcomptesQuinzaine.add(totalAvancesSpeciales).add(totalAutresRetenues);
         bp.setTotalRetenuesAvancesAcomptes(totalRetenuesTresorerie);
 
         return new RetenuesResult(totalRetenuesTresorerie, imputations);
+    }
+
+    /**
+     * Traite les acomptes de quinzaine sur salaire échu.
+     */
+    private BigDecimal deduireAcomptesQuinzaine(BulletinPaie bp, List<PaieAvanceAcompte> mouvements,
+                                                BigDecimal netDisponible, List<BulletinPaieLigne> lignes,
+                                                List<MouvementImputation> imputations) {
+        BigDecimal total = BigDecimal.ZERO;
+        if (mouvements == null) return total;
+        BigDecimal soldeDisponible = netDisponible;
+
+        for (PaieAvanceAcompte a : mouvements) {
+            if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "ACOMPTE_15";
+            boolean isAcompteQuinzaine = "ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type);
+
+            if (isAcompteQuinzaine) {
+                String codeRubrique = a.getCodeRubriqueCalcul() != null
+                        ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
+                String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
+                        ? a.getLibelleRubriqueCalcul() : "Acompte sur salaire";
+
+                BigDecimal mntAcompte = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponible));
+                if (mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
+                    lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
+                            a.getMontant(), null, mntAcompte, null, 600));
+                    total = total.add(mntAcompte);
+                    soldeDisponible = soldeDisponible.subtract(mntAcompte).max(BigDecimal.ZERO);
+                }
+                if (a.getIdAvance() != null && mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
+                    imputations.add(new MouvementImputation(a.getIdAvance(), mntAcompte));
+                }
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Traite les avances exceptionnelles spéciales sur salaire.
+     */
+    private BigDecimal deduireAvancesSpeciales(BulletinPaie bp, List<PaieAvanceAcompte> mouvements,
+                                              BigDecimal netDisponible, List<BulletinPaieLigne> lignes,
+                                              List<MouvementImputation> imputations) {
+        BigDecimal total = BigDecimal.ZERO;
+        if (mouvements == null) return total;
+
+        for (PaieAvanceAcompte a : mouvements) {
+            if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "";
+            boolean isAvanceSpeciale = "AVANCE_SPECIALE".equalsIgnoreCase(type);
+
+            if (isAvanceSpeciale) {
+                String codeRubrique = a.getCodeRubriqueCalcul() != null
+                        ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
+                String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
+                        ? a.getLibelleRubriqueCalcul() : "Avance exceptionnelle sur salaire";
+
+                // Avance exceptionnelle : retenir le montant dû sans plafond en pourcentage,
+                // dans la limite du net encore disponible sur ce bulletin.
+                BigDecimal capaciteRestanteAvance = netDisponible.subtract(total).max(BigDecimal.ZERO);
+                BigDecimal mntAvanceRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(capaciteRestanteAvance));
+
+                if (mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {
+                    lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
+                            a.getMontant(), null, mntAvanceRetenu, null, 610));
+                    total = total.add(mntAvanceRetenu);
+                }
+                if (a.getIdAvance() != null && mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {
+                    imputations.add(new MouvementImputation(a.getIdAvance(), mntAvanceRetenu));
+                }
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Déduit les variables de paie de type RETENUE à l'étape RETENUE_NET (ex: Call Perso, Retenue Diverse sur salaire).
+     * Ces variables sont déduites directement du net disponible après acomptes et avances.
+     */
+    private BigDecimal deduireVariablesRetenueNet(BulletinPaie bp, List<PaieAvanceAcompte> mouvements,
+                                                  BigDecimal netDisponible, List<BulletinPaieLigne> lignes,
+                                                  List<MouvementImputation> imputations) {
+        BigDecimal total = BigDecimal.ZERO;
+        if (mouvements == null) return total;
+
+        for (PaieAvanceAcompte a : mouvements) {
+            if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "";
+            boolean isAcompte = "ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type);
+            boolean isAvanceSpeciale = "AVANCE_SPECIALE".equalsIgnoreCase(type);
+
+            if (!isAcompte && !isAvanceSpeciale) {
+                String codeRubrique = a.getCodeRubriqueCalcul() != null
+                        ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
+                String libelleDefaut = "CALL_PERSO".equalsIgnoreCase(type)
+                        ? "Retenue Téléphonie Privée (Call Perso)"
+                        : "Retenue Diverse sur Salaire";
+                String libelle = a.getLibelleRubriqueCalcul() != null && !a.getLibelleRubriqueCalcul().isBlank()
+                        ? a.getLibelleRubriqueCalcul() : libelleDefaut;
+
+                BigDecimal soldeDisponible = netDisponible.subtract(total).max(BigDecimal.ZERO);
+                BigDecimal mntRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponible));
+
+                if (mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
+                    int ordre = "CALL_PERSO".equalsIgnoreCase(type) ? 630 : 640;
+                    BulletinPaieLigne ligne = creerLigne(bp, codeRubrique, libelle, "RETENUE", "RETENUE_DIVERSE",
+                            a.getMontant(), null, mntRetenu, null, ordre);
+                    ligne.setEtapeCalcul("RETENUE_NET");
+                    ligne.setCommentaire(a.getExplicationCalcul());
+                    lignes.add(ligne);
+                    total = total.add(mntRetenu);
+                }
+                if (a.getIdAvance() != null && mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
+                    imputations.add(new MouvementImputation(a.getIdAvance(), mntRetenu));
+                }
+            }
+        }
+        return total;
     }
 
     // =========================================================================
