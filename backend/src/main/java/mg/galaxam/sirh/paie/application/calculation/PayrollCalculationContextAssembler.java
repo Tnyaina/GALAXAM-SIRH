@@ -125,6 +125,16 @@ final class PayrollCalculationContextAssembler {
         }
     }
 
+    /**
+     * Charge la situation contractuelle, le poste actif, le salaire de base et le prorata éventuel.
+     * <p>
+     * <b>Services appelés :</b><br>
+     * - {@code EmploymentContextResolver.resolveCoverage} : résout la couverture d'affectation sur la période.<br>
+     * - {@code EmploymentContextResolver.resolveContext} : lit le contrat, salaire de base et temps de travail.<br>
+     * - {@code AncienneteEngine.calculerAnciennete} : calcule l'ancienneté continue en mois.<br>
+     * - {@code determinerProrataEntreeSortie} : calcule les jours sous contrat si entrée/sortie en cours de mois.
+     * </p>
+     */
     private void chargerEmploiEtSalaire(PayrollCalculationInput in, Integer idEmploye, Connection c) throws Exception {
         // 2. La couverture d'emploi choisit l'affectation applicable ; cette lecture ne
         // sélectionne que ses attributs de bulletin, sans refaire une résolution concurrente.
@@ -257,6 +267,15 @@ final class PayrollCalculationContextAssembler {
         in.setNbEnfantsEligibles(nbEnfants);
     }
 
+    /**
+     * Charge les compteurs d'heures du snapshot de pointage scellé (pointage_cumul_periode).
+     * <p>
+     * <b>Données extraites :</b><br>
+     * - Minutes d'absence injustifiée non payées (unpaidAbsenceMinutes) pour la déduction d'absence.<br>
+     * - Heures supplémentaires qualifiées (overtime30Minutes, overtime50Minutes) après cascade des déficits.<br>
+     * - Heures de nuit, dimanche et jours fériés avec majorations.
+     * </p>
+     */
     private void chargerPointage(PayrollCalculationInput in, Integer idEmploye, Integer idPeriodePaie, boolean simulation, Connection c) throws Exception {
         // 5. Compteurs de pointage scellé (pointage_cumul_periode)
         String sqlCumul = "SELECT * FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ? " +
@@ -396,6 +415,14 @@ final class PayrollCalculationContextAssembler {
         in.setModeCalculAbsence("HEURES_REELLES");
     }
 
+    /**
+     * Charge les jours de congés pris et leur valorisation financière sur la période.
+     * <p>
+     * <b>Services appelés :</b><br>
+     * - {@code CongeService.calculerJoursCongeValorisesParDate} : extrait les jours calendaires pris.<br>
+     * - {@code CongeLotValorisationService.valorisationPrisesSurPeriode} : valorisation FIFO des lots historiques acquis (TCONGE).
+     * </p>
+     */
     private void chargerConges(PayrollCalculationInput in, Integer idEmploye, Connection c) throws Exception {
         // 5.0 Détermination canonique de NBCONGE (RG-CONGE-05) : domaine Congés en jours calendaires
         resoudreJoursCongesPris(in, idEmploye, c);
@@ -433,6 +460,10 @@ final class PayrollCalculationContextAssembler {
         }
     }
 
+    /**
+     * Charge les barèmes fiscaux IRSA et les taux de cotisations sociales en vigueur à la date de la campagne.
+     * Délégué à {@link PayrollLegalContextResolver}.
+     */
     private void chargerReglesLegales(PayrollCalculationInput in, Connection c) throws Exception {
         // 6. Paramètres légaux et fiscaux à la date métier de la campagne.
         payrollLegalContextResolver.resolve(in, c);
@@ -497,6 +528,14 @@ final class PayrollCalculationContextAssembler {
         return dailyHours.multiply(BigDecimal.valueOf(60)).longValueExact();
     }
 
+    /**
+     * Charge et ventile les variables de paie, primes, acomptes et retenues (table paie_avance_acompte).
+     * <p>
+     * <b>Ventilation :</b><br>
+     * - {@code sens == 'GAIN'} $\rightarrow$ {@code in.getGainsVariablesDynamiques()} (étape BRUT ou GAIN_NET).<br>
+     * - {@code sens == 'RETENUE'} $\rightarrow$ {@code in.getAvancesAcomptes()} (Acomptes, Avances, Call Perso).
+     * </p>
+     */
     private void chargerMouvements(PayrollCalculationInput in, Integer idEmploye, Integer idPeriodePaie, boolean simulation, Connection c) throws Exception {
         // Variables de paie, Primes, Extras et Retenues (paie_avance_acompte & ref_type_mouvement_paie)
         // Règle d'or Trésorerie : un acompte ou une avance n'est imputable QUE si son versement est confirmé (versement_confirme_at IS NOT NULL)

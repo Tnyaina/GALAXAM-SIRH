@@ -22,7 +22,17 @@ public class AttendanceEngine {
             int overtime50Minutes
     ) {
         /**
-         * Rapprochement standard (salarié éligible aux heures supplémentaires sans surplus cadre).
+         * Rapprochement hebdomadaire des heures avec imputation en cascade des déficits.
+         * <p>
+         * <b>Règles & Formules :</b><br>
+         * 1. <b>Solde net :</b> {@code Balance = (HS30 + HS50 - Deficit) + AjustementDAF}<br>
+         * 2. <b>Absence retenue :</b> {@code AbsenceFinale = Balance < 0 ? -Balance : 0}<br>
+         * 3. <b>Cascade d'absorption du déficit :</b><br>
+         *    - Le déficit éponge d'abord les heures supplémentaires à 30 % :<br>
+         *      {@code Reduction30 = min(HS30, Deficit)} ; {@code FinalHS30 = HS30 - Reduction30}<br>
+         *    - Le reliquat de déficit non absorbé entame les heures à 50 % :<br>
+         *      {@code Reste = Deficit - Reduction30} ; {@code FinalHS50 = max(0, HS50 - Reste)}.
+         * </p>
          */
         public static PeriodBalance calculate(int hs30, int hs50, int deficit, int adjustment) {
             validerVolumesPositifs(hs30, hs50, deficit, 0);

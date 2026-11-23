@@ -52,13 +52,20 @@ public class AncienneteEngine {
     }
 
     /**
-     * Calcul métier pur en mémoire à partir d'une liste d'intervalles contractuels.
-     * Reconstitue la chaîne via id_contrat_precedent et calcule l'ancienneté totale et du contrat en cours.
+     * Calcul métier pur en mémoire de l'ancienneté à partir d'une chaîne de contrats successifs sans interruption.
+     * <p>
+     * <b>Règles & Formules :</b><br>
+     * 1. Reconstitution de la chaîne continue via {@code id_contrat_precedent} jusqu'à {@code dateOrigineChaine}.<br>
+     * 2. {@code moisEffectifs = ChronoUnit.MONTHS.between(dateOrigineChaine, dateReference)}<br>
+     * 3. {@code ansEffectifs = moisEffectifs / 12} et {@code moisRestants = moisEffectifs % 12}<br>
+     * 4. <b>Impact Paie :</b> Si {@code moisEffectifs >= 36} (3 ans), le salarié bénéficie de la prime d'ancienneté :<br>
+     *    {@code TauxPrimeAnciennete = min(ansEffectifs, 20) * 1%} (plafond légal 20 %).
+     * </p>
      *
      * @param contrats Liste des contrats du salarié
      * @param idContratCible Identifiant du contrat actif à évaluer
-     * @param dateReference Date de référence (généralement LocalDate.now())
-     * @return Bilan complet d'ancienneté
+     * @param dateReference Date de référence pour le calcul (date de la période de paie)
+     * @return Bilan complet d'ancienneté (mois, années, texte)
      */
     public AncienneteBilan evaluerAnciennete(
             List<IntervalleContrat> contrats,

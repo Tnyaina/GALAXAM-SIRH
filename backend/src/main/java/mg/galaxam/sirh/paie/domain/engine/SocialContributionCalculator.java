@@ -3,7 +3,23 @@ package mg.galaxam.sirh.paie.domain.engine;
 
 import java.math.BigDecimal;
 
-/** Propriétaire unique de la valorisation sociale; paramètres déjà résolus. */
+/**
+ * Calculateur pur des cotisations sociales obligatoires à Madagascar (CNaPS, Santé/OSTIE, FMFP).
+ * <p>
+ * <b>Formules appliquées :</b><br>
+ * 1. <b>CNaPS :</b><br>
+ *    - {@code AssietteCNaPS = min(assietteSociale, plafondMensuel)} (Plafond légal = 8 × SME)<br>
+ *    - {@code PartSalariale = AssietteCNaPS * cnapsEmployeeRate} (1%)<br>
+ *    - {@code PartPatronale = AssietteCNaPS * cnapsEmployerRate} (13%)<br>
+ * 2. <b>Santé (OSTIE / Organisme Médical) :</b><br>
+ *    - {@code AssietteSante = capHealth ? min(assietteSante, plafondMensuel) : assietteSante}<br>
+ *    - {@code PartSalariale = AssietteSante * healthEmployeeRate} (1%)<br>
+ *    - {@code PartPatronale = AssietteSante * healthEmployerRate} (5%)<br>
+ * 3. <b>FMFP (Fonds Malgache de Formation Professionnelle) :</b><br>
+ *    - {@code AssietteFmfp = min(assietteFmfp, plafondMensuel)}<br>
+ *    - {@code PartPatronale = AssietteFmfp * fmfpRate} (1% patronal exclusivement).
+ * </p>
+ */
 public final class SocialContributionCalculator {
     public record Rules(BigDecimal cnapsEmployee, BigDecimal cnapsEmployer,
                         BigDecimal healthEmployee, BigDecimal healthEmployer, BigDecimal fmfpRate,

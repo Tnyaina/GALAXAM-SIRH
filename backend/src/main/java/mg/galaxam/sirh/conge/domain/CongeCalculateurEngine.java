@@ -81,7 +81,12 @@ public class CongeCalculateurEngine {
     }
 
     /**
-     * Calcule le nombre de jours décomptés (calendaires stricts).
+     * Calcule le nombre de jours décomptés selon le Code du Travail malgache (jours calendaires stricts).
+     * <p>
+     * <b>Formule :</b><br>
+     * - Demi-journée : {@code 0.5 j}<br>
+     * - Période continue : {@code ChronoUnit.DAYS.between(dateDebut, dateFin) + 1}
+     * </p>
      */
     public BigDecimal calculerNombreJours(LocalDate dateDebut, LocalDate dateFin, boolean estDemiJournee) {
         if (dateDebut == null || dateFin == null) {

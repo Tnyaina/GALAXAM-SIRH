@@ -223,6 +223,20 @@ public class PayrollExecutionEngine {
     // =========================================================================
     // 2. SALAIRE BRUT & GAINS (Palier 1)
     // =========================================================================
+
+    /**
+     * Calcule le Salaire Brut global du salarié pour la période.
+     * <p>
+     * <b>Formule maîtresse :</b><br>
+     * {@code TotalGainsBruts = Base - RetenueAbsence + CongesNet + HeuresSupMaj + Primes}<br>
+     * avec {@code CongesNet = IndemniteCongeMaintien (FIFO) - DeductionConge (1/30ème)}.
+     * </p>
+     *
+     * @param input  Données assemblées depuis le contexte (contrat, pointage, congés, primes).
+     * @param bp     En-tête du bulletin en cours de construction.
+     * @param lignes Liste des rubriques ventilées du bulletin.
+     * @return Montant total du salaire brut (scellé dans bp.setTotalGainsBruts).
+     */
     public BigDecimal calculerSalaireBrut(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal tauxHoraire = input.getTauxHoraireEffectif();
 
@@ -240,6 +254,16 @@ public class PayrollExecutionEngine {
         return totalGainsBruts;
     }
 
+    /**
+     * Calcule le salaire de base contractuel ou proratisé.
+     * <p>
+     * <b>Formules :</b><br>
+     * - Mois complet : {@code Base = salaireBaseContractuel}<br>
+     * - Entrée / Sortie en cours de mois (règle des 30èmes) :<br>
+     *   {@code BaseProratisee = (salaireBaseContractuel * joursSousContrat) / 30}
+     * </p>
+     * Rubrique générée : {@code SALAIRE_BASE} (sens GAIN, ordre 10).
+     */
     public BigDecimal calculerSalaireBase(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
         BigDecimal salaireBaseLigne = salaireBaseContractuel;
@@ -267,6 +291,15 @@ public class PayrollExecutionEngine {
         return salaireBaseLigne;
     }
 
+    /**
+     * Calcule la retenue sur salaire pour absences injustifiées constatées au pointage.
+     * <p>
+     * <b>Formule exacte à la minute :</b><br>
+     * {@code MontantRetenue = (SalaireBasePlein * MinutesAbsence) / (DiviseurMensuel * 60)}<br>
+     * avec DiviseurMensuel = 173.3333 h (base légale 40h/semaine).
+     * </p>
+     * Rubrique générée : {@code RETENUE_ABSENCE} (sens RETENUE, ordre 20).
+     */
     public BigDecimal calculerRetenueAbsence(PayrollCalculationInput input, BigDecimal salaireBaseLigne, BigDecimal tauxHoraire,
                                               BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         // Les modes à l'heure et à la journée ne paient déjà que les quantités présentes.
@@ -431,6 +464,17 @@ public class PayrollExecutionEngine {
         return MoneyRoundingPolicy.amount(joursCouverts.multiply(taux));
     }
 
+    /**
+     * Calcule les heures supplémentaires et majorations (nuit, dimanche, jours fériés).
+     * <p>
+     * <b>Formules :</b><br>
+     * - HS 30% : {@code HeuresHs30 * TauxHoraire * 1.30}<br>
+     * - HS 50% : {@code HeuresHs50 * TauxHoraire * 1.50}<br>
+     * - Majoration Nuit : {@code HeuresNuit * TauxHoraire * MajorationNuit%}<br>
+     * - Heures Dimanche / Férié : majorations réglementaires correspondantes.
+     * </p>
+     * Rubriques générées : {@code HEURES_SUP_30}, {@code HEURES_SUP_50}, {@code MAJORATION_NUIT}, etc.
+     */
     public BigDecimal calculerMajorationsEtHeuresSup(PayrollCalculationInput input, BigDecimal tauxHoraire,
                                                       BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal total = BigDecimal.ZERO;
@@ -570,6 +614,17 @@ public class PayrollExecutionEngine {
         return restantes.signum() > 0 ? montant.add(restantes.multiply(tauxHoraire).multiply(coefficient)) : montant;
     }
 
+    /**
+     * Calcule l'ensemble des primes brutes imposables et cotisables.
+     * <p>
+     * <b>Formules & Éléments :</b><br>
+     * - Prime Ancienneté : {@code SalaireBase * min(Annees, 20) * 1%} (si Ancienneté >= 36 mois)<br>
+     * - Prime Performance : {@code PrimeBase * (JoursPresents / JoursOuvrables) - MalusRetard}<br>
+     * - Prime Assiduité : montant forfaitaire si retards inférieurs au seuil configuré<br>
+     * - Indemnités Repas / Transport : brutes imposables et cotisables<br>
+     * - Variables manuelles : via {@code integrerVariablesBrut} (sens GAIN, étape BRUT).
+     * </p>
+     */
     public BigDecimal calculerPrimes(PayrollCalculationInput input, BigDecimal salaireBaseContractuel,
                                       BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalPrimes = BigDecimal.ZERO;
@@ -708,6 +763,18 @@ public class PayrollExecutionEngine {
     // 3. COTISATIONS SOCIALES (Palier 2)
     // =========================================================================
 
+    /**
+     * Calcule les cotisations sociales salariales et patronales (CNaPS, Santé/OSTIE, FMFP).
+     * <p>
+     * <b>Formules & Plafonds légaux :</b><br>
+     * - CNaPS Salariale : {@code min(Assiette, Plafond8xSME) * 1%}<br>
+     * - CNaPS Patronale : {@code min(Assiette, Plafond8xSME) * 13%}<br>
+     * - OSTIE Salariale : {@code min(Assiette, PlafondSante) * 1%}<br>
+     * - OSTIE Patronale : {@code min(Assiette, PlafondSante) * 5%}<br>
+     * - FMFP Patronale  : {@code AssietteFmfp * 1%} (Non plafonné).
+     * </p>
+     * Rubriques générées : {@code COTISATION_CNAPS_SAL}, {@code COTISATION_CNAPS_PAT}, {@code COTISATION_SANTE_SAL}, etc.
+     */
     public CotisationsResult calculerCotisationsSociales(BigDecimal totalGainsBruts, PayrollCalculationInput input,
                                                          BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalCotisSalariales = MoneyRoundingPolicy.amount(BigDecimal.ZERO);
@@ -820,6 +887,13 @@ public class PayrollExecutionEngine {
     // 4. NET IMPOSABLE (Palier 3)
     // =========================================================================
 
+    /**
+     * Détermine le revenu net imposable avant impôt sur le revenu (Palier 3).
+     * <p>
+     * <b>Formule :</b><br>
+     * {@code RevenuNetAvantImpot = TotalGainsBruts - TotalCotisationsSalariales}
+     * </p>
+     */
     public BigDecimal calculerNetImposable(BigDecimal totalGainsBruts, BigDecimal totalCotisSalariales, BulletinPaie bp) {
         BigDecimal revenuNetAvantImpot = totalGainsBruts.subtract(totalCotisSalariales).max(BigDecimal.ZERO);
         bp.setSalaireNetImposable(revenuNetAvantImpot);
@@ -836,6 +910,17 @@ public class PayrollExecutionEngine {
         return calculerFiscalite(salaireNetImposable, BigDecimal.ZERO, totalGainsBruts, input, bp, lignes);
     }
 
+    /**
+     * Calcule l'Impôt sur les Revenus Salariaux et Assimilés (IRSA) (Palier 4).
+     * <p>
+     * <b>Formules & Barème CGI Madagascar :</b><br>
+     * 1. {@code AssietteFiscale = (RevenuNetAvantImpot - HsExonereeIrsa - GainsExoneres)} tronqué à la centaine inférieure.<br>
+     * 2. Application des tranches progressives IRSA (0%, 5%, 10%, 15%, 20%).<br>
+     * 3. Réduction pour charges de famille : {@code 2 000 Ar * NbEnfantsEligibles}.<br>
+     * 4. Minimum de perception légal : {@code 3 000 Ar} si l'impôt calculé est inférieur.
+     * </p>
+     * Rubriques générées : {@code IMPOT_IRSA_BRUT}, {@code REDUCTION_CHARGE_FAMILLE}, {@code IMPOT_IRSA_NET}.
+     */
     public FiscaliteResult calculerFiscalite(BigDecimal salaireNetImposable, BigDecimal hsExonereeIrsa, BigDecimal totalGainsBruts,
                                             PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal irsaNet = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
@@ -899,6 +984,16 @@ public class PayrollExecutionEngine {
     // 6. INDEMNITÉS NON IMPOSABLES & FRAIS (Palier 5)
     // =========================================================================
 
+    /**
+     * Calcule les indemnités exonérées et remboursements de frais réels (Palier 5).
+     * <p>
+     * <b>Éléments :</b><br>
+     * - Extra déplacement exonéré.<br>
+     * - Remboursement de notes de frais validées avec justificatifs.<br>
+     * - Variables de paie configurées en {@code GAIN_NET} via {@link #integrerVariablesGainNet}.
+     * </p>
+     * Ces montants s'ajoutent directement au net sans être soumis à cotisation ni à l'IRSA.
+     */
     public BigDecimal calculerIndemnitesNonImposables(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalIndemnitesNet = BigDecimal.ZERO;
 
@@ -959,6 +1054,16 @@ public class PayrollExecutionEngine {
     // 7. RETENUES DE TRÉSORERIE & QUOTITÉ CESSIBLE (Palier 6)
     // =========================================================================
 
+    /**
+     * Déduit les avances, acomptes et retenues personnelles sur le net disponible (Palier 6).
+     * <p>
+     * <b>Ordre de priorité d'imputation :</b><br>
+     * 1. {@link #deduireAcomptesQuinzaine} : acomptes sur salaire échu (priorité 1).<br>
+     * 2. {@link #deduireAvancesSpeciales} : avances exceptionnelles (priorité 2).<br>
+     * 3. {@link #deduireVariablesRetenueNet} : Call Perso et retenues diverses (priorité 3).
+     * </p>
+     * Rubriques générées : {@code ACOMPTE_SALAIRE}, {@code AVANCE_SPECIALE}, {@code CALL_PERSO}, {@code RETENUE_DIVERSE}.
+     */
     public RetenuesResult calculerRetenuesEtAvances(BigDecimal netAvantTresorerie, PayrollCalculationInput input,
                                                    BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         List<MouvementImputation> imputations = new ArrayList<>();
@@ -1106,6 +1211,16 @@ public class PayrollExecutionEngine {
     // 8. NET À PAYER BANCAIRE & ARRONDI MONÉTAIRE (Palier 7)
     // =========================================================================
 
+    /**
+     * Calcule le Net à Payer Bancaire officiel et l'ajustement monétaire (Palier 7).
+     * <p>
+     * <b>Formules & Règles :</b><br>
+     * 1. {@code NetAvantArrondi = NetAvantTresorerie - TotalRetenues}<br>
+     * 2. {@code NetAPayer = MoneyRoundingPolicy.netSettlementToNearestTenAriary(NetAvantArrondi)} (dizaine la plus proche).<br>
+     * 3. {@code EcartArrondi = NetAPayer - NetAvantArrondi} (rubrique {@code AJUSTEMENT_ARRONDI}).<br>
+     * 4. {@code CoutGlobalEmployeur = TotalGainsBruts + TotalCotisationsPatronales + TotalIndemnitesNet}.
+     * </p>
+     */
     public void calculerNetAPayer(BigDecimal totalGainsBruts, BigDecimal totalCotisPatronales,
                                  BigDecimal totalIndemnitesNet, BigDecimal netAvantTresorerie,
                                  BigDecimal totalRetenues, BulletinPaie bp, List<BulletinPaieLigne> lignes) {

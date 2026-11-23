@@ -11,7 +11,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-/** Rejoue le grand-livre des jours avec la valeur historique de chaque droit. */
+/**
+ * Moteur pur de valorisation FIFO des congés payés sur le grand-livre (RG-CONGE-05).
+ * <p>
+ * <b>Principes & Formules :</b><br>
+ * 1. <b>Consommation FIFO stricte :</b> Les jours de congé pris consomment en priorité les lots de droits les plus anciens.<br>
+ * 2. <b>Valorisation historique :</b> Chaque lot conserve son taux journalier acquis ({@code TCONGE historique}) :<br>
+ *    {@code ValeurImputationLot = JoursConsommesLot * TauxHistoriqueLot}<br>
+ * 3. <b>Indemnité globale de prise :</b> Somme des valorisations des lots consommés :<br>
+ *    {@code IndemniteCongeLots = SUM(JoursConsommes_i * TCONGE_i)}<br>
+ * 4. <b>Taux effectif moyen du bulletin :</b><br>
+ *    {@code TauxJournalierConge = IndemniteCongeLots / NbJoursCongesPris}.
+ * </p>
+ */
 public class CongeLotValorisationEngine {
     public record Mouvement(int id, String type, BigDecimal jours, LocalDate date,
             Integer idDemande, String commentaire, BigDecimal valeurSource, LocalDate dateOrigineLot) {

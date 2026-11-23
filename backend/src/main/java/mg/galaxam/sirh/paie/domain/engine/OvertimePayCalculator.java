@@ -271,7 +271,15 @@ public final class OvertimePayCalculator {
     }
 
     /**
-     * Point d'entrée orchestré depuis PayrollCalculationInput.
+     * Point d'entrée orchestré depuis PayrollCalculationInput pour valoriser l'ensemble des heures supplémentaires et majorations.
+     * <p>
+     * <b>Formules de valorisation monétaire :</b><br>
+     * - <b>HS 30 % :</b> {@code MontantHS30 = (MinutesHS30 / 60) * TauxHoraire * (1 + MajorationHS30)} (soit base horaire + 30 %)<br>
+     * - <b>HS 50 % :</b> {@code MontantHS50 = (MinutesHS50 / 60) * TauxHoraire * (1 + MajorationHS50)} (soit base horaire + 50 %)<br>
+     * - <b>Majoration Nuit :</b> {@code MontantNuit = (MinutesNuit / 60) * TauxHoraire * MajorationNuit}<br>
+     * - <b>Majoration Dimanche :</b> {@code MontantDim = (MinutesDimanche / 60) * TauxHoraire * MajorationDimanche}<br>
+     * - <b>Majoration Férié :</b> {@code MontantFerie = (MinutesFerie / 60) * TauxHoraire * MajorationFerie}
+     * </p>
      */
     public Result calculate(PayrollCalculationInput input, BigDecimal hourlyRate) {
         if (input != null && input.getAttendanceInput() != null
