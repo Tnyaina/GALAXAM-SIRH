@@ -274,6 +274,8 @@ Le tableau de bord [`SuiviAnomaliesPage.jsx`](../../../frontend/src/features/att
 - Statut `ABSENCE_NON_JUSTIFIEE` (journée ouvrable non badgée sans demande de congé préalable).
 - Retards détectés par comparaison de l'heure d'arrivée avec l'horaire prévu. Aucun seuil fixe de tolérance de 15 minutes n'a été identifié dans le code ou le schéma consulté.
 
+**Lecture du backend** : `PointageAnomalieDetection.construireRequete` sélectionne les lignes de `pointage_jour` à examiner pour la période et les filtres demandés. Son `predicatSql` contient uniquement les critères de sélection : saisie incohérente, demi-journée, absence sur jour ouvré, retard ou motif d'ajustement. Une ligne sélectionnée est ensuite qualifiée individuellement par `PointageAnomalieQualification.qualifier` : cette fonction fixe le type affiché, la description, la gravité, l'état de traitement et le blocage de transmission. `PointageAnomalieService.getAnomalies` coordonne la lecture, le calcul des statistiques et la réponse de l'API. La sélection ne crée pas de ligne pour une date absente de `pointage_jour`.
+
 ### Procédure de régularisation auditée (`PointageAnomalieService.java`) :
 
 La régularisation d'un pointage existant via `PUT /pointages/anomalies/{idPointage}/regulariser` vérifie la version courante avant écriture ; une nouvelle ligne suit ses validations de création propres. L'endpoint accepte `POINTAGE_WRITE`, `POINTAGE_VALIDATE` ou `ROLE_ADMIN` ; il ne requiert pas `CONGE_WRITE`. Le formulaire demande normalement un motif d'au moins trois caractères, sauf pour `RETARD_REEL`, qui transmet le motif automatique « Retard réel confirmé ».

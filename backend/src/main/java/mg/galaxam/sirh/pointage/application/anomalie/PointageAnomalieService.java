@@ -87,14 +87,6 @@ public class PointageAnomalieService {
         Map<String, Object> response = new HashMap<>();
         List<PointageAnomalieDTO> anomalies = new ArrayList<>();
         final Integer effectiveSiteId = (idSite != null && idSite > 0) ? idSite : null;
-        int countIncomplets = 0;
-        int countRetards = 0;
-        int countAbsences = 0;
-        int countCritiques = 0;
-        int countHautes = 0;
-        int countMoyennes = 0;
-        int countFaibles = 0;
-        int countBloquantes = 0;
 
         try (Connection c = dataSource.getConnection()) {
             Integer effectivePeriodeId = idPeriode;
@@ -167,81 +159,12 @@ public class PointageAnomalieService {
                 return emptyResp;
             }
 
-            StringBuilder sql = new StringBuilder(
-                "SELECT p.id_pointage, p.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
-                "p.id_site, s.libelle AS site_nom, s.horaire_continu AS site_horaire_continu, " +
-                "s.heure_debut_matin AS heure_debut_matin_site, s.heure_fin_matin AS heure_fin_matin_site, " +
-                "s.heure_debut_apres_midi AS heure_debut_am_site, s.heure_fin_apres_midi AS heure_fin_am_site, p.date_pointage, " +
-                "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, " +
-                "p.total_heures, p.minutes_correction_temps, p.minutes_retard, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                "p.motif_ajustement, p.date_ajustement, p.id_demande_conge, " +
-                "ltr_valide.id_demande_conge AS demande_validee_id, p.montant_total_indemnites, " +
-                "pij_repas.accorde AS repas_accorde, pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction, " +
-                "ltr_conge.libelle_conge AS demande_en_attente_libelle, " +
-                "p.id_periode_paie, per.code AS periode_code, per.libelle AS periode_libelle, per.statut AS statut_periode_code, " +
-                "COALESCE(p.version, 1) AS version, " +
-                "COALESCE(vsc.solde_actuel, 0.0) AS solde_restant, " +
-                "COALESCE(vsc.total_acquis, 0.0) AS solde_acquis, " +
-                "COALESCE(vsc.total_pris, 0.0) AS solde_pris " +
-                "FROM pointage_jour p " +
-                "JOIN employe e ON p.id_employe = e.id_employe " +
-                "LEFT JOIN ref_site s ON p.id_site = s.id_site " +
-                "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
-                "LEFT JOIN periode_paie per ON p.id_periode_paie = per.id_periode_paie " +
-                "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage " +
-                "    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1) " +
-                "LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage " +
-                "    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DEPLACEMENT', 'TRANSPORT') LIMIT 1) " +
-                "LEFT JOIN LATERAL (" +
-                "   SELECT tc.libelle AS libelle_conge FROM demande_conge dc " +
-                "   JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
-                "   JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
-                "   WHERE dc.id_employe = p.id_employe AND p.date_pointage BETWEEN dc.date_debut AND dc.date_fin " +
-                "   AND sc.code = 'EN_ATTENTE' LIMIT 1" +
-                ") ltr_conge ON TRUE " +
-                "LEFT JOIN LATERAL (" +
-                "   SELECT dc.id_demande_conge FROM demande_conge dc " +
-                "   JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
-                "   WHERE dc.id_employe = p.id_employe AND p.date_pointage BETWEEN dc.date_debut AND dc.date_fin " +
-                "   AND sc.code = 'VALIDE' LIMIT 1" +
-                ") ltr_valide ON TRUE " +
-                "LEFT JOIN v_solde_conge_employe vsc ON p.id_employe = vsc.id_employe " +
-                "WHERE (" +
-                "   st.code = 'ANOMALIE_SAISIE' " +
-                "   OR st.code = 'DEMI_JOURNEE' " +
-                "   OR (st.code = 'ABSENCE_NON_JUSTIFIEE' AND EXTRACT(DOW FROM p.date_pointage) NOT IN (0, 6)) " +
-                "   OR (st.code = 'ABSENCE_JUSTIFIEE' AND EXTRACT(DOW FROM p.date_pointage) NOT IN (0, 6)) " +
-                "   OR (p.minutes_retard > 0) " +
-                "   OR (p.motif_ajustement IS NOT NULL AND TRIM(p.motif_ajustement) != '')" +
-                ") "
-            );
+            PointageAnomalieDetection.Requete requete = PointageAnomalieDetection.construireRequete(
+                    effectiveSiteId, effectivePeriodeId, datePointage, search);
 
-            List<Object> params = new ArrayList<>();
-            if (effectiveSiteId != null) {
-                sql.append("AND p.id_site = ? ");
-                params.add(effectiveSiteId);
-            }
-            if (effectivePeriodeId != null && effectivePeriodeId > 0) {
-                sql.append("AND p.id_periode_paie = ? ");
-                params.add(effectivePeriodeId);
-            }
-            if (datePointage != null && !datePointage.trim().isEmpty()) {
-                sql.append("AND p.date_pointage = ? ");
-                params.add(Date.valueOf(datePointage));
-            }
-            if (search != null && !search.trim().isEmpty()) {
-                sql.append("AND (LOWER(e.nom) LIKE ? OR LOWER(e.prenom) LIKE ? OR LOWER(e.matricule) LIKE ?) ");
-                String term = "%" + search.trim().toLowerCase() + "%";
-                params.add(term);
-                params.add(term);
-                params.add(term);
-            }
-
-            sql.append("ORDER BY p.date_pointage DESC, e.nom, e.prenom");
-
-            try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
-                for (int i = 0; i < params.size(); i++) {
-                    ps.setObject(i + 1, params.get(i));
+            try (PreparedStatement ps = c.prepareStatement(requete.sql())) {
+                for (int i = 0; i < requete.parametres().size(); i++) {
+                    ps.setObject(i + 1, requete.parametres().get(i));
                 }
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -318,90 +241,10 @@ public class PointageAnomalieService {
                         dto.setIndemniteRepasRecue(Boolean.TRUE.equals(rs.getObject("repas_accorde")));
                         dto.setDemandeEnAttenteLibelle(rs.getString("demande_en_attente_libelle"));
 
-                        // Qualification de l'anomalie, sévérité & blocage
-                        String stCode = dto.getStatutCode();
-                        boolean hasMotif = dto.getMotifAjustement() != null && !dto.getMotifAjustement().trim().isEmpty();
-                        boolean absenceTraitee = rs.getTimestamp("date_ajustement") != null
-                                || rs.getObject("id_demande_conge") != null
-                                || rs.getObject("demande_validee_id") != null;
-
-                        boolean hasMatinComplet = (em != null && sm != null && ea == null && sa == null);
-                        boolean hasAmComplet = (em == null && sm == null && ea != null && sa != null);
-                        boolean isDemiJournee = "DEMI_JOURNEE".equals(stCode) || hasMatinComplet || hasAmComplet;
-
-                        if ("ANOMALIE_SAISIE".equals(stCode)) {
-                            dto.setTypeAnomalie("INCOMPLET");
-                            dto.setDescriptionAnomalie(isDemiJournee
-                                    ? "Une seule plage travaillée : qualifier la demi-journée dans la régularisation."
-                                    : "Pointage incomplet : vérification et régularisation nécessaires.");
-                            dto.setSeverite("CRITIQUE");
-                            dto.setBloquantTransmission(true);
-                            dto.setStatutAnomalie("todo");
-                            countIncomplets++;
-                            countCritiques++;
-                            countBloquantes++;
-                        } else if (isDemiJournee) {
-                            dto.setTypeAnomalie("DEMI_JOURNEE");
-                            dto.setDescriptionAnomalie(hasMotif 
-                                    ? ("Demi-journée validée : " + dto.getMotifAjustement()) 
-                                    : "Demi-journée travaillée : motif de régularisation conseillé.");
-                            dto.setSeverite(hasMotif ? "FAIBLE" : "MOYENNE");
-                            dto.setBloquantTransmission(false);
-                            dto.setStatutAnomalie(hasMotif ? "done" : "todo");
-                            if (hasMotif) countFaibles++; else countMoyennes++;
-                        } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
-                            dto.setTypeAnomalie("ABSENCE");
-                            if (absenceTraitee) {
-                                dto.setDescriptionAnomalie("Absence non justifiée confirmée" +
-                                        (hasMotif ? " : " + dto.getMotifAjustement() : "."));
-                                dto.setSeverite("FAIBLE");
-                                countFaibles++;
-                            } else if (dto.getDemandeEnAttenteLibelle() != null && !dto.getDemandeEnAttenteLibelle().isBlank()) {
-                                dto.setDescriptionAnomalie("Absence : demande de " + dto.getDemandeEnAttenteLibelle() + " en attente de validation.");
-                                dto.setSeverite("MOYENNE");
-                                countMoyennes++;
-                            } else if (!hasMotif) {
-                                dto.setDescriptionAnomalie("Absence non justifiée (non régularisée sur jour ouvré).");
-                                dto.setSeverite("CRITIQUE");
-                                dto.setBloquantTransmission(true);
-                                countCritiques++;
-                            } else {
-                                dto.setDescriptionAnomalie("Absence non justifiée avec proposition : " + dto.getMotifAjustement());
-                                dto.setSeverite("HAUTE");
-                                countHautes++;
-                            }
-                            dto.setBloquantTransmission(!absenceTraitee);
-                            if (!absenceTraitee) countBloquantes++;
-                            dto.setStatutAnomalie(absenceTraitee ? "done" : "todo");
-                            countAbsences++;
-                        } else if ("ABSENCE_JUSTIFIEE".equals(stCode)) {
-                            dto.setTypeAnomalie("ABSENCE");
-                            dto.setDescriptionAnomalie(absenceTraitee
-                                    ? "Absence justifiée confirmée : " + dto.getMotifAjustement()
-                                    : "Absence justifiée à vérifier : " + dto.getMotifAjustement());
-                            dto.setSeverite(absenceTraitee ? "FAIBLE" : "MOYENNE");
-                            dto.setBloquantTransmission(!absenceTraitee);
-                            dto.setStatutAnomalie(absenceTraitee ? "done" : "todo");
-                            if (absenceTraitee) countFaibles++; else { countMoyennes++; countBloquantes++; }
-                            countAbsences++;
-                        } else if (dto.getMinutesRetard() != null && dto.getMinutesRetard() > 0) {
-                            dto.setTypeAnomalie("RETARD");
-                            dto.setDescriptionAnomalie(hasMotif
-                                    ? "Retard de " + dto.getMinutesRetard() + " min régularisé : " + dto.getMotifAjustement()
-                                    : "Retard de " + dto.getMinutesRetard() + " min à vérifier : corriger les horaires s'ils sont erronés, sinon confirmer le pointage réel.");
-                            dto.setSeverite("MOYENNE");
-                            dto.setBloquantTransmission(false);
-                            dto.setStatutAnomalie(hasMotif ? "done" : "todo");
-                            countRetards++;
-                            countMoyennes++;
-                        } else {
-                            dto.setTypeAnomalie("AUTRE");
-                            dto.setDescriptionAnomalie("Pointage régularisé.");
-                            dto.setSeverite("FAIBLE");
-                            dto.setBloquantTransmission(false);
-                            dto.setStatutAnomalie(hasMotif ? "done" : "todo");
-                            countFaibles++;
-                        }
+                        PointageAnomalieQualification.qualifier(dto,
+                                rs.getTimestamp("date_ajustement") != null,
+                                rs.getObject("id_demande_conge") != null,
+                                rs.getObject("demande_validee_id") != null);
 
                         anomalies.add(dto);
                     }
@@ -532,14 +375,14 @@ public class PointageAnomalieService {
             // Statistiques et KPIs
             Map<String, Integer> stats = new HashMap<>();
             stats.put("total", anomalies.size());
-            stats.put("incomplets", countIncomplets);
-            stats.put("retards", countRetards);
-            stats.put("absences", countAbsences);
-            stats.put("critiques", countCritiques);
-            stats.put("hautes", countHautes);
-            stats.put("moyennes", countMoyennes);
-            stats.put("faibles", countFaibles);
-            stats.put("bloquantes", countBloquantes);
+            stats.put("incomplets", Math.toIntExact(anomalies.stream().filter(a -> "INCOMPLET".equals(a.getTypeAnomalie())).count()));
+            stats.put("retards", Math.toIntExact(anomalies.stream().filter(a -> "RETARD".equals(a.getTypeAnomalie())).count()));
+            stats.put("absences", Math.toIntExact(anomalies.stream().filter(a -> "ABSENCE".equals(a.getTypeAnomalie())).count()));
+            stats.put("critiques", Math.toIntExact(anomalies.stream().filter(a -> "CRITIQUE".equals(a.getSeverite())).count()));
+            stats.put("hautes", Math.toIntExact(anomalies.stream().filter(a -> "HAUTE".equals(a.getSeverite())).count()));
+            stats.put("moyennes", Math.toIntExact(anomalies.stream().filter(a -> "MOYENNE".equals(a.getSeverite())).count()));
+            stats.put("faibles", Math.toIntExact(anomalies.stream().filter(a -> "FAIBLE".equals(a.getSeverite())).count()));
+            stats.put("bloquantes", Math.toIntExact(anomalies.stream().filter(a -> a.isBloquantTransmission()).count()));
 
             Map<String, Object> kpis = new HashMap<>();
             kpis.put("collaborateursSuivis", totalEmployes);
@@ -549,8 +392,8 @@ public class PointageAnomalieService {
             kpis.put("joursHommeTheoriques", totalEmployes * totalJoursTheoriques);
             kpis.put("heuresCumulees", totalHeuresCumulees);
             kpis.put("anomaliesActives", anomalies.stream().filter(a -> "todo".equals(a.getStatutAnomalie())).count());
-            kpis.put("anomaliesCritiques", countCritiques);
-            kpis.put("anomaliesBloquantes", countBloquantes);
+            kpis.put("anomaliesCritiques", Math.toIntExact(anomalies.stream().filter(a -> "CRITIQUE".equals(a.getSeverite())).count()));
+            kpis.put("anomaliesBloquantes", Math.toIntExact(anomalies.stream().filter(a -> a.isBloquantTransmission()).count()));
             kpis.put("indemnitesPrevisionnelles", totalIndemnites);
 
             Map<String, Object> perInfo = new HashMap<>();
