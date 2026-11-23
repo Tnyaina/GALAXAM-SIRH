@@ -384,10 +384,25 @@ public class AttendanceEngine {
 
     public WeekResult calculateWeek(WeekContext context, List<Result> days) {
         List<Result> safeDays = days == null ? List.of() : List.copyOf(days);
+        TotauxJourneesSemaine totaux = cumulerTravailRetardEtSurplus(context, safeDays);
+        CompensationHebdomadaire compensation = compenserSurplusEtDeficit(context, totaux);
+        PaliersHeuresSupplementaires paliers = repartirHeuresSupplementaires(
+                context, compensation.heuresSupplementairesBrutes());
+        return new WeekResult(context.weekStart(), context.expectedMinutes(), totaux.travaillees(),
+                totaux.surplusJournaliers(), compensation.minutesCompensees(),
+                compensation.heuresSupplementairesBrutes(),
+                paliers.trentePourCent(), paliers.cinquantePourCent(), compensation.deficitRestant(),
+                totaux.retard(), safeDays);
+    }
+
+    private record TotauxJourneesSemaine(long travaillees, long retard, long surplusJournaliers) {}
+
+    /** Cumule les minutes réalisées et les excédents de chaque journée compensable. */
+    private TotauxJourneesSemaine cumulerTravailRetardEtSurplus(WeekContext context, List<Result> jours) {
         long worked = 0;
         long late = 0;
         long dailySurplus = 0;
-        for (Result day : safeDays) {
+        for (Result day : jours) {
             worked += day.workedMinutes();
             late += day.lateMinutes();
             if (isCompensableWorkingDay(day)) {
@@ -396,15 +411,32 @@ public class AttendanceEngine {
                                 context.paidHalfDayLeaveDates().contains(day.date())));
             }
         }
-        long missingBeforeCompensation = Math.max(0, context.expectedMinutes() - worked + dailySurplus);
-        long compensated = Math.min(dailySurplus, missingBeforeCompensation);
-        long grossOvertime = dailySurplus - compensated;
-        long eligibleOvertime = context.overtimeEligible() ? grossOvertime : 0;
+        return new TotauxJourneesSemaine(worked, late, dailySurplus);
+    }
+
+    private record CompensationHebdomadaire(long minutesCompensees,
+            long heuresSupplementairesBrutes, long deficitRestant) {}
+
+    /** Compense d'abord le déficit avec les surplus, puis conserve l'excédent net. */
+    private CompensationHebdomadaire compenserSurplusEtDeficit(WeekContext contexte,
+            TotauxJourneesSemaine totaux) {
+        long deficitAvantCompensation = Math.max(0,
+                contexte.expectedMinutes() - totaux.travaillees() + totaux.surplusJournaliers());
+        long minutesCompensees = Math.min(totaux.surplusJournaliers(), deficitAvantCompensation);
+        long heuresSupplementairesBrutes = totaux.surplusJournaliers() - minutesCompensees;
+        long deficitRestant = deficitAvantCompensation - minutesCompensees;
+        return new CompensationHebdomadaire(minutesCompensees, heuresSupplementairesBrutes, deficitRestant);
+    }
+
+    private record PaliersHeuresSupplementaires(long trentePourCent, long cinquantePourCent) {}
+
+    /** Répartit seulement les HS brutes éligibles sur les paliers 30 % et 50 %. */
+    private PaliersHeuresSupplementaires repartirHeuresSupplementaires(WeekContext context,
+            long heuresSupplementairesBrutes) {
+        long eligibleOvertime = context.overtimeEligible() ? heuresSupplementairesBrutes : 0;
         long overtime30 = Math.min(eligibleOvertime, context.firstOvertimeBandMinutes());
         long overtime50 = Math.max(0, eligibleOvertime - overtime30);
-        long absence = missingBeforeCompensation - compensated;
-        return new WeekResult(context.weekStart(), context.expectedMinutes(), worked,
-                dailySurplus, compensated, grossOvertime, overtime30, overtime50, absence, late, safeDays);
+        return new PaliersHeuresSupplementaires(overtime30, overtime50);
     }
 
     private boolean isCompensableWorkingDay(Result day) {
